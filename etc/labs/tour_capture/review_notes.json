@@ -1,0 +1,31 @@
+{
+  "battery-fastcharge": {
+    "recorded_at": "2026-10-11",
+    "label": "A-1",
+    "how": "실 API 브리지(etc/labs/tour_capture/capture.py)로 한 번 태운 응답 · 5분 코칭 질문",
+    "transcribe": "skt-ax",
+    "judge": "solar",
+    "dropped": [
+      "q03 골자 오답(질문은 25 °C · 76% 인데 45 °C · 64% 줄을 답으로 잡음)",
+      "q01 잘 답한 답 partial · 엉성한 답 wrong"
+    ]
+  },
+  "delivery-rating": {
+    "recorded_at": "2026-10-11",
+    "label": "C-1",
+    "how": "실 API 브리지(etc/labs/tour_capture/capture.py)로 한 번 태운 응답 · 5분 코칭 질문",
+    "transcribe": "skt-ax",
+    "judge": "solar",
+    "dropped": [
+      "q12 잘 답한 답 good · 엉성한 답 good"
+    ]
+  },
+  "microplastic-daphnia": {
+    "recorded_at": "2026-10-11",
+    "label": "B-1",
+    "how": "실 API 브리지(etc/labs/tour_capture/capture.py)로 한 번 태운 응답 · 5분 코칭 질문",
+    "transcribe": "skt-ax",
+    "judge": "solar",
+    "dropped": []
+  }
+}

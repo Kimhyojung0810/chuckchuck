@@ -1,0 +1,1562 @@
+/**
+ * 부스 체험 — 카메라로 찍거나 화면을 담아, 말로 답하며 질문을 받는다 (booth.html).
+ *
+ * 흐름: 카메라/화면 공유/사진 → /api/v1/parse (이미지 여러 장 = 한 자료) → F-06 개념
+ * → F-07 그래프 → F-08 질문 → (말해서·쳐서 답) → F-09 판정. 발화가 없으니 정합·흐름은
+ * 비운다 — 브리지의 questions/judge 는 graph 만 있으면 돈다.
+ *
+ * app.js 를 건드리지 않는다. API·마이크·받아쓰기는 chuckchuck_bridge.js 의 것을 그대로
+ * 쓴다 (요청 본문 계약이 앱과 같아야 브리지 캐시·세션 보관소가 같은 길로 돈다).
+ * 브라우저 없이 판단할 수 있는 것은 booth_logic.js 에 있고 node 스모크가 잡는다.
+ *
+ * 질문 단계는 **통화 화면**이다 (9/18 사용자: "화상통화를 한다는 느낌이어야 해") — 큰 타일에
+ * 내 모습, 작은 타일에 병아리 상대, 그 위로 질문·내 말 자막·판정이 말풍선으로 오간다.
+ * 자동 대화(기본 켬)는 질문 뒤에 알아서 듣고, 말이 끝나면 3초 카운트다운 뒤에 보낸다 —
+ * 자막을 누르면 멈추고 고칠 수 있다. 몰래 보내지 않는다.
+ *
+ * 통화는 **발표 모드로 먼저 연다** (9/23 사용자). 페이스타임처럼 자료가 메인이고 내 모습이
+ * 오른쪽 아래 작은 창이다 — 작은 창을 누르면 자리가 바뀐다. 발표하는 동안 삐약이가 받아쓰기·
+ * 웹캠·마이크 음량으로 빠르기·간투어·반복·멈춤·움직임·목소리 크기를 재서 무안한 얼굴로 알려 준다
+ * (판단은 booth_logic.js 의 deliveryObserve — LLM 도 서버도 쓰지 않는다). 「질문 받기」를 누르면
+ * Q&A 로 넘어가고, 그때부터는 내 모습이 메인이고 발표 피드백은 하지 않는다.
+ *
+ * 규율 — 소리는 기본 무음(UI_REDESIGN §14), 판정 색 5종은 pill 로만, 병아리는 얹는 층이지
+ * 가리는 층이 아니다, 분석이 실패하면 실패로 보여 준다(CLAUDE.md §4).
+ */
+
+import {
+  apiBase,
+  buildGraph,
+  buildQuestions,
+  extractConcepts,
+  hasLiveDictation,
+  judgeQaAnswer,
+  registerSessionArtifacts,
+  startAnswerRecording,
+  startLiveDictation,
+  transcribeAnswer,
+} from './chuckchuck_bridge.js?v=qkxbc14';
+import {
+  DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD,
+  appendTranscript, calibrateDelivery, cameraErrorText, captionTail, captureRoutes, clockText, countdownText,
+  createDelivery, degradedLines, deliveryObserve, deliverySummary, devOnlyDegraded, fitScale, giveupLabel, giveupSaid,
+  hintLadder, hintsForJudge, judgementBubble, judgementClosed, meterText, mergeLadder, newPen, paintDictation, presentCommand,
+  questionHistory, questionWhy, retryWaitText, scoredAnswers, selfViewErrorText, shotFileName, shotsAdvice,
+  speakableJudgement, speechSettled, tally, voiceCommand,
+} from './booth_logic.js?v=b11';
+import {
+  askQuestion, createOverlayState, enterPresent, enterQa, renderOverlay, setCaption, setMainOf, setPhaseOf,
+} from './booth_overlay_state.js?v=o6';
+
+const PARSE_TIMEOUT_MS = 120000;
+const SOUND_KEY = 'cheokcheok:booth-sound';
+const DELIVERY_KEY = 'cheokcheok:booth-delivery';   // 이 컴퓨터에서 맞춘 움직임·음량 기준
+const CALIB_MS = 5000;
+
+/** 이 컴퓨터의 기준. 웹캠·마이크·조명마다 절대값이 달라서 부스에서 한 번 맞춘다 (리허설 절차는 plan §7-2) */
+function loadDeliveryCfg() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DELIVERY_KEY) || 'null');
+    return raw && typeof raw === 'object' ? { ...DELIVERY, ...raw } : { ...DELIVERY };
+  } catch (_) { return { ...DELIVERY }; }
+}
+
+const $ = (id) => document.getElementById(id);
+
+/* ─── 상태 ───────────────────────────────────────────────────────────────── */
+const state = {
+  routes: captureRoutes({
+    secure: window.isSecureContext !== false,
+    hasUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    hasDisplayMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia),
+    coarse: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches),
+  }),
+  shots: [],            // [{ blob, url }]
+  stream: null,
+  source: null,         // 'camera' | 'display'
+  cameras: [],          // videoinput deviceId 목록 (권한 뒤에만 이름이 보인다)
+  cameraIdx: -1,
+  context: null,
+  track: '5',
+  sessionId: null,
+  graph: null,
+  questions: [],
+  idx: 0,
+  history: [],          // QaTurn dict (한글 키 — 굳은 계약). 판정에는 지금 질문의 것만 보낸다 (questionHistory)
+  perQ: {},             // question_id → pq() 참고
+  qNotes: [],           // 질문 묶음의 폴백 표시(degraded_notes) — Q&A 첫 풍선 아래 한 줄로
+  timers: {},
+  pipWindow: null,
+  // 마이크. 세션에 저장하지 않는다 — MediaRecorder 는 새로고침을 못 넘긴다.
+  mic: null,            // { dictation: bool, session }
+  micPending: '',       // '' | 'opening' | 'transcribing'
+  dictationDead: false, // 실시간 받아쓰기가 이 세션에서 죽었으면 녹음 + 서버 STT 로 간다
+  sound: false,
+  // 통화
+  selfStream: null,     // 내 모습 (앞카메라/웹캠)
+  autoTalk: true,       // 손 안 대고: 질문 뒤 듣기 → 침묵 → 카운트다운 → 보내기
+  lastSpeechAt: 0,      // 자막이 마지막으로 바뀐 시각 (침묵 판정)
+  quietTimer: null,
+  countdown: null,      // { id, until }
+  phase: 'asking',      // present | asking | listening | judging | judged | hint
+  // 오버레이 한 덩어리 (캠 트랙 P0-3) — mode·main·phase 는 여기가 원본이고 아래 셋은 읽기 편하게 둔 사본이다
+  overlay: createOverlayState(),
+  // 발표 모드 (9/23) — 통화는 여기서 시작한다
+  mode: 'present',      // present | qa
+  main: 'slides',       // 프레임을 채우는 쪽. 나머지가 오른쪽 아래 작은 창
+  slideIdx: 0,
+  delivery: createDelivery(),
+  transcript: '',       // 발표 중 받아쓴 말 (누적)
+  transcriptBase: '',   // 마이크를 껐다 켜도 이어 쓰기 위한 앞부분
+  tellTimer: null,
+  clock: null,
+  presentStart: 0,
+  sensors: null,        // { id, canvas, prev, audio, ac, analyser }
+  dockObserver: null,
+  deliveryCfg: loadDeliveryCfg(),
+  meterOn: false,       // 운영자용 계기. 방문객에게는 안 보인다
+  lastTell: '',
+  calib: null,          // { until, motion: [], level: [] }
+  typeTimer: null,      // 긴 질문을 어절 단위로 흘려 쓰는 중
+  cutFrame: 0,          // 말풍선 열 스크롤 → markCut 한 프레임 한 번
+  judging: null,        // 판정을 기다리는 질문 id (요청 제한으로 다시 보내는 동안도) — 같은 답을 두 번 보내지 않는다
+};
+const QUIET_MS = 2500;
+const COUNTDOWN_S = 3;
+
+function showStep(name) {
+  for (const el of document.querySelectorAll('.booth-step')) el.hidden = el.dataset.step !== name;
+}
+
+function note(id, text) {
+  const el = $(id);
+  if (!el) return;
+  el.textContent = text || '';
+  el.hidden = !text;
+}
+
+/* ─── 1. 담기 ────────────────────────────────────────────────────────────── */
+function renderShots() {
+  const box = $('shots');
+  box.innerHTML = '';
+  state.shots.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'booth-shot';
+    d.innerHTML = `<img alt="담은 장면 ${i + 1}"><span class="booth-shot-no">${i + 1}</span><button class="booth-shot-del" type="button" aria-label="이 장면 빼기">×</button>`;
+    d.querySelector('img').src = s.url;
+    d.querySelector('button').onclick = () => { URL.revokeObjectURL(s.url); state.shots.splice(i, 1); renderShots(); };
+    box.appendChild(d);
+  });
+  const n = state.shots.length;
+  $('btn-go').disabled = n === 0;
+  $('btn-go').textContent = n ? `${n}장으로 질문 만들기` : '질문 만들기';
+  $('btn-grab').disabled = n >= MAX_SHOTS;
+  $('shots-advice').textContent = shotsAdvice(n);
+}
+
+function addShot(blob) {
+  if (state.shots.length >= MAX_SHOTS) return;
+  state.shots.push({ blob, url: URL.createObjectURL(blob) });
+  renderShots();
+}
+
+/** 화면 공유 — 자료가 열린 창을 고르면 미리보기가 뜨고, 「이 장면 담기」로 한 프레임씩 담는다. */
+async function startShare() {
+  if (!state.routes.share) { note('capture-note', '이 브라우저는 화면 공유를 지원하지 않아요. 카메라로 찍거나 사진을 올리면 같은 체험을 할 수 있어요.'); return; }
+  stopStream();
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 5 }, audio: false });
+    attachStream(stream, 'display');
+  } catch (err) {
+    // 사용자가 공유 창을 닫은 것은 오류가 아니다
+    if (err && err.name !== 'NotAllowedError') note('capture-note', '화면 공유를 열지 못했어요. 카메라로 찍거나 사진을 올리면 같은 체험을 할 수 있어요.');
+  }
+}
+
+/**
+ * 카메라 — 폰이면 뒷카메라, 노트북이면 웹캠. 미리보기를 보며 「찍기」로 담는다.
+ * 미리보기를 못 여는 곳(http 로 들어온 폰·권한 거부)은 기기 카메라 앱으로 간다 (파일 입력 capture).
+ */
+async function openCamera(deviceId = null) {
+  if (state.routes.camera !== 'live') { $('file-camera').click(); return; }
+  stopStream();
+  const video = deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: 'environment' } };
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { ...video, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    attachStream(stream, 'camera');
+    note('capture-note', '');
+    await listCameras(stream);
+  } catch (err) {
+    note('capture-note', cameraErrorText(err));
+    // 미리보기가 안 되면 기기 카메라 앱이 다음 길이다 — 버튼을 그쪽으로 돌린다
+    state.routes = { ...state.routes, camera: 'file' };
+    $('btn-camera').textContent = '사진 찍어 올리기';
+  }
+}
+
+/** 카메라가 둘 이상이면 「카메라 바꾸기」를 보여 준다 (폰 앞/뒤, 노트북 + USB 문서 카메라). */
+async function listCameras(stream) {
+  if (!navigator.mediaDevices.enumerateDevices) return;
+  try {
+    const all = await navigator.mediaDevices.enumerateDevices();
+    state.cameras = all.filter((d) => d.kind === 'videoinput').map((d) => d.deviceId).filter(Boolean);
+    const cur = stream.getVideoTracks()[0].getSettings().deviceId;
+    state.cameraIdx = Math.max(0, state.cameras.indexOf(cur));
+    $('btn-switch-camera').hidden = state.cameras.length < 2;
+  } catch (_) { $('btn-switch-camera').hidden = true; }
+}
+
+function switchCamera() {
+  if (state.cameras.length < 2) return;
+  state.cameraIdx = (state.cameraIdx + 1) % state.cameras.length;
+  openCamera(state.cameras[state.cameraIdx]);
+}
+
+function attachStream(stream, source) {
+  state.stream = stream;
+  state.source = source;
+  const v = $('share-video');
+  v.srcObject = stream;
+  $('share-stage').hidden = false;
+  $('share-stage').dataset.source = source;
+  $('btn-grab').textContent = source === 'camera' ? '찍기' : '이 장면 담기';
+  $('btn-stop-share').textContent = source === 'camera' ? '카메라 닫기' : '공유 끝내기';
+  $('stage-tip').textContent = source === 'camera' ? '글자가 읽히게 화면을 꽉 채워 찍어요. 흔들리면 한 번 더 찍으면 돼요.' : '슬라이드를 넘기며 장면마다 담아요.';
+  if (source !== 'camera') $('btn-switch-camera').hidden = true;
+  stream.getVideoTracks()[0].addEventListener('ended', stopStream);
+}
+
+function stopStream() {
+  if (state.stream) for (const t of state.stream.getTracks()) t.stop();
+  state.stream = null;
+  state.source = null;
+  $('share-video').srcObject = null;
+  $('share-stage').hidden = true;
+  $('btn-switch-camera').hidden = true;
+}
+
+function grabFrame() {
+  const v = $('share-video');
+  if (!v.videoWidth) return;
+  const c = document.createElement('canvas');
+  const scale = fitScale(v.videoWidth, v.videoHeight);
+  c.width = Math.round(v.videoWidth * scale);
+  c.height = Math.round(v.videoHeight * scale);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  // 사진은 JPEG(작다), 화면 캡처는 PNG(글자가 또렷하다)
+  if (state.source === 'camera') c.toBlob((blob) => blob && addShot(blob), 'image/jpeg', 0.9);
+  else c.toBlob((blob) => blob && addShot(blob), 'image/png');
+  flashStage();
+}
+
+function flashStage() {
+  const st = $('share-stage');
+  st.classList.remove('is-flash');
+  void st.offsetWidth;   // 다시 시작하려면 리플로우가 한 번 필요하다
+  st.classList.add('is-flash');
+}
+
+/**
+ * 올린 사진을 업로드 크기로 맞춘다. 폰 사진은 12MP·수 MB 에 EXIF 회전이 붙어 있다 —
+ * 그대로 올리면 부스 와이파이에서 느리고, 회전을 안 풀면 옆으로 누운 채 읽힌다.
+ * 못 하면(옛 브라우저) 원본을 그대로 쓴다. 서버는 내용으로 형식을 판별한다.
+ */
+async function normalizeImage(file) {
+  if (typeof window.createImageBitmap !== 'function') return file;
+  let bmp;
+  try {
+    try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch (_) { bmp = await createImageBitmap(file); }   // 옵션을 모르는 브라우저
+    const scale = fitScale(bmp.width, bmp.height);
+    if (scale === 1 && file.size < 2_000_000) { bmp.close(); return file; }
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * scale);
+    c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    bmp.close();
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+    return blob || file;
+  } catch (_) {
+    return file;
+  }
+}
+
+async function onFiles(ev) {
+  const files = Array.from(ev.target.files || []).filter((f) => /^image\//.test(f.type));
+  ev.target.value = '';
+  for (const f of files) addShot(await normalizeImage(f));
+  if (files.length && ev.target.id === 'file-camera') note('capture-note', '');
+}
+
+/* ─── 2. 분석 — 걸린 시간은 실측만 보여 준다 ────────────────────────────── */
+function stageEl(name) { return document.querySelector(`#stages li[data-stage="${name}"]`); }
+
+function stageStart(name) {
+  const li = stageEl(name);
+  li.className = 'is-running';
+  const t0 = performance.now();
+  const tick = () => { li.querySelector('.st-time').textContent = `${((performance.now() - t0) / 1000).toFixed(0)}초`; };
+  tick();
+  state.timers[name] = { t0, id: setInterval(tick, 500) };
+}
+
+function stageDone(name, ok = true) {
+  const t = state.timers[name];
+  if (!t) return;
+  clearInterval(t.id);
+  const li = stageEl(name);
+  li.className = ok ? 'is-done' : 'is-failed';
+  li.querySelector('.st-time').textContent = `${((performance.now() - t.t0) / 1000).toFixed(1)}초`;
+}
+
+function resetStages() {
+  for (const li of document.querySelectorAll('#stages li')) { li.className = ''; li.querySelector('.st-time').textContent = '—'; }
+  for (const t of Object.values(state.timers)) clearInterval(t.id);
+  state.timers = {};
+  $('progress-error').hidden = true;
+}
+
+async function uploadShots() {
+  const fd = new FormData();
+  state.shots.forEach((s, i) => fd.append('document', s.blob, shotFileName(i, s.blob.type)));
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), PARSE_TIMEOUT_MS);
+  try {
+    const res = await fetch(apiBase() + '/api/v1/parse', { method: 'POST', body: fd, signal: ctl.signal });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw new Error(data.message || data.error || `parse HTTP ${res.status}`);
+    return data;
+  } catch (err) {
+    // 시간 초과는 브라우저가 「signal is aborted without reason」이라고 말한다 — 사람 말로 바꾼다 (9/23 실험실에서 실제로 봤다)
+    if (err && err.name === 'AbortError') throw new Error(`장면 읽기가 ${Math.round(PARSE_TIMEOUT_MS / 1000)}초 안에 끝나지 않았어요. 다시 시도하면 할 수 있어요.`);
+    throw err;
+  } finally { clearTimeout(timer); }
+}
+
+async function runPipeline() {
+  showStep('progress');
+  resetStages();
+  state.context = { situation: $('ctx-situation').value, duration_min: Number($('ctx-track').value) };
+  state.track = $('ctx-track').value;
+  let stage = 'parse';
+  try {
+    stageStart('parse');
+    const slideDoc = await uploadShots();
+    state.sessionId = slideDoc.session_id || null;
+    stageDone('parse');
+
+    stage = 'concepts';
+    stageStart('concepts');
+    const concepts = await extractConcepts({ slideDoc, context: state.context, sessionId: state.sessionId });
+    stageDone('concepts');
+
+    stage = 'graph';
+    stageStart('graph');
+    const graph = await buildGraph({ concepts, slideDoc, context: state.context, sessionId: state.sessionId });
+    state.graph = graph;
+    stageDone('graph');
+
+    stage = 'questions';
+    stageStart('questions');
+    if (state.sessionId) {
+      await registerSessionArtifacts(state.sessionId, { graph, context: state.context });
+    }
+    const qdoc = await buildQuestions({
+      graph, alignment: null, flow: null, transcript: null,
+      context: state.context, track: state.track, sessionId: state.sessionId,
+    });
+    stageDone('questions');
+    state.questions = (qdoc.questions || []).filter((q) => q && q.question);
+    if (!state.questions.length) throw new Error('이 장면에서는 질문을 만들지 못했어요. 글자가 더 잘 보이게 다시 찍으면 만들 수 있어요.');
+    // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 그렇다고 말한다 — 짧게, Q&A 를 시작할 때 한 번 (09-30 WP-B)
+    state.qNotes = degradedLines(qdoc);
+    state.idx = 0; state.history = []; state.perQ = {};
+    startPresent();   // 질문보다 발표가 먼저다 (9/23) — 「질문 받기」를 누르면 Q&A 로 간다
+  } catch (err) {
+    stageDone(stage, false);
+    // 분석이 실패하면 실패로 보여 준다 — 샘플로 위장하지 않는다 (CLAUDE.md §4)
+    $('progress-error-text').textContent = (err && err.message) || String(err);
+    $('progress-error').hidden = false;
+  }
+}
+
+/* ─── 3. 통화 — 내 모습 위로 질문·자막·판정이 오간다 ────────────────────── */
+function q() { return state.questions[state.idx]; }
+/**
+ * 질문 하나의 통화 기록. 결과 표(tally)·판정 요청이 여기서 읽는다.
+ *  asked      한 번이라도 띄웠나 — 결과 표의 「안 물었어요」 와 「답하기 전에 마쳤어요」 를 가른다 (H-13)
+ *  turns      [{ answer, verdict, giveUp, clarify }] — 채점된 답은 scoredAnswers 가 고른다 (B-10)
+ *  ladder     힌트 사다리. 판정이 같거나 긴 것을 주면 갈아탄다 (mergeLadder)
+ *  hintsSeen  실제로 연 힌트 칸의 글 — 판정에 「보여 준 힌트」 로 이것만 보낸다 (H-14)
+ *  closed     서버가 닫았나 (mastered) · closeReason good|rounds|guard (H-12)
+ *  coached    「모르겠어요」 코칭을 거쳤나 · explained 해설(explain)을 봤나 — 닫혀도 「도움 받아 답했어요」 로 센다
+ *  last       마지막 판정 — 코칭 되물음을 다음 판정에 싣고, 닫혔는지 본다
+ */
+function pq() {
+  const cur = q();
+  if (!state.perQ[cur.id]) {
+    state.perQ[cur.id] = {
+      asked: false, turns: [], ladder: hintLadder(cur), hintsSeen: [], hintLevel: 0, verdicts: [],
+      closed: false, closeReason: '', coached: false, explained: false, notesShown: [], last: null,
+    };
+  }
+  return state.perQ[cur.id];
+}
+
+function isCoarse() { return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); }
+
+/** 통화를 연다. 발표 모드·Q&A 가 같이 쓰는 준비 — 여기서는 어느 모드인지 정하지 않는다. */
+async function enterCall() {
+  showStep('qa');
+  document.body.classList.add('booth-in-call');
+  $('qa-done').hidden = true;
+  $('call').hidden = false;
+  $('btn-pip').hidden = !('documentPictureInPicture' in window);
+  $('btn-sound').hidden = !('speechSynthesis' in window);
+  $('btn-mic').hidden = !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  $('btn-leave').hidden = false;   // 지난 통화의 마지막 질문에서 숨긴 채로 남지 않게 (renderJudgement)
+  document.querySelector('.booth-qa-tools').hidden = false;
+  mountPartner();
+  watchDock();
+  if (!state.selfStream) await openSelfView();
+}
+
+/* ─── 오버레이 상태 → DOM (booth_overlay_state.js). setMode·setMain·setPhase 는 그 위의 얇은 껍질이다 ─── */
+function overlayEls() {
+  return {
+    call: $('call'), seat: $('call-partner-seat'), status: $('call-partner-status'),
+    clock: $('present-clock'), qaCount: $('qa-count'), autotalk: $('btn-autotalk'), caption: $('present-caption'),
+  };
+}
+
+/** 상태를 바꾸고 그린다. force 면 바뀌지 않은 칸도 다시 쓴다 (setPhase 는 늘 이름표·표정을 다시 썼다) */
+function applyOverlay(next, { force = false } = {}) {
+  const prev = state.overlay;
+  state.overlay = next;
+  state.mode = next.mode; state.main = next.main; state.phase = next.phase;
+  renderOverlay(next, overlayEls(), force ? null : prev);
+}
+
+/** 발표 ↔ Q&A. 도구줄에 무엇이 보이는지도 모드가 정한다 (자동 대화는 Q&A 의 것이다) */
+function setMode(mode) {
+  applyOverlay(mode === 'qa' ? enterQa(state.overlay) : enterPresent(state.overlay));
+  if (mode !== 'present' && state.meterOn) setMeter(false);   // 계기는 발표 모드의 것이다
+  setMic($('btn-mic').dataset.state || 'idle', $('btn-mic').disabled);
+}
+
+/**
+ * 발표 모드 (9/23 사용자) — 자료가 메인, 내 모습이 작은 창. 삐약이는 듣기만 하고
+ * 눈에 띄는 것만 말한다. 질문은 「질문 받기」를 누르거나 말하기 전에는 하나도 안 한다.
+ */
+function startPresent() {
+  enterCall();
+  setMode('present');
+  setMain('slides');
+  state.slideIdx = 0;
+  renderSlide();
+  state.delivery = createDelivery();
+  state.transcript = ''; state.transcriptBase = '';
+  applyOverlay(setCaption(state.overlay, ''));
+  $('call-bubbles').innerHTML = '';
+  setPhase('present');
+  bubble('partner', '<p class="call-tell">발표해 봐요. 빠르기·「어」「음」·같은 말 반복·멈춤·움직임·목소리 크기가 눈에 띄면 알려 줄게요. 다 하면 「질문 받기」라고 말하거나 눌러요.</p>', { kind: 'tell' });
+  startClock();
+  setMeter(state.meterOn);   // ?meter=1 로 열었으면 여기서 실제로 켠다
+  // 자동 대화가 켜져 있고 실시간 받아쓰기가 되는 브라우저면 바로 듣는다 — 발표자는 손이 비어 있다
+  if (state.autoTalk && !state.dictationDead && hasLiveDictation()) toggleMic();
+}
+
+/** 발표를 마치고 질문으로 — 여기서부터 발표 피드백은 하지 않는다 (9/23 사용자) */
+function beginQa() {
+  if (state.mic) stopMic({ silent: true });
+  stopClock();
+  stopSensors();
+  setMode('qa');
+  setMain('self');
+  $('call-bubbles').innerHTML = '';
+  state.idx = 0; state.history = []; state.perQ = {};
+  renderQuestion();
+}
+
+/* ─── 자료 — 담은 장면을 슬라이드처럼 넘긴다 ────────────────────────────── */
+function renderSlide() {
+  const n = state.shots.length;
+  const img = $('call-slide-img');
+  if (!n) { img.removeAttribute('src'); $('call-slide-no').textContent = ''; return; }
+  state.slideIdx = Math.max(0, Math.min(n - 1, state.slideIdx));
+  img.src = state.shots[state.slideIdx].url;
+  $('call-slide-no').textContent = `${state.slideIdx + 1} / ${n}`;
+  $('btn-slide-prev').disabled = state.slideIdx === 0;
+  $('btn-slide-next').disabled = state.slideIdx >= n - 1;
+}
+
+function stepSlide(d) {
+  if (!state.shots.length) return;
+  state.slideIdx = Math.max(0, Math.min(state.shots.length - 1, state.slideIdx + d));
+  renderSlide();
+}
+
+/** 프레임을 채우는 쪽. 나머지는 오른쪽 아래 작은 창으로 간다 (CSS 가 data-main 으로 그린다) */
+function setMain(which) {
+  applyOverlay(setMainOf(state.overlay, which));
+}
+
+function swapMain() { setMain(state.main === 'slides' ? 'self' : 'slides'); }
+
+/** 작은 창을 누르면 자리가 바뀐다. 메인을 누르는 건 아무 일도 아니다 — 페이스타임과 같은 규율 */
+function tapStage(which) {
+  if (state.main !== which) swapMain();
+}
+
+/** 아래 묶음 높이를 CSS 에 알려 준다 — 작은 창이 조작줄을 덮지 않게 (줄 수가 모드마다 다르다) */
+function watchDock() {
+  if (state.dockObserver || typeof ResizeObserver !== 'function') return;
+  const dock = $('call-dock');
+  const log = $('call-bubbles');
+  const call = $('call');
+  state.dockObserver = new ResizeObserver(() => {
+    call.style.setProperty('--dock-h', `${Math.round(dock.getBoundingClientRect().height)}px`);
+    // 말풍선 열 상한(무대의 42% · 폰 36%)이 쓰는 무대 높이
+    call.style.setProperty('--call-h', `${Math.round(call.getBoundingClientRect().height)}px`);
+    // 조작줄이 자라면(판정 뒤 「다음 질문」이 뜨면) 말풍선 칸이 줄어 새 풍선 아래가 잘렸다 — 바닥에 다시 붙인다
+    pinLatest(log);
+    markCut(log);
+  });
+  state.dockObserver.observe(dock);
+  state.dockObserver.observe(call);
+}
+
+/** 상대편 타일 — 객석의 병아리를 한 마리 앉힌다 (chatter.js chickSvg, 기분은 data-mood). */
+function mountPartner() {
+  const seat = $('call-partner-seat');
+  if (seat.childElementCount) return;
+  if (window.Chatter && typeof window.Chatter.chickSvg === 'function') seat.innerHTML = window.Chatter.chickSvg('solar');
+  else seat.innerHTML = '<div class="call-partner-fallback" aria-hidden="true"></div>';
+}
+
+function setPhase(phase, verdict = '') {
+  applyOverlay(setPhaseOf(state.overlay, phase, verdict), { force: true });
+}
+
+/** 내 모습 — 앞카메라/웹캠. 못 열면 목소리만으로도 통화는 된다. */
+async function openSelfView() {
+  closeSelfView();
+  const tile = $('call-self');
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) || window.isSecureContext === false) {
+    tile.dataset.camera = 'off';
+    $('call-self-note').textContent = '카메라 없이 목소리로 통화해요.';
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    state.selfStream = stream;
+    $('call-self-video').srcObject = stream;
+    tile.dataset.camera = 'on';
+    $('call-self-note').textContent = '';
+    stream.getVideoTracks()[0].addEventListener('ended', closeSelfView);
+  } catch (err) {
+    tile.dataset.camera = 'off';
+    $('call-self-note').textContent = selfViewErrorText(err);
+  }
+  $('btn-self-camera').textContent = state.selfStream ? '카메라 끄기' : '카메라 켜기';
+}
+
+function closeSelfView() {
+  if (state.selfStream) for (const t of state.selfStream.getTracks()) t.stop();
+  state.selfStream = null;
+  $('call-self-video').srcObject = null;
+  $('call-self').dataset.camera = 'off';
+  $('btn-self-camera').textContent = '카메라 켜기';
+}
+
+function toggleSelfView() {
+  if (state.selfStream) { closeSelfView(); $('call-self-note').textContent = '카메라를 껐어요. 목소리로 통화해요.'; }
+  else openSelfView();
+}
+
+/* 말풍선 — 상대는 왼쪽(삐약이 위), 나는 오른쪽(내 작은 창 쪽). 위로 쌓이고 스크롤하면 이전 질문이 나온다 */
+/**
+ * 말풍선 하나. 치우지 않는다 (9/23 사용자: "이전 질문들도 스크롤해서 볼 수 있게") —
+ * 대신 꼬리(`is-latest`)를 양쪽 각각 가장 새 풍선으로 옮긴다. 꼬리가 지금 말하는 쪽을 가리킨다.
+ */
+function bubble(side, html, { kind = '', verdict = '' } = {}) {
+  const log = $('call-bubbles');
+  const prev = log.querySelector(`.call-bubble.is-${side}.is-latest`);
+  if (prev) prev.classList.remove('is-latest');
+  const el = document.createElement('div');
+  el.className = `call-bubble glass is-${side} is-latest${kind ? ` is-${kind}` : ''}`;
+  if (verdict) el.dataset.v = verdict;
+  el.innerHTML = html;
+  log.appendChild(el);
+  while (log.childElementCount > 80) log.removeChild(log.firstChild);
+  markOlder(log);
+  pinLatest(log);
+  markCut(log);
+  return el;
+}
+
+/**
+ * 새 풍선을 보이게 스크롤한다. 보통은 바닥에 붙이고, 가장 새 풍선이 열보다 크면(폰 통화의 판정)
+ * 그 풍선의 머리(pill + 요약)가 보이게 맞춘다 — 3초 안에 읽을 것이 위에 있다. 나머지는 스크롤·누르기로
+ */
+function pinLatest(log) {
+  const last = log.lastElementChild;
+  if (last && last.offsetHeight > log.clientHeight) {
+    log.scrollTop += last.getBoundingClientRect().top - log.getBoundingClientRect().top - 8;
+  } else {
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+/* .can-expand — 지금 묻는 질문이 두 줄 창을 넘칠 때만 (typeQuestion 이 붙인다). 두 줄 안에 들면 펼칠 것이 없다 */
+const EXPANDABLE = '.is-older, .is-verdict, .is-hint, .is-giveup, .is-question.can-expand';
+/** 펼칠 수 있는 풍선만 키보드로 닿게 한다 — tabindex·role·aria-expanded. 못 펼치는 풍선에는 붙이지 않는다 */
+function syncExpandable(b) {
+  if (b.matches(EXPANDABLE)) {
+    b.tabIndex = 0;
+    b.setAttribute('role', 'button');
+    b.setAttribute('aria-expanded', String(b.classList.contains('is-expanded')));
+  } else {
+    b.removeAttribute('tabindex');
+    b.removeAttribute('role');
+    b.removeAttribute('aria-expanded');
+  }
+}
+
+function toggleBubble(b) {
+  const open = b.classList.toggle('is-expanded');
+  b.setAttribute('aria-expanded', String(open));
+  const qEl = b.querySelector('.call-q');
+  if (qEl && b.classList.contains('is-question')) {
+    // 흘려 쓰는 중에 펼치면 남은 어절을 한 번에 다 보인다. 접으면 질문 머리부터 보이게
+    if (open) finishTyping(qEl);
+    qEl.scrollTop = 0;
+    if (open) revealBubble(b);
+  }
+  markCut($('call-bubbles'));
+}
+
+/** 펼친 풍선이 열 안에서 보이게 — 열보다 크면 머리를, 아니면 바닥까지. 열 밖(페이지)은 스크롤하지 않는다 */
+function revealBubble(b) {
+  const log = $('call-bubbles');
+  const lr = log.getBoundingClientRect();
+  const br = b.getBoundingClientRect();
+  if (br.height > lr.height || br.top < lr.top) log.scrollTop += br.top - lr.top - 8;
+  else if (br.bottom > lr.bottom) log.scrollTop += br.bottom - lr.bottom;
+}
+
+/**
+ * 열 위 가장자리에 걸려 잘린 풍선은 통화(qa)에서 숨긴다 (CSS .is-cut → 투명). 9/24 실험실 4_call_answer:
+ * 내 답 풍선의 마지막 줄만 열 꼭대기(무대 ≈49%, 얼굴 한가운데)에 걸려 위쪽 흐림 마스크 속에서 옅은 초록 띠 +
+ * 유령 글씨로 남았다 — 발표 자막(#present-caption)이 아니라 이것이 「자막 잔상」이었다. 스크롤해 올리면 다시 보인다.
+ * 가장 새 풍선과 사용자가 펼친 풍선은 숨기지 않는다. 글자는 DOM 에 그대로(innerText·실험실 개수 그대로)
+ */
+function markCut(log) {
+  if (!log) return;
+  const top = log.getBoundingClientRect().top;
+  const items = log.children;
+  const n = items.length;
+  for (let i = 0; i < n; i++) {
+    const b = items[i];
+    b.classList.toggle('is-cut', i < n - 1 && !b.classList.contains('is-expanded') && b.getBoundingClientRect().top < top - 1);
+  }
+}
+
+/**
+ * 한 화면 한 메시지 (토스 One Thing Per Page) — 가장 새 두 풍선만 또렷하고 나머지는 옅게(.is-older, CSS 만).
+ * 풍선을 지우거나 is-* 클래스를 빼지 않는다: 스크롤하면 이전 질문이 그대로 있고, 실험실이 개수를 센다.
+ */
+function markOlder(log) {
+  const items = log.children;
+  for (let i = 0; i < items.length; i++) {
+    items[i].classList.toggle('is-older', i < items.length - 2);
+    syncExpandable(items[i]);
+  }
+}
+
+/**
+ * 질문은 두 줄까지만 보인다 (CSS max-height). 넘치면 어절 단위로 흘려 쓰고 창을 따라 내린다 —
+ * 3초 안에 첫 두 줄을 읽고, 나머지는 읽는 속도로 따라온다. 글자는 처음부터 전부 DOM 에 있다
+ * (aria-live·읽어 주기·실험실 innerText 는 전문). 모션 줄이기면 흘리지 않고 CSS 가 상한을 푼다.
+ */
+const TYPE_WORD_MS = 160;
+function typeQuestion(el) {
+  clearInterval(state.typeTimer);
+  state.typeTimer = null;
+  if (!el || el.scrollHeight <= el.clientHeight + 1) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // 두 줄을 넘친다 — 눌러서 한 번에 다 볼 수 있게 (Festa 홀은 시끄러워 읽어 주기만으로는 안 들린다)
+  const qb = el.closest('.call-bubble');
+  if (qb) { qb.classList.add('can-expand'); syncExpandable(qb); }
+  const words = el.textContent.split(/\s+/).filter(Boolean);
+  el.innerHTML = words.map((w) => `<span class="call-w">${esc(w)}</span>`).join(' ');
+  el.classList.add('is-typing');
+  const spans = el.querySelectorAll('.call-w');
+  let i = 0;
+  const step = () => {
+    const w = spans[i++];
+    if (w) {
+      w.classList.add('is-on');
+      const bottom = w.offsetTop + w.offsetHeight;
+      if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight;
+    }
+    if (i >= spans.length) { clearInterval(state.typeTimer); state.typeTimer = null; el.classList.remove('is-typing'); }
+  };
+  step();
+  state.typeTimer = setInterval(step, TYPE_WORD_MS);
+}
+/** 흘려 쓰기를 끝낸다 — 타이머를 멈추고 남은 어절을 다 켠다 (펼치기가 부른다). 흘리는 중이 아니면 아무것도 안 한다 */
+function finishTyping(el) {
+  if (!el || !el.classList.contains('is-typing')) return;
+  clearInterval(state.typeTimer);
+  state.typeTimer = null;
+  el.querySelectorAll('.call-w').forEach((w) => w.classList.add('is-on'));
+  el.classList.remove('is-typing');
+}
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function renderQuestion() {
+  const cur = q();
+  const p = pq();
+  p.asked = true;
+  cancelCountdown();
+  $('qa-count').textContent = `${state.idx + 1} / ${state.questions.length}`;
+  state.overlay = askQuestion(state.overlay, { text: cur.question, tag: cur.label || '', scene: (cur.slide_nos || [])[0] ?? null });
+  // 질문이 가리키는 장면을 작은 창에 띄운다 — 무엇을 묻는지 눈으로 같이 본다
+  if (cur.slide_nos && cur.slide_nos.length) { state.slideIdx = Number(cur.slide_nos[0]) - 1; renderSlide(); }
+  const chips = `<span class="booth-chip">${esc(cur.label || '')}</span>${(cur.slide_nos || []).length ? `<span class="booth-chip booth-chip-slide">${esc(cur.slide_nos.join('·'))}번 장면</span>` : ''}`;
+  // 이유 한 줄 — 함정 질문은 서버 이유가 함정임을 알려 주므로 중립 문장으로 (questionWhy · 09-30 B-01)
+  const why = questionWhy(cur);
+  // 폴백 재료로 만든 질문이면 첫 질문 아래 한 번만 그렇다고 적는다 (degraded_notes)
+  const qNote = state.idx === 0 && state.qNotes.length ? `<p class="call-note">${esc(state.qNotes.join(' '))}</p>` : '';
+  const qb = bubble('partner', `<div class="booth-chiprow">${chips}</div><p class="call-q">${esc(cur.question)}</p>${why ? `<p class="call-why">${esc(why)}</p>` : ''}${qNote}`, { kind: 'question' });
+  typeQuestion(qb.querySelector('.call-q'));
+  $('qa-answer').value = '';
+  state.userTyped = false;
+  $('qa-answer').placeholder = '말하면 여기에 자막으로 떠요. 눌러서 고칠 수도 있어요.';
+  note('qa-mic-note', '');
+  $('btn-hint').disabled = p.hintLevel >= p.ladder.length;
+  $('btn-giveup').textContent = giveupLabel(p.turns.filter((t) => t.giveUp).length);
+  $('btn-again').hidden = true;
+  $('btn-next').hidden = true;
+  $('btn-leave').hidden = false;
+  setAnswering(true);
+  setPhase('asking');
+  // 상대가 말을 마치면(읽어 주기 켬) 또는 잠깐 뒤(무음) 듣기 시작 — 통화에서는 상대가 묻고 내가 말한다
+  const after = () => { if (state.autoTalk && state.phase === 'asking') toggleMic(); };
+  if (!speak(cur.question, after)) setTimeout(after, 900);
+}
+
+function setAnswering(on) {
+  for (const id of ['btn-answer', 'btn-hint', 'btn-giveup']) $(id).disabled = !on;
+  $('qa-answer').disabled = !on;
+  if (!state.mic && !state.micPending) setMic('idle', !on);
+}
+
+function showHint() {
+  const p = pq();
+  if (p.closed || p.hintLevel >= p.ladder.length) return;
+  const h = p.ladder[p.hintLevel++];
+  // 연 칸만, 연 그때의 글 그대로 판정에 보낸다 (hintsForJudge · 09-30 H-14)
+  p.hintsSeen.push(h);
+  bubble('partner', `<p class="call-hint">힌트 ${p.hintLevel}. ${esc(h)}</p>`, { kind: 'hint' });
+  if (p.hintLevel >= p.ladder.length) $('btn-hint').disabled = true;
+  setPhase('hint');
+  speak(h);
+}
+
+async function submit(giveUp) {
+  cancelCountdown();
+  if (state.mic) await stopMic({ silent: true });
+  if (state.micPending) { note('qa-mic-note', state.micPending === 'transcribing' ? '받아쓰는 중이에요. 글자가 채워지면 「답하기」를 눌러요.' : '마이크를 여는 중이에요.'); return; }
+  const cur = q(); const p = pq();
+  if (p.closed || state.judging === cur.id) return;   // 닫힌 질문·이 질문의 판정을 기다리는 중에는 더 보내지 않는다 (말로 「답할게요」 해도)
+  const answer = $('qa-answer').value.trim();
+  if (!giveUp && !answer) { note('qa-mic-note', '아직 답이 비어 있어요. 말하거나 자막을 눌러 적어요.'); return; }
+  hush();
+  setAnswering(false);
+  $('btn-again').hidden = true;   // 판정을 기다리는 동안(요청 제한으로 다시 보내는 동안도) 「다시 답하기」 는 할 일이 없다
+  // 내 말풍선 — 「모르겠어요」 는 그 말 그대로 (09-30 L-01: 「모르겠어요, 답 볼게요」 는 서버가 되물음 단계일 때도 떴다)
+  bubble('me', `<p>${esc(giveUp ? giveupSaid(answer) : answer)}</p>`, { kind: giveUp ? 'giveup' : 'answer' });
+  $('qa-answer').value = '';
+  state.userTyped = false;
+  setPhase('judging');
+  // 이번 답이 실제로 받은 물음 — 되물음이 떠 있으면 그것이다 (앱 submitLiveAnswer 의 askedNow)
+  const askedNow = (p.last && !p.closed && p.last.followup) || cur.question;
+  state.judging = cur.id;
+  const stillHere = () => q() === cur && !$('call').hidden;
+  try {
+    const j = await judgeQaAnswer(state.sessionId, {
+      questionId: cur.id, answer, question: cur, giveUp,
+      history: questionHistory(state.history, cur.id),
+      priorAnswers: scoredAnswers(p.turns),
+      hintsShown: hintsForJudge(p.hintsSeen, p.last),
+      artifacts: { graph: state.graph, context: state.context },
+      // 요청 제한·AI 서버 지연 — 기다렸다가 같은 답을 다시 보낸다. 남은 초를 안내 줄에 센다 (09-30 H-15)
+      onWait: ({ left, reason }) => { if (stillHere()) note('qa-mic-note', retryWaitText(left, reason)); },
+      stillWanted: stillHere,
+    });
+    if (state.judging === cur.id) state.judging = null;
+    if (!stillHere()) return;   // 기다리는 사이 다음 질문·통화 마치기를 눌렀다 — 지난 질문의 판정을 새 화면에 얹지 않는다
+    const stage = j.coach_stage || '';
+    state.history.push({ '질문': askedNow, '답변': answer, '판정': j.verdict || 'unknown', question_id: cur.id, '포기': !!giveUp });
+    p.turns.push({ answer, verdict: j.verdict || 'unknown', giveUp: !!giveUp, clarify: stage === 'clarify' });
+    p.verdicts.push(j.verdict || 'unknown');
+    p.last = j;
+    p.ladder = mergeLadder(p.ladder, j.hints);
+    if (giveUp) p.coached = true;
+    if (stage === 'explain') p.explained = true;
+    if (judgementClosed(j)) { p.closed = true; p.closeReason = j.close_reason || (j.verdict === 'good' ? 'good' : 'rounds'); }
+    const dev = devOnlyDegraded(j);
+    if (dev.length) console.info('[booth] 판정 폴백(화면 밖):', dev.join(', '));
+    renderJudgement(j, giveUp);
+  } catch (err) {
+    if (state.judging === cur.id) state.judging = null;
+    if (!stillHere() || (err && err.code === 'cancelled')) return;
+    setAnswering(true);
+    setPhase('asking');
+    // 보낸 답은 자막 칸에 되살린다 — 다시 말하지 않고 「답하기」만 누르면 된다
+    if (answer && !giveUp) $('qa-answer').value = answer;
+    const msg = err && err.rateLimited
+      ? '요청이 몰려서 판정을 아직 못 받았어요. 조금 뒤에 「답하기」를 다시 누르면 판정해요.'
+      : ((err && err.message) || '판정을 받지 못했어요. 연결이 잠깐 끊겼을 수 있어요. 다시 말하거나 적어서 답하면 돼요.');
+    note('qa-mic-note', '');
+    bubble('partner', `<p>${esc(msg)}</p>`, { kind: 'error' });
+  }
+}
+
+/** 판정 한 풍선의 속 — pill · 반응(닫혔을 때만 총평) · 빠진 것 · 되묻기/해설 · 보기 칩 · 폴백 한 줄 */
+function judgementHtml(b, notes) {
+  const missing = b.missing.length ? `<p class="call-missing-head">${esc(b.missingHead)}</p><ul class="booth-missing">${b.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : '';
+  const tail = b.tail ? `<p class="${b.tail.kind === 'followup' ? 'call-followup' : 'call-explain'}">${esc(b.tail.text)}</p>` : '';
+  // 보기 칩 — 누르면 자막 칸에 들어간다. 바로 보내지 않는다(고쳐 쓸 여지 · 앱 qa-choice-chip 과 같은 규율)
+  const choices = b.tail && b.tail.choices && b.tail.choices.length
+    ? `<div class="call-choices">${b.tail.choices.map((c) => `<button type="button" class="call-choice">${esc(c)}</button>`).join('')}</div>` : '';
+  const note = notes.length ? `<p class="call-note">${esc(notes.join(' '))}</p>` : '';
+  return `<span class="booth-pill" data-v="${b.verdict}">${esc(b.word)}</span>${b.text ? `<p class="call-sum">${esc(b.text)}</p>` : ''}${missing}${tail}${choices}${note}`;
+}
+
+function renderJudgement(j, giveUp) {
+  const cur = q(); const p = pq();
+  note('qa-mic-note', '');
+  // 판정은 여러 개로 쪼개지 않고 풍선 하나에 담는다 (9/23 사용자: "판정 뒤에 말풍선 쌓이는 것도 최근 하나만")
+  // — 앞 풍선은 치우지 않는다. 이전 질문·답은 위로 스크롤하면 그대로 있다
+  const opts = { giveUp, answerGist: cur.answer_gist || '', trap: !!cur.trap };
+  const b = judgementBubble(j, opts);
+  // 자료 본문 없이 판정한 것 같은 폴백은 한 질문에 한 번만 짧게 (09-30 WP-B)
+  const notes = degradedLines(j).filter((n) => !p.notesShown.includes(n));
+  p.notesShown.push(...notes);
+  if (b) bubble('partner', judgementHtml(b, notes), { kind: 'verdict', verdict: b.verdict });
+  const last = state.idx + 1 >= state.questions.length;
+  $('btn-next').textContent = last ? '통화 마치기' : '다음 질문';
+  $('btn-next').hidden = false;
+  // 마지막 질문에서는 「다음 질문」 자리가 곧 「통화 마치기」다 — 빨간 마치기를 하나 더 두지 않는다 (09-30 M-13)
+  $('btn-leave').hidden = last;
+  // 서버가 닫았으면(mastered) 되묻지 않는다 — 답칸·다시 답하기를 닫고 다음으로 (H-12). 닫히지 않았으면 「모르겠어요」 뒤에도
+  // 답칸과 「다시 답하기」를 열어 둔다 — 보기를 고르거나 빈칸을 채워 바로 답할 수 있어야 한다 (H-10)
+  const open = !p.closed;
+  $('btn-again').hidden = !open;
+  setPhase('judged', b ? b.verdict : (j.verdict || 'unknown'));
+  if (open) {
+    setAnswering(true);
+    $('btn-hint').disabled = p.hintLevel >= p.ladder.length;
+    $('btn-giveup').textContent = giveupLabel(p.turns.filter((t) => t.giveUp).length);
+    $('qa-answer').placeholder = b && b.tail && b.tail.choices && b.tail.choices.length
+      ? '보기를 누르거나 말해서 답해요. 다음 질문으로 가도 돼요.'
+      : '되물었어요. 이어서 말해도 되고, 다음 질문으로 가도 돼요.';
+  } else {
+    setAnswering(false);
+    $('qa-answer').placeholder = last ? '이 질문은 여기까지예요. 통화를 마치면 결과를 보여 줘요.' : '이 질문은 여기까지예요. 다음 질문으로 가요.';
+  }
+  $('btn-next').focus();
+  // 되물었으면 상대 말이 끝난 뒤 다시 듣는다 — 통화가 이어진다
+  const after = () => { if (state.autoTalk && open && state.phase === 'judged') toggleMic(); };
+  if (!speak(speakableJudgement(j, opts), after) && open) setTimeout(after, 1200);
+}
+
+/** 보기 칩을 누르면 자막 칸에 넣는다 — 보내지는 않는다. 자동 보내기도 멈춘다(손으로 고른 답이다) */
+function pickChoice(chip) {
+  const ta = $('qa-answer');
+  if (!ta || ta.disabled) return;
+  if (state.mic) stopMic({ silent: true });
+  cancelCountdown();
+  ta.value = chip.textContent.trim();
+  state.userTyped = true;
+  note('qa-mic-note', '고른 보기를 자막에 넣었어요. 고쳐도 되고, 「답하기」를 누르면 보내요.');
+  if (!isCoarse()) ta.focus();
+}
+
+function next() {
+  hush(); cancelCountdown();
+  if (state.mic) stopMic({ silent: true });
+  if (state.idx + 1 >= state.questions.length) return finish();
+  state.idx += 1;
+  renderQuestion();
+}
+
+function again() {
+  hush(); cancelCountdown();
+  if (pq().closed) return;
+  $('qa-answer').value = '';
+  state.userTyped = false;
+  setAnswering(true);
+  $('btn-hint').disabled = pq().hintLevel >= pq().ladder.length;
+  setPhase('asking');
+  if (state.autoTalk) toggleMic(); else if (!isCoarse()) $('qa-answer').focus();
+}
+
+function finish() {
+  if (state.mic) stopMic({ silent: true });
+  clearInterval(state.typeTimer);
+  stopClock();
+  stopSensors();
+  closeSelfView();
+  document.body.classList.remove('booth-in-call');
+  $('call').hidden = true;
+  document.querySelector('.booth-qa-tools').hidden = true;
+  const ul = $('qa-tally'); ul.innerHTML = '';
+  for (const row of tally(state.questions, state.perQ)) {
+    const li = document.createElement('li'); li.dataset.v = row.verdict;
+    li.textContent = `${row.no}. ${row.label} · ${row.word}`;
+    ul.appendChild(li);
+  }
+  // 발표 중 알려 준 것 한 줄 — 없었으면 빈 문자열이라 줄 자체가 안 뜬다
+  note('qa-delivery', deliverySummary(state.delivery));
+  $('qa-done').hidden = false;
+}
+
+function restart() {
+  hush(); cancelCountdown();
+  if (state.mic) stopMic({ silent: true });
+  stopClock();
+  stopSensors();
+  closeSelfView();
+  closePip();
+  state.transcript = ''; state.transcriptBase = '';
+  state.delivery = createDelivery();
+  document.body.classList.remove('booth-in-call');
+  for (const s of state.shots) URL.revokeObjectURL(s.url);
+  state.shots = []; renderShots();
+  state.questions = []; state.graph = null; state.sessionId = null;
+  showStep('capture');
+}
+
+/* ─── 말하기 — 자막으로 채우고, 자동 대화면 침묵 뒤 카운트다운을 거쳐 보낸다 ── */
+function setMic(name, disabled = false) {
+  const btn = $('btn-mic');
+  // 발표 중 마이크는 「답하기」가 아니라 「발표 듣게 하기」다 — 같은 버튼이라도 이름이 하는 일을 말해야 한다
+  const labels = state.mode === 'present' ? MIC_LABEL_PRESENT : MIC_LABEL;
+  btn.textContent = labels[name] || labels.idle;
+  btn.dataset.state = name;
+  btn.setAttribute('aria-label', labels[name] || labels.idle);
+  btn.disabled = !!disabled;
+}
+
+function toggleMic() {
+  if (state.mic) return stopMic();
+  if (state.micPending) return;
+  if (window.isSecureContext === false) {
+    note('qa-mic-note', '마이크는 https 주소나 이 컴퓨터의 127.0.0.1 에서만 열려요. 자막을 눌러 적어도 돼요.');
+    return;
+  }
+  hush();   // 상대가 읽는 중이면 멈춘다 — 안 그러면 상대 목소리를 받아쓴다
+  cancelCountdown();
+  state.micPending = 'opening';
+  setMic('opening', true);
+  // 발표 중에는 받아쓰기만 쓴다 — 녹음+STT 는 말이 끝난 뒤에야 글자가 되므로 실시간 피드백이 안 된다
+  if (state.mode === 'present') {
+    if (state.dictationDead || !hasLiveDictation()) {
+      state.micPending = '';
+      setMic('idle');
+      note('qa-mic-note', '이 브라우저는 실시간 받아쓰기를 지원하지 않아요. 피드백 없이 발표하고, 다 하면 「질문 받기」를 눌러요.');
+      return;
+    }
+    return startPresentDictation();
+  }
+  if (!state.dictationDead && hasLiveDictation()) return startDictation();
+  return startRecording();
+}
+
+function markSpeech() {
+  state.lastSpeechAt = performance.now();
+  if (!state.autoTalk) return;
+  clearTimeout(state.quietTimer);
+  state.quietTimer = setTimeout(watchQuiet, QUIET_MS + 50);
+}
+
+/** 침묵을 본다. 말한 게 있고 2.5초 조용하면 마이크를 멈추고 카운트다운을 시작한다. */
+function watchQuiet() {
+  if (!state.mic || !state.mic.dictation || !state.autoTalk) return;
+  // 자막 칸에 손으로 쓰는 중이면 자동으로 보내지 않는다 — 계속 듣기만 하고, 보내기는 「답하기」로
+  if (state.userTyped) { state.quietTimer = setTimeout(watchQuiet, 500); return; }
+  if (speechSettled({ lastChangeAt: state.lastSpeechAt, now: performance.now(), text: $('qa-answer').value })) {
+    stopMic().then(() => { if ($('qa-answer').value.trim()) startCountdown(); });
+  } else {
+    state.quietTimer = setTimeout(watchQuiet, 500);
+  }
+}
+
+function startCountdown() {
+  cancelCountdown();
+  if (state.userTyped) { note('qa-mic-note', '자막을 고쳤어요. 다 쓰면 「답하기」를 눌러요.'); return; }
+  const until = performance.now() + COUNTDOWN_S * 1000;
+  const tick = () => {
+    const left = (until - performance.now()) / 1000;
+    note('qa-mic-note', countdownText(left));
+    if (left <= 0) { state.countdown = null; submit(false); return; }
+    state.countdown = { until, id: setTimeout(tick, 250) };
+  };
+  tick();
+}
+
+function cancelCountdown() {
+  clearTimeout(state.quietTimer);
+  if (state.countdown) { clearTimeout(state.countdown.id); state.countdown = null; note('qa-mic-note', ''); }
+}
+
+/** 자막(입력창)을 누르면 자동 보내기를 멈춘다 — 고칠 틈이 손에 잡혀야 한다. */
+function holdCaption() {
+  if (state.countdown) { cancelCountdown(); note('qa-mic-note', '멈췄어요. 고친 뒤 「답하기」를 눌러요.'); }
+}
+
+/** 지금 말로 누를 수 있는 버튼 — 화면의 버튼 상태를 그대로 따른다 (숨은·꺼진 버튼은 말로도 안 눌린다). */
+function voiceAllowed() {
+  return {
+    next: !$('btn-next').hidden,
+    again: !$('btn-again').hidden,
+    hint: !$('btn-hint').disabled,
+    giveup: !$('btn-giveup').disabled,
+    answer: !$('btn-answer').disabled,
+  };
+}
+
+/** 말로 누른 버튼. 자막에는 「'다음 질문' 이라고 했어요」처럼 남겨 무엇이 왜 일어났는지 보이게 한다. */
+function runVoiceCommand(cmd) {
+  const said = { next: $('btn-next').textContent, giveup: '모르겠어요', hint: '힌트', again: '다시 답하기', answer: '답하기' }[cmd];
+  note('qa-mic-note', `「${said}」라고 말해서 눌렀어요.`);
+  if (cmd === 'next') return next();
+  if (cmd === 'giveup') return submit(true);
+  if (cmd === 'hint') return showHint();
+  if (cmd === 'again') return again();
+  if (cmd === 'answer') return submit(false);
+}
+
+/** 실시간 받아쓰기 — 말하는 중에 자막이 채워진다 (크롬·엣지). */
+function startDictation() {
+  const ta = $('qa-answer');
+  let pen = newPen(ta.value);
+  // 말로 조작하기 — 확정 조각이 늘어날 때마다 새 조각 끝에서 명령을 본다. 명령은 자막에서 뗀다(cut).
+  let seenFinal = 0; const cuts = [];
+  try {
+    state.mic = {
+      dictation: true,
+      session: startLiveDictation({
+        onText: ({ final, interim }) => {
+          let command = null;
+          if (final.length > seenFinal) {
+            const chunk = final.slice(seenFinal);
+            const hit = voiceCommand(chunk, voiceAllowed());
+            if (hit) { cuts.push([seenFinal + hit.rest.length, final.length]); command = hit.cmd; }
+            seenFinal = final.length;
+          }
+          let clean = ''; let at = 0;
+          for (const [a, b] of cuts) { clean += final.slice(at, a); at = b; }
+          clean += final.slice(at);
+          const r = paintDictation(pen, ta.value, `${clean} ${command ? '' : interim}`.trim());
+          pen = r.pen;
+          if (ta.value !== r.value) { ta.value = r.value; ta.scrollTop = ta.scrollHeight; markSpeech(); }
+          if (command) runVoiceCommand(command);
+        },
+        onError: (msg) => {
+          state.mic = null;
+          state.dictationDead = true;
+          note('qa-mic-note', `${msg} 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 자막을 눌러 적어도 돼요.`);
+          setMic('idle'); setPhase('asking');
+        },
+      }),
+    };
+  } catch (err) {
+    state.micPending = '';
+    state.dictationDead = true;
+    note('qa-mic-note', `받아쓰기를 시작하지 못했어요: ${err.message || err}. 마이크를 한 번 더 누르면 녹음해서 받아쓸게요.`);
+    setMic('idle');
+    return;
+  }
+  state.micPending = '';
+  state.lastSpeechAt = performance.now();
+  note('qa-mic-note', state.autoTalk ? '듣고 있어요. 다 말하고 잠깐 쉬면 보내요.' : '듣고 있어요. 다 말하면 「그만 말하기」를 누르고 「답하기」를 눌러요.');
+  setMic('dictating'); setPhase('listening');
+}
+
+/* ─── 발표 모드 — 듣고, 재고, 눈에 띄면 말한다 (9/23 사용자) ────────────── */
+/**
+ * 발표 중 받아쓰기. Q&A 와 달리 자막은 고치는 것이 아니라 흐르는 것이고(꼬리만 보인다),
+ * 글자가 늘 때마다 계기에 넣어 빠르기·간투어·반복·멈춤을 잰다. 끄고 다시 켜도 이어서 센다.
+ */
+function startPresentDictation() {
+  let seenFinal = 0;
+  try {
+    state.mic = {
+      dictation: true,
+      present: true,
+      session: startLiveDictation({
+        onText: ({ final, interim }) => {
+          const text = `${state.transcriptBase}${final} ${interim}`.trim();
+          state.transcript = text;
+          applyOverlay(setCaption(state.overlay, captionTail(text)));
+          observeDelivery({ text, now: performance.now() });
+          if (final.length > seenFinal) {
+            const chunk = final.slice(seenFinal);
+            seenFinal = final.length;
+            const hit = presentCommand(chunk);
+            if (hit && hit.cmd === 'ask') { note('qa-mic-note', '「질문 받기」라고 말해서 넘어가요.'); beginQa(); }
+            else if (hit && hit.cmd === 'next') stepSlide(1);
+            else if (hit && hit.cmd === 'prev') stepSlide(-1);
+          }
+        },
+        onError: (msg) => {
+          state.mic = null;
+          state.dictationDead = true;
+          stopSensors();
+          note('qa-mic-note', `${msg} 피드백 없이 발표해요. 다 하면 「질문 받기」를 눌러요.`);
+          setMic('idle');
+        },
+      }),
+    };
+  } catch (err) {
+    state.micPending = '';
+    state.dictationDead = true;
+    stopSensors();
+    note('qa-mic-note', `받아쓰기를 시작하지 못했어요: ${err.message || err}. 피드백 없이 발표하고, 다 하면 「질문 받기」를 눌러요.`);
+    setMic('idle');
+    return;
+  }
+  state.micPending = '';
+  note('qa-mic-note', '듣고 있어요. 눈에 띄면 삐약이가 알려 줘요.');
+  setMic('dictating');
+  startSensors();
+}
+
+/** 관찰 한 번 → 지적이 있으면 그대로 보여 준다. 판단은 전부 booth_logic 의 순수 함수에 있다 */
+function observeDelivery(o) {
+  // 장면 번호를 같이 넘긴다 — 넘긴 직후의 멈춤은 지적하지 않는다(booth_logic slideGraceMs)
+  const r = deliveryObserve(state.delivery, { slide: state.slideIdx, ...o }, state.deliveryCfg);
+  state.delivery = r.meter;
+  if (r.tell) showTell(r.tell);
+}
+
+/**
+ * 지적 하나 — 말풍선 한 줄 + 삐약이의 무안한 얼굴(땀방울). 읽어 주지 않는다:
+ * 마이크가 켜져 있어서 TTS 목소리를 그대로 받아쓰게 된다.
+ */
+function showTell(tell) {
+  const seat = $('call-partner-seat');
+  bubble('partner', `<p class="call-tell">${esc(tell.text)}</p>`, { kind: 'tell' });
+  const glad = tell.kind === 'steady';
+  state.lastTell = TELL_WORD[tell.kind] || tell.kind;
+  seat.dataset.tell = glad ? 'glad' : 'awkward';
+  seat.dataset.mood = glad ? 'happy' : 'neutral';
+  $('call-partner-status').textContent = TELL_STATUS[tell.kind] || '';
+  clearTimeout(state.tellTimer);
+  state.tellTimer = setTimeout(() => {
+    delete seat.dataset.tell;
+    if (state.mode === 'present') { seat.dataset.mood = 'neutral'; $('call-partner-status').textContent = '듣고 있어요'; }
+  }, 4500);
+}
+
+/**
+ * 센서 — 0.25초마다 웹캠 프레임 차이(움직임)와 마이크 RMS(목소리 크기)를 잰다.
+ * 웹캠은 32×18 회색으로 줄여 평균 절대차만 본다 (얼굴을 알아보지 않는다 · 아무것도 보내지 않는다).
+ * 못 열면 조용히 건너뛴다 — 그러면 그 항목은 아예 말하지 않는다 (없는 걸 있다고 하지 않는다).
+ */
+function startSensors() {
+  if (state.sensors) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = 32; canvas.height = 18;
+  const s = { id: 0, canvas, ctx: canvas.getContext('2d', { willReadFrequently: true }), prev: null, audio: null, ac: null, analyser: null, buf: null };
+  state.sensors = s;
+  openLevelMeter(s);
+  s.id = setInterval(() => {
+    const o = { text: state.transcript, now: performance.now() };
+    const motion = frameMotion(s);
+    if (motion !== null) o.motion = motion;
+    const level = micLevel(s);
+    if (level !== null) o.level = level;
+    onSensorTick(o);
+    observeDelivery(o);
+  }, 250);
+}
+
+function frameMotion(s) {
+  const v = $('call-self-video');
+  if (!state.selfStream || !v || v.readyState < 2) return null;
+  try {
+    s.ctx.drawImage(v, 0, 0, s.canvas.width, s.canvas.height);
+    const d = s.ctx.getImageData(0, 0, s.canvas.width, s.canvas.height).data;
+    const gray = new Float32Array(d.length / 4);
+    for (let i = 0; i < gray.length; i++) gray[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114);
+    const prev = s.prev;
+    s.prev = gray;
+    if (!prev) return null;
+    let sum = 0;
+    for (let i = 0; i < gray.length; i++) sum += Math.abs(gray[i] - prev[i]);
+    return sum / gray.length;
+  } catch (_) { return null; }   // 캔버스가 더럽혀지면(교차 출처) 움직임은 포기한다
+}
+
+async function openLevelMeter(s) {
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
+  try {
+    // 받아쓰기가 쓰는 스트림과 따로 연다 — 받아쓰기 세션의 스트림은 우리가 만질 수 없다
+    const audio = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (state.sensors !== s) { for (const t of audio.getTracks()) t.stop(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    const analyser = ac.createAnalyser();
+    analyser.fftSize = 1024;
+    ac.createMediaStreamSource(audio).connect(analyser);
+    s.audio = audio; s.ac = ac; s.analyser = analyser; s.buf = new Float32Array(analyser.fftSize);
+  } catch (_) { /* 마이크를 하나만 쓸 수 있는 기기 — 목소리 크기는 재지 않는다 */ }
+}
+
+function micLevel(s) {
+  if (!s.analyser || !s.buf) return null;
+  // 크롬은 사용자 조작 없이 만든 AudioContext 를 정지해 둘 수 있다 — 그러면 0 만 읽혀 「목소리가 작아요」가 잘못 뜬다.
+  // 재개를 시도하고, 돌지 않으면 음량은 안 잰 것으로 한다
+  if (s.ac && s.ac.state !== 'running') { s.ac.resume().catch(() => {}); return null; }
+  s.analyser.getFloatTimeDomainData(s.buf);
+  let sum = 0;
+  for (let i = 0; i < s.buf.length; i++) sum += s.buf[i] * s.buf[i];
+  return Math.sqrt(sum / s.buf.length);
+}
+
+function stopSensors() {
+  const s = state.sensors;
+  state.sensors = null;
+  if (!s) return;
+  clearInterval(s.id);
+  if (s.audio) for (const t of s.audio.getTracks()) t.stop();
+  if (s.ac && s.ac.state !== 'closed') s.ac.close().catch(() => {});
+}
+
+/* ─── 계기 — 운영자가 부스에서 기준을 맞추는 자리 (기본 숨김) ───────────── */
+/** 센서가 잴 때마다: 기준 맞추는 중이면 표본을 모으고, 계기가 켜져 있으면 숫자를 새로 쓴다 */
+function onSensorTick(o) {
+  const c = state.calib;
+  if (c) {
+    if (o.motion !== undefined) c.motion.push(o.motion);
+    if (o.level !== undefined) c.level.push(o.level);
+    if (performance.now() >= c.until) finishCalibrate();
+  }
+  if (state.meterOn) renderMeter();
+}
+
+function setMeter(on) {
+  state.meterOn = !!on;
+  $('call-meter').hidden = !state.meterOn;
+  const btn = $('btn-meter');
+  btn.setAttribute('aria-pressed', String(state.meterOn));
+  btn.textContent = state.meterOn ? '계기 숨기기' : '계기 보기';
+  // 마이크를 안 켜도 숫자는 봐야 한다. 단 통화를 열기 전에는 센서를 켜지 않는다(권한 창이 먼저 뜬다)
+  if (state.meterOn) { if (!$('call').hidden) startSensors(); renderMeter(); }
+}
+
+function renderMeter() {
+  const c = state.calib;
+  const left = c ? Math.max(0, Math.ceil((c.until - performance.now()) / 1000)) : 0;
+  $('meter-read').textContent = c
+    ? `가만히·조용히 ${left}초 — 표본 ${c.motion.length}개`
+    : meterText(state.delivery, state.deliveryCfg) + (state.lastTell ? ` · 마지막 ${state.lastTell}` : '');
+}
+
+/** 5초 동안 가만히·조용히 있을 때의 바닥값으로 문턱을 다시 잡는다 */
+function startCalibrate() {
+  startSensors();
+  state.calib = { until: performance.now() + CALIB_MS, motion: [], level: [] };
+  note('meter-note', '');
+  renderMeter();
+}
+
+function median(xs) {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+}
+
+function finishCalibrate() {
+  const c = state.calib;
+  state.calib = null;
+  if (!c) return;
+  const motionFloor = median(c.motion);
+  const levelFloor = median(c.level);
+  if (motionFloor === null && levelFloor === null) {
+    note('meter-note', '잰 값이 없어요. 카메라나 마이크를 켜고 다시 눌러요.');
+    renderMeter();
+    return;
+  }
+  state.deliveryCfg = calibrateDelivery(DELIVERY, {
+    motionFloor: motionFloor === null ? undefined : motionFloor,
+    levelFloor: levelFloor === null ? undefined : levelFloor,
+  });
+  try { localStorage.setItem(DELIVERY_KEY, JSON.stringify({ fidgetMotion: state.deliveryCfg.fidgetMotion, quietLevel: state.deliveryCfg.quietLevel })); } catch (_) { /* 사생활 모드 */ }
+  note('meter-note', `기준을 저장했어요 · 움직임 ${state.deliveryCfg.fidgetMotion} · 음량 ${state.deliveryCfg.quietLevel}`);
+  renderMeter();
+}
+
+function resetCalibrate() {
+  try { localStorage.removeItem(DELIVERY_KEY); } catch (_) { /* 사생활 모드 */ }
+  state.deliveryCfg = { ...DELIVERY };
+  note('meter-note', `기본값으로 돌렸어요 · 움직임 ${DELIVERY.fidgetMotion} · 음량 ${DELIVERY.quietLevel}`);
+  renderMeter();
+}
+
+/** 발표 시계 — 실측만 보여 준다 (UI_REDESIGN §14) */
+function startClock() {
+  stopClock();
+  state.presentStart = performance.now();
+  $('present-clock').textContent = clockText(0);
+  state.clock = setInterval(() => { $('present-clock').textContent = clockText(performance.now() - state.presentStart); }, 1000);
+}
+
+function stopClock() {
+  if (state.clock) { clearInterval(state.clock); state.clock = null; }
+}
+
+/** 실시간이 안 되는 브라우저용 — 녹음해 두었다가 멈출 때 서버 STT 로 넘긴다. 침묵 판정은 없다. */
+async function startRecording() {
+  try {
+    state.mic = {
+      dictation: false,
+      session: await startAnswerRecording({
+        onAutoStop: () => { note('qa-mic-note', '녹음이 길어져 자동으로 멈췄어요. 받아쓰는 중이에요.'); stopMic(); },
+      }),
+    };
+  } catch (err) {
+    state.micPending = '';
+    note('qa-mic-note', `마이크를 못 열었어요: ${err.message || err}. 자막을 눌러 적어도 돼요.`);
+    setMic('idle');
+    return;
+  }
+  state.micPending = '';
+  note('qa-mic-note', '녹음 중이에요. 다 말하면 「녹음 멈추고 받아쓰기」를 눌러요.');
+  setMic('recording'); setPhase('listening');
+}
+
+async function stopMic({ silent = false } = {}) {
+  const mic = state.mic;
+  if (!mic) return;
+  state.mic = null;
+  clearTimeout(state.quietTimer);
+  const ta = $('qa-answer');
+  // 발표 듣기를 멈춘다. 지금까지 받아쓴 말은 남겨 두고, 다시 켜면 그 뒤에 이어 붙인다
+  if (mic.present) {
+    mic.session.stop();
+    stopSensors();
+    if (!silent) note('qa-mic-note', '듣기를 멈췄어요. 다시 누르면 이어서 들어요.');
+    setMic('idle');
+    state.transcriptBase = state.transcript ? `${state.transcript} ` : '';
+    return;
+  }
+  if (mic.dictation) {
+    mic.session.stop();
+    if (!silent) note('qa-mic-note', ta.value.trim() ? '자막을 확인하고 「답하기」를 눌러요.' : '말소리를 못 알아들었어요. 다시 말하거나 자막을 눌러 적어요.');
+    setMic('idle', !!ta.disabled);
+    if (state.phase === 'listening') setPhase('asking');
+    return;
+  }
+  state.micPending = 'transcribing';
+  setMic('transcribing', true);
+  try {
+    const text = await transcribeAnswer(await mic.session.stop(), { sessionId: state.sessionId });
+    if (text) {
+      ta.value = appendTranscript(ta.value, text);
+      // silent 은 「답하기」를 눌러 submit 이 멈춘 경우다 — 여기서 카운트다운을 걸면
+      // submit 이 보낸 뒤에 카운트다운이 한 번 더 보내 같은 답이 두 번 간다
+      if (state.autoTalk && !silent) startCountdown();
+      else { note('qa-mic-note', '자막을 확인하고 「답하기」를 눌러요.'); $('btn-answer').focus(); }
+    } else if (!silent) {
+      note('qa-mic-note', '말소리를 못 알아들었어요. 다시 녹음하거나 자막을 눌러 적어요.');
+    }
+  } catch (err) {
+    note('qa-mic-note', `받아쓰기에 실패했어요: ${err.message || err}. 자막을 눌러 적어도 돼요.`);
+  }
+  state.micPending = '';
+  setMic('idle', !!ta.disabled);
+  if (state.phase === 'listening') setPhase('asking');
+}
+
+function setAutoTalk(on) {
+  state.autoTalk = !!on;
+  const btn = $('btn-autotalk');
+  btn.textContent = state.autoTalk ? '자동 대화 끄기' : '자동 대화 켜기';
+  btn.setAttribute('aria-pressed', String(state.autoTalk));
+  if (!state.autoTalk) cancelCountdown();
+}
+
+/* ─── 읽어 주기 — 기본 무음. 켜면 상대가 질문·힌트·판정을 화면에 있는 말 그대로 읽는다 ─── */
+function koVoice() {
+  const voices = window.speechSynthesis.getVoices() || [];
+  return voices.find((v) => /^ko/i.test(v.lang)) || null;
+}
+
+/** 읽기 시작했으면 true. onEnd 는 읽기가 끝났을 때만 부른다 (안 읽었으면 호출부가 알아서). */
+function speak(text, onEnd = null) {
+  if (!state.sound || !('speechSynthesis' in window) || !text) return false;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  u.rate = 1.0;
+  const v = koVoice();
+  if (v) u.voice = v;
+  $('call-partner-seat').classList.add('is-talking');
+  const done = () => { $('call-partner-seat').classList.remove('is-talking'); if (typeof onEnd === 'function') onEnd(); };
+  u.onend = done;
+  u.onerror = done;
+  window.speechSynthesis.speak(u);
+  return true;
+}
+
+function hush() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  const seat = $('call-partner-seat');
+  if (seat) seat.classList.remove('is-talking');
+}
+
+function setSound(on) {
+  state.sound = !!on;
+  const btn = $('btn-sound');
+  btn.textContent = state.sound ? '소리 끄기' : '소리 켜기';
+  btn.setAttribute('aria-pressed', String(state.sound));
+  try { localStorage.setItem(SOUND_KEY, state.sound ? '1' : '0'); } catch (_) { /* 사생활 모드 */ }
+  if (!state.sound) hush();
+}
+
+function toggleSound() {
+  setSound(!state.sound);
+  // 켜자마자 지금 질문을 읽어 준다 — 소리가 나는지 바로 안다 (첫 발화는 사용자 조작 안에서만 된다)
+  if (state.sound && state.questions.length && !$('call').hidden && state.phase === 'asking') speak(q().question);
+}
+
+/* ─── 작은 창 — 발표 화면 위에 통화만 띄운다 (Chrome 116+) ────────────────── */
+async function openPip() {
+  if (state.pipWindow) return closePip();
+  try {
+    const w = await window.documentPictureInPicture.requestWindow({ width: 480, height: 720 });
+    for (const link of document.querySelectorAll('link[rel="stylesheet"]')) w.document.head.appendChild(link.cloneNode(true));
+    w.document.body.className = 'booth-pip-window booth-in-call';
+    w.document.body.appendChild($('qa-panel'));
+    w.addEventListener('pagehide', () => { $('step-qa').appendChild($('qa-panel')); state.pipWindow = null; $('btn-pip').textContent = '작은 창으로 띄우기'; });
+    state.pipWindow = w;
+    $('btn-pip').textContent = '작은 창 닫기';
+  } catch (_) {
+    $('btn-pip').hidden = true;
+  }
+}
+
+function closePip() {
+  if (state.pipWindow) { state.pipWindow.close(); state.pipWindow = null; }
+}
+
+/* ─── 배선 ───────────────────────────────────────────────────────────────── */
+function wireCapture() {
+  const r = state.routes;
+  $('btn-share').hidden = !r.share;
+  $('btn-camera').textContent = r.camera === 'live' ? '카메라로 찍기' : '사진 찍어 올리기';
+  // 첫 버튼 하나만 primary — 한 화면의 주인공은 하나 (MVP_SPEC §3)
+  $('btn-camera').className = `btn ${r.primary === 'camera' ? 'btn-primary' : 'btn-secondary'}`;
+  $('btn-share').className = `btn ${r.primary === 'share' ? 'btn-primary' : 'btn-secondary'}`;
+  if (r.primary === 'share') $('capture-actions').prepend($('btn-share'));
+}
+
+$('btn-camera').onclick = () => openCamera();
+$('btn-switch-camera').onclick = switchCamera;
+$('btn-share').onclick = startShare;
+$('btn-stop-share').onclick = stopStream;
+$('btn-grab').onclick = grabFrame;
+$('file-shots').onchange = onFiles;
+$('file-camera').onchange = onFiles;
+$('btn-go').onclick = () => { stopStream(); runPipeline(); };
+$('btn-retry').onclick = runPipeline;
+$('btn-back-capture').onclick = () => showStep('capture');
+$('btn-answer').onclick = () => submit(false);
+$('btn-giveup').onclick = () => submit(true);
+$('btn-hint').onclick = showHint;
+$('btn-mic').onclick = toggleMic;
+$('btn-sound').onclick = toggleSound;
+$('btn-autotalk').onclick = () => setAutoTalk(!state.autoTalk);
+$('btn-self-camera').onclick = toggleSelfView;
+$('btn-next').onclick = next;
+$('btn-again').onclick = again;
+$('btn-restart').onclick = restart;
+$('btn-leave').onclick = finish;
+$('btn-pip').onclick = openPip;
+$('btn-ask').onclick = beginQa;
+$('btn-meter').onclick = () => setMeter(!state.meterOn);
+$('btn-calibrate').onclick = startCalibrate;
+$('btn-calib-reset').onclick = resetCalibrate;
+$('btn-slide-prev').onclick = () => stepSlide(-1);
+$('btn-slide-next').onclick = () => stepSlide(1);
+// 무대를 누르면 자리가 바뀐다 — 작은 창을 누를 때만 (메인을 누르는 건 아무 일도 아니다)
+for (const [id, which] of [['call-slides', 'slides'], ['call-self', 'self']]) {
+  $(id).addEventListener('click', () => tapStage(which));
+  $(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tapStage(which); }
+  });
+}
+// 발표 중 화살표로 장면 넘기기 — 리모컨·키보드로 발표하는 사람의 손버릇 (입력창 안에서는 안 한다)
+window.addEventListener('keydown', (e) => {
+  if (state.mode !== 'present' || $('call').hidden) return;
+  const t = e.target;
+  if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT')) return;
+  if (e.key === 'ArrowRight') { e.preventDefault(); stepSlide(1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); stepSlide(-1); }
+});
+// 열을 스크롤하면 위 가장자리에 걸린 풍선을 다시 가린다/보인다 (markCut). 한 프레임에 한 번만
+$('call-bubbles').addEventListener('scroll', () => {
+  if (state.cutFrame) return;
+  state.cutFrame = requestAnimationFrame(() => { state.cutFrame = 0; markCut($('call-bubbles')); });
+}, { passive: true });
+// 풍선을 누르면 펼치고 다시 누르면 접는다 — 옛 풍선(한 줄)·판정·힌트·포기(두 줄 상한)·넘치는 지금 질문
+$('call-bubbles').addEventListener('click', (e) => {
+  const chip = e.target.closest('.call-choice');
+  if (chip) { e.stopPropagation(); pickChoice(chip); return; }
+  const b = e.target.closest('.call-bubble');
+  if (b && b.matches(EXPANDABLE)) toggleBubble(b);
+});
+$('call-bubbles').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const b = e.target.closest('.call-bubble');
+  if (b && b === e.target && b.matches(EXPANDABLE)) { e.preventDefault(); toggleBubble(b); }
+});
+$('qa-answer').addEventListener('pointerdown', holdCaption);
+$('qa-answer').addEventListener('focus', holdCaption);
+/* 타이핑은 듣는 중에도 언제나 된다. 손으로 쓴 순간부터 이 질문은 자동 보내기를 멈춘다 —
+   받아쓰기 조각은 paintDictation 이 쓴 글 뒤에 잇고, 보내기는 「답하기」가 한다.
+   input 이벤트는 사람이 친 글에만 온다 (받아쓰기가 value 를 바꾸는 건 안 온다). */
+$('qa-answer').addEventListener('input', () => { state.userTyped = true; holdCaption(); });
+$('qa-answer').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submit(false);
+});
+window.addEventListener('pagehide', () => { hush(); stopStream(); closeSelfView(); stopSensors(); });
+
+/**
+ * 실험실(etc/labs/qa_call)에서 마이크 없이 발표 피드백을 흉내 내는 문. 브라우저 없는 서버에서
+ * 지적이 실제로 뜨는지 보는 유일한 길이다 — 사람이 쓰는 화면은 이걸 부르지 않는다.
+ */
+window.boothLab = {
+  feed(o) {
+    if (o.text !== undefined) { state.transcript = o.text; applyOverlay(setCaption(state.overlay, captionTail(o.text))); }
+    observeDelivery({ now: performance.now(), ...o });
+  },
+  get state() { return state; },
+};
+
+wireCapture();
+setAutoTalk(true);
+// ?meter=1 로 열면 계기를 켠 채 시작한다 — 리허설에서 주소만 바꿔 쓰는 운영자용 문
+try { state.meterOn = new URLSearchParams(location.search).get('meter') === '1'; } catch (_) { /* 옛 브라우저 */ }
+try { setSound(localStorage.getItem(SOUND_KEY) === '1'); } catch (_) { setSound(false); }
+renderShots();

@@ -28,7 +28,7 @@ good/partial(통과)로 판정된다**.
 |---|---|---|
 | 정답 단답 판정 | good/partial (70점 이상 통과) | pytest 회귀 케이스 |
 | 실측 재현 | 문제 케이스가 실제 브리지에서 통과 | 데모 시나리오 수동 재현 |
-| 기존 판정 회귀 | 없음 | `python -m pytest tests/ -q` 초록 유지 (556 passed 기준) |
+| 기존 판정 회귀 | 없음 | `python -m pytest etc/tests/ -q` 초록 유지 (556 passed 기준) |
 
 ## Scope
 **MVP** — 판정 LLM 요청 1회는 유지하되, 프롬프트에 정답 골자(answer_gist)를 싣고

@@ -8,20 +8,20 @@
 
 ```bash
 # 실행 — mock 금지. 이것만 쓴다 (CLAUDE.md §2)
-DEMO_PORT=8799 ./demo/run_bridge_midm.sh
+DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 
 # 회귀 기준선
-python -m pytest tests/ -q     # 591 passed · 7 skipped
+python -m pytest etc/tests/ -q     # 591 passed · 7 skipped
 ```
 
 - **파이썬을 고쳤으면 브리지를 재기동해야 검증이 된다.** 파이썬은 임포트 시점에
   메모리로 올라간다. JS/CSS 는 매 요청 디스크에서 읽어 즉시 반영된다.
   재기동 후 첫 요청은 22GB 로드로 2~3분 — 반드시 예열한다.
-- **`pkill -f "python -m demo.bridge"` 를 쓰지 마라.** 명령줄이 패턴과 일치해서
+- **`pkill -f "python -m server.bridge"` 를 쓰지 마라.** 명령줄이 패턴과 일치해서
   **자기 셸까지 죽인다.** keepalive 가 물고 있으므로 그냥 두거나 PID 로 집는다.
 - **`js/*.js` · `css/*.css` 를 고쳤으면 `index.html` 의 `?v=` 를 올린다.** 현재 `qg5`.
   안 올리면 브라우저가 옛 파일을 서빙해서 "고쳤는데 안 바뀐다" 가 된다.
-- **프론트 JS 자동 테스트는 0개다.** `tests/` 23개가 전부 파이썬이다. JS 를 고쳤으면
+- **프론트 JS 자동 테스트는 0개다.** `etc/tests/` 23개가 전부 파이썬이다. JS 를 고쳤으면
   `node --check` 로 문법만 보고, 동작은 사람이 눌러야 확인된다.
 
 ## 🚫 백로그가 아닌 것 — 손대지 마라
@@ -63,7 +63,7 @@ function liveHints() {
   말풍선에 싣는 `total`(`qa_live.js:476`)은 `L.hintTotal` 을 쓴다
 - **질문이 바뀔 때 0 으로 되돌린다** — `L.hintLevel = 0` 과 같은 지점(`qa_live.js:1086`)
 
-**검증**: `node --check demo/YEHS_demo/js/qa_live.js` → `?v=` 올리기 → 한 질문에서
+**검증**: `node --check main/web/js/qa_live.js` → `?v=` 올리기 → 한 질문에서
 힌트를 두 번 이상 열어 분모가 안 줄어드는지 눈으로.
 
 **주의**: 기능 영향은 없다. `liveStalled()` 는 길이가 고정된 `liveQuestionHints()`
@@ -122,7 +122,7 @@ function liveHints() {
 **임계 정하는 법**: 실측한 값이 있다. 10분 트랙 21쌍 중 0.41 이 최대였고 그 다음이
 0.31 이다. **0.40 을 넘는 쌍만 잡으면 10분 트랙은 사실상 안 건드린다.**
 
-**검증**: `examples/qa_judge_probe.py` 가 이미 골자 쌍별 겹침을 재는 코드를 갖고
+**검증**: `etc/bench/qa_judge_probe.py` 가 이미 골자 쌍별 겹침을 재는 코드를 갖고
 있다. 5분 트랙으로 뽑아 중복이 사라지는지, 10분 트랙 질문 수가 7개로 유지되는지.
 
 **급하지 않은 이유**: 시연은 10분 기본 트랙으로 한다 — 그것이 오늘의 답이었다.
@@ -165,7 +165,7 @@ function liveHints() {
 
 **크기** 중간 · **위험** 낮음 · **마감 뒤**
 
-`tests/` 23개가 전부 파이썬이라 **JS 는 자동 커버리지가 0이다.** 이번 스프린트에서
+`etc/tests/` 23개가 전부 파이썬이라 **JS 는 자동 커버리지가 0이다.** 이번 스프린트에서
 고친 여섯 개(마이크 폴백·세션 초기화·「처음부터」·말풍선 중복·힌트·입력)가 전부
 사람 손으로만 확인됐다. 앞으로도 같은 자리가 계속 깨질 것이다.
 
@@ -201,7 +201,7 @@ function liveHints() {
 | 6. 서버 QA 세션 키 분리 | ✅ 해소 (키는 안 나눔) | `eb968a8` |
 
 **3번에서 이 문서의 숫자가 틀렸다.** 위 §3 의 임계값 **0.40 은 쓰면 안 된다** —
-그건 `examples/qa_judge_probe.py` 의 토크나이저로 잰 값이라 `f08_questions.py` 의
+그건 `etc/bench/qa_judge_probe.py` 의 토크나이저로 잰 값이라 `f08_questions.py` 의
 토크나이저로는 진짜 쌍둥이 셋 중 둘(0.24·0.26)을 놓친다. 실제로 쓴 값은 **0.20**
 (`QA_TWIN_GIST_MAX`). 다른 곳에서 겹침 임계를 정할 때도 **그 코드의 토크나이저로
 다시 재라.**
@@ -219,8 +219,8 @@ function liveHints() {
 **검증 명령** (프론트를 고쳤으면 둘 다):
 
 ```bash
-python -m pytest tests/ -q          # 597 passed · 7 skipped
-node tests/js/qa_live.smoke.mjs     # 25 케이스
+python -m pytest etc/tests/ -q          # 597 passed · 7 skipped
+node etc/tests/js/qa_live.smoke.mjs     # 25 케이스
 ```
 
 ---
@@ -229,7 +229,7 @@ node tests/js/qa_live.smoke.mjs     # 25 케이스
 
 **한 것**: `build_questions(slidedoc=…)` 를 더하고, 개념마다 `node.slide_nos` 로
 자른 자료 본문을 질문 생성 프롬프트에 한 줄로 넣는다 (`_slide_body`, 개념당
-400자). 브리지는 파싱 때 남긴 `fixtures/raw/{stem}.slidedoc.json` 을 **정확한
+400자). 브리지는 파싱 때 남긴 `etc/fixtures/raw/{stem}.slidedoc.json` 을 **정확한
 stem 하나만** 찾아 넘긴다 — 최신본으로 대체하지 않는다.
 
 **안 한 것**: `server/app.py` · `server/jobs.py`. 데모가 안 쓰는 경로다.

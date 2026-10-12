@@ -18,7 +18,7 @@ if (!cfg.stamp || !/^\d{8}-\d{4}$/.test(String(cfg.stamp))) {
 }
 cfg.maxVariants = Math.min(Number(cfg.maxVariants) || 3, 5)   // 과금 상한: 한 번에 최대 5변형
 const benchFlags = ''
-const EDITABLE = ['pipeline/f06_concepts.py', 'pipeline/f07_graph.py', 'pipeline/f11_align.py']
+const EDITABLE = ['main/pipeline/f06_concepts.py', 'main/pipeline/f07_graph.py', 'main/pipeline/f11_align.py']
 const EDITABLE_STR = EDITABLE.join(' ')
 
 const BENCH = {
@@ -71,7 +71,7 @@ for (let attempt = 1; attempt <= 2; attempt++) {
 
 1. \`git status --short ${EDITABLE_STR}\` 가 비어 있는지 확인한다. 비어 있지 않으면 verdict 'ERROR' 로 돌려주고 멈춘다
    — 손대다 만 프롬프트 위에 기준선을 잡으면 이후 비교가 전부 거짓말이 된다.
-2. \`scripts/graph_bench.sh --tag ${baseTag} ${benchFlags}\` 를 돌린다 (비교 없음). 마지막 줄이 VERDICT: BASELINE 또는 INVALID 다.
+2. \`etc/scripts/graph_bench.sh --tag ${baseTag} ${benchFlags}\` 를 돌린다 (비교 없음). 마지막 줄이 VERDICT: BASELINE 또는 INVALID 다.
 3. verdict 는 그 줄 그대로('BASELINE' | 'INVALID' | 'ERROR'), tag 는 '${baseTag}', summary 에 핵심 숫자를 적는다.${attempt > 1 ? ' (재측정 — 직전 측정이 전부 폴백이었다)' : ''}`,
     { phase: 'Baseline', label: attempt > 1 ? 'bench:baseline-retry' : 'bench:baseline', schema: BENCH, effort: 'low' })
   if (base && base.verdict === 'BASELINE') break
@@ -89,14 +89,14 @@ const hyp = await agent(
 `너는 Q&A 프롬프트 개선 가설을 세우는 담당이다. 고치지 않는다 — 목록만 돌려준다.
 
 읽을 것:
-- 기준선 결과: exports/graph_eval/*_${baseTag}.json 의 summary 와 artifacts.concept_graph (다시 만든 노드·간선 원문) · artifacts.alignment_doc
+- 기준선 결과: etc/bench/results/graph_eval/*_${baseTag}.json 의 summary 와 artifacts.concept_graph (다시 만든 노드·간선 원문) · artifacts.alignment_doc
 - 프롬프트 원본: ${EDITABLE_STR} (SYSTEM_PROMPT 와 컨텍스트 조립 함수)
 - 설계 원칙: docs/PROMPT_DESIGN.md §1
-- 장부: exports/ledgers/GRAPH_BENCH_LEDGER.md (있으면) — REGRESSED 로 끝난 가설을 되풀이하지 않는다
-- 지표 뜻: examples/graph_eval.py 머리 주석 (slide_coverage·label_grounded·summary_grounding·orphan·dangling·dup·evidence_found·false_missing/aligned)
+- 장부: etc/bench/results/ledgers/GRAPH_BENCH_LEDGER.md (있으면) — REGRESSED 로 끝난 가설을 되풀이하지 않는다
+- 지표 뜻: etc/bench/graph_eval.py 머리 주석 (slide_coverage·label_grounded·summary_grounding·orphan·dangling·dup·evidence_found·false_missing/aligned)
 - 이전 모델 비교: docs/MODEL_BENCH_F07.md (노드 5개짜리 그래프가 왜 못 쓰는지)
 
-기준선 그래프를 자료(fixtures/live_qa_run.json 의 slide_doc)와 나란히 읽고 — 어느 장이 노드 없이 비었나, 어느 이름이 자료에 없나, 요약이 왜 자료 밖 낱말을 쓰나, 정합 인용이 발화 그대로인가 — 가장 약한 지표를 고칠 가설을 최대 ${cfg.maxVariants}개 만든다. 효과가 클 것 같은 순서로.
+기준선 그래프를 자료(etc/fixtures/live_qa_run.json 의 slide_doc)와 나란히 읽고 — 어느 장이 노드 없이 비었나, 어느 이름이 자료에 없나, 요약이 왜 자료 밖 낱말을 쓰나, 정합 인용이 발화 그대로인가 — 가장 약한 지표를 고칠 가설을 최대 ${cfg.maxVariants}개 만든다. 효과가 클 것 같은 순서로.
 ${cfg.focus ? `이번 초점: ${cfg.focus}\n` : ''}
 가설 하나의 조건:
 - 변수 하나만 바꾼다 (프롬프트 문장 하나 추가/수정, 배치 크기·발췌 길이 상수 하나, few-shot 하나).
@@ -152,7 +152,7 @@ for (let i = 0; i < hyps.length; i++) {
 
   const bench = await agent(
 `.claude/agents/graph-bench-runner.md 를 먼저 읽고 그대로 따른다.
-\`scripts/graph_bench.sh --tag ${tag} --compare ${accepted} --stage ${h.stage || 'all'} --note "${h.id} ${h.title.replace(/"/g, "'")}" ${benchFlags}\` 를 돌리고
+\`etc/scripts/graph_bench.sh --tag ${tag} --compare ${accepted} --stage ${h.stage || 'all'} --note "${h.id} ${h.title.replace(/"/g, "'")}" ${benchFlags}\` 를 돌리고
 마지막 줄 VERDICT 와 리포트 경로, 핵심 숫자를 돌려준다.`,
     { phase: 'Variants', label: `bench:${h.id}`, schema: BENCH, effort: 'low' })
   const verdict = bench ? bench.verdict : 'ERROR'
@@ -167,7 +167,7 @@ feat(graph-prompt): ${h.title}
 
 벤치마크 ${accepted} → ${tag}: ${bench.summary}
 가설: ${h.change}
-리포트: ${bench.reportPath || 'exports/graph_eval/reports/'}
+리포트: ${bench.reportPath || 'etc/bench/results/graph_eval/reports/'}
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 ${cfg.push ? '커밋 뒤 `git push origin HEAD` 까지 한다.' : '푸시는 하지 않는다 (사람이 장부를 보고 민다).'}
@@ -189,7 +189,7 @@ const report = await agent(
 `docs/WORKLOG.md 맨 위(작성 규칙 주석 아래, 첫 "## " 절 위)에 이번 루프 기록을 한 절 추가한다. 한다체.
 제목: "## ${cfg.stamp.slice(0, 4)}-${cfg.stamp.slice(4, 6)}-${cfg.stamp.slice(6, 8)} — 개념 그래프·정합 프롬프트 자율 루프 (improve-graph, ${cfg.stamp})"
 내용: 기준선 ${baseTag} 숫자 한 줄 → 표(가설 id · 제목 · 판정 · 핵심 델타) → 채택된 것이 있으면 커밋 해시,
-없으면 "채택 없음 — 다음에 볼 가설" 한 줄. 장부 exports/ledgers/GRAPH_BENCH_LEDGER.md 와 리포트 폴더를 링크한다.
+없으면 "채택 없음 — 다음에 볼 가설" 한 줄. 장부 etc/bench/results/ledgers/GRAPH_BENCH_LEDGER.md 와 리포트 폴더를 링크한다.
 자료: ${JSON.stringify({ baseline: base.summary, accepted, variants: ledger })}
 WORKLOG.md 만 고치고, 커밋은 하지 않는다. 끝나면 ok 와 추가한 절의 첫 줄을 돌려준다.`,
   { phase: 'Report', label: 'worklog', schema: DONE, effort: 'low' })

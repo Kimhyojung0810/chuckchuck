@@ -1,0 +1,898 @@
+/**
+ * 데모용 샘플 데이터(제목·이미지 등)입니다.
+ * 실API 자료가 없을 때 화면을 채워 보는 용도입니다.
+ * 시나리오: 「개인투자자 수익률 격차 분석」 발표 — 녹음 없이 리포트만 보여주는 쇼케이스.
+ * 자료: etc/fixtures/raw/개인투자자_수익률격차_분석_v2.slidedoc.json (15장).
+ * 설계 의도: 총점 70점대 / 세부 점수는 잘한 것·못한 것이 뚜렷하게 갈리게 /
+ *   핵심 슬라이드(11번 상위 그룹 비교)는 빠르게 지나가고,
+ *   배경(4번 복리 효과)은 길게 끌게.
+ */
+
+const DATA = {
+  session: {
+    title: '개인투자자 수익률 격차 분석',
+    file: '[ppt3]개인투자자_수익률격차_분석.pptx.pdf',
+    occasion: '학회·수업 발표',
+    slides: 15,
+    duration: '9분 24초',
+    durationSec: 564,
+    nth: 2,
+    score: 74,
+    prevScore: 66,
+    /* 채점표 v3 의 7개 클러스터다. 실측(realSummary)이 내는 모양과 같아야 한다 —
+       [클러스터 이름, 0~100, 병아리 키]. 어긋나면 샘플과 실측이 서로 다른 말을 한다.
+       점수를 일부러 벌려 놓았다 — 잘한 축(내용·시각자료)과 무너진 축(시간·전달)이 한눈에 갈리게. */
+    dims: [
+      ['내용 충실도', 81, 'midm'], ['논리 구조', 66, 'midm'],
+      ['목적·청중 적합성', 78, 'ax'], ['언어적 명료성', 82, 'ax'],
+      ['음성적 전달', 63, 'solar'], ['시각자료 활용', 85, 'exaone'],
+      ['시간 관리', 55, 'solar'],
+    ],
+    avgCpm: 328,
+    oneLiner: '과잉 매매 원인은 설득력 있었지만, 결론을 떠받치는 상위 그룹 비교가 발표에서 통째로 비었어요.',
+    qa: { before: 2, after: 4, total: 5, mastered: '손실 회피 · 타이밍 실패', weak: '사전 매도 규칙',
+      trophy: { slide: 8, node: 'lossav',
+        before: '개인투자자는 손실 종목을 잘 못 팝니다.',
+        after: '오른 종목은 팔리고 내린 종목만 남으면, 포트폴리오가 시간이 갈수록 자동으로 나빠집니다.' } },
+  },
+
+  reportProfiles: {
+    vla: {
+      title:'Hierarchical VLA 논문 리뷰', occasion:'학회·수업 발표', slides:35, duration:'12분 06초', nth:1, score:79, diff:8,
+      dims:[['내용 충실도',81,'midm'],['논리 구조',75,'midm'],['목적·청중 적합성',77,'ax'],['언어적 명료성',80,'ax'],['음성적 전달',83,'solar'],['시각자료 활용',78,'exaone'],['시간 관리',82,'solar']], before:3, after:4, total:5,
+      mastered:'실패 데이터가 필요한 이유', weak:'Weight Merging + LoRA',
+      oneLiner:'VINE의 큰 구조는 전달됐지만, 두 시스템이 실제로 학습되는 연결 과정은 더 설명해야 해요.',
+      evidence:[
+        {status:'ok',slide:9,time:'04:18',title:'실패 데이터의 역할',quote:'“실패 시연은 버리는 데이터가 아니라 System 2가 위험을 평가하는 근거가 됩니다.”',note:'Q&A 뒤 성공·실패 혼합 데이터의 역할을 자기 말로 설명했어요.'},
+        {status:'mid',slide:11,time:'06:42',title:'PaliGemma와 π0 결합',quote:'“두 모델을 합쳐서 하나의 backbone으로 사용합니다.”',note:'결합 결과는 말했지만 공유 layer를 왜 merge하는지는 빠졌어요.'},
+        {status:'no',slide:12,time:'—',title:'Weight Merging + LoRA',quote:'관련 발화를 찾지 못했어요.',note:'전체 모델을 업데이트하지 않고 task head를 학습하는 이유를 한 문장으로 준비해보세요.'},
+      ],
+      priorities:['Weight Merging과 LoRA의 역할을 구분해서 설명하기','System 2의 평가 결과가 System 1 행동에 반영되는 흐름 연결하기','성공 데이터만 학습한 기존 VLA와 비교 문장 추가하기'],
+    },
+    pitch: {
+      title:'척척발표 서비스 피치', occasion:'대회·IR 피칭', slides:12, duration:'6분 34초', nth:3, score:91, diff:14,
+      dims:[['내용 충실도',94,'midm'],['논리 구조',90,'midm'],['목적·청중 적합성',92,'ax'],['언어적 명료성',91,'ax'],['음성적 전달',88,'solar'],['시각자료 활용',89,'exaone'],['시간 관리',93,'solar']], before:4, after:5, total:5,
+      mastered:'근거 기반 판정의 차별점', weak:'초기 고객 확보 전략',
+      oneLiner:'문제와 해결책은 선명했고, Q&A에서 “왜 기존 발표 코치와 다른가”까지 근거로 방어했어요.',
+      evidence:[
+        {status:'ok',slide:3,time:'00:48',title:'사용자 문제',quote:'“자료는 완성했지만 정작 왜 그런지 설명하지 못하는 순간을 찾습니다.”',note:'타깃 사용자의 문제를 한 문장으로 분명하게 제시했어요.'},
+        {status:'ok',slide:6,time:'02:31',title:'서비스 차별점',quote:'“AI 총평 대신 실제 발화와 슬라이드 위치를 모든 판정에 붙입니다.”',note:'Q&A에서 경쟁 서비스와의 차이를 근거 우선 원칙으로 설명했어요.'},
+        {status:'mid',slide:10,time:'05:12',title:'Go-to-market',quote:'“대학생과 취업 준비생부터 시작할 계획입니다.”',note:'대상은 말했지만 첫 사용자를 어디서 어떻게 모을지는 부족했어요.'},
+      ],
+      priorities:['초기 고객 채널과 첫 100명 확보 방법 제시하기','무료 연습에서 유료 전환되는 순간 설명하기','판정 정확도 8/10 기준을 검증 계획과 연결하기'],
+    },
+    'q2-report': {
+      title:'2분기 제품 성과 보고', occasion:'사내 보고', slides:14, duration:'9분 22초', nth:5, score:87, diff:11,
+      dims:[['내용 충실도',89,'midm'],['논리 구조',86,'midm'],['목적·청중 적합성',87,'ax'],['언어적 명료성',88,'ax'],['음성적 전달',85,'solar'],['시각자료 활용',84,'exaone'],['시간 관리',88,'solar']], before:4, after:5, total:5,
+      mastered:'전환율 상승의 원인', weak:'3분기 리텐션 리스크',
+      oneLiner:'성과 수치는 명확했고, Q&A에서 전환율 상승이 어떤 실험에서 왔는지까지 연결했어요.',
+      evidence:[
+        {status:'ok',slide:4,time:'01:37',title:'활성 사용자 증가',quote:'“주간 활성 사용자는 전분기보다 18% 늘었고 신규 온보딩 개선이 가장 크게 기여했습니다.”',note:'수치와 원인을 함께 제시했어요.'},
+        {status:'ok',slide:8,time:'04:56',title:'결제 전환율',quote:'“무료 체험 안내를 첫날이 아니라 핵심 기능 사용 직후로 옮겨 전환율이 2.1%p 올랐습니다.”',note:'Q&A 뒤 실험 변경과 결과를 구체적으로 설명했어요.'},
+        {status:'mid',slide:12,time:'07:48',title:'3분기 리스크',quote:'“리텐션은 계속 모니터링하겠습니다.”',note:'어떤 코호트와 임계값을 볼지 기준이 필요해요.'},
+      ],
+      priorities:['3분기 리텐션 위험 코호트와 경보 기준 제시하기','전환율 실험의 표본 크기와 기간 함께 말하기','성과에서 다음 분기 실행 항목으로 넘어가는 연결 문장 추가하기'],
+    },
+    trend: {
+      title:'소비 트렌드 세미나', occasion:'학회·수업 발표', slides:18, duration:'11분 40초', nth:6, score:68, diff:7,
+      dims:[['내용 충실도',72,'midm'],['논리 구조',64,'midm'],['목적·청중 적합성',68,'ax'],['언어적 명료성',71,'ax'],['음성적 전달',70,'solar'],['시각자료 활용',66,'exaone'],['시간 관리',69,'solar']], before:2, after:4, total:5,
+      mastered:'가성비와 가치소비의 차이', weak:'설문 표본 편향',
+      oneLiner:'트렌드 사례는 풍부했지만, 조사 표본에서 전체 소비자로 일반화하는 근거가 약했어요.',
+      evidence:[
+        {status:'ok',slide:5,time:'02:14',title:'가성비와 가치소비',quote:'“가격이 싸서 고르는 것과 내 가치관에 맞아 더 지불하는 것은 다른 행동입니다.”',note:'Q&A 뒤 두 개념을 선택 기준으로 구분했어요.'},
+        {status:'mid',slide:9,time:'05:22',title:'숏폼 구매 전환',quote:'“요즘은 대부분 숏폼을 보고 바로 구매합니다.”',note:'사례는 있지만 연령대와 플랫폼 범위가 빠졌어요.'},
+        {status:'no',slide:14,time:'—',title:'설문 표본 편향',quote:'표본 구성에 관한 발화를 찾지 못했어요.',note:'20대 수도권 응답자가 많은 조사라는 한계를 반드시 밝혀야 해요.'},
+      ],
+      priorities:['설문 표본의 연령·지역 편향을 먼저 밝히기','트렌드마다 관찰 기간과 데이터 출처 붙이기','사례 나열을 세 가지 소비 동기로 묶어서 설명하기'],
+    },
+  },
+
+  slideTitles: [
+    '개인 투자자는 왜 시장을 이기지 못하는가',
+    '결론부터 — 격차는 행동에서 만들어진다',
+    '현황 진단 — 연평균 수익률 비교',
+    '복리 효과 — 연 4.8%p의 10년 후',
+    '원인 구조 — 다섯 가지 행동 요인',
+    '원인 ① 과잉 매매',
+    '원인 ② 타이밍 실패',
+    '원인 ③ 손실 회피',
+    '원인 ④ 집중 투자',
+    '원인 ⑤ 거래 비용',
+    '성공 요인 — 상위 25% vs 하위 25%',
+    '오해와 사실',
+    '실행 체크리스트 — 통제 가능한 여섯 가지',
+    '결론 — 덜 움직이는 것이 유리했다',
+    'Q&A',
+  ],
+  /* webp 컷은 없고, 시연·샘플은 assets/samples/investor_preview.pdf 를 pdf.js 로 그린다. */
+  slideImages: [],
+
+  tree: [
+    { id:'gap', label:'격차의 실재', depth:1, w:.93, slide:'S03', status:'ok', conf:94,
+      check:{정의:1,원리:1,관계:1,이유:1}, ev:'“개인 평균은 지수 대비 연 4.8%p 낮고, 상위 25%조차 지수를 2.6%p 밑돌았습니다.”', evTime:'1:48',
+      why:'격차가 일부의 실수가 아니라 전반 현상임을 수치로 분명히 잡았어요.', fix:'이 설명 흐름을 유지하세요.' },
+    { id:'overtrade', label:'과잉 매매', depth:1, w:.91, slide:'S06', status:'ok', conf:92,
+      check:{정의:1,원리:1,관계:1,이유:1}, ev:'“회전율이 올라갈수록 수익률이 예외 없이 떨어졌고, 비용은 확정인데 수익은 불확실합니다.”', evTime:'3:42',
+      why:'가장 큰 원인 요인을 단조 감소 데이터와 비용 논리로 끝까지 연결했어요.', fix:'이 설명 흐름을 유지하세요.' },
+    { id:'timing', label:'타이밍 실패', depth:1, w:.86, slide:'S07', status:'no', conf:90,
+      check:{정의:0,원리:0,관계:0,이유:0}, ev:'최고 상승일 제외 표는 지나갔지만, 20일이 0.8%라는 핵심 수치를 읽지 않았어요.', evTime:'',
+      why:'단 며칠을 놓치면 10년 수익이 무너진다는 발표의 두 번째 축이 청중에게 전달되지 않았어요.',
+      fix:'“2,500일 중 20일을 놓치면 8.7%가 1.5%가 됩니다” 한 문장이면 됩니다.' },
+    { id:'lossav', label:'손실 회피', depth:1, w:.88, slide:'S08', status:'mid', conf:85,
+      check:{정의:1,원리:0,관계:0,이유:1}, ev:'“수익 종목은 52일, 손실 종목은 187일 — 3.6배 더 오래 들고 있습니다.”', evTime:'4:56',
+      why:'보유 기간 차이는 말했지만, 그 행동이 포트폴리오를 자동으로 나쁘게 만드는 경로까지는 안 갔어요.',
+      fix:'오른 종목은 빠지고 내린 종목만 쌓인다 → 매대(계좌)가 점점 나빠진다, 순서로 이어보세요.' },
+    { id:'concentrate', label:'집중 투자', depth:1, w:.78, slide:'S09', status:'mid', conf:82,
+      check:{정의:1,원리:1,관계:0,이유:0}, ev:'“종목 수가 적을수록 결과의 진폭이 커집니다.”', evTime:'5:38',
+      why:'진폭 얘기는 했지만, 분산하면 평균이 오히려 오른다는 표의 핵심이 빠졌어요.',
+      fix:'상단 68%→15%보다 하단 −54%→−6%가 더 빨리 개선되고, 평균은 1.2%→6.3%로 오른다고 읽어주세요.' },
+    { id:'cost', label:'거래 비용', depth:1, w:.74, slide:'S10', status:'ok', conf:88,
+      check:{정의:1,원리:1,관계:1,이유:1}, ev:'“비용은 하락한 해에도 똑같이 발생하고, 노력과 결과가 정비례하는 유일한 변수입니다.”', evTime:'6:12',
+      why:'예측이 필요 없는 통제 변수라는 점을 분명히 짚었어요.', fix:'이 설명 흐름을 유지하세요.' },
+    { id:'rules', label:'사전 매도 규칙', depth:2, parent:'overtrade', w:.84, slide:'S11', status:'no', conf:91,
+      check:{정의:0,원리:0,관계:0,이유:0}, ev:'상위·하위 그룹 비교표를 35초 만에 지나갔어요. 회전율 8.4배·매도규칙 71% vs 18%를 말하지 않았어요.', evTime:'',
+      why:'핵심 원인을 모아 “무엇이 상위를 갈랐는지” 보여주는 결론 근거가 발표에서 비었어요.',
+      fix:'“상위 그룹을 가른 것은 판단력이 아니라 사전에 정해둔 규칙이었습니다”를 표와 함께 읽어주세요.' },
+    { id:'myth', label:'오해와 사실', depth:2, parent:'gap', w:.70, slide:'S12', status:'ct', conf:89,
+      check:{정의:1,원리:1,관계:0,이유:0}, docSays:'공부하면 시장을 이길 수 있다 — 사실: 분석 시간과 수익률의 상관은 약하고, 분석량이 많을수록 매매 빈도가 오른다.',
+      spokeSays:'“결국 공부를 많이 해서 종목을 잘 고르는 사람이 상위 그룹에 들어갑니다.”', spokeTime:'7:28',
+      why:'자료가 깨는 오해를 그대로 말해서, 앞의 행동 요인 논리를 스스로 뒤집었어요.',
+      fix:'“공부 → 확신 → 거래 증가로 효과가 상쇄된다”까지 말해야 자료와 일치해요.' },
+    { id:'checklist', label:'통제 가능한 여섯 가지', depth:2, parent:'rules', w:.62, slide:'S13', status:'ok', conf:87,
+      check:{정의:1,원리:1,관계:1,이유:0}, ev:'“매매 빈도 상한, 최소 보유 기간, 종목 수 하한 — 오늘 정할 수 있는 값입니다.”', evTime:'8:05',
+      why:'분석 결과를 실행 항목으로 옮기는 마무리가 분명했어요.', fix:'이 설명 흐름을 유지하세요.' },
+    { id:'compound', label:'복리 효과 상세', depth:2, parent:'gap', w:.22, slide:'S04', status:'om', conf:95,
+      check:{정의:0,원리:0,관계:0,이유:0}, ev:'발화에 길지만 본 발표에서는 보조 예시라 감점하지 않았어요. 다만 시간이 권장의 두 배를 썼어요.', evTime:'',
+      why:'핵심 주장에 영향을 주지 않는 배경 설명이에요.', fix:'Q&A 대비용으로만 두고 본문에서는 30초로 줄이세요.' },
+  ],
+
+  slideStatus: ['none','none','ok','om','mid','ok','no','mid','mid','ok','no','ct','ok','none','om'],
+  slideMainNode: {3:'gap',4:'compound',5:'overtrade',6:'overtrade',7:'timing',8:'lossav',9:'concentrate',10:'cost',11:'rules',12:'myth',13:'checklist'},
+  timeline: [
+    {sec:108,time:'1:48',type:'ok',label:'지수 대비 −4.8%p로 격차의 실재를 분명히 잡았어요',tab:1,node:'gap',onSlide:3},
+    {sec:222,time:'3:42',type:'ok',label:'과잉 매매의 단조 감소와 비용 논리를 연결했어요',tab:1,node:'overtrade',onSlide:6},
+    {sec:268,time:'4:28',type:'no',label:'타이밍 실패의 핵심 수치(20일·0.8%)가 빠졌어요',tab:1,node:'timing',onSlide:7},
+    {sec:296,time:'4:56',type:'mid',label:'손실 회피가 포트폴리오를 나쁘게 만드는 경로가 부족해요',tab:1,node:'lossav',onSlide:8},
+    {sec:392,endSec:427,time:'6:32–7:07',type:'fast',label:'상위 그룹 비교 구간이 본인 평균보다 31% 빨라졌어요',tab:3,onSlide:11},
+    {sec:400,time:'6:40',type:'no',label:'사전 매도 규칙 비교표 설명이 발표에서 빠졌어요',tab:1,node:'rules',onSlide:11},
+    {sec:448,time:'7:28',type:'ct',label:'공부·종목 선정 결론이 자료와 달라요',tab:1,node:'myth',onSlide:12},
+    {sec:485,time:'8:05',type:'ok',label:'통제 가능한 여섯 가지로 실행 항목을 정리했어요',tab:2,onSlide:13},
+  ],
+  logicBreaks: [
+    {type:'근거 점프',from:'10번',to:'13번',time:'6:30',ev:'“이제 실천 항목을 보겠습니다.”',note:'상위·하위 그룹 비교(11번)를 35초 만에 지나쳐, 핵심 원인이 왜 “규칙”으로 모이는지 다리가 비어 있어요.'},
+    {type:'연결 멘트 없음',from:'8번',to:'9번',time:'5:20',ev:'“다음은 집중 투자입니다.”',note:'손실 회피로 계좌가 나빠진 뒤, 왜 종목 수까지 봐야 하는지 전환 문장이 없어요.'},
+    {type:'매끄러운 연결',from:'5번',to:'6번',time:'3:18',good:true,ev:'“다섯 요인 중 종목 선정은 없고, 가장 큰 두 개는 ‘언제’의 문제입니다. 그중 첫째가 과잉 매매예요.”',note:'원인 구조에서 과잉 매매로 자연스럽게 들어갔어요.'},
+  ],
+  /* 11번(상위 그룹 비교)은 발표의 결론 근거인데 가장 빠르고,
+     4번(복리 효과)은 배경 예시인데 가장 길다 —
+     말 속도·시간 배분 리포트가 이 대비를 그대로 보여준다. */
+  pace: [
+    ['현황 진단',3,308],['복리 효과',4,272],['원인 구조',5,318],['과잉 매매',6,336],['타이밍 실패',7,348],
+    ['손실 회피',8,342],['집중 투자',9,334],['거래 비용',10,320],['상위 그룹 비교',11,430,true],
+    ['오해와 사실',12,362],['체크리스트',13,312],['결론',14,298],
+  ],
+  paceStats: {avg:328,max:430,maxSeg:'상위 그룹 비교',rec:'300~350'},
+  timeAlloc: [
+    ['배경·현황',18,30,'+67% 초과'],['원인 상세',42,40,'적절'],['성공 요인·오해',25,12,'-52% 부족'],['실행·결론',15,18,'+20% 초과'],
+  ],
+  priorities: {
+    '학회·수업 발표': [
+      {t:'상위 그룹 비교표를 발표 문장으로 복원하기',gain:6,d:'슬라이드에는 회전율 8.4배·매도규칙 71% vs 18%가 나와 있지만, 발표에서는 이 표를 35초 만에 지나갔어요.',spoke:{text:'“상위 그룹을 가른 것은 판단력이 아니라 사전에 정해둔 규칙이었습니다.”',time:'Q&A 02:14'},fix:'Q&A에서 완성한 이 문장을 11번 슬라이드에서 그대로 사용해보세요.'},
+      {t:'오해와 사실 결론을 자료와 맞추기',gain:4,d:'자료는 “공부 → 확신 → 거래 증가로 효과가 상쇄된다”인데, 발표에서는 공부를 많이 한 사람이 상위라고 말했어요.',spoke:{text:'“결국 공부를 많이 해서 종목을 잘 고르는 사람이 상위 그룹에 들어갑니다.”',time:'7:28'},fix:'“분석량이 늘수록 매매 빈도가 올라 효과가 상쇄된다”까지 말해야 자료와 일치해요.'},
+      {t:'복리 효과 설명을 40초로 압축하기',gain:3,d:'배경 예시가 권장의 두 배라, 정작 결론 근거인 11번 시간을 빼앗겼어요.',spoke:{text:'“1년 차엔 48만 원, 그런데 10년 뒤에는…”',time:'2:30'},fix:'“연 4.8%p는 10년 뒤 원금의 84% 차이입니다 — 그래서 지금 행동을 봐야 합니다” 두 문장이면 충분해요.'},
+    ],
+  },
+  punchlines: [
+    {time:'03:42',pos:'6번 슬라이드 · 과잉 매매',main:'매매 빈도는 실력 발휘 기회가 아니라 비용과 오류에 노출되는 횟수입니다.',why:'가장 큰 원인 요인을 청중이 기억할 한 문장으로 압축했어요.'},
+    {time:'08:40',pos:'14번 슬라이드 · 결론',main:'무엇을 살까보다, 얼마나 자주 팔까가 결과를 갈랐습니다.',why:'다섯 요인을 하나의 행동 원칙으로 묶는 마무리예요.'},
+  ],
+  terms: [
+    {term:'과잉 매매',status:'ok',def:'거래를 늘릴수록 수수료·세금·오판이 누적되어 수익률이 떨어지는 행동.',slide:'S06',q:'회전율이 높을수록 왜 수익률이 떨어지나요?',frame:'① 비용 확정 → ② 오판 누적 → ③ 순수익 하락'},
+    {term:'손실 회피',status:'mid',def:'이익 종목은 서둘러 팔고 손실 종목은 오래 보유하는 행동 편향.',slide:'S08',q:'손실 종목을 오래 쥐면 포트폴리오에 무슨 일이 생기나요?',frame:'① 본전 감각 → ② 나쁜 종목 축적 → ③ 계좌 악화'},
+    {term:'타이밍 실패',status:'no',def:'급등 구간을 놓치면 장기 수익이 급감하는 현상. 급등일은 급락 직후에 몰린다.',slide:'S07',q:'2,500거래일 중 20일을 놓치면 수익률이 어떻게 되나요?',frame:'① 소수 급등일 → ② 회피 구간과 겹침 → ③ 장기 수익 붕괴'},
+    {term:'사전 매도 규칙',status:'no',def:'매수 시점에 미리 정해 둔 매도·보유 기준. 상위 그룹을 가른 핵심 습관.',slide:'S11',q:'상위 25%와 하위 25%를 가른 가장 큰 차이는 무엇인가요?',frame:'① 규칙 유무 → ② 회전율·보유기간 차이 → ③ 성과 격차'},
+  ],
+  mapNodes: [
+    {id:'r',label:'수익률 격차',root:true},
+    {id:'a',label:'현황·배경',status:'ok',slide:'S03'},
+    {id:'b',label:'핵심 원인',status:'mid',slide:'S05'},
+    {id:'c',label:'결론 근거',status:'no',slide:'S11'},
+    {id:'a1',label:'격차의 실재',status:'ok',slide:'S03',p:'a'},
+    {id:'b1',label:'과잉 매매',status:'ok',slide:'S06',p:'b'},
+    {id:'b2',label:'손실 회피',status:'mid',slide:'S08',p:'b'},
+    {id:'c1',label:'사전 규칙',status:'no',slide:'S11',p:'c'},
+    {id:'c2',label:'오해와 사실',status:'ct',slide:'S12',p:'c'},
+  ],
+
+  /* 대화형 질문 코칭 · 하나의 스레드로 이어지는 비트들 */
+  qaBeats: [
+    { id:'b0', kind:'ask', concept:'lossav', conceptLabel:'손실 회피', slide:'S08',
+      meta:'질문',
+      basis:'“수익 종목 52일 · 손실 종목 187일” · 8번 슬라이드',
+      q:{교수님:'자, 손실 회피요. 손실 종목을 오래 들고 있는 게 왜 수익률에 문제가 되죠?',
+         심사위원:'손실 회피가 격차의 원인이라고 했는데, 그 행동이 수익률을 깎는다는 근거가 있어요?',
+         '회사 상사':'시간 없으니 한 줄로. 물린 주식 안 파는 거 — 그래서 그게 왜 손해예요?',
+         '일반 청중':'저도 물린 주식 계속 들고 있는데요… 그게 그렇게 나쁜 거예요?'},
+      answer:'음, 사람들이 심리적으로 손해 보는 걸 싫어해서 그런 것 같습니다.',
+      verdict:'partial',
+      react:'방향은 맞아요. 근데 “싫어한다”에서 멈추면 계좌가 왜 나빠지는지까지는 안 닿아요.',
+      by:{ '회사 상사':{ kind:'interrupt', cutAt:0.45,
+        interject:'스톱. 그건 심리 얘기고 — 결론부터요. 그 행동이 계좌에 “무슨” 문제예요?',
+        answerAfter:'…아, 결론은 전망 나쁜 종목만 쌓여서 포트폴리오가 자동으로 나빠집니다.',
+        react:'그게 첫 문장이어야죠. 심리 깔지 말고 결론부터. 15초 룰 기억해요.' } } },
+
+    { id:'b1', kind:'interrupt', concept:'lossav', conceptLabel:'손실 회피', slide:'S08',
+      meta:'파고들기',
+      q:{교수님:'그럼 손실 종목을 안 파는 게 왜 수익률을 깎죠? 들고 있으면 다시 오를 수도 있잖아요?',
+         심사위원:'“안 판다 = 손해”라는 인과, 성립한다는 근거가 있어요?',
+         '회사 상사':'좋아요, 근데 안 팔면 왜 손해죠? 한마디로.',
+         '일반 청중':'근데 기다리면 본전은 오지 않아요? 왜 깎인다는 거예요?'},
+      answer:'아 그건 내린 종목은 안 좋은 종목이라서, 계속 가지고 있으면 더 내려가니까, 그래서',
+      cutAt:0.55,
+      interject:'잠깐 — “내린 종목 = 나쁜 종목”이 항상 참인가요? 문제는 종목 평가가 아니라 “파는 기준”인데요.',
+      answerAfter:'…그러네요. 내렸다고 다 나쁜 건 아니고… 음, 그럼 왜 계좌가 나빠지는지 잘 모르겠어요.',
+      verdict:'none',
+      react:'괜찮아요, 여기서 다 막혀요. 힌트 하나 열어드릴게요.',
+      by:{
+        심사위원:{ interject:'“더 내려간다”는 예측이지 근거가 아니에요. 왜 깎이는지, 구조를 대보세요.' },
+        '회사 상사':{ interject:'됐고 — 파는 기준이 뭐가 문제라는 거예요? 결론만.' },
+        '일반 청중':{ interject:'음… 내린 게 왜 나쁜 거예요? 다시 오를 수도 있는데. 그게 이해가 안 돼요.' } } },
+
+    { id:'b2', kind:'ask', concept:'lossav', conceptLabel:'손실 회피', slide:'S08', autoHint:1,
+      meta:'비유로 다시',
+      q:{교수님:'과일가게로 가볼게요. 잘 팔리는 사과는 바로 내보내고, 시든 배는 “본전 생각”에 계속 진열해두는 가게 — 이 매대는 시간이 갈수록 어떻게 되죠?',
+         심사위원:'구체적 예로 검증해보죠. 파는 기준이 “본전”인 가게 — 매대에는 결국 뭐가 남나요?',
+         '회사 상사':'예시 하나로 빠르게. 잘 나가는 물건만 팔고 안 나가는 건 쌓아두는 가게, 어떻게 돼요?',
+         '일반 청중':'과일가게로 쉽게 갈게요. 싱싱한 것만 팔고 시든 건 남겨두면, 가게는 어떻게 돼요?'},
+      answer:'팔리는 물건은 없고 시든 물건만 남으니까, 매대 전체가 점점 안 좋아집니다.',
+      verdict:'partial',
+      react:'바로 그거예요. 파는 기준이 “미래 전망”이 아니라 “본전”이면 남는 건 부진한 자산이죠. 거의 다 왔어요.' },
+
+    { id:'b3', kind:'ask', concept:'lossav', conceptLabel:'손실 회피', slide:'S08', autoHint:2,
+      meta:'한 문장으로',
+      q:{교수님:'좋아요. 그럼 손실 회피가 왜 수익률을 깎는지, 처음부터 자기 말로 쭉 설명해볼래요?',
+         심사위원:'정리해보세요. 손실 회피가 격차의 원인이 되는 경로, 처음부터.',
+         '회사 상사':'자, 결론부터 한 문장. 손실 회피, 왜 손해예요?',
+         '일반 청중':'이제 처음부터 쉽게 설명해줄래요? 물린 주식 들고 있는 게 왜 문제인지.'},
+      answer:'이익은 확정하고 싶고 손실은 인정하기 싫어서 오른 종목부터 팔고 내린 종목을 쥐게 되는데, 그러면 계좌에 부진한 종목만 쌓여 포트폴리오가 자동으로 나빠집니다.',
+      verdict:'full', mastered:true,
+      react:'완벽해요. 처음엔 “싫어해서”였는데 지금은 경로랑 결과까지 나왔어요. 이건 이제 발표에 넣으셔도 돼요.',
+      by:{
+        심사위원:{ kind:'interrupt', cutAt:0.85,
+          interject:'…거기까지. 설명은 좋아요. 근데 심사장이라면 물어요 — 손실을 버티는 게 유리한 경우는요? 한계 하나 대보세요.',
+          answerAfter:'지수처럼 회복 경향이 강한 자산과 달리, 개별 종목 원금 회복률은 41%라서 같은 논리를 쓰면 안 됩니다.',
+          react:'그거예요. 되는 것만 말하는 사람은 많아요. 안 되는 경우까지 아는 게 진짜 방어죠.' },
+        '일반 청중':{ kind:'interrupt', cutAt:0.5,
+          interject:'잠깐요, “포트폴리오가 자동으로 나빠진다”요? 그게 무슨 말이에요? 그림 그리듯 쉽게요.',
+          answerAfter:'아 쉽게요 — 과일가게에서 싱싱한 과일은 다 팔고 시든 과일만 남긴 거예요. 매대가 그러면 장사가 안 되죠.',
+          react:'아 이제 알겠어요! 그렇게 말하니 바로 이해돼요. 발표 때도 딱 그렇게요.' } } },
+
+    { id:'b4', kind:'trap', concept:'timing', conceptLabel:'타이밍 실패', slide:'S07',
+      meta:'함정',
+      claim:'타이밍 얘기 나온 김에 제가 정리해볼게요. 하락을 피하려고 잠깐 빠졌다가 다시 들어오면 <b>손해를 줄인 것</b>으로 보면 됩니다 — 맞죠?',
+      basis:'7번 슬라이드: 급등일은 급락 직후에 몰리고, 상위 20일을 놓치면 8.7%→1.5%가 됩니다.',
+      wrong:'네, 맞아요', right:'아니요, 그 구간에 급등이 몰려요',
+      onWrong:'아쉬워요. 불안해서 빠져 있는 구간과 급등일이 겹칩니다. 피하려다 수익의 대부분을 놓치는 구조예요.',
+      onRight:'정확해요. 하락 회피와 상승 놓침은 같은 행동의 앞뒷면이죠. 방금 건 제가 일부러 뒤집어 말한 건데, 안 넘어가셨네요.',
+      by:{ '회사 상사':{ claim:'빠르게 갈게요. 빠졌다가 다시 사면 손해 줄인 거다 — 맞아요, 틀려요?' },
+           '일반 청중':{ claim:'제가 들은 걸로는요, 떨어질 때 빼두면 <b>현명한 선택</b>이라던데 — 맞아요?' } } },
+
+    { id:'b5', kind:'ask', concept:'timing', conceptLabel:'타이밍 실패', slide:'S07',
+      meta:'한 문장으로',
+      q:{교수님:'좋아요. 그럼 타이밍 실패가 장기 수익률을 어떻게 깎는지 직접 설명해볼래요?',
+         심사위원:'20일을 놓치면 수치가 정확히 어떻게 달라지죠?',
+         '회사 상사':'타이밍 실패, 한 문장으로. 왜 치명적이에요?',
+         '일반 청중':'그 “며칠을 놓치면”이 결과를 어떻게 바꾸는지 쉽게 설명해줄래요?'},
+      answer:'2,500거래일 중 단 20일(0.8%)을 놓치면 연 8.7%가 1.5%로 떨어지고, 그 급등일은 불안해서 빠져 있는 급락 직후와 겹칩니다.',
+      verdict:'full', mastered:true,
+      react:'그거예요. 숫자가 아니라 “왜 그 구간을 비우게 되는지”까지 설명하셨어요. 타이밍 실패, 이제 방어됩니다.' },
+
+    { id:'b6', kind:'review', concept:'lossav', conceptLabel:'손실 회피', slide:'S08',
+      meta:'다시 만났어요',
+      basis:'조금 전에 스스로 만든 설명이 시간이 지나도 나오는지 볼게요.',
+      q:{교수님:'잠깐, 딴 얘기하다 갑자기 — 아까 손실 회피로 돌아가서요. 10초 안에, 왜 계좌가 나빠지는지 다시 설명해볼래요?',
+         심사위원:'아까 손실 회피, 다시. 시간이 지나도 같은 논리로 방어되나요? 10초.',
+         '회사 상사':'아까 그거 한 번 더. 손실 회피, 10초 안에 결론부터.',
+         '일반 청중':'아까 그거 다시 한 번만요. 물린 주식 얘기, 쉽게 10초로.'},
+      answer:'파는 기준이 본전이 되면 오른 종목은 팔리고 내린 종목만 남아, 포트폴리오가 자동으로 나빠집니다.',
+      verdict:'full', reviewed:true,
+      react:'식은 죽 먹기죠? 시간이 지나도 나오면 그건 진짜 아는 거예요.' },
+
+    { id:'b7', kind:'ask', concept:'rules', conceptLabel:'사전 매도 규칙', slide:'S11',
+      meta:'자료와 대조',
+      basis:'발표자료: “상위 그룹을 구분한 것은 판단력이 아니라 사전에 정해둔 규칙이었다”',
+      q:{교수님:'상위 25%와 하위 25%를 가른 가장 큰 차이는 종목 선정 실력인가요?',
+         심사위원:'상위 그룹의 차별점이 분석력이라는 주장, 자료로 방어되나요?',
+         '회사 상사':'그래서 잘 버는 사람들, 종목을 잘 골랐어요? 근거는요?',
+         '일반 청중':'주식 잘하는 사람들은 그냥 종목 센스가 좋은 거 아니에요?'},
+      answer:'네, 결국 공부를 많이 해서 종목을 잘 고르는 사람이 상위 그룹에 들어가는 거죠.',
+      verdict:'none',
+      react:'어, 잠깐만요. 발표자료엔 “판단력이 아니라 사전에 정해둔 규칙”이라고 적혀 있는데요. 방금 종목 센스라고 하셨어요. 자료랑 다르게 말한 거예요.' },
+
+    { id:'b8', kind:'ask', concept:'rules', conceptLabel:'사전 매도 규칙', slide:'S11', offerConcede:true,
+      meta:'한 번 더',
+      q:{교수님:'그럼 이 표로 말할 수 있는 것과 없는 것을 나눠본다면요?',
+         심사위원:'다시. 11번 표로 주장 가능한 범위가 정확히 어디까지죠?',
+         '회사 상사':'한 문장으로. 이 비교로 확실히 말할 수 있는 건 뭐예요?',
+         '일반 청중':'다시 쉽게요. 그래서 결국 뭐가 달랐다는 거예요?'},
+      answer:'음… 회전율 차이는 있는데… 규칙이 원인인지는… 잘 모르겠어요.',
+      verdict:'none',
+      react:'아직 흐릿하네요. 여기서 더 붙잡아도 되고, 오늘은 접고 다음 발표 숙제로 남겨도 돼요. 어떻게 할래요?',
+      pushAnswer:'회전율 8.4배·매도규칙 71% vs 18%처럼 규칙·습관 지표만 갈렸고, 예측 능력 지표는 표에 없습니다. 그래서 상위를 가른 것은 종목 선정이 아니라 사전 기준입니다.',
+      onPush:'그거예요. 끝까지 밀어붙이니 나오네요. 이게 심사장에서 이기는 태도예요.',
+      onConcede:'좋아요, 솔직한 게 나아요. 모르는 걸 아는 척하는 게 제일 위험하거든요. 리포트에 “다음에 방어할 것”으로 남길게요.' },
+  ],
+  qaHints: [
+    '손실 종목을 파는 순간과 계속 들고 있는 동안, 투자자 마음에는 각각 무슨 일이 일어날까요?',
+    '파는 기준이 “앞으로 오를까”가 아니라 “본전이 됐나”라면, 계좌에는 뭐가 남을까요?',
+    '부진한 종목이 계좌에 쌓이면 — 포트폴리오에는 어떤 일이 생기죠?',
+  ],
+
+  /* 채점표 v3 · 학회·수업(학교 프로젝트) 기준. 클러스터 평균은 session.dims 와 같다. */
+  score: {
+  "score": 74,
+  "situation": "school_project",
+  "situation_label": "학교 프로젝트 (교수 대상)",
+  "rubric_version": "v3",
+  "clusters": [
+    {
+      "key": "content",
+      "name": "내용 충실도",
+      "weight": 26,
+      "average": 80.94,
+      "item_nos": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "scored",
+      "effective_weight": 0.26,
+      "contribution": 21.04
+    },
+    {
+      "key": "logic",
+      "name": "논리 구조",
+      "weight": 23,
+      "average": 66.06,
+      "item_nos": [
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "status": "scored",
+      "effective_weight": 0.23,
+      "contribution": 15.19
+    },
+    {
+      "key": "audience",
+      "name": "목적·청중 적합성",
+      "weight": 8,
+      "average": 78.15,
+      "item_nos": [
+        13,
+        14
+      ],
+      "status": "scored",
+      "effective_weight": 0.08,
+      "contribution": 6.25
+    },
+    {
+      "key": "clarity",
+      "name": "언어적 명료성",
+      "weight": 10,
+      "average": 82.41,
+      "item_nos": [
+        17,
+        18,
+        19,
+        20,
+        21
+      ],
+      "status": "scored",
+      "effective_weight": 0.1,
+      "contribution": 8.24
+    },
+    {
+      "key": "delivery",
+      "name": "음성적 전달",
+      "weight": 7,
+      "average": 62.82,
+      "item_nos": [
+        22,
+        23,
+        24
+      ],
+      "status": "scored",
+      "effective_weight": 0.07,
+      "contribution": 4.4
+    },
+    {
+      "key": "visual",
+      "name": "시각자료 활용",
+      "weight": 13,
+      "average": 84.91,
+      "item_nos": [
+        27,
+        28,
+        29,
+        30,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "status": "scored",
+      "effective_weight": 0.13,
+      "contribution": 11.04
+    },
+    {
+      "key": "time",
+      "name": "시간 관리",
+      "weight": 13,
+      "average": 55.14,
+      "item_nos": [
+        31,
+        32,
+        33
+      ],
+      "status": "scored",
+      "effective_weight": 0.13,
+      "contribution": 7.17
+    }
+  ],
+  "items": [
+    {
+      "no": 1,
+      "cluster": "content",
+      "name": "핵심 개념 커버리지",
+      "status": "scored",
+      "score": 81,
+      "weight": 9,
+      "source": "det",
+      "evidence": "“개인 평균은 지수 대비 연 4.8%p 낮고…” · 격차·과잉 매매·비용은 다뤘어요. 타이밍·사전 규칙은 비었어요.",
+      "note": ""
+    },
+    {
+      "no": 2,
+      "cluster": "content",
+      "name": "설명 깊이",
+      "status": "scored",
+      "score": 76,
+      "weight": 10,
+      "source": "llm",
+      "evidence": "손실 회피는 보유 기간 수치만 말하고 포트폴리오가 나빠지는 경로까지는 안 갔어요.",
+      "note": ""
+    },
+    {
+      "no": 3,
+      "cluster": "content",
+      "name": "근거·수치·사례 제시",
+      "status": "scored",
+      "score": 88,
+      "weight": 9,
+      "source": "llm",
+      "evidence": "“회전율 8.4배·매도규칙 71% vs 18%” 표는 지나갔고, 4.8%p·52일/187일은 읽었어요.",
+      "note": ""
+    },
+    {
+      "no": 4,
+      "cluster": "content",
+      "name": "자료-발화 일치성",
+      "status": "scored",
+      "score": 65,
+      "weight": 8,
+      "source": "det",
+      "evidence": "12번에서 “공부를 많이 해서 종목을 잘 고르는 사람”이라 말해 자료와 어긋났어요.",
+      "note": ""
+    },
+    {
+      "no": 5,
+      "cluster": "content",
+      "name": "근거 없는 추가 발화",
+      "status": "scored",
+      "score": 99,
+      "weight": 7,
+      "source": "det",
+      "evidence": "자료 밖 임의 주장은 거의 없었고, 표에 있는 수치 위주로 말했어요.",
+      "note": ""
+    },
+    {
+      "no": 6,
+      "cluster": "content",
+      "name": "선행연구·이론적 근거 인용",
+      "status": "scored",
+      "score": 79,
+      "weight": 7,
+      "source": "llm",
+      "evidence": "행동 재무·손실 회피 맥락은 짚었지만 이론 이름은 거의 안 나왔어요.",
+      "note": ""
+    },
+    {
+      "no": 7,
+      "cluster": "logic",
+      "name": "핵심 주장 제시 시점",
+      "status": "scored",
+      "score": 92,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "2번에서 “격차는 행동에서 만들어진다”로 결론을 먼저 열었어요.",
+      "note": ""
+    },
+    {
+      "no": 8,
+      "cluster": "logic",
+      "name": "주장-근거-결론 연결",
+      "status": "scored",
+      "score": 56,
+      "weight": 9,
+      "source": "llm",
+      "evidence": "원인→실행으로 갈 때 11번 상위 그룹 비교 다리가 비어 주장이 끊겼어요.",
+      "note": ""
+    },
+    {
+      "no": 9,
+      "cluster": "logic",
+      "name": "전제 생략·결론 점프·모순",
+      "status": "scored",
+      "score": 52,
+      "weight": 8,
+      "source": "llm",
+      "evidence": "오해와 사실에서 자료가 깨는 결론을 그대로 말해 앞 논리를 뒤집었어요.",
+      "note": ""
+    },
+    {
+      "no": 10,
+      "cluster": "logic",
+      "name": "전환의 자연스러움",
+      "status": "scored",
+      "score": 65,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "“다음은 집중 투자입니다”처럼 전환만 있고, 왜 종목 수까지 봐야 하는지는 없었어요.",
+      "note": ""
+    },
+    {
+      "no": 11,
+      "cluster": "logic",
+      "name": "결론의 핵심 회수",
+      "status": "scored",
+      "score": 75,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "체크리스트와 결론 문장은 회수했지만, 사전 규칙 비교는 회수할 내용이 없었어요.",
+      "note": ""
+    },
+    {
+      "no": 12,
+      "cluster": "logic",
+      "name": "두괄식 구조",
+      "status": "situation_excluded",
+      "score": 0,
+      "weight": 0,
+      "source": "llm",
+      "evidence": "",
+      "note": "이 상황에서는 평가하지 않아요."
+    },
+    {
+      "no": 13,
+      "cluster": "audience",
+      "name": "청중 수준 맞춤 설명",
+      "status": "scored",
+      "score": 80,
+      "weight": 7,
+      "source": "llm",
+      "evidence": "학회·수업 청중에 맞춰 수치와 행동 요인을 풀었고, 전문 용어는 표를 보며 설명했어요.",
+      "note": ""
+    },
+    {
+      "no": 14,
+      "cluster": "audience",
+      "name": "목적에 맞는 강조점",
+      "status": "scored",
+      "score": 76,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "목적(격차의 행동 원인)에 맞춰 다섯 요인을 강조했지만, 결론 근거 표는 힘이 빠졌어요.",
+      "note": ""
+    },
+    {
+      "no": 15,
+      "cluster": "audience",
+      "name": "흥미 유발·스토리텔링",
+      "status": "situation_excluded",
+      "score": 0,
+      "weight": 0,
+      "source": "llm",
+      "evidence": "",
+      "note": "이 상황에서는 평가하지 않아요."
+    },
+    {
+      "no": 16,
+      "cluster": "audience",
+      "name": "실행 가능한 제안 명확성",
+      "status": "situation_excluded",
+      "score": 0,
+      "weight": 0,
+      "source": "llm",
+      "evidence": "",
+      "note": "이 상황에서는 평가하지 않아요."
+    },
+    {
+      "no": 17,
+      "cluster": "clarity",
+      "name": "지시어 남용 여부",
+      "status": "scored",
+      "score": 86,
+      "weight": 4,
+      "source": "det",
+      "evidence": "지시어 남용은 적고, 수치·표 이름을 직접 말했어요.",
+      "note": ""
+    },
+    {
+      "no": 18,
+      "cluster": "clarity",
+      "name": "전문용어 설명 동반",
+      "status": "scored",
+      "score": 84,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "회전율·손실 회피 등은 표와 함께 풀어 설명했어요.",
+      "note": ""
+    },
+    {
+      "no": 19,
+      "cluster": "clarity",
+      "name": "문장 길이·완결성",
+      "status": "scored",
+      "score": 80,
+      "weight": 4,
+      "source": "det",
+      "evidence": "문장은 대체로 완결됐고, 복리 구간만 길게 늘어진 편이었어요.",
+      "note": ""
+    },
+    {
+      "no": 20,
+      "cluster": "clarity",
+      "name": "표현의 의미 없는 반복",
+      "status": "scored",
+      "score": 85,
+      "weight": 3,
+      "source": "det",
+      "evidence": "의미 없는 반복은 적었어요.",
+      "note": ""
+    },
+    {
+      "no": 21,
+      "cluster": "clarity",
+      "name": "핵심 구조 신호어 사용",
+      "status": "scored",
+      "score": 78,
+      "weight": 5,
+      "source": "det",
+      "evidence": "“다섯 요인 중… 첫째가 과잉 매매”처럼 구조 신호어를 썼어요.",
+      "note": ""
+    },
+    {
+      "no": 22,
+      "cluster": "delivery",
+      "name": "말속도 적절성",
+      "status": "scored",
+      "score": 52,
+      "weight": 4,
+      "source": "det",
+      "evidence": "상위 그룹 비교 구간이 본인 평균보다 31% 빨랐어요 (430자/분).",
+      "note": ""
+    },
+    {
+      "no": 23,
+      "cluster": "delivery",
+      "name": "필러 빈도·위치",
+      "status": "scored",
+      "score": 72,
+      "weight": 4,
+      "source": "det",
+      "evidence": "필러가 핵심을 가리진 않았어요.",
+      "note": ""
+    },
+    {
+      "no": 24,
+      "cluster": "delivery",
+      "name": "휴지·침묵의 위치",
+      "status": "scored",
+      "score": 65,
+      "weight": 3,
+      "source": "det",
+      "evidence": "원인 전환에서 잠깐 쉬는 편이었고, 11번은 거의 쉬지 않고 지나갔어요.",
+      "note": ""
+    },
+    {
+      "no": 25,
+      "cluster": "delivery",
+      "name": "음량 안정성",
+      "status": "unmeasured",
+      "score": 0,
+      "weight": 3,
+      "source": "na",
+      "evidence": "",
+      "note": "이번 파이프라인에서는 못 쟀어요."
+    },
+    {
+      "no": 26,
+      "cluster": "delivery",
+      "name": "핵심 구간 강조",
+      "status": "unmeasured",
+      "score": 0,
+      "weight": 4,
+      "source": "na",
+      "evidence": "",
+      "note": "이번 파이프라인에서는 못 쟀어요."
+    },
+    {
+      "no": 27,
+      "cluster": "visual",
+      "name": "낭독 vs 실제 설명 구분",
+      "status": "scored",
+      "score": 90,
+      "weight": 6,
+      "source": "det",
+      "evidence": "표를 읽어 주며 설명했고, 화면 문장 낭독만으로 끝내진 않았어요.",
+      "note": ""
+    },
+    {
+      "no": 28,
+      "cluster": "visual",
+      "name": "슬라이드별 설명시간 균형",
+      "status": "scored",
+      "score": 62,
+      "weight": 5,
+      "source": "det",
+      "evidence": "복리(배경)는 길고 상위 그룹 비교(결론 근거)는 35초로 짧았어요.",
+      "note": ""
+    },
+    {
+      "no": 29,
+      "cluster": "visual",
+      "name": "그래프·표 설명",
+      "status": "scored",
+      "score": 80,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "현황·과잉 매매 표의 핵심 수치는 읽었고, 11번 비교표는 거의 안 읽었어요.",
+      "note": ""
+    },
+    {
+      "no": 30,
+      "cluster": "visual",
+      "name": "슬라이드-발화 강조 일치",
+      "status": "scored",
+      "score": 75,
+      "weight": 5,
+      "source": "det",
+      "evidence": "잘 설명한 슬라이드에서는 표 강조와 말이 맞았고, 11·12번은 어긋났어요.",
+      "note": ""
+    },
+    {
+      "no": 31,
+      "cluster": "time",
+      "name": "제한시간 준수",
+      "status": "scored",
+      "score": 80,
+      "weight": 5,
+      "source": "det",
+      "evidence": "목표 10분 대비 9분 24초로 시간은 지켰어요.",
+      "note": ""
+    },
+    {
+      "no": 32,
+      "cluster": "time",
+      "name": "구간별 시간 배분",
+      "status": "scored",
+      "score": 44,
+      "weight": 5,
+      "source": "det",
+      "evidence": "배경·현황 +67%, 성공 요인·오해 −52%로 구간 배분이 기울었어요.",
+      "note": ""
+    },
+    {
+      "no": 33,
+      "cluster": "time",
+      "name": "핵심 슬라이드 체류시간",
+      "status": "scored",
+      "score": 38,
+      "weight": 4,
+      "source": "det",
+      "evidence": "핵심인 11번은 짧고 보조인 4번 복리는 길었어요.",
+      "note": ""
+    },
+    {
+      "no": 34,
+      "cluster": "visual",
+      "name": "슬라이드 정보 밀도",
+      "status": "scored",
+      "score": 96,
+      "weight": 5,
+      "source": "det",
+      "evidence": "슬라이드당 정보량은 표 중심이라 읽기 무난했어요.",
+      "note": ""
+    },
+    {
+      "no": 35,
+      "cluster": "visual",
+      "name": "제목-본문 일치성",
+      "status": "scored",
+      "score": 94,
+      "weight": 5,
+      "source": "llm",
+      "evidence": "슬라이드 제목과 본문 요지가 대체로 맞았어요.",
+      "note": ""
+    },
+    {
+      "no": 36,
+      "cluster": "visual",
+      "name": "목차·로드맵 슬라이드",
+      "status": "scored",
+      "score": 88,
+      "weight": 4,
+      "source": "det",
+      "evidence": "원인 구조(5번)에서 다섯 요인을 미리 보여 줬어요.",
+      "note": ""
+    },
+    {
+      "no": 37,
+      "cluster": "visual",
+      "name": "데이터 시각화 적절성",
+      "status": "scored",
+      "score": 96,
+      "weight": 6,
+      "source": "llm",
+      "evidence": "막대·비교표가 격차·회전율 성격에 잘 맞았어요.",
+      "note": ""
+    },
+    {
+      "no": 38,
+      "cluster": "visual",
+      "name": "출처·근거 표기",
+      "status": "scored",
+      "score": 75,
+      "weight": 7,
+      "source": "det",
+      "evidence": "예시용 가상 수치라는 고지는 있었지만 출처 표기는 얇았어요.",
+      "note": ""
+    },
+    {
+      "no": 39,
+      "cluster": "visual",
+      "name": "오탈자·맞춤법",
+      "status": "scored",
+      "score": 98,
+      "weight": 4,
+      "source": "llm",
+      "evidence": "눈에 띄는 오탈자는 없었어요.",
+      "note": ""
+    }
+  ],
+  "excluded": [
+    12,
+    15,
+    16
+  ],
+  "unmeasured": [
+    25,
+    26
+  ],
+  "basis": "full",
+  "model": "showcase",
+  "note": ""
+},
+};
+
+/* na — 판정하지 않음. 녹음이 이 자료의 발표가 아니면(F-11 speech_match unrelated) 개념마다 「안 나옴」 이 아니라 이것이다 (09-30 REC-10).
+   판정 색 5종(--ok/--mid/--no/--ct/--om)은 쓰지 않는다 — 판정이 아니므로 중립 회색이다 (app.css .st-na) */
+const STATUS = {ok:'설명함',mid:'언급만 함',no:'안 나옴',ct:'자료와 모순',om:'정당한 생략',fast:'빨라짐',none:'핵심 개념 없음',na:'판정 안 함'};

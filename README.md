@@ -6,25 +6,25 @@
 
 | ID | 모듈 | I/O | 기술 | API |
 |----|------|-----|------|-----|
-| F-01 | `pipeline/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
+| F-01 | `main/pipeline/f01_parse.py` | 파일 → `SlideDoc` | Upstage Document Parse | `POST /api/v1/parse` |
 | F-03·04 | `sdk/rehearsal-recorder.js` | 마이크+슬라이드 → audio + `SlideMark[]` | 브라우저 (통합 SDK) | — (브라우저) |
 | F-03 | `sdk/recorder.js` | 마이크 → audio blob | MediaRecorder (분리) | — (브라우저) |
 | F-04 | `sdk/slide_marks.js` | 슬라이드 전환 → `SlideMark[]` | 브라우저 상대시각 (분리) | — (브라우저) |
-| F-05 | `pipeline/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
-| F-06 | `pipeline/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
-| F-07 | `pipeline/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
-| F-08 | `pipeline/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
-| F-09 | `pipeline/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
-| F-11 | `pipeline/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
-| F-11 파생 | `pipeline/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
-| F-12 | `pipeline/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
-| F-13 | `pipeline/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
-| **F-14** | `pipeline/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
-| F-17 | `pipeline/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
-| F-18 | `pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
-| F-19 | `pipeline/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
+| F-05 | `main/pipeline/f05_stt.py` | audio + marks → `Transcript` | **SKT A.X STT** + 순수 분할 | `POST /api/v1/transcribe` |
+| F-06 | `main/pipeline/f06_concepts.py` | `SlideDoc`+`Context` → `ConceptDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/concepts` |
+| F-07 | `main/pipeline/f07_graph.py` | `ConceptDoc`(+`SlideDoc`) → `ConceptGraph` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/graph` |
+| F-08 | `main/pipeline/f08_questions.py` | `ConceptGraph`(+`AlignmentDoc`·`FlowDiff`) → `QaTriage` → `QuestionDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/questions` |
+| F-09 | `main/pipeline/f09_judge.py` | `Question`+답변(+`QaTurn[]`) → `QaJudgement` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/qa/judge` |
+| F-11 | `main/pipeline/f11_align.py` | `ConceptGraph`+`Transcript` → `AlignmentDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/alignment` |
+| F-11 파생 | `main/pipeline/f11_flow.py` | `ConceptGraph`+`AlignmentDoc` → `FlowDiff` | 순수 함수 (LLM 없음) | `POST /api/v1/flow` |
+| F-12 | `main/pipeline/f12_chatter.py` | `ConceptGraph`+`AlignmentDoc`+`FlowDiff` → `ChatterDoc` | 국내 LLM 4개 (병아리 페르소나) | `POST /api/v1/chatter` |
+| F-13 | `main/pipeline/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
+| **F-14** | `main/pipeline/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
+| F-17 | `main/pipeline/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
+| F-18 | `main/pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-19 | `main/pipeline/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
-공통 계약은 `pipeline/contracts.py` 하나다. 설정은 `pipeline/config.py` (`settings.masked()`).
+공통 계약은 `main/pipeline/contracts.py` 하나다. 설정은 `main/pipeline/config.py` (`settings.masked()`).
 
 설계 문서(`docs/`)는 2026-10-12 폴더 정리로 지웠다 — git 기록에 남아 있다 (`git log --diff-filter=D -- docs/`).
 
@@ -66,20 +66,20 @@ pip install -r requirements.txt
 cp .env.example .env   # 키 채우기. 없으면 MOCK 로 개발
 
 # API 없이 파이프라인 검증
-python examples/run_pipeline_mock.py
-python -m pytest tests/ -q
+python etc/bench/run_pipeline_mock.py
+python -m pytest etc/tests/ -q
 ```
 
 ## 데모 실행 · 테스트 가이드
 
-브리지는 `demo/YEHS_demo` UI와 `/api/v1/*` 를 같이 띄운다.  
+브리지는 `main/web` UI와 `/api/v1/*` 를 같이 띄운다.  
 **`.env` 는 깃에 올리지 않는다.** 공유는 `.env.example`(변수명만).
 
 ### 1) Mock (키 없이 UI 확인)
 
 ```bash
 export MOCK_EXTERNAL_APIS=true
-python -m demo.bridge
+python -m server.bridge
 # http://127.0.0.1:8787/
 ```
 
@@ -98,7 +98,7 @@ python -m demo.bridge
 # HABIT_PROVIDER=heuristic    # 이 환경에 torch/GPU 없으면 heuristic
 # DEMO_PORT=8787
 
-python -m demo.bridge
+python -m server.bridge
 # http://127.0.0.1:8787/
 ```
 
@@ -118,13 +118,13 @@ F-18 REP LoRA 를 쓰려면 **midm 환경 + CUDA** 로 브리지를 띄운다.
 # CHUCKCHUCK_LORA_KINDS=REP
 
 # 2) 실행 (권장 스크립트 — 포트 기본 8799)
-chmod +x demo/run_bridge_midm.sh
-DEMO_PORT=8799 ./demo/run_bridge_midm.sh
+chmod +x main/server/run_bridge_midm.sh
+DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 # http://127.0.0.1:8799/
 ```
 
 스크립트가 하는 일:
-- `MIDM_PY`(기본: conda `midm` 의 python) 으로 `demo.bridge` 실행
+- `MIDM_PY`(기본: conda `midm` 의 python) 으로 `server.bridge` 실행
 - `HABIT_PROVIDER=lora`, `MOCK_EXTERNAL_APIS=false` 고정
 - `CHUCKCHUCK_LORA_PATH` 미지정 시 팀 서버 기본 adapter 경로를 씀  
   → 로컬에 어댑터가 없으면 `.env` / 셸에서 경로를 명시할 것
@@ -137,7 +137,7 @@ export MOCK_EXTERNAL_APIS=false
 export HABIT_PROVIDER=lora
 export CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter
 export DEMO_PORT=8799
-python -m demo.bridge
+python -m server.bridge
 ```
 
 CUDA 확인:
@@ -156,9 +156,9 @@ PDF·녹음 없이, 발표 자료를 **카메라로 찍거나** 자료가 열린
 질문 단계는 **통화 화면**이다 — 내 모습(웹캠) 위로 병아리 상대가 묻고, 내 말이 자막으로 채워지고, 판정이 말풍선으로 온다.
 자동 대화(기본 켬)는 말을 멈추면 3초 카운트다운 뒤 보낸다 (자막을 누르면 멈추고 고친다). 「소리 켜기」면 상대가 읽어 준다 (기본 무음). 캡처 한 장이 슬라이드 한 장이다 (여러 장은 올린 순서대로 번호).
 실측: 폰 사진 2장 → 질문까지 약 19초, 판정 2초 (Solar). 「작은 창으로 띄우기」는 Chrome 116+ 의 Document Picture-in-Picture 다.
-프론트 순수 함수는 `node tests/js/booth.smoke.mjs`,
-통화 화면을 브라우저 없이 단계별로 찍어 보는 실험실은 [`labs/qa_call/`](labs/qa_call/README.md) (`python labs/qa_call/run.py all`).
-질문 생성·판정만 골라 되돌려 보는 실험대는 [`labs/qa_lab/`](labs/qa_lab/README.md) (`snapshot → questions → judge --probe → check`, 브라우저 없음).
+프론트 순수 함수는 `node etc/tests/js/booth.smoke.mjs`,
+통화 화면을 브라우저 없이 단계별로 찍어 보는 실험실은 [`etc/labs/qa_call/`](etc/labs/qa_call/README.md) (`python etc/labs/qa_call/run.py all`).
+질문 생성·판정만 골라 되돌려 보는 실험대는 [`etc/labs/qa_lab/`](etc/labs/qa_lab/README.md) (`snapshot → questions → judge --probe → check`, 브라우저 없음).
 
 ### 손으로 눌러보는 체크리스트
 
@@ -173,40 +173,40 @@ PDF·녹음 없이, 발표 자료를 **카메라로 찍거나** 자료가 열린
 ### 단위 테스트
 
 ```bash
-python -m pytest tests/ -q
-# 질문 코칭만: python -m pytest tests/test_questions.py tests/test_judge.py -q
+python -m pytest etc/tests/ -q
+# 질문 코칭만: python -m pytest etc/tests/test_questions.py etc/tests/test_judge.py -q
 ```
 
 ### 포트가 이미 쓰일 때
 
 ```bash
-DEMO_PORT=8801 ./demo/run_bridge_midm.sh
+DEMO_PORT=8801 ./main/server/run_bridge_midm.sh
 # 또는
-DEMO_PORT=8801 python -m demo.bridge
+DEMO_PORT=8801 python -m server.bridge
 ```
 
-## 개발 도구 `scripts/chk`
+## 개발 도구 `etc/scripts/chk`
 
 커밋·시연·세션 시작의 손일을 한 명령씩으로 모았다. 전부 표준 라이브러리, LLM 호출 없음.
 
 | 명령 | 언제 | 하는 일 |
 |---|---|---|
-| `scripts/chk gate` | 커밋 전 | pytest(기준선 이상) · 프론트 JS 를 고쳤으면 node 스모크 · css/js 를 고쳤으면 `?v=` 올렸는지 · diff 에 키 패턴. 하나라도 걸리면 exit 1 |
-| `scripts/chk bump` | css/js/리빌을 고친 뒤 | `index.html` 의 해당 `?v=` 와 `app.js` 의 리빌 `v=` 를 올린다 (이미 올렸으면 건너뜀) |
-| `scripts/chk doctor` | 새 머신 · 부스 컴퓨터 · 브리지가 이상할 때 | `.env` 키 유무(값은 안 보임) · torch/CUDA · LoRA 어댑터 경로 · midm python · ffmpeg · 포트 · 보관소 |
-| `scripts/chk warmup` | 시연 전 | `/api/v1/habits` 를 두 번 불러 모델 로드 시간·실제 지연·`provider` 가 `lora` 인지 |
-| `scripts/chk brief` | 세션 시작 | 마일스톤 D-day · 헌장 §0 · 끝나지 않은 할 일 · 두 장부 마지막 줄 · WORKLOG 맨 위 · git. `/continue` 스킬이 이걸 부른다 |
-| `scripts/chk ledger-chart` | 결과보고서(10/23) | 장부의 IMPROVED 줄을 이어 지표별 선 그래프(SVG)와 표(MD) → `exports/ledger_chart/` |
-| `scripts/chk install-hooks` | 클론 뒤 한 번 | `git commit` 마다 `gate --scope staged` 가 돌게 `core.hooksPath` 를 건다. 해제는 `--uninstall` |
+| `etc/scripts/chk gate` | 커밋 전 | pytest(기준선 이상) · 프론트 JS 를 고쳤으면 node 스모크 · css/js 를 고쳤으면 `?v=` 올렸는지 · diff 에 키 패턴. 하나라도 걸리면 exit 1 |
+| `etc/scripts/chk bump` | css/js/리빌을 고친 뒤 | `index.html` 의 해당 `?v=` 와 `app.js` 의 리빌 `v=` 를 올린다 (이미 올렸으면 건너뜀) |
+| `etc/scripts/chk doctor` | 새 머신 · 부스 컴퓨터 · 브리지가 이상할 때 | `.env` 키 유무(값은 안 보임) · torch/CUDA · LoRA 어댑터 경로 · midm python · ffmpeg · 포트 · 보관소 |
+| `etc/scripts/chk warmup` | 시연 전 | `/api/v1/habits` 를 두 번 불러 모델 로드 시간·실제 지연·`provider` 가 `lora` 인지 |
+| `etc/scripts/chk brief` | 세션 시작 | 마일스톤 D-day · 헌장 §0 · 끝나지 않은 할 일 · 두 장부 마지막 줄 · WORKLOG 맨 위 · git. `/continue` 스킬이 이걸 부른다 |
+| `etc/scripts/chk ledger-chart` | 결과보고서(10/23) | 장부의 IMPROVED 줄을 이어 지표별 선 그래프(SVG)와 표(MD) → `etc/bench/results/ledger_chart/` |
+| `etc/scripts/chk install-hooks` | 클론 뒤 한 번 | `git commit` 마다 `gate --scope staged` 가 돌게 `core.hooksPath` 를 건다. 해제는 `--uninstall` |
 
 ```bash
-scripts/chk install-hooks          # 한 번
-scripts/chk doctor && DEMO_PORT=8799 ./demo/run_bridge_midm.sh   # 이 머신에 midm conda 가 없으면 doctor 가 대신 쓸 python 을 알려 준다
-scripts/chk warmup                 # provider=lora 확인
+etc/scripts/chk install-hooks          # 한 번
+etc/scripts/chk doctor && DEMO_PORT=8799 ./main/server/run_bridge_midm.sh   # 이 머신에 midm conda 가 없으면 doctor 가 대신 쓸 python 을 알려 준다
+etc/scripts/chk warmup                 # provider=lora 확인
 ```
 
 Claude Code 세션에서는 `.claude/settings.json` 의 PreToolUse 훅이 `git commit` 을 부르기 전에 같은 gate 를 돌린다 (git 훅이 설치돼 있으면 그쪽만).
-훅 자체가 고장났을 때만 `CHK_SKIP_GATE=1`. 검사 로직은 `scripts/chk_lib/gate.py`, 테스트는 `tests/test_chk.py`.
+훅 자체가 고장났을 때만 `CHK_SKIP_GATE=1`. 검사 로직은 `etc/scripts/chk_lib/gate.py`, 테스트는 `etc/tests/test_chk.py`.
 
 ## 개발 환경 (Claude Code · ECC)
 
@@ -281,7 +281,7 @@ const { blob } = await rec.stop();
 ## 디렉터리
 
 ```
-pipeline/
+main/pipeline/
   contracts.py          # 유일한 결합점
   f01_parse.py
   f05_stt.py
@@ -291,8 +291,8 @@ pipeline/
 demo/
   bridge.py             # YEHS_demo 서빙 + /api/v1/*
   YEHS_demo/            # 팀원 데모 (SDK 연결됨)
-fixtures/ sample_slidedoc.json
-tests/ examples/
+etc/fixtures/ sample_slidedoc.json
+etc/tests/ etc/bench/
 ```
 
 ## 주의

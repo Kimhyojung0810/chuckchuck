@@ -10,8 +10,8 @@ model: inherit
 
 ## 입력
 
-- `exports/qa_eval/<시각>_<tag>.json` 의 `questions[]` (question · slide_count · grounding · fallback)
-- 근거 자료: `fixtures/live_qa_run.json` 의 `slide_doc` · `transcript` (또는 지정된 번들)
+- `etc/bench/results/qa_eval/<시각>_<tag>.json` 의 `questions[]` (question · slide_count · grounding · fallback)
+- 근거 자료: `etc/fixtures/live_qa_run.json` 의 `slide_doc` · `transcript` (또는 지정된 번들)
 
 ## rubric (각 1~5, 회의록 §4 표 그대로)
 

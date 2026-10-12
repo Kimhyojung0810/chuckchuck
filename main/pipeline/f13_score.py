@@ -1,0 +1,219 @@
+"""
+[F-13] 발표 점수 산식입니다. **DEPRECATED — 2026-08-09 이후 삭제 예정.**
+
+새 코드는 `f14_rubric.score_rubric()` 을 씁니다 (채점표 v3, 39개 항목·7개 클러스터·
+발표 상황별 가중치). 이 모듈은 채점표 채점이 실패했을 때의 폴백으로만 남아 있고,
+`main/server/bridge.py` 의 `/api/v1/rubric` 이 예외를 잡았을 때만 불립니다
+(`f14_rubric.from_legacy_score` 가 결과를 새 계약 모양으로 옮깁니다).
+
+왜 대체됐나: 여기 있는 지표 4개는 "자료의 개념 그래프를 얼마나 따라 말했나" 만 잽니다.
+논리 구조·청중 적합성·시간 관리·시각자료 품질이 점수에 하나도 안 들어가고,
+발표 상황(학교 프로젝트 / 업무 보고 …)에 따라 달라지지도 않습니다.
+
+---
+
+F-11 정합 판정(AlignmentDoc)과 파생 흐름 비교(FlowDiff)를 0~100 점 하나로 합칩니다.
+LLM 을 부르지 않는 순수 함수 — 같은 입력이면 항상 같은 점수가 나옵니다.
+
+설계에서 정한 것 넷:
+
+1. **누락은 coverage 가 이미 값을 매긴다.** verdict_counts 의 missing 으로 다시
+   깎으면 같은 실수를 두 번 청구하는 셈이라, 개념 하나 빠뜨렸을 때 점수가
+   과민하게 무너진다. missing 은 coverage 로만 반영한다.
+2. **contradiction 만 따로 뺀다.** '안 말한 것'과 '틀리게 말한 것'은 다른 실패고,
+   후자는 coverage 의 분자에도 분모에도 안 잡힌다. 그래서 감점 항으로 분리하되,
+   해당 개념이 자료에서 차지하던 비중(doc_weight)에 비례시킨다.
+3. **justified_skip 은 가점도 감점도 아니다.** 4-class 를 나눈 이유가 그것이다.
+4. **없는 지표는 0 이 아니라 '없음'이다.** 작은 자료에서는 순위상관·간선·순서가
+   동시에 전부 None 일 수 있다. 0 으로 치면 멀쩡한 발표가 낙제한다. 빠진 항의
+   가중치는 남은 항들에 다시 나눠준다.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from .contracts import AlignmentDoc, FlowDiff
+
+#: 모든 지표가 있을 때의 배합. 합은 1.0
+COMPONENT_WEIGHTS: dict[str, float] = {
+    "coverage": 0.45,   # 자료가 힘준 개념을 실제로 말했나 — 가장 직접적인 신호
+    "rank": 0.20,       # 자료의 비중 순위대로 발표에서도 힘을 실었나
+    "edge": 0.20,       # 개념 사이 연결을 말로도 이었나 ("각각 말했지만 안 이음")
+    "order": 0.15,      # 자료 순서대로 풀어냈나
+}
+
+COMPONENT_LABELS: dict[str, str] = {
+    "coverage": "핵심 개념 설명",
+    "rank": "비중 일치",
+    "edge": "개념 연결",
+    "order": "흐름 순서",
+}
+
+#: contradiction 1건의 기본 감점(점). doc_weight 로 비례 조정된다.
+CONTRADICTION_UNIT_PENALTY = 12.0
+#: 모순이 아무리 많아도 여기까지만 깎는다 — 나머지 잘한 것까지 지우지 않기 위해
+MAX_CONTRADICTION_PENALTY = 25.0
+
+
+@dataclass
+class ScoreComponent:
+    """점수를 이루는 항 하나. UI 가 '왜 86점인지' 그대로 설명할 수 있게 다 내보낸다."""
+    key: str
+    label: str
+    raw: float           # 원지표 (0~1 로 정규화된 값)
+    weight: float        # 재분배 후 실제 적용된 가중치
+    contribution: float  # raw * weight * 100 — 이 항이 최종 점수에 보탠 점수
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.key,
+            "label": self.label,
+            "raw": round(self.raw, 4),
+            "weight": round(self.weight, 4),
+            "contribution": round(self.contribution, 2),
+        }
+
+
+@dataclass
+class PresentationScore:
+    """0~100 점과 그 근거."""
+    score: int
+    components: list[ScoreComponent] = field(default_factory=list)
+    omitted: list[str] = field(default_factory=list)      # 계산 못 한 지표
+    contradiction_penalty: float = 0.0
+    contradiction_count: int = 0
+    basis: str = "full"                                    # full | partial | coverage-only | none(녹음을 못 써 잰 항이 없음)
+
+    def to_dict(self) -> dict:
+        return {
+            "score": self.score,
+            "components": [c.to_dict() for c in self.components],
+            "omitted": list(self.omitted),
+            "contradiction_penalty": round(self.contradiction_penalty, 2),
+            "contradiction_count": self.contradiction_count,
+            "basis": self.basis,
+        }
+
+
+def _from_correlation(value: float) -> float:
+    """
+    상관계수(-1~1)를 0~1 로 옮긴다.
+
+    역순으로 말했으면(-1) 0 에 가깝게 떨어져야지 0 으로 잘려 신호를 잃으면 안 된다.
+    """
+    return max(0.0, min(1.0, (float(value) + 1.0) / 2.0))
+
+
+def _unit(value: float) -> float:
+    return max(0.0, min(1.0, float(value)))
+
+
+def _contradiction_penalty(doc: AlignmentDoc) -> tuple[float, int]:
+    """
+    모순 감점. 자료에서 비중이 컸던 개념을 틀리게 말했을수록 크게 깎는다.
+
+    doc_weight 는 최상위가 1.0 인 상대값이라, 곁가지 개념의 모순은 자연히 가볍다.
+    녹음이 다른 발표면 감점하지 않는다(판정 자체가 없다). 정합이 전부 짐작이면 코드가 자료 원문과 견줘 확인한 모순(deck_quote)만 센다.
+    """
+    blocked = _speech_omit(doc)
+    if blocked == UNRELATED_OMIT:
+        return 0.0, 0
+    items = [i for i in doc.items if i.verdict == "contradiction" and (not blocked or i.deck_quote)]
+    if not items:
+        return 0.0, 0
+    # weight 가 0 인 노드도 모순은 모순이라 최소 절반은 매긴다
+    penalty = sum(
+        CONTRADICTION_UNIT_PENALTY * max(0.5, _unit(i.doc_weight))
+        for i in items
+    )
+    return min(MAX_CONTRADICTION_PENALTY, penalty), len(items)
+
+
+#: 녹음을 판정 근거로 못 쓸 때 빼는 항 (09-30 WP-S2 — `AlignmentDoc.speech_usable` 거짓).
+#: 다른 발표 녹음(speech_match unrelated)은 네 항이 전부 남의 발표 말로 잰 것이라 전부 뺀다.
+#: 정합이 전부 짐작(basis fallback)이면 LLM 판정·언급 횟수로 잰 셋(커버리지·비중 일치·연결)을 뺀다 — 채점표(F-14)가 같은 경우에
+#: 1·4·5·30 번을 「못 쟀다」 로 두는 것과 같은 선이다. 순서(첫 언급 시각, 코드)는 흐름(F-11)도 그대로 보므로 남긴다.
+UNRELATED_OMIT = frozenset(COMPONENT_WEIGHTS)
+FALLBACK_OMIT = frozenset({"coverage", "rank", "edge"})
+
+
+def _speech_omit(alignment: AlignmentDoc) -> frozenset[str]:
+    if alignment.speech_match == "unrelated" or alignment.basis == "skipped":
+        return UNRELATED_OMIT
+    if alignment.basis == "fallback":
+        return FALLBACK_OMIT
+    return frozenset()
+
+
+def score_presentation(
+    alignment: AlignmentDoc,
+    flow: FlowDiff | None = None,
+) -> PresentationScore:
+    """
+    정합 판정(+선택 흐름 비교) → 0~100 점.
+
+    flow 를 주면 '흐름 순서' 항이 살아난다. 안 주면 그 가중치는 나머지에 재분배된다.
+
+    녹음을 판정 근거로 못 쓰면(`AlignmentDoc.speech_usable` 거짓 — 다른 발표 녹음 · 정합이 전부 짐작) 그 판정으로 잰 항은 0 이 아니라
+    '없음'이다 (설계 4번). 전부 빠지면 0점 + basis "none" — 남의 발표로 이 자료를 매기지 않는다 (09-30 held-out C-07 · 레드팀 G-A22).
+    모순 감점은 코드가 자료 원문과 견줘 확인한 것(deck_quote)만 짐작 판정 위에서도 남는다 — 그건 짐작이 아니다.
+    """
+    summary = alignment.summary
+    blocked = _speech_omit(alignment)
+
+    # 원지표 수집 — None 은 '계산 불가'라 항 자체를 뺀다 (0 점 처리가 아니다)
+    raw: dict[str, float | None] = {
+        "coverage": _unit(summary.coverage),
+        "rank": None if summary.rank_correlation is None
+        else _from_correlation(summary.rank_correlation),
+        "edge": None if summary.edge_coverage is None
+        else _unit(summary.edge_coverage),
+        "order": None if flow is None or flow.order_tau is None
+        else _from_correlation(flow.order_tau),
+    }
+    raw = {k: (None if k in blocked else v) for k, v in raw.items()}
+
+    present = {k: v for k, v in raw.items() if v is not None}
+    omitted = sorted(k for k, v in raw.items() if v is None)
+
+    if not present:
+        # 녹음이 다른 발표면 여기 온다. coverage 는 항상 float 이라 그 밖에는 오지 않지만, 계약이 바뀌어도 안 터지게
+        return PresentationScore(score=0, omitted=omitted, basis="none" if blocked else "coverage-only")
+
+    # 빠진 항의 가중치를 남은 항에 비례 재분배
+    total_weight = sum(COMPONENT_WEIGHTS[k] for k in present)
+    components: list[ScoreComponent] = []
+    base = 0.0
+    for key in COMPONENT_WEIGHTS:  # 표시 순서를 배합표 순서로 고정
+        if key not in present:
+            continue
+        weight = COMPONENT_WEIGHTS[key] / total_weight
+        contribution = present[key] * weight * 100.0
+        base += contribution
+        components.append(ScoreComponent(
+            key=key,
+            label=COMPONENT_LABELS[key],
+            raw=present[key],
+            weight=weight,
+            contribution=contribution,
+        ))
+
+    penalty, n_contradiction = _contradiction_penalty(alignment)
+    score = int(round(max(0.0, min(100.0, base - penalty))))
+
+    if not omitted:
+        basis = "full"
+    elif list(present) == ["coverage"]:
+        basis = "coverage-only"
+    else:
+        basis = "partial"
+
+    return PresentationScore(
+        score=score,
+        components=components,
+        omitted=omitted,
+        contradiction_penalty=penalty,
+        contradiction_count=n_contradiction,
+        basis=basis,
+    )

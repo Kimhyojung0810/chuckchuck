@@ -1,0 +1,3405 @@
+"""
+모듈끼리 주고받는 데이터 모양(계약)을 정한 파일입니다.
+SlideDoc, Transcript, ConceptDoc 같은 공통 타입이 여기 있습니다.
+프론트·서버·모듈이 모두 이 모양의 JSON으로만 대화합니다.
+"""
+
+from __future__ import annotations
+
+import difflib
+import functools
+import re
+import unicodedata
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+
+# ---------------------------------------------------------------------------
+# F-01 : 발표자료 파싱 결과
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SlideBlock:
+    """슬라이드 안의 텍스트 덩어리 하나 (Document Parse element 1개)."""
+    category: str
+    text: str
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class Slide:
+    slide_no: int
+    title: str = ""
+    blocks: list[SlideBlock] = field(default_factory=list)
+    categories: list[str] = field(default_factory=list)
+    total_char_count: int = 0
+    line_count: int = 0
+    has_visual: bool = False
+    visual_type: list[str] = field(default_factory=list)
+    alignment: str | None = None  # left | right | center | None
+    text_sparse: bool = False
+    image_only: bool = False
+
+    @property
+    def raw_text(self) -> str:
+        return "\n".join(b.text for b in self.blocks if b.text.strip())
+
+    def to_dict(self) -> dict:
+        return {
+            "slide_no": self.slide_no,
+            "title": self.title,
+            "blocks": [b.to_dict() for b in self.blocks],
+            "categories": list(self.categories),
+            "total_char_count": self.total_char_count,
+            "line_count": self.line_count,
+            "has_visual": self.has_visual,
+            "visual_type": list(self.visual_type),
+            "alignment": self.alignment,
+            "text_sparse": self.text_sparse,
+            "image_only": self.image_only,
+            "raw_text": self.raw_text,
+        }
+
+
+@dataclass
+class SlideDoc:
+    """F-01의 산출물. 발표자료 전체."""
+    file_name: str
+    total_slides: int
+    slides: list[Slide] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "slides": [s.to_dict() for s in self.slides],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlideDoc":
+        slides = []
+        for s in d.get("slides", []):
+            blocks = [SlideBlock(**b) for b in s.get("blocks", [])]
+            # 구 fixture: 지표 없으면 blocks 에서 최소 유도
+            char_count = int(s.get("total_char_count", sum(len(b.text) for b in blocks)))
+            has_visual = bool(
+                s["has_visual"] if "has_visual" in s
+                else any(b.category in ("figure", "chart", "image", "table") for b in blocks)
+            )
+            cats = list(s.get("categories") or [])
+            if not cats:
+                seen: list[str] = []
+                for b in blocks:
+                    if b.category not in seen:
+                        seen.append(b.category)
+                cats = seen
+            visual_type = list(s.get("visual_type") or [])
+            if "visual_type" not in s:
+                visual_type = [
+                    c for c in ("figure", "chart", "table", "image") if c in cats
+                ]
+            text_sparse = bool(s.get("text_sparse", char_count < 20))
+            slides.append(Slide(
+                slide_no=s["slide_no"],
+                title=s.get("title", ""),
+                blocks=blocks,
+                categories=cats,
+                total_char_count=char_count,
+                line_count=int(s.get("line_count", 0)),
+                has_visual=has_visual,
+                visual_type=visual_type,
+                alignment=s.get("alignment"),
+                text_sparse=text_sparse,
+                image_only=bool(s.get("image_only", text_sparse and has_visual)),
+            ))
+        return cls(
+            file_name=d["file_name"],
+            total_slides=d["total_slides"],
+            slides=slides,
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-02 : 발표 맥락
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Context:
+    """F-02 산출물. F-06의 중요도 판단에 가중치로 들어간다."""
+    situation: str = ""
+    audience: str = ""
+    duration_min: int | None = None
+
+    @property
+    def is_empty(self) -> bool:
+        return not (self.situation or self.audience)
+
+    def to_prompt_block(self) -> str:
+        if self.is_empty:
+            return "발표 상황: (입력 없음 — 범용 발표로 간주)"
+        lines = []
+        if self.situation:
+            lines.append(f"발표 상황: {self.situation}")
+        if self.audience:
+            lines.append(f"청중: {self.audience}")
+        if self.duration_min:
+            lines.append(f"발표 시간: 약 {self.duration_min}분")
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Context":
+        return cls(
+            situation=d.get("situation", ""),
+            audience=d.get("audience", ""),
+            duration_min=d.get("duration_min"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-04 : 슬라이드 전환 기록  (브라우저 SDK가 생성)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class SlideMark:
+    """'몇 초에 몇 번 슬라이드를 보고 있었다' 한 구간."""
+    slide_no: int
+    start_sec: float
+    end_sec: float
+    visit: int = 1
+
+    @property
+    def duration(self) -> float:
+        return max(0.0, self.end_sec - self.start_sec)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlideMark":
+        return cls(
+            slide_no=d["slide_no"],
+            start_sec=float(d["start_sec"]),
+            end_sec=float(d["end_sec"]),
+            visit=d.get("visit", 1),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-05 : STT 결과
+# ---------------------------------------------------------------------------
+
+@dataclass
+class Word:
+    text: str
+    start_sec: float
+    end_sec: float
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Word":
+        """알 수 없는 키(slide_no 등)는 무시 — 프런트·캐시 JSON 이 섞여도 깨지지 않게.
+        callers: Transcript.from_dict ← bridge /api/v1/concepts|pace|habits|alignment
+        schema: {text, start_sec, end_sec}; extra keys dropped
+        user: "목업으로 작동하는거 없이 다 제대로 작동하는지 체크"
+        """
+        return cls(
+            text=str(d.get("text", "")),
+            start_sec=float(d.get("start_sec", 0.0) or 0.0),
+            end_sec=float(d.get("end_sec", 0.0) or 0.0),
+        )
+
+
+@dataclass
+class SlideSpeech:
+    slide_no: int
+    visit: int
+    start_sec: float
+    end_sec: float
+    text: str
+    words: list[Word] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "slide_no": self.slide_no,
+            "visit": self.visit,
+            "start_sec": self.start_sec,
+            "end_sec": self.end_sec,
+            "text": self.text,
+            "words": [w.to_dict() for w in self.words],
+        }
+
+
+@dataclass
+class Transcript:
+    """F-05의 산출물."""
+    full_text: str
+    words: list[Word] = field(default_factory=list)
+    by_slide: list[SlideSpeech] = field(default_factory=list)
+    provider: str = ""
+    duration_sec: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "full_text": self.full_text,
+            "words": [w.to_dict() for w in self.words],
+            "by_slide": [s.to_dict() for s in self.by_slide],
+            "provider": self.provider,
+            "duration_sec": self.duration_sec,
+        }
+
+    def text_for_slide(self, slide_no: int) -> str:
+        """특정 슬라이드에서 한 말 전부 (재방문 포함). F-11 대조용."""
+        parts = [s.text for s in self.by_slide if s.slide_no == slide_no and s.text.strip()]
+        return " ".join(parts)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Transcript":
+        return cls(
+            full_text=d.get("full_text", ""),
+            words=[Word.from_dict(w) for w in d.get("words", [])],
+            by_slide=[
+                SlideSpeech(
+                    slide_no=s["slide_no"],
+                    visit=s.get("visit", 1),
+                    start_sec=float(s["start_sec"]),
+                    end_sec=float(s["end_sec"]),
+                    text=s.get("text", ""),
+                    words=[Word.from_dict(w) for w in s.get("words", [])],
+                )
+                for s in d.get("by_slide", [])
+            ],
+            provider=d.get("provider", ""),
+            duration_sec=float(d.get("duration_sec", 0.0)),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-06 : 개념 추출 결과 (1차 전처리)
+# ---------------------------------------------------------------------------
+# 주의: 여기서는 개념 간 부모-자식 관계를 만들지 않는다.
+#      위계는 F-07(트리 생성)의 책임이다.
+
+@dataclass
+class SlideConcepts:
+    slide_no: int
+    title: str
+    topic: str
+    keywords: list[str] = field(default_factory=list)
+    concepts: list[str] = field(default_factory=list)
+    raw_text: str = ""
+    importance: str = "core"  # core | support — 맥락 가중치 반영
+    #: F-06 이 이 장의 개념을 끝내 못 받았다 (다시 물어도 빈손) — 빈 core 로 조용히 채우던 것을 표시한다 (09-30 G-A8).
+    #: 거짓이면 직렬화하지 않는다 — 옛 캐시 키·저장본과 같은 모양을 지킨다.
+    missing: bool = False
+    #: 2026-10-01 종류가 있는 추출 — 무더기 목록(개념·주장 문장·수치·조건이 한 칸)이 그래프 위계를 흔들었다
+    #: (docs/review/2026-10-01_개념그래프_일반원인). 비어 있으면 직렬화하지 않는다 — 옛 저장본은 옛 모양 그대로다.
+    #: title_kind: 장 제목의 성격 — claim(주장 문장) · question(질문) · topic(주제어·목차 말) · structural(목차·감사·참고문헌)
+    title_kind: str = ""
+    #: 이 장이 내세우는 주장(참·거짓을 따질 수 있는 평서문). 첫 줄이 이 장의 핵심 메시지다.
+    claims: list[str] = field(default_factory=list)
+    #: 주장·개념을 받치는 수치·결과·사례·출처·조건(기간·대상·장소) — 노드가 아니라 노드에 붙는 근거다.
+    evidence: list[str] = field(default_factory=list)
+    #: 같은 장 안 개념의 위아래 — {하위 개념 이름: 상위 개념 이름} (「구독자 수」 → 「월 반복 매출」).
+    concept_of: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def typed(self) -> bool:
+        """종류가 있는 추출(F-06 2026-10-01~)의 장인가 — 옛 저장본은 거짓."""
+        return bool(self.title_kind or self.claims or self.evidence or self.concept_of)
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        if not self.missing:
+            d.pop("missing", None)
+        for k in ("title_kind", "claims", "evidence", "concept_of"):
+            if not d.get(k):
+                d.pop(k, None)
+        return d
+
+
+@dataclass
+class ContextSuggestion:
+    """
+    [F-23] 자료만 보고 추정한 발표 상황 — "업무 보고 같아요, 맞나요?" 의 재료.
+
+    화면은 이걸로 `#/new` 폼을 **미리 채우기만** 한다. 사용자가 고른 값이 언제나 이긴다.
+    situation 이 빈 문자열이면 미정 — 아무것도 채우지 않는다. why 는 사람이 읽는 근거
+    ("3장 '분기 실적' · 9장 '요청 사항'"). scores 는 상황별 신호 점수(디버그·측정용).
+    """
+    situation: str = ""                    # rubric_v3.SITUATIONS 의 키 또는 ""
+    audience: str = ""                     # 제안 청중 라벨 ("상사")
+    confidence: float = 0.0                # 0~1. 1위 상황이 전체 신호에서 차지한 비율
+    why: str = ""
+    scores: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {"situation": self.situation, "audience": self.audience, "confidence": self.confidence,
+                "why": self.why, "scores": dict(self.scores)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ContextSuggestion":
+        return cls(situation=str(d.get("situation", "") or ""), audience=str(d.get("audience", "") or ""),
+                   confidence=float(d.get("confidence", 0.0) or 0.0), why=str(d.get("why", "") or ""),
+                   scores={str(k): int(v) for k, v in (d.get("scores") or {}).items()})
+
+@dataclass
+class ConceptDoc:
+    """F-06의 산출물. F-07 트리 생성의 입력이 된다."""
+    file_name: str
+    total_slides: int
+    slides: list[SlideConcepts] = field(default_factory=list)
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "slides": [s.to_dict() for s in self.slides],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptDoc":
+        slides = []
+        for s in d.get("slides", []):
+            slides.append(SlideConcepts(
+                slide_no=s["slide_no"],
+                title=s.get("title", ""),
+                topic=s.get("topic", ""),
+                keywords=list(s.get("keywords", [])),
+                concepts=list(s.get("concepts", [])),
+                raw_text=s.get("raw_text", ""),
+                importance=s.get("importance", "core"),
+                missing=bool(s.get("missing", False)),
+                title_kind=str(s.get("title_kind", "") or ""),
+                claims=[str(x) for x in (s.get("claims") or [])],
+                evidence=[str(x) for x in (s.get("evidence") or [])],
+                concept_of={str(k): str(v) for k, v in (s.get("concept_of") or {}).items()},
+            ))
+        return cls(
+            file_name=d["file_name"],
+            total_slides=d["total_slides"],
+            model=d.get("model", ""),
+            slides=slides,
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-07 : 개념 그래프 (발표 전체 기준 우선순위 + 연결선 + 구획)
+# ---------------------------------------------------------------------------
+# F-06 은 한 장 안을 보고, F-07 은 장들이 발표 전체에서 어디에 앉는지를 본다.
+#
+# 트리가 아니라 그래프인 이유: 개념은 부모가 하나라는 보장이 없다.
+# 'CAFP 분석'은 '링글 AI 서비스'와 '데이터 자산' 양쪽에 걸린다.
+# parent 간선만 따라가면 트리 뷰가 나오고, relates 간선이 나머지 연결을 담는다.
+#
+# 발화 축(speech_weight)과 정합 판정(누락·모순)은 넣지 않는다.
+# F-07 은 Transcript 를 받지 않는다. 그건 node.id 로 조인하는 뒤 단계 책임이다.
+
+#: sections[].slide_role 허용값. 이 밖의 값은 SLIDE_ROLE_FALLBACK 으로 떨어진다.
+SLIDE_ROLES = ("cover", "intro", "body", "conclusion", "closing")
+SLIDE_ROLE_FALLBACK = "body"
+
+#: edges[].kind 허용값. parent 는 위계, relates 는 그 밖의 논리 연결.
+EDGE_KINDS = ("parent", "relates")
+#: ConceptNode.kind 값 — 빈 값은 옛 그래프(종류 모름).
+NODE_KINDS = ("thesis", "claim", "concept")
+EDGE_KIND_FALLBACK = "relates"
+
+#: nodes[].weight_basis.position 허용값. 발표 안에서 개념이 등장하는 위치.
+NODE_POSITIONS = ("early", "middle", "late")
+
+
+@dataclass
+class WeightBasis:
+    """
+    weight 를 그렇게 준 근거. 산점도에서 '왜 이 값인지' 를 설명하려면 필요하다.
+
+    slide_doc 없이 build 하면 char_share·has_visual 은 0/False 로 남는다.
+    """
+    slide_count: int = 0        # 이 개념이 걸친 장 수
+    char_share: float = 0.0     # 그 장들의 본문 글자 수 / 전체 글자 수
+    has_visual: bool = False    # 근거 장에 도식·표·차트가 있나
+    position: str = "middle"    # early | middle | late
+    mention_count: int = 0      # 문서 전체 개념·키워드에서 이 개념이 언급된 횟수
+    title_hit: bool = False     # 근거 장 제목에 이 개념이 등장하나
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "WeightBasis":
+        pos = d.get("position", "middle")
+        return cls(
+            slide_count=int(d.get("slide_count", 0)),
+            char_share=float(d.get("char_share", 0.0)),
+            has_visual=bool(d.get("has_visual", False)),
+            position=pos if pos in NODE_POSITIONS else "middle",
+            mention_count=int(d.get("mention_count", 0)),
+            title_hit=bool(d.get("title_hit", False)),
+        )
+
+
+@dataclass
+class ConceptEdge:
+    """개념 사이의 연결 하나. from 은 파이썬 예약어라 필드명은 from_id 다."""
+    from_id: str
+    to_id: str
+    kind: str = "parent"        # parent | relates
+
+    def to_dict(self) -> dict:
+        return {"from": self.from_id, "to": self.to_id, "kind": self.kind}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptEdge":
+        kind = d.get("kind", "parent")
+        return cls(
+            from_id=str(d["from"]),
+            to_id=str(d["to"]),
+            kind=kind if kind in EDGE_KINDS else EDGE_KIND_FALLBACK,
+        )
+
+
+@dataclass
+class ConceptNode:
+    """
+    그래프의 개념 하나. 중첩하지 않고 평평하게 둔다.
+
+    parent_id / depth 는 parent 간선에서 **파생된 편의 필드**다.
+    진실은 ConceptGraph.edges 이고, 화면이 트리로 그릴 때 쓰라고 실어 준다.
+    """
+    id: str
+    label: str
+    slide_nos: list[int] = field(default_factory=list)  # 조인 키. 여러 장 가능
+    summary: str = ""
+    importance: str = "core"       # core | support
+    weight: float = 0.0            # 0.0~1.0. 그래프 안에서 상대적 (최상위 = 1.0)
+    weight_basis: WeightBasis = field(default_factory=WeightBasis)
+    parent_id: str | None = None   # 파생: 첫 parent 간선
+    depth: int = 1                 # 파생: 루트=1
+    #: 노드 종류 — thesis(발표의 핵심 주장, 루트) · claim(장이 내세우는 주장 문장) · concept(개념). 빈 값은 옛 그래프(종류 모름).
+    kind: str = ""
+    #: 이 노드를 받치는 자료의 수치·결과·사례·조건 (F-06 evidence). 노드로 세우지 않고 여기 단다 — 「성수동」「12주」 가 루트가 되던 것.
+    evidence: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        d = {
+            "id": self.id,
+            "label": self.label,
+            "slide_nos": list(self.slide_nos),
+            "summary": self.summary,
+            "importance": self.importance,
+            "weight": self.weight,
+            "weight_basis": self.weight_basis.to_dict(),
+            "parent_id": self.parent_id,
+            "depth": self.depth,
+        }
+        if self.kind:
+            d["kind"] = self.kind
+        if self.evidence:
+            d["evidence"] = list(self.evidence)
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptNode":
+        return cls(
+            id=str(d["id"]),
+            label=d.get("label", ""),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            summary=d.get("summary", ""),
+            importance=d.get("importance", "core"),
+            weight=float(d.get("weight", 0.0)),
+            weight_basis=WeightBasis.from_dict(d.get("weight_basis") or {}),
+            parent_id=d.get("parent_id"),
+            depth=int(d.get("depth", 1)),
+            kind=str(d.get("kind", "") or ""),
+            evidence=[str(x) for x in (d.get("evidence") or [])],
+        )
+
+
+@dataclass
+class Section:
+    """발표 구획 하나. slide_role 은 이 구획이 전체에서 하는 역할."""
+    name: str
+    slide_role: str = SLIDE_ROLE_FALLBACK
+    slide_nos: list[int] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "slide_role": self.slide_role,
+            "slide_nos": list(self.slide_nos),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Section":
+        role = d.get("slide_role", SLIDE_ROLE_FALLBACK)
+        return cls(
+            name=d.get("name", ""),
+            slide_role=role if role in SLIDE_ROLES else SLIDE_ROLE_FALLBACK,
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+        )
+
+
+@dataclass
+class ConceptGraph:
+    """
+    F-07 의 산출물. F-08~10(질문 코칭)·F-11(정합 판정)의 입력이 된다.
+
+    edges 가 진실이고, node.parent_id / node.depth 는 parent 간선에서 파생된 편의 필드다.
+    불변식은 f07_graph.build_graph() 가 보장한다:
+    id 유일 · 간선 양끝이 존재하는 id · 자기 간선 없음 · parent 순환 없음 ·
+    노드당 parent 간선 최대 1개 · depth = 체인 길이.
+    """
+    file_name: str
+    total_slides: int
+    nodes: list[ConceptNode] = field(default_factory=list)
+    edges: list[ConceptEdge] = field(default_factory=list)
+    sections: list[Section] = field(default_factory=list)
+    model: str = ""
+    #: 발표 전체의 주장 (F-07 thesis). 모르면 None — 주제 자리 질문·탐침이 루트를 고를 때 쓴다 (09-30 G-A17).
+    thesis: str | None = None
+    #: 만들다 떨어진 단계 이름 (예: "links") — 실패를 조용히 삼키지 않고 화면·로그가 읽게 둔다 (09-30 G-A30).
+    degraded: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        d = {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "nodes": [n.to_dict() for n in self.nodes],
+            "edges": [e.to_dict() for e in self.edges],
+            "sections": [s.to_dict() for s in self.sections],
+        }
+        # 값이 있을 때만 싣는다 — 옛 그래프 캐시·저장본과 같은 모양을 지킨다.
+        if self.thesis:
+            d["thesis"] = self.thesis
+        if self.degraded:
+            d["degraded"] = list(self.degraded)
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptGraph":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d["total_slides"]),
+            nodes=[ConceptNode.from_dict(n) for n in d.get("nodes", [])],
+            edges=[ConceptEdge.from_dict(e) for e in d.get("edges", [])],
+            sections=[Section.from_dict(s) for s in d.get("sections", [])],
+            model=d.get("model", ""),
+            thesis=(str(d["thesis"]) if d.get("thesis") else None),
+            degraded=[str(x) for x in (d.get("degraded") or [])],
+        )
+
+    # --- 노드 조회 (질문 코칭·판정이 id 로 붙일 때 쓴다) -------------------
+
+    def node(self, node_id: str) -> ConceptNode | None:
+        """id 로 노드 하나."""
+        for n in self.nodes:
+            if n.id == node_id:
+                return n
+        return None
+
+    def nodes_for_slide(self, slide_no: int) -> list[ConceptNode]:
+        """이 장을 근거로 삼는 개념들."""
+        return [n for n in self.nodes if slide_no in n.slide_nos]
+
+    def section_of(self, slide_no: int) -> Section | None:
+        """이 장이 속한 구획."""
+        for s in self.sections:
+            if slide_no in s.slide_nos:
+                return s
+        return None
+
+    @property
+    def by_weight(self) -> list[ConceptNode]:
+        """중요도 내림차순. 슬라이드 축 우선순위 목록이 그대로 나온다."""
+        return sorted(self.nodes, key=lambda n: -n.weight)
+
+    # --- 트리 뷰 (parent 간선만 따라간 결과) ------------------------------
+
+    def children_of(self, node_id: str | None) -> list[ConceptNode]:
+        """직속 자식들. None 을 주면 루트 목록."""
+        return [n for n in self.nodes if n.parent_id == node_id]
+
+    @property
+    def roots(self) -> list[ConceptNode]:
+        return self.children_of(None)
+
+    def path_of(self, node_id: str) -> list[ConceptNode]:
+        """
+        루트에서 해당 노드까지의 경로.
+
+        Q&A 화면의 '개념 경로' 표시용. 없는 id 면 빈 리스트.
+        """
+        by_id = {n.id: n for n in self.nodes}
+        cur = by_id.get(node_id)
+        chain: list[ConceptNode] = []
+        seen: set[str] = set()
+        while cur is not None and cur.id not in seen:
+            seen.add(cur.id)
+            chain.append(cur)
+            cur = by_id.get(cur.parent_id) if cur.parent_id else None
+        return list(reversed(chain))
+
+    # --- 그래프 뷰 (연결선 전체) -----------------------------------------
+
+    @property
+    def parent_edges(self) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.kind == "parent"]
+
+    @property
+    def relates_edges(self) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.kind == "relates"]
+
+    def edges_from(self, node_id: str) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.from_id == node_id]
+
+    def edges_to(self, node_id: str) -> list[ConceptEdge]:
+        return [e for e in self.edges if e.to_id == node_id]
+
+    def neighbors_of(self, node_id: str) -> list[ConceptNode]:
+        """방향 무시하고 이 개념과 연결된 개념들 (중복 제거)."""
+        ids: list[str] = []
+        for e in self.edges:
+            other = e.to_id if e.from_id == node_id else (e.from_id if e.to_id == node_id else None)
+            if other and other != node_id and other not in ids:
+                ids.append(other)
+        return [n for n in (self.node(i) for i in ids) if n is not None]
+
+
+# ---------------------------------------------------------------------------
+# F-11 : 정합 판정 (발화 축 + 4-class)
+# ---------------------------------------------------------------------------
+# F-07 이 만든 슬라이드 축(weight) 옆에 발화 축(speech_weight)을 세우고,
+# 개념마다 발화가 자료와 정합했는지 4-class 로 판정한다. 조인 키는 node_id.
+#
+# 발화 그래프를 독립 추출해 비교하지 않는다 — LLM 추출 분산이 두 배가 되어
+# diff 가 노이즈를 측정하게 된다. 발화 개념 추출은 문서 그래프 노드에 조건화한다.
+
+#: items[].verdict 허용값. 이 밖의 값은 결정적 폴백으로 대체된다.
+ALIGN_VERDICTS = ("aligned", "justified_skip", "missing", "contradiction")
+
+#: items[].decided_by — 이 판정을 누가 내렸나 (09-30 held-out C-06 · 레드팀 G-A22).
+#: llm 은 LLM 판정 그대로 · code 는 코드가 까닭을 대고 바꿨다(숫자·방향 모순, 말로 건너뛴 장, 말한 문장을 찾음) ·
+#: fallback 은 **LLM 판정이 없어서** 언급 횟수로 채운 것이다. fallback 의 missing 은 「안 말했다」 는 확인이 아니라 짐작이라,
+#: 질문(F-08)·리포트가 진짜 누락으로 세면 안 된다.
+ALIGN_DECIDERS = ("llm", "code", "fallback")
+
+#: AlignmentDoc.speech_match — 녹음이 이 자료의 발표인가. unrelated 면 개념 판정을 하지 않는다(basis == "skipped").
+SPEECH_MATCHES = ("matched", "unrelated")
+
+#: AlignmentDoc.basis — 판정 전체의 출처. llm 정상 · fallback 은 LLM 이 두 번 다 판정을 비워 **전 노드가 짐작**이다 ·
+#: skipped 는 녹음이 다른 발표라 판정하지 않았다(모든 item 이 missing·fallback 이지만 뜻은 「판정 안 함」).
+ALIGN_BASES = ("llm", "fallback", "skipped")
+
+
+@dataclass
+class SpeechBasis:
+    """
+    speech_weight 를 그렇게 준 근거. F-07 WeightBasis 와 대칭이다.
+
+    words 가 없는 Transcript(mock 등)면 first_mention_sec 은 None 으로 남는다.
+    """
+    speech_sec: float = 0.0            # 근거 장 발화 시간 합 (초)
+    time_share: float = 0.0            # / 전체 발화 시간
+    mention_count: int = 0             # 발화 전체에서 label 언급 횟수
+    mentioned_slide_count: int = 0     # 근거 장 중 label 이 실제 언급된 장 수
+    first_mention_sec: float | None = None  # label 이 처음 등장한 시각
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SpeechBasis":
+        first = d.get("first_mention_sec")
+        return cls(
+            speech_sec=float(d.get("speech_sec", 0.0)),
+            time_share=float(d.get("time_share", 0.0)),
+            mention_count=int(d.get("mention_count", 0)),
+            mentioned_slide_count=int(d.get("mentioned_slide_count", 0)),
+            first_mention_sec=None if first is None else float(first),
+        )
+
+
+@dataclass
+class AlignmentItem:
+    """개념 노드 1개의 판정. node_id 로 ConceptGraph.nodes 와 조인한다."""
+    node_id: str
+    verdict: str = "missing"           # aligned | justified_skip | missing | contradiction
+    speech_weight: float = 0.0         # 0.0~1.0. 그래프 안에서 상대적 (최상위 = 1.0)
+    speech_basis: SpeechBasis = field(default_factory=SpeechBasis)
+    doc_weight: float = 0.0            # 파생: 해당 노드의 F-07 weight 복사 (산점도 편의)
+    evidence: str = ""                 # 판정 근거가 된 발화 인용 (한 장·한 구간 안의 문장 — 이어 붙이지 않는다)
+    note: str = ""                     # 한 줄 설명 (LLM, 코드가 판정을 바꿨으면 코드가 쓴 까닭)
+    #: 코드가 잡은 모순의 **자료 쪽** 인용과 그 장. 발화 쪽은 evidence 다. 비어 있으면 코드가 확인한 모순이 아니다.
+    deck_quote: str = ""
+    deck_slide_no: int | None = None
+    decided_by: str = "llm"            # ALIGN_DECIDERS
+    #: 코드가 확인한 모순의 갈래 — "number"(수치가 다름) · "direction"(비교·방향이 반대) · "polarity"(맞다·아니다가 반대) · ""(모름·모순 아님).
+    #: 질문·리포트가 「수치」「방향」「맞다·아니다」 를 이것으로 고른다 — 자료 쪽에만 남은 수로 짐작하면 「이 할도 안 되는」(= 2할 미만)이
+    #: 「수치가 달라요」 가 됐다(09-30 녹음 감사 REC-03). 예전 저장본엔 없다 — 비면 예전처럼 짐작한다.
+    contra_kind: str = ""
+
+    CONTRA_KINDS = ("number", "direction", "polarity")
+
+    def to_dict(self) -> dict:
+        return {
+            "node_id": self.node_id,
+            "verdict": self.verdict,
+            "speech_weight": self.speech_weight,
+            "speech_basis": self.speech_basis.to_dict(),
+            "doc_weight": self.doc_weight,
+            "evidence": self.evidence,
+            "note": self.note,
+            "deck_quote": self.deck_quote,
+            "deck_slide_no": self.deck_slide_no,
+            "decided_by": self.decided_by,
+            "contra_kind": self.contra_kind,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlignmentItem":
+        verdict = d.get("verdict", "missing")
+        slide_no = d.get("deck_slide_no")
+        decided = str(d.get("decided_by", "llm") or "llm")
+        contra_kind = str(d.get("contra_kind", "") or "")
+        return cls(
+            node_id=str(d["node_id"]),
+            verdict=verdict if verdict in ALIGN_VERDICTS else "missing",
+            speech_weight=float(d.get("speech_weight", 0.0)),
+            speech_basis=SpeechBasis.from_dict(d.get("speech_basis") or {}),
+            doc_weight=float(d.get("doc_weight", 0.0)),
+            evidence=d.get("evidence", ""),
+            note=d.get("note", ""),
+            deck_quote=str(d.get("deck_quote", "") or ""),
+            deck_slide_no=None if slide_no is None else int(slide_no),
+            decided_by=decided if decided in ALIGN_DECIDERS else "llm",
+            contra_kind=contra_kind if contra_kind in cls.CONTRA_KINDS else "",
+        )
+
+
+@dataclass
+class SpeechEdge:
+    """발표자가 말로 연결한 개념 쌍. cue 가 그 연결을 보여 준 발화 인용이다."""
+    from_id: str
+    to_id: str
+    cue: str = ""
+    in_graph: bool = False             # 파생: 문서 그래프에도 있는 연결인가 (방향 무시)
+
+    def to_dict(self) -> dict:
+        return {
+            "from": self.from_id,
+            "to": self.to_id,
+            "cue": self.cue,
+            "in_graph": self.in_graph,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SpeechEdge":
+        return cls(
+            from_id=str(d["from"]),
+            to_id=str(d["to"]),
+            cue=d.get("cue", ""),
+            in_graph=bool(d.get("in_graph", False)),
+        )
+
+
+@dataclass
+class ExtraConcept:
+    """발화에는 있는데 문서 그래프에 없는 개념. 보충 설명이거나 삼천포다."""
+    label: str
+    quote: str = ""
+    slide_no: int | None = None        # 언급 시점에 보고 있던 장
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ExtraConcept":
+        slide_no = d.get("slide_no")
+        return cls(
+            label=d.get("label", ""),
+            quote=d.get("quote", ""),
+            slide_no=None if slide_no is None else int(slide_no),
+        )
+
+
+@dataclass
+class SkippedSlide:
+    """
+    발표자가 **말로 건너뛴** 장 — 「시간 관계상 그냥 넘어갈게요」「이건 건너뛸게요」 (09-30 held-out C-06).
+
+    그 말은 어떤 개념의 근거도 아니다. node_ids 는 이 장의 개념 중 다른 문장으로도 설명되지 않아
+    missing 으로 남은 것들이다 — 질문(F-08)이 「건너뛴 핵심 장」 을 물을 때 이 목록을 쓴다.
+    """
+    slide_no: int
+    cue: str = ""                      # 건너뛴다고 한 발화 원문
+    node_ids: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"slide_no": self.slide_no, "cue": self.cue, "node_ids": list(self.node_ids)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SkippedSlide":
+        return cls(
+            slide_no=int(d["slide_no"]),
+            cue=str(d.get("cue", "") or ""),
+            node_ids=[str(x) for x in d.get("node_ids", [])],
+        )
+
+
+@dataclass
+class AlignmentSummary:
+    """발표 전체 요약 지표. 전부 코드가 계산한다 (LLM 아님)."""
+    coverage: float = 0.0                    # weight 가중 커버리지 (0~1)
+    rank_correlation: float | None = None    # doc_weight vs speech_weight Spearman
+    edge_coverage: float | None = None       # 문서 간선 중 발화로도 연결된 비율
+    verdict_counts: dict = field(default_factory=dict)
+    speech_total_sec: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "coverage": self.coverage,
+            "rank_correlation": self.rank_correlation,
+            "edge_coverage": self.edge_coverage,
+            "verdict_counts": dict(self.verdict_counts),
+            "speech_total_sec": self.speech_total_sec,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlignmentSummary":
+        rank = d.get("rank_correlation")
+        edge = d.get("edge_coverage")
+        return cls(
+            coverage=float(d.get("coverage", 0.0)),
+            rank_correlation=None if rank is None else float(rank),
+            edge_coverage=None if edge is None else float(edge),
+            verdict_counts=dict(d.get("verdict_counts") or {}),
+            speech_total_sec=float(d.get("speech_total_sec", 0.0)),
+        )
+
+
+@dataclass
+class AlignmentDoc:
+    """
+    F-11 의 산출물. 산점도(doc_weight × speech_weight)와 diff 뷰가 여기서 나온다.
+
+    불변식은 f11_align.align_speech() 가 보장한다:
+    그래프의 모든 노드에 item 정확히 1개 · verdict 는 enum 안 ·
+    speech_edges 양끝이 존재하는 id · extra_concepts 는 그래프에 없는 개념만.
+
+    **판정을 읽기 전에 basis·speech_match 를 먼저 본다** (09-30 held-out C-07 · G-A22):
+    speech_match == "unrelated"(basis "skipped")면 녹음이 다른 발표라 item 은 전부 「판정 안 함」 이고,
+    basis == "fallback" 이면 LLM 판정이 없어 item 이 전부 언급 횟수 짐작이다. 둘 다 발화를 근거로 쓰면 안 된다.
+    """
+    file_name: str
+    total_slides: int
+    items: list[AlignmentItem] = field(default_factory=list)
+    speech_edges: list[SpeechEdge] = field(default_factory=list)
+    extra_concepts: list[ExtraConcept] = field(default_factory=list)
+    summary: AlignmentSummary = field(default_factory=AlignmentSummary)
+    model: str = ""
+    speech_match: str = "matched"      # SPEECH_MATCHES
+    #: 발화 낱말 중 자료에도 있는 비중(드문 낱말일수록 무겁게, 0~1). speech_match 를 가른 수치. 못 쟀으면 None.
+    speech_overlap: float | None = None
+    basis: str = "llm"                 # ALIGN_BASES
+    skipped_slides: list[SkippedSlide] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "items": [i.to_dict() for i in self.items],
+            "speech_edges": [e.to_dict() for e in self.speech_edges],
+            "extra_concepts": [c.to_dict() for c in self.extra_concepts],
+            "summary": self.summary.to_dict(),
+            "speech_match": self.speech_match,
+            "speech_overlap": self.speech_overlap,
+            "basis": self.basis,
+            "skipped_slides": [s.to_dict() for s in self.skipped_slides],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AlignmentDoc":
+        match = str(d.get("speech_match", "matched") or "matched")
+        basis = str(d.get("basis", "llm") or "llm")
+        overlap = d.get("speech_overlap")
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d["total_slides"]),
+            items=[AlignmentItem.from_dict(i) for i in d.get("items", [])],
+            speech_edges=[SpeechEdge.from_dict(e) for e in d.get("speech_edges", [])],
+            extra_concepts=[ExtraConcept.from_dict(c) for c in d.get("extra_concepts", [])],
+            summary=AlignmentSummary.from_dict(d.get("summary") or {}),
+            model=d.get("model", ""),
+            speech_match=match if match in SPEECH_MATCHES else "matched",
+            speech_overlap=None if overlap is None else float(overlap),
+            basis=basis if basis in ALIGN_BASES else "llm",
+            skipped_slides=[SkippedSlide.from_dict(s) for s in d.get("skipped_slides", []) or []],
+        )
+
+    @property
+    def speech_usable(self) -> bool:
+        """발화 판정을 근거로 써도 되는가 — 다른 발표 녹음(skipped)·전부 짐작(fallback)이면 아니다."""
+        return self.basis == "llm" and self.speech_match == "matched"
+
+    # --- 조회 (diff 뷰·산점도가 쓴다) -------------------------------------
+
+    def item(self, node_id: str) -> AlignmentItem | None:
+        """node_id 로 판정 하나."""
+        for i in self.items:
+            if i.node_id == node_id:
+                return i
+        return None
+
+    def by_verdict(self, verdict: str) -> list[AlignmentItem]:
+        """특정 판정의 개념들. diff 뷰의 한 칸이 된다."""
+        return [i for i in self.items if i.verdict == verdict]
+
+    @property
+    def scatter_points(self) -> list[tuple[str, float, float]]:
+        """(node_id, doc_weight, speech_weight). 산점도에 바로 꽂는다."""
+        return [(i.node_id, i.doc_weight, i.speech_weight) for i in self.items]
+
+
+# ---------------------------------------------------------------------------
+# F-11 파생 : 흐름 비교 (FlowDiff)
+# ---------------------------------------------------------------------------
+# 자료 흐름(슬라이드 순)과 발표 흐름(첫 언급 순)을 같은 node_id 축에서 비교한다.
+# 전부 이미 계산된 결정적 신호(first_mention_sec·mention_count·speech_edges)의
+# 파생이므로 LLM 을 다시 부르지 않는다. 발화 그래프 독립 추출은 하지 않는다.
+
+#: issues[].kind 허용값. missing_link 잇는 멘트 없음 · order_jump 근거 점프 ·
+#: good_link 잘된 연결(칭찬).
+FLOW_ISSUE_KINDS = ("missing_link", "order_jump", "good_link")
+
+
+@dataclass
+class FlowStep:
+    """개념 노드 1개의 흐름 좌표. doc_order 는 자료 축, speech_order 는 발화 축."""
+    node_id: str
+    doc_order: int                          # 1..n — 근거 슬라이드 순
+    speech_order: int | None = None         # 1..k — 첫 언급 시각 순. 못 잡으면 None
+    first_mention_sec: float | None = None  # SpeechBasis 에서 복사 (화면 편의)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FlowStep":
+        speech = d.get("speech_order")
+        first = d.get("first_mention_sec")
+        return cls(
+            node_id=str(d["node_id"]),
+            doc_order=int(d["doc_order"]),
+            speech_order=None if speech is None else int(speech),
+            first_mention_sec=None if first is None else float(first),
+        )
+
+
+@dataclass
+class FlowIssue:
+    """흐름 차원 판정 하나. good_link 는 칭찬이라 cue(발화 인용)가 반드시 있다."""
+    kind: str                               # missing_link | order_jump | good_link
+    node_ids: list[str] = field(default_factory=list)
+    cue: str = ""                           # 근거 발화 인용 (good_link 필수)
+    slide_nos: list[int] = field(default_factory=list)
+    note: str = ""                          # 화면에 그대로 내보낼 한 줄 설명
+
+    def to_dict(self) -> dict:
+        return {
+            "kind": self.kind,
+            "node_ids": list(self.node_ids),
+            "cue": self.cue,
+            "slide_nos": list(self.slide_nos),
+            "note": self.note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FlowIssue":
+        return cls(
+            kind=d.get("kind", ""),
+            node_ids=[str(x) for x in d.get("node_ids", [])],
+            cue=d.get("cue", ""),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class FlowDiff:
+    """
+    F-11 파생 산출물. 자료 흐름 vs 발표 흐름의 차이와 플로우 피드백.
+
+    불변식은 f11_flow.build_flow_diff() 가 보장한다:
+    steps 는 그래프의 모든 노드 정확히 1개씩 · speech_order 는 1..k 연속 ·
+    issues 의 node_id 는 전부 실존 · good_link 는 cue 필수 · 순수 함수(결정적).
+    """
+    file_name: str
+    steps: list[FlowStep] = field(default_factory=list)
+    issues: list[FlowIssue] = field(default_factory=list)
+    order_tau: float | None = None          # 문서 순서 vs 발화 순서 Kendall tau
+    spoken_node_count: int = 0              # 발화에서 언급된 노드 수
+    ghost_node_ids: list[str] = field(default_factory=list)  # 첫 언급을 못 잡은 노드
+    extra_labels: list[str] = field(default_factory=list)    # 발화 전용 개념 label
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "steps": [s.to_dict() for s in self.steps],
+            "issues": [i.to_dict() for i in self.issues],
+            "order_tau": self.order_tau,
+            "spoken_node_count": self.spoken_node_count,
+            "ghost_node_ids": list(self.ghost_node_ids),
+            "extra_labels": list(self.extra_labels),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FlowDiff":
+        tau = d.get("order_tau")
+        return cls(
+            file_name=d["file_name"],
+            steps=[FlowStep.from_dict(s) for s in d.get("steps", [])],
+            issues=[FlowIssue.from_dict(i) for i in d.get("issues", [])],
+            order_tau=None if tau is None else float(tau),
+            spoken_node_count=int(d.get("spoken_node_count", 0)),
+            ghost_node_ids=[str(x) for x in d.get("ghost_node_ids", [])],
+            extra_labels=[str(x) for x in d.get("extra_labels", [])],
+        )
+
+    def issues_of(self, kind: str) -> list[FlowIssue]:
+        """특정 종류의 판정들. 리포트 '논리 흐름' 탭의 한 묶음이 된다."""
+        return [i for i in self.issues if i.kind == kind]
+
+
+# 삐약 청중석 : 청중 반응 수다 (ChatterDoc)
+# ---------------------------------------------------------------------------
+# 국내 LLM 4개가 병아리 청중을 연기하며 발표에 대해 떠든다. 성격은 임의 배정이
+# 아니라 각 모델이 파이프라인에서 실제로 한 일에서 나온다 (solar=자료를 읽음,
+# ax=발표를 들음, midm=믿음/검증, exaone=전문가 칭찬).
+#
+# 대사 내용은 이미 계산된 AlignmentDoc·FlowDiff 의 사실만 쓴다. 어떤 노드를
+# 언급할지는 코드가 결정적으로 고르고, LLM 은 말투만 입힌다 — F-11 과 같은 철학.
+
+#: speaker id. providers/llm_impl.py REGISTRY 키와 동일해서 별도 매핑이 없다.
+CHATTER_SPEAKERS = ("midm", "solar", "exaone", "ax")
+
+#: 프론트가 아바타 표정·모션을 고르는 키. enum 밖은 neutral 로 떨어진다.
+CHATTER_MOODS = ("grumpy", "happy", "curious", "excited", "neutral")
+
+#: refs[].source — 이 대사의 근거가 어느 산출물에서 왔나.
+CHATTER_REF_SOURCES = ("alignment", "flow", "graph")
+
+#: 화면에 상시 노출하는 모델 배지. "국내 LLM 총출동"을 설명 없이 보이게 하는 장치라
+#: 어느 단계에서도 숨기지 않는다.
+CHATTER_BADGES = {
+    "midm": "KT 믿:음",
+    "solar": "Upstage Solar",
+    "exaone": "LG EXAONE",
+    "ax": "SKT A.X",
+}
+
+#: 병아리 이름 (화면 표시용).
+#: 이름은 모델명을 그대로 짧게 부른 것이다. 별명을 따로 지으면 좌석 명패
+#: (= 모델 배지)와 어긋나 "국내 LLM 4개가 듣고 있다"는 사실이 흐려진다.
+CHATTER_NAMES = {
+    "midm": "믿:음",
+    "solar": "쏠라",
+    "exaone": "엑사원",
+    "ax": "엑씨",
+}
+
+
+@dataclass
+class ChatterRef:
+    """대사 하나의 근거. node_id 로 리포트의 개념 판정과 조인한다."""
+    node_id: str
+    source: str = "alignment"   # alignment | flow | graph
+
+    def to_dict(self) -> dict:
+        return {"node_id": self.node_id, "source": self.source}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterRef":
+        return cls(
+            node_id=str(d["node_id"]),
+            source=str(d.get("source", "alignment")),
+        )
+
+
+@dataclass
+class ChatterTurn:
+    """수다 한 턴. refs 가 비면 근거 없는 스몰토크다 (개수 제한 대상)."""
+    speaker: str                        # CHATTER_SPEAKERS 중 하나
+    text: str
+    mood: str = "neutral"               # CHATTER_MOODS 중 하나
+    refs: list[ChatterRef] = field(default_factory=list)
+
+    @property
+    def is_smalltalk(self) -> bool:
+        return not self.refs
+
+    def to_dict(self) -> dict:
+        return {
+            "speaker": self.speaker,
+            "text": self.text,
+            "mood": self.mood,
+            "refs": [r.to_dict() for r in self.refs],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterTurn":
+        return cls(
+            speaker=str(d["speaker"]),
+            text=str(d.get("text", "")),
+            mood=str(d.get("mood", "neutral")),
+            refs=[ChatterRef.from_dict(r) for r in d.get("refs", [])],
+        )
+
+
+@dataclass
+class ChatterDoc:
+    """
+    청중 반응 수다. 프론트 채팅방이 이걸 그대로 재생한다.
+
+    불변식은 f12_chatter.build_chatter() 가 보장한다:
+    speaker 전원 최소 1턴 · refs 는 그 speaker 에게 배정된 근거만 ·
+    mood 는 enum 안 · 스몰토크 비율 상한 · 전체 턴 수 상한.
+    """
+    file_name: str
+    total_slides: int = 0
+    turns: list[ChatterTurn] = field(default_factory=list)
+    #: speaker → 배지 문자열. 프론트가 CHATTER_BADGES 를 몰라도 되게 같이 실어 보낸다.
+    speaker_models: dict[str, str] = field(default_factory=dict)
+    #: speaker → 병아리 이름.
+    speaker_names: dict[str, str] = field(default_factory=dict)
+    #: 오늘 못 온 병아리 (모델이 죽었거나 쓸 만한 대사를 한 줄도 못 준 경우).
+    #:
+    #: 프론트가 이걸 추측하면 안 된다. "refs 가 비었으면 결석" 같은 규칙은 틀린다 —
+    #: 엑씨의 애드립·발표 시간 사실은 node_ids 가 원래 비어 있어서, 멀쩡히 일한
+    #: 병아리가 결석 처리된다. 결석은 build_chatter 만 알 수 있으므로 여기 싣는다.
+    absent: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "turns": [t.to_dict() for t in self.turns],
+            "speaker_models": dict(self.speaker_models),
+            "speaker_names": dict(self.speaker_names),
+            "absent": list(self.absent),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ChatterDoc":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            turns=[ChatterTurn.from_dict(t) for t in d.get("turns", [])],
+            speaker_models=dict(d.get("speaker_models", {})),
+            speaker_names=dict(d.get("speaker_names", {})),
+            absent=list(d.get("absent", [])),
+        )
+
+    def turns_of(self, speaker: str) -> list[ChatterTurn]:
+        """특정 병아리의 대사들."""
+        return [t for t in self.turns if t.speaker == speaker]
+
+    @property
+    def referenced_node_ids(self) -> list[str]:
+        """수다가 실제로 언급한 노드들. 리포트와 따로 놀지 않는지 확인용."""
+        seen: list[str] = []
+        for turn in self.turns:
+            for ref in turn.refs:
+                if ref.node_id not in seen:
+                    seen.append(ref.node_id)
+        return seen
+
+
+# ---------------------------------------------------------------------------
+# F-17 : 말 속도 · 시간 배분 (규칙, LLM 없음)
+# ---------------------------------------------------------------------------
+
+#: 슬라이드 시간 배분 판정
+PACE_STATUSES = ("ok", "short", "long", "fast", "slow")
+
+
+@dataclass
+class SlidePace:
+    """한 슬라이드의 실제/권장 시간·속도."""
+    slide_no: int
+    title: str = ""
+    importance: str = "support"   # core | support
+    importance_weight: float = 0.35
+    actual_sec: float = 0.0
+    recommended_sec: float = 0.0
+    delta_sec: float = 0.0          # actual - recommended
+    chars_per_min: float = 0.0
+    syllable_per_sec: float = 0.0
+    status: str = "ok"              # ok | short | long | fast | slow
+    note: str = ""
+    #: 발표자가 이 장을 **말로 건너뛰었다** — 그 발화 원문(「시간 관계상 그냥 넘어갈게요」). 비면 건너뛴 게 아니다.
+    #: 머문 시간(actual_sec)이 있어도 설명한 시간이 아니라서 status 는 short 다 (09-30 held-out C-06).
+    skip_cue: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlidePace":
+        st = d.get("status", "ok")
+        return cls(
+            slide_no=int(d["slide_no"]),
+            title=d.get("title", ""),
+            importance=d.get("importance", "support"),
+            importance_weight=float(d.get("importance_weight", 0.35)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            recommended_sec=float(d.get("recommended_sec", 0.0)),
+            delta_sec=float(d.get("delta_sec", 0.0)),
+            chars_per_min=float(d.get("chars_per_min", 0.0)),
+            syllable_per_sec=float(d.get("syllable_per_sec", 0.0)),
+            status=st if st in PACE_STATUSES else "ok",
+            note=d.get("note", ""),
+            skip_cue=str(d.get("skip_cue", "") or ""),
+        )
+
+
+@dataclass
+class SectionAlloc:
+    """구획(섹션) 단위 권장/실제 시간."""
+    name: str
+    slide_nos: list[int] = field(default_factory=list)
+    recommended_sec: float = 0.0
+    actual_sec: float = 0.0
+    status: str = "ok"              # ok | short | long
+    label: str = ""                 # UI용 "+17% 초과" 등
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SectionAlloc":
+        return cls(
+            name=d.get("name", ""),
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            recommended_sec=float(d.get("recommended_sec", 0.0)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            status=d.get("status", "ok"),
+            label=d.get("label", ""),
+        )
+
+
+@dataclass
+class PaceDoc:
+    """F-17 산출물. 말 속도·시간 배분 표 + 규칙 팁."""
+    target_sec: float = 0.0
+    actual_sec: float = 0.0
+    avg_chars_per_min: float = 0.0
+    avg_syllable_per_sec: float = 0.0
+    max_chars_per_min: float = 0.0
+    max_slide_no: int | None = None
+    recommended_cpm: str = "300~350"
+    slides: list[SlidePace] = field(default_factory=list)
+    sections: list[SectionAlloc] = field(default_factory=list)
+    tips: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "target_sec": self.target_sec,
+            "actual_sec": self.actual_sec,
+            "avg_chars_per_min": self.avg_chars_per_min,
+            "avg_syllable_per_sec": self.avg_syllable_per_sec,
+            "max_chars_per_min": self.max_chars_per_min,
+            "max_slide_no": self.max_slide_no,
+            "recommended_cpm": self.recommended_cpm,
+            "slides": [s.to_dict() for s in self.slides],
+            "sections": [s.to_dict() for s in self.sections],
+            "tips": list(self.tips),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaceDoc":
+        return cls(
+            target_sec=float(d.get("target_sec", 0.0)),
+            actual_sec=float(d.get("actual_sec", 0.0)),
+            avg_chars_per_min=float(d.get("avg_chars_per_min", 0.0)),
+            avg_syllable_per_sec=float(d.get("avg_syllable_per_sec", 0.0)),
+            max_chars_per_min=float(d.get("max_chars_per_min", 0.0)),
+            max_slide_no=d.get("max_slide_no"),
+            recommended_cpm=d.get("recommended_cpm", "300~350"),
+            slides=[SlidePace.from_dict(s) for s in d.get("slides", [])],
+            sections=[SectionAlloc.from_dict(s) for s in d.get("sections", [])],
+            tips=list(d.get("tips", [])),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-18 : 음성 습관 신호 (REP/FIL/PAUSE)
+# ---------------------------------------------------------------------------
+
+HABIT_KINDS = ("REP", "FIL", "PAUSE")
+
+
+@dataclass
+class HabitSpan:
+    """습관 스팬 하나. 타임코드로 슬라이드에 붙인다."""
+    kind: str                       # REP | FIL | PAUSE
+    text: str = ""
+    start_sec: float = 0.0
+    end_sec: float = 0.0
+    slide_no: int | None = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HabitSpan":
+        kind = d.get("kind", "FIL")
+        return cls(
+            kind=kind if kind in HABIT_KINDS else "FIL",
+            text=d.get("text", ""),
+            start_sec=float(d.get("start_sec", 0.0)),
+            end_sec=float(d.get("end_sec", 0.0)),
+            slide_no=d.get("slide_no"),
+        )
+
+
+@dataclass
+class SlideHabits:
+    """슬라이드별 습관 카운트."""
+    slide_no: int
+    repeat_cnt: int = 0
+    filler_cnt: int = 0
+    pause_cnt: int = 0
+    note: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SlideHabits":
+        return cls(
+            slide_no=int(d["slide_no"]),
+            repeat_cnt=int(d.get("repeat_cnt", 0)),
+            filler_cnt=int(d.get("filler_cnt", 0)),
+            pause_cnt=int(d.get("pause_cnt", 0)),
+            note=d.get("note", ""),
+        )
+
+
+@dataclass
+class HabitDoc:
+    """F-18 산출물. 습관 스팬 + 슬라이드별 집계."""
+    spans: list[HabitSpan] = field(default_factory=list)
+    by_slide: list[SlideHabits] = field(default_factory=list)
+    repeat_cnt: int = 0
+    filler_cnt: int = 0
+    pause_cnt: int = 0
+    provider: str = ""              # heuristic | fixture | lora
+    tips: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "spans": [s.to_dict() for s in self.spans],
+            "by_slide": [s.to_dict() for s in self.by_slide],
+            "repeat_cnt": self.repeat_cnt,
+            "filler_cnt": self.filler_cnt,
+            "pause_cnt": self.pause_cnt,
+            "provider": self.provider,
+            "tips": list(self.tips),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "HabitDoc":
+        return cls(
+            spans=[HabitSpan.from_dict(s) for s in d.get("spans", [])],
+            by_slide=[SlideHabits.from_dict(s) for s in d.get("by_slide", [])],
+            repeat_cnt=int(d.get("repeat_cnt", 0)),
+            filler_cnt=int(d.get("filler_cnt", 0)),
+            pause_cnt=int(d.get("pause_cnt", 0)),
+            provider=d.get("provider", ""),
+            tips=list(d.get("tips", [])),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-19 : 종합 진단 리포트 (LLM — F-17·F-18 수치만 해석)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ReportDoc:
+    """F-19 산출물. 요약 탭·코칭 문장의 재료."""
+    one_liner: str = ""
+    score: int = 0                  # 0~100 (UI 링)
+    grade: str = ""                 # A+~F (선택)
+    strengths: list[str] = field(default_factory=list)
+    weaknesses: list[str] = field(default_factory=list)
+    actions: list[str] = field(default_factory=list)
+    pace_summary: str = ""
+    habit_summary: str = ""
+    model: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ReportDoc":
+        return cls(
+            one_liner=d.get("one_liner", ""),
+            score=int(d.get("score", 0)),
+            grade=d.get("grade", ""),
+            strengths=list(d.get("strengths", [])),
+            weaknesses=list(d.get("weaknesses", [])),
+            actions=list(d.get("actions", [])),
+            pace_summary=d.get("pace_summary", ""),
+            habit_summary=d.get("habit_summary", ""),
+            model=d.get("model", ""),
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-08 · F-09 : 질문 코칭 (예상 질문 + 답변 판정)
+# ---------------------------------------------------------------------------
+# 발표가 끝난 뒤 "이거 물어보면 답할 수 있나" 를 연습시키는 단계다.
+# 입력은 ConceptGraph(+ 선택 AlignmentDoc·FlowDiff) — 이미 계산된 결정적 신호만 쓴다.
+# 리포트가 "누락" 이라고 말한 개념과 질문이 어긋나면 안 되므로,
+# **어떤 개념을 물을지는 코드가 정하고 LLM 은 문장만 쓴다** (F-11 과 같은 철학).
+#
+#   F-08  ConceptGraph(+AlignmentDoc·FlowDiff) → QaTriage    (질문 가치 심사, 세션 1회)
+#   F-08  QaTriage + track                     → QuestionDoc (트랙별 질문 세트)
+#   F-09  Question + 답변(+history)            → QaJudgement (4-class 판정)
+#
+# LLM 을 두 번 부르는 이유: 개념의 **중요도**는 F-07 weight·F-11 verdict 로 이미
+# 결정적으로 알지만, "이게 심사위원한테 실제로 찔릴 질문인가 · 함정을 팔 수 있나"
+# 는 코드가 모른다. 그 판단만 1차(triage)에 맡기고, 2차는 문장 생성만 맡는다.
+# triage 는 트랙과 무관하므로 세션에 캐시한다 — 1/5/10분을 바꿔도 순위가 안 흔들린다.
+
+#: 질문 세트 트랙. 프론트 QA_MODES 키와 같은 문자열이다 (app.js).
+QA_TRACKS = ("1", "5", "10")
+QA_TRACK_FALLBACK = "10"
+
+#: 트랙 → 질문 개수 상한. 1분=핵심만, 5분=핵심+놓친 것, 10분=정복.
+QA_TRACK_LIMITS = {"1": 1, "5": 3, "10": 7}
+
+#: 트랙 → 함정 질문(자료와 어긋난 주장으로 찔러보기) 허용 개수.
+#: 1분 트랙은 방어 연습할 시간이 없어 함정을 넣지 않는다.
+QA_TRACK_TRAPS = {"1": 0, "5": 1, "10": 3}
+
+#: severity — 1 치명 · 2 보통 · 3 가벼움. 프론트 SEVERITY_WORD 와 같은 값이다.
+QA_SEVERITIES = (1, 2, 3)
+QA_SEVERITY_FALLBACK = 2
+
+#: 이 질문이 뽑힌 **결정적 근거**. 리포트가 "왜 이걸 묻나" 를 설명할 때 쓴다.
+#: 우선순위도 이 순서다 (모순 > 누락 > 흐름 결손 > 자료 비중).
+#: 질문 후보가 된 결정적 근거. **순서가 곧 우선순위다** (_SOURCE_RANK 가 이 순서를 쓴다).
+#: 확인된 결손이 앞이고 "그냥 중요하다" 는 맨 뒤다 —
+#: 모순(자료와 어긋남) > 누락(아예 안 다룸) > 얕음(중요한데 설명 부족)
+#: > 흐름 결손(연결을 안 지음) > 즉흥 개념(발화에만 있음) > 자료 비중 > 정당생략.
+#: 주장 그래프(F-26)의 탐침(PROBE_KINDS)도 근거다 — 자료 안의 긴장(tension)은 모순 바로 뒤,
+#: 해결 빠짐·근거 없는 인과·단정의 경계·형제 우선순위는 흐름 결손 뒤·즉흥 개념 앞이다.
+#: 탐침은 자료 원문 인용이 확인된 주장에서만 나오므로 "그냥 크다(core_weight)" 보다 근거가 확실하다.
+#: extra 가 core_weight 보다 앞인 것은 의도된 것이다 — 발표자가 **실제로 입 밖에 낸**
+#: 개념이라 되물을 근거가 확실하고, core_weight 는 크다는 이유뿐이기 때문이다.
+#: justified_skip 이 core_weight 보다도 뒤인 것도 의도된 것이다 — 리포트가
+#: "생략이 합리적" 이라 말한 개념을 자료 weight 가 크다는 이유로 앞세우면
+#: 두 화면이 어긋난다. 버리지는 않는다 — 트랙 상한에 여유가 있으면 여전히 물어본다.
+#: skipped_slide(09-30 WP-S2)는 발표자가 **말로 건너뛴 핵심 장**(AlignmentDoc.skipped_slides — 「시간 관계상 그냥 넘어갈게요」)의
+#: 대표 개념이다. 코드가 건너뛰는 말을 찾아 확인한 누락이라 LLM 이 판정한 누락(missing)보다 앞이다 — 채점표도 이것으로 상한을 건다.
+QA_SOURCES = (
+    "contradiction", "tension", "skipped_slide", "missing", "under_spoken", "weak_flow",
+    "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority",
+    "extra", "core_weight", "justified_skip",
+)
+QA_SOURCE_FALLBACK = "core_weight"
+
+#: QuestionDoc.speech_unused 허용값 — 녹음을 받았는데 질문 재료로 안 쓴 까닭. RubricFault.kind 와 같은 말이라 리포트·질문이
+#: 한 낱말로 같은 사실을 말한다 (09-30 WP-S2). 빈 문자열은 「녹음을 썼거나 원래 없었다」.
+QA_SPEECH_UNUSED = ("unrelated_speech", "align_fallback")
+
+#: doc_weight − speech_weight 가 이만큼 벌어지면 '중요도 대비 설명 부족'(under_spoken).
+#: SCHEMA §7-F 가 같은 격차를 쓰고 있어 값을 맞춘다 — 리포트와 질문이 같은 선을 봐야
+#: 사용자가 두 화면을 믿을 수 있다.
+QA_UNDER_SPOKEN_GAP = 0.4
+
+#: extra_concepts 에서 질문 후보로 올릴 최대 개수. 즉흥 발화가 많은 발표에서
+#: 자료 기반 질문이 통째로 밀려나면 안 된다.
+QA_EXTRA_MAX = 3
+
+#: 답변 판정 4-class. 프론트 LIVE_VERDICT 키와 동일하다.
+#: (`skipped` 는 질문을 넘겼을 때 프론트가 로컬로 붙이는 값이라 여기 없다.)
+QA_VERDICTS = ("good", "partial", "wrong", "unknown")
+QA_VERDICT_FALLBACK = "unknown"
+
+#: verdict 만 오고 score 가 없을 때 채워 넣는 기본 점수 (0~100).
+QA_VERDICT_SCORES = {"good": 85, "partial": 55, "wrong": 20, "unknown": 0}
+
+#: 이 점수 이상이면 '정답 계열' 로 보고 되묻기를 멈춘다.
+#: 실전 코칭은 턴 상한이 없으므로 **이 임계 하나가 대화의 유일한 출구다.**
+#: 너무 높으면 대화가 실제로 안 끝나고, 너무 낮으면 얕은 답이 통과한다.
+#: partial 기본값 55 와 good 기본값 85 사이 — "방향도 맞고 근거도 어느 정도 댔다" 구간.
+QA_PASS_SCORE = 70
+
+
+def qa_passed(verdict: str, score: int) -> bool:
+    """
+    이 답변을 정답 계열로 인정할지. **판정 규칙은 여기 한 곳에만 둔다.**
+
+    프론트가 임계를 따로 계산하면 서버와 어긋나는 순간 화면이 모순된다 —
+    '설득 완료' 칩을 띄워 놓고 되묻는 식으로. 그래서 QaJudgement.to_dict() 가
+    이 결과를 `passed` 로 실어 보내고, 프론트는 그 불리언만 읽는다.
+
+    verdict 가 good 이면 점수와 무관하게 통과다. 등급과 점수가 어긋날 때는
+    등급을 믿는다 — 사용자에게 보이는 것이 등급이기 때문이다.
+    그래서 점수는 **등급의 구간 안으로** 잘라 본다(partial ≤ 79 · wrong ≤ 39 · unknown 0). 09-30 레드팀: 예전엔
+    qa_passed("wrong", 80)·("unknown", 75) 가 참이라, 가드가 등급만 내리고 점수를 안 내린 판정이 통과로 세였다.
+    """
+    if verdict == "good":
+        return True
+    ceiling = {"partial": 79, "wrong": 39, "unknown": 0}.get(verdict, 0)
+    return min(score, ceiling) >= QA_PASS_SCORE
+
+
+#: F-09 코드 가드 이름 — `QaJudgement.guard`. 등급·점수를 코드가 정했을 때 어느 규칙이었는지 (f09_judge `_normalize`).
+#:   trap(함정 전제 동의) · trap_misfixed(전제를 틀린 값으로 고침) · trap_open(함정인데 전제를 짚지 않음) · injection(답 속 채점 지시)
+#:   · deck(자료와 수치·서열·방향·부정 어긋남) · number_unsupported(자료에 없는 수를 다른 값의 대상에 붙임) · self_opposed
+#:   · restated(탐침 줄 되풀이) · reason(근거 질문에 배경만) · off_topic · focus_miss · list(낱말 나열·서술어 없음)
+#:   · echo(질문 되읊기) · repeat(앞 답 되풀이) · ungrounded(답이 골자·자료와 맞닿지 않음) · short(한두 낱말) · choice(되물음 칩)
+#:   · language(한국어가 아닌 답) · contra_said(모순 질문에 발표 쪽을 다시 고름 · wrong 35)
+#:   · contra_dispute(모순 질문에 발표 쪽을 출처·자료 오류를 들어 고름 — 자료 안의 숫자로만 확인한다 · wrong 35)
+QA_JUDGE_GUARDS = ("", "trap", "trap_misfixed", "trap_open", "injection", "deck", "number_unsupported", "self_opposed",
+                   "restated", "reason", "off_topic", "focus_miss", "list", "echo", "repeat", "ungrounded", "short", "choice",
+                   "language", "contra_said", "contra_dispute")
+
+
+#: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
+#: 소크라테스식 압박이 목적이지 고문이 목적이 아니다. 지치면 이탈한다.
+QA_MAX_ROUNDS = 3
+
+
+def qa_mastered(verdict: str, score: int, round_no: int, guard_blocked: bool = False) -> bool:
+    """
+    이 답변으로 질문을 닫을지. **되묻기를 멈추는 유일한 출구다.**
+
+    `qa_passed` 와 일부러 나눠 둔다. 둘을 하나로 두면 요지만 맞힌 72점 답이
+    곧바로 질문을 닫아 **되묻기가 아예 안 돈다** — 실제로 그랬다. 절반 맞힌
+    사람에게 한 걸음 더 묻는 것이 이 서비스의 핵심 로직인데, 가장 흔한 답변
+    구간(70~79)이 통째로 그 루프를 건너뛰고 있었다.
+
+      passed    리포트가 "이 개념을 방어했는가" 를 셀 때 쓴다. 기준을 안 건드린다.
+      mastered  대화가 "이제 넘어가도 되는가" 를 정할 때 쓴다. 더 엄격하다.
+
+    verdict 가 good 이면 라운드와 무관하게 닫는다 — "자기 말로 정확히 설명했다"
+    가 곧 정복이다. 그 아래는 QA_MAX_ROUNDS 라운드까지 계속 되묻고, 거기서도
+    못 올라오면 통과 수준에서 닫아 준다.
+
+    round_no 는 이 질문에 낸 답변의 순번(1부터)이다. **서버가 누적 답변 수로 센다** —
+    프론트가 보내면 옛 세션에서 비고, 질문마다 초기화하는 것도 빠뜨리기 쉽다
+    (f09_judge `_coach_stage` 와 같은 이유).
+
+    guard_blocked 는 **코드 가드만** 통과를 막았다는 표시다 — LLM 판정은 통과였는데 결정적 대조(자료 어긋남·자기모순·초점)가
+    70 아래로 내렸다. 가드는 글자로만 대조해서 틀릴 수 있다. 09-30 대화 감사 §2: 자료대로 답한 사람이 가드에 걸려 네 턴 내리
+    55 를 받고 「답 보기」 로만 빠져나갔다 — 그 질문은 영원히 안 닫혔다. 3라운드에서는 이런 질문도 닫는다(화면은 「다시 볼 곳」 으로
+    정직하게 남긴다, QaJudgement.close_reason). 기본값이면 예전과 같다.
+    """
+    if verdict == "good":
+        return True
+    return round_no >= QA_MAX_ROUNDS and (qa_passed(verdict, score) or guard_blocked)
+
+
+#: 되묻기 압박 단계. 라운드가 오를수록 질문이 좁아진다 — 같은 넓이로 세 번
+#: 물으면 압박이 아니라 반복이다. **무엇을 물을지는 코드가 정하고 LLM 은
+#: 문장만 쓴다** (F-08·F-09 공통 원칙).
+#:   ""         되물을 일이 없다 (정복했거나 막힘 코칭 경로다)
+#:   probe      1라운드 — 빠진 지점 하나를 열린 질문으로 짚는다
+#:   focus      2라운드 — 예/아니오·둘 중 하나로 답할 만큼 좁힌다
+#:   converge   3라운드+ — 답을 거의 품은 확인 질문으로 마지막 한 걸음만 남긴다
+QA_PROBE_TIERS = ("", "probe", "focus", "converge")
+
+
+def qa_probe_tier(round_no: int) -> str:
+    """라운드 번호 → 압박 단계. 상한을 넘으면 계속 converge 다."""
+    if round_no <= 1:
+        return "probe"
+    if round_no == 2:
+        return "focus"
+    return "converge"
+
+
+#: 대사 길이 상한. 화면 말풍선이 감당하는 길이다.
+QA_TEXT_MAX = 200
+
+#: 골자를 쪼갤 요소의 최대 개수. 넷 이상으로 쪼개면 어느 하나만 빠져도 good 이
+#: 막혀서 사실상 이길 수 없는 질문이 된다 — 압박이 목적이지 고문이 목적이 아니다
+#: (QA_MAX_ROUNDS 주석과 같은 규율).
+QA_GIST_PARTS_MAX = 3
+
+
+def _gist_parts_of(raw: object) -> list[str]:
+    """
+    `Question.answer_gist_parts` 정규화. **비었거나 2개 이상**이라는 불변식을 여기서 만든다.
+
+    요소가 하나뿐이면 «요소별 검사» 라는 말 자체가 성립하지 않는다 (골자 하나와
+    같은 말이다). F-09 가 매번 `len >= 2` 를 다시 세지 않게 입구에서 한 번만 자른다.
+    """
+    if not isinstance(raw, (list, tuple)):
+        return []
+    parts: list[str] = []
+    for item in raw:
+        text = str(item or "").strip()
+        # 같은 요소를 두 번 세면 답한 사람이 이유 없이 하나 더 요구받는다
+        if text and text not in parts:
+            parts.append(text[:QA_TEXT_MAX])
+    return parts[:QA_GIST_PARTS_MAX] if len(parts) >= 2 else []
+
+#: 막힘 코칭 단계. verdict 를 4-class 로 유지하기 위해 **별도 축**으로 둔다 —
+#: 5번째 verdict 를 만들면 qa_passed·점수표·프론트 배지 맵이 전부 흔들린다.
+#:   ""        평시 판정
+#:   narrow    1차 포기 — 답을 주지 않고 더 쉬운 되물음으로 한 발 끌어준다
+#:   explain   2차 포기 — 해설하고 이 질문을 닫는다
+#:   clarify   되물음 — 질문 자체를 못 알아들었다. 채점하지 않고 질문을 다시 쓴다
+#: narrow(위치: 자료 인용 + 둘 중 하나) → scaffold(발판: 빈칸, LLM 없음) → explain(해설 + 출처).
+#: clarify 는 포기가 아니라 되물음. "" 는 평시 판정.
+QA_COACH_STAGES = ("", "narrow", "scaffold", "explain", "clarify")
+
+#: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
+#: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.
+QA_EXPLAIN_MAX = 500
+
+
+# ---------------------------------------------------------------------------
+# F-24 : 문헌 (교수가 읽고 온 논문)  — 질문 근거 · 자유 검색
+# ---------------------------------------------------------------------------
+
+#: 문헌의 출처. deck = 자료(슬라이드)가 인용한 것 · scholar = 학술 검색(OpenAlex 등)이 찾은 실재 논문.
+PAPER_KINDS = ("deck", "scholar")
+PAPER_KIND_FALLBACK = "deck"
+
+#: 프롬프트·화면에 실을 초록의 최대 글자 수. **원문 그대로**지 요약이 아니다 —
+#: 논문 내용을 LLM 이 다시 쓰게 두면 지어낸다 (audience-evidence 계획 §2-1 L2).
+#: 2026-09-29: 300 이었을 때 구조화 초록(Objectives·Methods·Results)은 목적 한 줄에서 잘려 결과가 한 글자도 안 실렸다.
+#: 그 상태로 「X 는 …라고 봤는데」 를 쓰게 하니 LLM 이 발표의 주장을 논문 입에 넣었다 (Paulsrud et al. (2026) 수면 질문).
+#: 보통 초록(150~350 낱말)이 통째로 들어가는 길이로 둔다. 인용 주장 검사(f08 _verify_paper_claims)도 이 전문을 대조한다.
+PAPER_ABSTRACT_MAX = 2400
+
+#: 질문 근거용으로 검색할 개념 수와 개념당 논문 수. 개념 전부를 검색하면 외부 호출이
+#: 개념 수만큼 늘고 프롬프트도 길어진다 — 상위 weight 개념만 본다.
+PAPER_NODE_MAX = 5
+PAPER_PER_NODE = 2
+#: 자유 검색(search_papers) 결과 상한.
+PAPER_SEARCH_MAX = 8
+
+
+@dataclass
+class PaperRef:
+    """
+    문헌 하나. **제목·저자·연도·DOI·초록은 전부 원문(자료 또는 검색 API)에서 온다.**
+    LLM 이 채우는 필드는 없다 — 그래서 질문이 이 목록의 논문만 인용하면 지어냄이 0 이다.
+
+    `id` 는 문서 안에서 결정적이다 (자료 인용은 d01…, 검색 결과는 s01…).
+    `node_ids` 는 이 문헌이 어느 개념의 근거로 붙었는지 (검색 질의가 된 개념).
+    `slide_no` 는 자료가 인용한 장 (검색 결과는 0).
+    """
+    id: str
+    kind: str = PAPER_KIND_FALLBACK        # deck | scholar
+    title: str = ""
+    authors: list[str] = field(default_factory=list)   # 성(또는 표시 이름) 최대 3명
+    et_al: bool = False                    # 자료가 「et al.」·「등」 으로 적었는가 (표시용)
+    year: int = 0
+    venue: str = ""
+    doi: str = ""                          # "10.1037/xhp0000100" 꼴 (URL 아님)
+    url: str = ""
+    abstract: str = ""                     # 원문 초록 (태그 뗀 것, PAPER_ABSTRACT_MAX 까지)
+    cited_by: int = 0                      # 피인용 수 (검색 결과만)
+    slide_no: int = 0
+    node_ids: list[str] = field(default_factory=list)
+    query: str = ""                        # 이 문헌을 찾은 검색어 (검색 결과만)
+    source: str = ""                       # 어느 통로가 찾았나 (openalex · semanticscholar · arxiv · crossref · europepmc). 여러 곳이면 "a+b"
+
+    @property
+    def cite_key(self) -> str:
+        """「Stothart (2015)」 꼴의 인용 표시. 프롬프트·화면·검사가 같은 문자열을 쓴다."""
+        head = self.authors[0] if self.authors else (self.title[:20] if self.title else self.id)
+        if len(self.authors) > 1 or self.et_al:
+            head += " et al."
+        return f"{head} ({self.year})" if self.year else head
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["cite_key"] = self.cite_key
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaperRef":
+        kind = str(d.get("kind", PAPER_KIND_FALLBACK) or PAPER_KIND_FALLBACK)
+        try:
+            year = int(d.get("year") or 0)
+        except (TypeError, ValueError):
+            year = 0
+        return cls(
+            id=str(d["id"]),
+            kind=kind if kind in PAPER_KINDS else PAPER_KIND_FALLBACK,
+            title=str(d.get("title", "") or ""),
+            authors=[str(a) for a in (d.get("authors") or []) if str(a).strip()],
+            et_al=bool(d.get("et_al", False)),
+            year=year,
+            venue=str(d.get("venue", "") or ""),
+            doi=str(d.get("doi", "") or ""),
+            url=str(d.get("url", "") or ""),
+            abstract=str(d.get("abstract", "") or "")[:PAPER_ABSTRACT_MAX],
+            cited_by=int(d.get("cited_by") or 0),
+            slide_no=int(d.get("slide_no") or 0),
+            node_ids=[str(n) for n in (d.get("node_ids") or [])],
+            query=str(d.get("query", "") or ""),
+            source=str(d.get("source", "") or ""),
+        )
+
+
+@dataclass
+class PaperDoc:
+    """
+    F-24 산출물. 자료가 인용한 문헌(deck) + 개념별로 검색해 온 실재 논문(scholar).
+
+    F-08 은 이 목록을 「교수가 읽고 온 문헌」 으로 프롬프트에 싣고, 질문 속 인용이
+    이 목록 밖이면 그 문장을 버린다. 트랙과 무관하므로 **세션에 한 번만** 만든다.
+    `provider` 는 검색을 맡은 쪽 이름 (openalex · none). 검색이 꺼졌거나 실패하면
+    deck 만 남고 provider 는 그 사정을 적는다 — 조용히 빈 목록이 되지 않는다.
+
+    `status` 는 검색 한 건 한 건의 사정 (f24 가 채운다, 09-30 G-A9·G-A32) — 사람 말 한 줄(note)로는 「어느 개념이 왜 문헌 없이
+    갔나」 를 못 가른다. 항목은 dict 이고 `kind` 로 나뉜다:
+      concept   {node_id, label, query, query_source(label·llm·ascii·none), state, kept, dropped, reason}
+      resolve   {cite_key, state}
+      provider  {provider, calls, ok, empty, failed, rate_limited, timeout, throttled, error}
+    state: ok · empty · (실패) failed · rate_limited · timeout · http · network · parse · error · (요청 한도로 참음) throttled ·
+    (시간 예산으로 시작 못 함) not_searched · (검색어 없음) no_query. 비어 있으면 검색을 안 했거나 옛 문서다.
+    """
+    file_name: str
+    refs: list[PaperRef] = field(default_factory=list)
+    provider: str = "none"
+    note: str = ""                          # 검색을 못 했으면 왜인지 한 줄
+    status: list[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "provider": self.provider,
+            "note": self.note,
+            "refs": [r.to_dict() for r in self.refs],
+            "status": [dict(s) for s in self.status],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PaperDoc":
+        return cls(
+            file_name=str(d.get("file_name", "") or ""),
+            refs=[PaperRef.from_dict(r) for r in d.get("refs", [])],
+            provider=str(d.get("provider", "none") or "none"),
+            note=str(d.get("note", "") or ""),
+            status=[dict(s) for s in (d.get("status") or []) if isinstance(s, dict)],
+        )
+
+    def ref(self, ref_id: str) -> PaperRef | None:
+        for r in self.refs:
+            if r.id == ref_id:
+                return r
+        return None
+
+    @property
+    def deck_refs(self) -> list[PaperRef]:
+        return [r for r in self.refs if r.kind == "deck"]
+
+    @property
+    def scholar_refs(self) -> list[PaperRef]:
+        return [r for r in self.refs if r.kind == "scholar"]
+
+    def for_node(self, node_id: str) -> list[PaperRef]:
+        return [r for r in self.refs if node_id in r.node_ids]
+
+
+# ---------------------------------------------------------------------------
+# F-26 주장 그래프 — 개념 사이의 "주장" 을 자료 원문 인용과 함께 (P2)
+# ---------------------------------------------------------------------------
+
+#: 주장 종류. subject → objects 방향의 뜻:
+#: compose  subject 는 objects 로 이뤄진다        (수면의 질 = 시간 × 연속성 × 규칙성)
+#: compare  subject 가 objects 보다 더 …하다       (수면의 질 > 수면 시간)
+#: cause    subject 가 objects 를 일으키거나 끊는다 (카페인 → 연속성 끊김)
+#: solve    subject 가 objects(문제·요소)를 해결한다 (일정한 기상 → 규칙성)
+#: absolute subject 에 대한 단정 — objects 는 비어도 된다 ("리듬까지 완전히 회복되지 않는다")
+#: contrast subject 와 objects 를 맞세운다          (깊은 수면 ↔ REM 수면)
+CLAIM_KINDS = ("compose", "compare", "cause", "solve", "absolute", "contrast")
+
+#: 주장 그래프에서 코드가 결정적으로 찾는 질문거리. QA_SOURCES 에도 같은 이름으로 들어 있다.
+#: tension            compare(A>B) 와 compose(A⊃B) 가 함께 있다 — "B 보다 중요" 인데 B 가 A 의 요소
+#: unsolved           compose 의 요소(문제)에 solve 연결이 없다 — 해결책이 모든 요소를 덮는다고 했는데 빠진 것
+#: unsupported_cause  cause 주장인데 그 장에 수치·출처가 없다
+#: absolute_boundary  absolute 주장 ("반드시·완전히·항상") — 반례·경계를 묻는다
+#: sibling_priority   같은 compose 의 형제 요소 — 하나만 지킬 수 있다면 어느 쪽인가
+PROBE_KINDS = ("tension", "unsolved", "unsupported_cause", "absolute_boundary", "sibling_priority")
+
+
+@dataclass(frozen=True)
+class ProbeStance:
+    """
+    탐침 질문의 **입장 둘 중 하나** — 「모르겠어요」 첫 단계(F-09 코칭)와 힌트 사다리(F-08)가 같이 쓰는 한 벌 (09-30 WP-J3).
+
+    탐침은 「자료가 무엇을 말하나」 가 아니라 「자료의 그 말이 어디까지 맞나·무엇이 비었나」 를 묻는다. 그래서 첫 되물음이 골자의
+    낱말을 가린 「'A' 쪽인가요, 'B' 쪽인가요?」 이면 뜻이 없다 — 09-30 standard 실측 「'부하' 쪽인가요, '완전히' 쪽인가요?」.
+    묻는 것은 **입장**이다: 늘 맞나·조건이 붙나 / 자료에 나와 있었나·비어 있었나 / 전체와 일부인가·서로 다른 둘인가.
+
+    ask 는 앞 문장(「자료 N장은 «…» 라고 해요.」 · 「{개념} 이야기예요.」)이 가리키는 것을 「이 말」「이 문제」 로 받는다 — 덱 낱말이 없는
+    고정 문장이라 어느 발표에나 그대로 쓴다. choices 는 칩 글이고 **물음 속 순서**다(정답 자리가 종류마다 달라 누르는 자리로 못 맞힌다).
+    correct 가 맞는 쪽이다. 판정(F-09)은 칩 글과 같은 답을 이 표로 읽는다.
+    """
+    ask: str
+    choices: tuple[str, str]
+    correct: str
+
+    @property
+    def wrong(self) -> str:
+        return next(c for c in self.choices if c != self.correct)
+
+
+#: 탐침 종류 → 입장 둘 중 하나. **형제 우선순위(sibling_priority)는 없다** — 자료가 두 요소 가운데 어느 쪽에 순위를 뒀는지 코드가
+#: 모른다(`_probes._ranked` 는 순위를 말했는지만 본다). 그 질문은 검증된 대비 쌍이나 위치 단계로 간다 — 가린 낱말 쌍은 쓰지 않는다.
+#: 긴장(tension)은 비교(A가 B보다)와 구성(A = … × B)이 함께 있을 때만 생기므로 「전체와 그 일부를 견준 말」 이 늘 맞는 쪽이다.
+PROBE_STANCES: dict[str, ProbeStance] = {
+    "absolute_boundary": ProbeStance(
+        ask="이 말은 늘 맞는 말인가요, 조건이 붙는 말인가요?", choices=("늘 맞아요", "조건이 붙어요"), correct="조건이 붙어요"),
+    "unsolved": ProbeStance(
+        ask="자료에 이 문제를 푸는 방법이 나와 있었나요, 아직 비어 있었나요?", choices=("나와 있었어요", "아직 비어 있었어요"),
+        correct="아직 비어 있었어요"),
+    "unsupported_cause": ProbeStance(
+        ask="자료에 이 말을 받치는 수치나 출처가 나와 있었나요, 아직 비어 있었나요?", choices=("나와 있었어요", "아직 비어 있었어요"),
+        correct="아직 비어 있었어요"),
+    "tension": ProbeStance(
+        ask="이 말은 전체와 그 일부를 견준 말인가요, 서로 다른 두 가지를 견준 말인가요?", choices=("전체와 일부예요", "서로 다른 둘이에요"),
+        correct="전체와 일부예요"),
+    # 모순 질문(질문 출처 contradiction — 탐침이 아니다, 09-30 WP-CONTRA · 녹음 감사 REC-08). 두 값을 코드가 알면 (자료 값, 발표 값) 칩이
+    # 질문마다 따로 선다(`_contra.contra_stance` — `_probe_stance.STANCE_RESOLVERS` 한 줄). 이 줄은 값을 모르는 모순(방향·부정)의 칩이다.
+    # 자료 쪽이 맞는 쪽이다 — F-08 골자가 「자료 N장은 “…”라고 해요. 발표에서 한 “…”는 이 수치로 바로잡아야 해요」 다.
+    "contradiction": ProbeStance(ask="맞는 건 자료 쪽인가요, 발표 쪽인가요?", choices=("자료 쪽이에요", "발표 쪽이에요"),
+                                 correct="자료 쪽이에요"),
+}
+
+
+@dataclass
+class ClaimQuote:
+    """자료 원문에서 **그대로** 옮긴 한 줄과 장 번호. 코드가 slide 원문과 대조해 확인한 것만 남는다."""
+    slide_no: int
+    quote: str
+
+    def to_dict(self) -> dict:
+        return {"slide_no": self.slide_no, "quote": self.quote}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ClaimQuote":
+        return cls(slide_no=int(d.get("slide_no") or 0), quote=str(d.get("quote", "") or ""))
+
+
+@dataclass
+class Claim:
+    """
+    개념 사이의 주장 하나. subject_id·object_ids 는 ConceptGraph.nodes[].id 다 (그래프 밖 id 는 어댑터가 버린다).
+    evidence 는 비어 있으면 안 된다 — 원문 대조를 통과한 인용이 하나도 없는 주장은 F-26 이 버린다.
+    """
+    id: str                                  # "c01" — ClaimDoc 안에서 안정 키
+    kind: str                                # CLAIM_KINDS
+    subject_id: str
+    object_ids: list[str] = field(default_factory=list)
+    text: str = ""                           # 주장 한 줄 (자료 표현에 가깝게, 해요체 아님 — 내부 재료)
+    evidence: list[ClaimQuote] = field(default_factory=list)
+    has_support: bool = False                # 그 장에 수치·출처·연구 언급이 있는가 (코드가 채운다)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "kind": self.kind, "subject_id": self.subject_id,
+            "object_ids": list(self.object_ids), "text": self.text,
+            "evidence": [e.to_dict() for e in self.evidence], "has_support": self.has_support,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Claim":
+        kind = str(d.get("kind", "") or "")
+        return cls(
+            id=str(d["id"]),
+            kind=kind if kind in CLAIM_KINDS else "contrast",
+            subject_id=str(d.get("subject_id", "") or ""),
+            object_ids=[str(x) for x in (d.get("object_ids") or [])],
+            text=str(d.get("text", "") or ""),
+            evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
+            has_support=bool(d.get("has_support", False)),
+        )
+
+
+@dataclass
+class ClaimDoc:
+    """F-26 산출물. 그래프와 자료가 같으면 같다 — 세션에 한 번 만들고 트랙마다 재사용한다."""
+    file_name: str
+    claims: list[Claim] = field(default_factory=list)
+    model: str = ""
+    dropped: int = 0                         # 원문 대조·그래프 밖 id 로 버린 주장 수 (로그·측정용)
+
+    def to_dict(self) -> dict:
+        return {"file_name": self.file_name, "model": self.model, "dropped": self.dropped,
+                "claims": [c.to_dict() for c in self.claims]}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ClaimDoc":
+        return cls(
+            file_name=str(d.get("file_name", "") or ""),
+            claims=[Claim.from_dict(c) for c in (d.get("claims") or [])],
+            model=str(d.get("model", "") or ""),
+            dropped=int(d.get("dropped") or 0),
+        )
+
+    def claim(self, claim_id: str) -> "Claim | None":
+        return next((c for c in self.claims if c.id == claim_id), None)
+
+
+@dataclass
+class Probe:
+    """
+    주장 그래프에서 찾은 질문거리 하나 (F-08 이 결정적으로 만든다). node_ids[0] 이 질문의 대상 개념이다.
+    angle 은 코드가 조립한 각도 한 줄 — 질문 프롬프트에 그대로 실린다.
+    """
+    kind: str                                # PROBE_KINDS
+    node_ids: list[str] = field(default_factory=list)
+    claim_ids: list[str] = field(default_factory=list)
+    angle: str = ""
+    evidence: list[ClaimQuote] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "node_ids": list(self.node_ids), "claim_ids": list(self.claim_ids),
+                "angle": self.angle, "evidence": [e.to_dict() for e in self.evidence]}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Probe":
+        kind = str(d.get("kind", "") or "")
+        return cls(
+            kind=kind if kind in PROBE_KINDS else PROBE_KINDS[0],
+            node_ids=[str(x) for x in (d.get("node_ids") or [])],
+            claim_ids=[str(x) for x in (d.get("claim_ids") or [])],
+            angle=str(d.get("angle", "") or ""),
+            evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
+        )
+
+
+#: 함정 전제의 종류 — 자료의 사실 하나를 어떻게 뒤집었나. number 수치 · order 비교 순서(A보다 B) ·
+#: extreme 표의 가장 큰 쪽 · direction 방향(늘다/줄다·원인↔결과) · negation 부정·대조(아니다/아니라).
+TRAP_KINDS = ("number", "order", "extreme", "direction", "negation")
+
+
+@dataclass
+class TrapPremise:
+    """
+    함정 질문에 얹은 **틀린 전제**와 그걸 바로잡는 **자료의 사실** (2026-09-29 qa/trap).
+
+    코드(`_traps`)가 근거 장의 자료 줄 하나를 골라 수치·순서·방향·부정 하나만 뒤집어 만든다 — LLM 이 전제를
+    지어내지 않는다. 09-29 기준선: LLM 이 붙인 함정 표시에는 질문에 전제가 없어 골자대로 한 정답이 wrong 35 였고,
+    fix08 이 「LLM 이 전제를 적어 올 때만」 으로 막자 solar 가 한 번도 안 적어 함정이 0개가 됐다.
+
+    wrong 은 전제에만 있는 단서(바꾼 숫자·뒤집힌 순서 낱말), right 는 자료에만 있는 단서다. F-08 은 질문 문장에 wrong 이
+    있고 right 가 없는지 보고, F-09 는 답이 어느 쪽을 말했는지로 「전제에 동의했나」 를 정한다 (`_traps.premise_stance`).
+    단서 문법은 `_traps` 가 안다 — 계약은 문자열만 나른다.
+    """
+    kind: str
+    premise: str                               # 질문에 얹은 틀린 말 (자료 줄에서 하나만 바꾼 것)
+    fact: str                                  # 자료가 실제로 말하는 것 (자료 줄 그대로 또는 표 행에서 읽은 값)
+    slide_no: int = 0
+    wrong: list[str] = field(default_factory=list)
+    right: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "premise": self.premise, "fact": self.fact, "slide_no": self.slide_no,
+                "wrong": list(self.wrong), "right": list(self.right)}
+
+    @classmethod
+    def from_dict(cls, d: dict | None) -> "TrapPremise | None":
+        if not d or not str(d.get("premise", "") or "").strip():
+            return None
+        kind = str(d.get("kind", "") or "")
+        return cls(
+            kind=kind if kind in TRAP_KINDS else "number",
+            premise=str(d.get("premise", "") or ""),
+            fact=str(d.get("fact", "") or ""),
+            slide_no=int(d.get("slide_no") or 0),
+            wrong=[str(x) for x in (d.get("wrong") or [])],
+            right=[str(x) for x in (d.get("right") or [])],
+        )
+
+
+@dataclass
+class QuestionBasis:
+    """
+    이 질문이 **왜·무엇을 근거로** 나왔는지 (P1). 화면의 「이 질문의 근거」 와 로그가 읽는다.
+
+    source 는 Question.source 와 같은 값, slot 은 트랙 배합 자리(theme·part·weak·"" = 배합 밖),
+    probe 는 탐침에서 나왔으면 그 Probe, evidence 는 자료 원문 인용들 (힌트 인용과 같은 출처),
+    checks 는 질문 문장에 대한 코드 검사 결과 이름들 (예: "mentions_probe_nodes", "undercut_rewritten").
+
+    (qa/reason, 09-30 — 더한 칸만, 옛 세션은 빈 값) 근거·이유를 묻는 질문이면 reason 은 결론을 받치는 **이유 줄**,
+    background 는 현상이 있다는 **배경 줄** (둘 다 자료 원문 그대로) — F-09 가 채점 기준으로 싣는다. contrast 는
+    「모르겠어요」 보기 쌍 [자료가 세운 쪽, 부정한 쪽] 이고 contrast_quote 는 그 대비가 적힌 자료 줄이다.
+    """
+    source: str = QA_SOURCE_FALLBACK
+    slot: str = ""
+    rank: int = 0
+    probe: Probe | None = None
+    evidence: list[ClaimQuote] = field(default_factory=list)
+    checks: list[str] = field(default_factory=list)
+    reason: list[ClaimQuote] = field(default_factory=list)
+    background: list[ClaimQuote] = field(default_factory=list)
+    contrast: list[str] = field(default_factory=list)
+    contrast_quote: ClaimQuote | None = None
+
+    def to_dict(self) -> dict:
+        return {"source": self.source, "slot": self.slot, "rank": self.rank,
+                "probe": self.probe.to_dict() if self.probe else None,
+                "evidence": [e.to_dict() for e in self.evidence], "checks": list(self.checks),
+                "reason": [e.to_dict() for e in self.reason], "background": [e.to_dict() for e in self.background],
+                "contrast": list(self.contrast),
+                "contrast_quote": self.contrast_quote.to_dict() if self.contrast_quote else None}
+
+    @classmethod
+    def from_dict(cls, d: dict | None) -> "QuestionBasis":
+        d = d or {}
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            slot=str(d.get("slot", "") or ""),
+            rank=int(d.get("rank") or 0),
+            probe=Probe.from_dict(d["probe"]) if d.get("probe") else None,
+            evidence=[ClaimQuote.from_dict(e) for e in (d.get("evidence") or [])],
+            checks=[str(x) for x in (d.get("checks") or [])],
+            reason=[ClaimQuote.from_dict(e) for e in (d.get("reason") or [])],
+            background=[ClaimQuote.from_dict(e) for e in (d.get("background") or [])],
+            # 쌍이 아니면 버린다 — 한쪽만 있는 보기는 「어느 쪽」 이 성립하지 않는다
+            contrast=[str(x) for x in (d.get("contrast") or [])] if len(d.get("contrast") or []) == 2 else [],
+            contrast_quote=ClaimQuote.from_dict(d["contrast_quote"]) if d.get("contrast_quote") else None,
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-25 리허설 기억 — 같은 사람이 같은 발표를 다시 연습할 때, 지난 답변 과정을 되짚는다
+# ---------------------------------------------------------------------------
+
+#: 개념 하나에 남기는 「빠진 점」 최대 수 (최신 우선).
+MEMORY_MISSING_MAX = 3
+#: 기억에 합칠 지난 리허설 최대 수 (최신 우선). 그 전 것은 잊는다 — 오래된 실수로 사람을 못 박지 않는다.
+MEMORY_SESSIONS_MAX = 5
+#: 개념 이름을 조인 키로 만들 때 지우는 글자.
+_MEMORY_KEY_STRIP_RE = re.compile(r"[^0-9a-z가-힣]+")
+#: verdict 의 좋은 순. best_verdict 를 고를 때 쓴다.
+MEMORY_VERDICT_ORDER = ("good", "partial", "wrong", "unknown")
+#: 발표 지문(`ConceptMemory.deck_keys`)에 싣는 개념 이름 열쇠 최대 수.
+MEMORY_DECK_KEYS_MAX = 40
+#: MemoryDoc 하나에 싣는 개념 기억 최대 수 — f25 는 리허설 5번 × 개념 10여 개라 넉넉하다. 본문으로 기억을 받는 통로(server/app.py)가
+#: 수천 개를 보내면 by_node 의 이름 대조가 그만큼 곱으로 늘어난다 (09-30 리뷰).
+MEMORY_CONCEPTS_MAX = 200
+
+
+def memory_key(label: str) -> str:
+    """개념 이름 → 조인 키. 세션마다 노드 id 는 달라지지만 이름은 대개 같다 — 소문자·기호·공백을 지운 이름으로 잇는다.
+    NFKC 로 먼저 접는다 — 맥에서 만든 자료의 NFD 라벨(자모 낱자)은 [가-힣] 에 안 걸려 열쇠가 빈 문자열이 됐다 (09-30 G-A11 과 같은 뿌리)."""
+    return _MEMORY_KEY_STRIP_RE.sub("", unicodedata.normalize("NFKC", label or "").lower())
+
+
+@dataclass
+class ConceptMemory:
+    """
+    개념 하나에 대한 지난 리허설 기억. **전부 기록(qa_turns·판정)에서 센 것** — LLM 이 채우는 필드는 없다.
+
+    `key` 는 `memory_key(label)`. `stalled` 는 「물어봤는데 한 번도 통과선(`qa_passed`)을 못 넘었다」 — 다음 리허설에서
+    먼저 묻고, 코칭은 한 단계 위에서 시작하는 근거다. `cleared` 는 「good 으로 설득해 닫았다」 — 3라운드 출구(`close_reason`
+    rounds·guard)로 닫힌 것은 설득이 아니다.
+
+    `deck_keys` 는 이 기억이 나온 **발표의 지문** — 같은 발표로 묶인 지난 리허설들에서 물은 개념 이름 열쇠 전부(f25 가 채운다).
+    이름 하나(「비용」)가 같다고 다른 발표의 기억을 잇지 않도록 `MemoryDoc.by_node` 가 이번 그래프와 견준다. 비어 있으면(옛 기억)
+    예전처럼 이름으로만 잇는다.
+    """
+    key: str
+    label: str = ""
+    node_ids: list[str] = field(default_factory=list)     # 세션마다 달랐던 노드 id 들
+    asked: int = 0                                        # 이 개념을 물은 리허설 수
+    attempts: int = 0                                     # 답한 턴 수 (포기 포함)
+    give_ups: int = 0
+    verdicts: dict = field(default_factory=dict)          # good/partial/wrong/unknown → 횟수
+    last_verdict: str = ""
+    best_verdict: str = ""
+    last_score: int = 0
+    last_at: float = 0.0
+    missing_points: list[str] = field(default_factory=list)   # 최근 판정이 짚은 빠진 점 (최신 우선, 중복 없음)
+    hints_max: int = 0                                    # 한 질문에서 본 힌트 최대 수
+    passes: int = 0                                       # 통과선(qa_passed)을 넘은 턴 수 — 70~79 partial 도 센다
+    closes: dict = field(default_factory=dict)            # 닫힌 까닭(close_reason: good·rounds·guard) → 횟수
+    deck_keys: list[str] = field(default_factory=list)    # 발표 지문 — 같은 발표의 리허설에서 물은 개념 이름 열쇠 (정렬)
+
+    @property
+    def stalled(self) -> bool:
+        """
+        물어봤는데 한 번도 통과선을 못 넘었다. 09-30 감사 G-A23: 예전엔 `best_verdict != "good"` 이라, 판정은 `qa_passed` 로
+        통과(partial 70~79)라고 해 놓고 기억은 「못 넘긴 개념」 으로 세어 다음 리허설 맨 앞에 다시 세웠다. 이제 통과 턴(passes)이
+        하나라도 있으면 막힌 것이 아니다. 가드에 막힌 채 3라운드에서 닫힌 턴(close_reason guard)은 통과가 아니라 여기 남는다.
+        passes 가 없는 옛 기억은 예전 규칙 그대로다.
+        """
+        return self.attempts > 0 and self.passes == 0 and self.best_verdict != "good"
+
+    @property
+    def cleared(self) -> bool:
+        return self.best_verdict == "good"
+
+    @property
+    def prompt_line(self) -> str:
+        """프롬프트 한 줄. 사실만 — 판정·횟수·빠진 점. 답변 원문은 싣지 않는다 (지난 답을 이번 답으로 착각하게 한다)."""
+        verdict_ko = {"good": "통과", "partial": "반쯤", "wrong": "어긋남", "unknown": "판정 없음"}
+        bits = [f"{self.asked}번 물음"]
+        if self.last_verdict:
+            bits.append(f"마지막 판정 {verdict_ko.get(self.last_verdict, self.last_verdict)}")
+        if self.give_ups:
+            bits.append(f"포기 {self.give_ups}번")
+        if self.hints_max:
+            bits.append(f"힌트 {self.hints_max}개까지 봄")
+        line = "지난 리허설: " + " · ".join(bits)
+        if self.missing_points:
+            line += " · 빠졌던 점: " + " / ".join(self.missing_points[:MEMORY_MISSING_MAX])
+        return line
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["stalled"] = self.stalled
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ConceptMemory":
+        return cls(
+            key=str(d.get("key", "") or ""), label=str(d.get("label", "") or ""),
+            node_ids=[str(x) for x in (d.get("node_ids") or [])],
+            asked=int(d.get("asked", 0) or 0), attempts=int(d.get("attempts", 0) or 0),
+            give_ups=int(d.get("give_ups", 0) or 0),
+            verdicts={str(k): int(v) for k, v in (d.get("verdicts") or {}).items()},
+            last_verdict=str(d.get("last_verdict", "") or ""), best_verdict=str(d.get("best_verdict", "") or ""),
+            last_score=int(d.get("last_score", 0) or 0), last_at=float(d.get("last_at", 0.0) or 0.0),
+            missing_points=[str(x) for x in (d.get("missing_points") or []) if str(x).strip()][:MEMORY_MISSING_MAX],
+            hints_max=int(d.get("hints_max", 0) or 0),
+            passes=int(d.get("passes", 0) or 0),
+            closes={str(k): int(v) for k, v in (d.get("closes") or {}).items()},
+            deck_keys=[str(x) for x in (d.get("deck_keys") or []) if str(x)][:MEMORY_DECK_KEYS_MAX],
+        )
+
+
+@dataclass
+class RehearsalSummary:
+    """지난 리허설 한 번의 요약 — 화면의 「지난번보다」 비교와 리포트용."""
+    session_id: str
+    at: float = 0.0
+    title: str = ""
+    questions: int = 0          # 물은 질문 수
+    good: int = 0               # 최종적으로 good 을 받은 질문 수
+    partial: int = 0
+    wrong: int = 0
+    give_ups: int = 0           # 포기 턴 수
+    score_mean: float = 0.0     # 판정 점수 평균 (포기 턴 제외)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RehearsalSummary":
+        return cls(
+            session_id=str(d.get("session_id", "") or ""), at=float(d.get("at", 0.0) or 0.0),
+            title=str(d.get("title", "") or ""), questions=int(d.get("questions", 0) or 0),
+            good=int(d.get("good", 0) or 0), partial=int(d.get("partial", 0) or 0), wrong=int(d.get("wrong", 0) or 0),
+            give_ups=int(d.get("give_ups", 0) or 0), score_mean=float(d.get("score_mean", 0.0) or 0.0),
+        )
+
+
+@dataclass
+class MemoryDoc:
+    """
+    같은 사람·같은 발표의 지난 리허설 기억 (F-25). 세션 보관소의 **동의한** 세션에서만 만든다.
+
+    `learner_key` 는 무엇으로 이었는가 — "learner:<id 앞 8자>"(브라우저가 준 익명 id). 같은 파일(sha256)이나 파일 이름만으로는
+    잇지 않는다 (부스에서 모두 같은 샘플을 올리면 남의 기록이 붙는다). `sessions` 는 최신이 먼저이고,
+    `RehearsalSummary.session_id` 는 진짜 id 가 아니라 불투명한 표시("past-…")다 — 진짜 id 는 열람·삭제의 열쇠다.
+
+    `scoped` 는 「이번 발표에 맞춰 걸렀다」 — f25 가 이번 그래프(graph=)를 받아 다른 발표의 리허설을 빼고 만든 기억이다. 그러면
+    이름만으로 찾아도(`concept`) 안전하고 `by_node` 는 지문 대조를 건너뛴다. 아니면(이번 발표를 모르고 만든 기억) 지문이 있는
+    기억은 그래프와 견줘서만(`by_node`) 잇는다.
+    """
+    learner_key: str = ""
+    file_name: str = ""
+    sessions: list[RehearsalSummary] = field(default_factory=list)
+    concepts: list[ConceptMemory] = field(default_factory=list)
+    note: str = ""
+    scoped: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "learner_key": self.learner_key, "file_name": self.file_name, "note": self.note, "scoped": self.scoped,
+            "sessions": [s.to_dict() for s in self.sessions],
+            "concepts": [c.to_dict() for c in self.concepts],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MemoryDoc":
+        concepts = [x for x in (d.get("concepts") or []) if isinstance(x, dict)][:MEMORY_CONCEPTS_MAX]
+        return cls(
+            learner_key=str(d.get("learner_key", "") or ""), file_name=str(d.get("file_name", "") or ""),
+            note=str(d.get("note", "") or ""), scoped=bool(d.get("scoped", False)),
+            sessions=[RehearsalSummary.from_dict(x) for x in (d.get("sessions") or []) if isinstance(x, dict)],
+            concepts=[ConceptMemory.from_dict(x) for x in concepts],
+        )
+
+    def concept(self, label: str) -> ConceptMemory | None:
+        """
+        이름(열쇠)이 같은 기억 — 그래프 없이 이름만으로 찾을 때. 같은 이름이 둘 이상이면(두 발표 모두 「비용」 을 물었다) None.
+        발표 지문이 있는 기억은 이번 발표에 맞춰 거른 기억(scoped)일 때만 돌려준다 — 이름 하나로는 발표를 가를 수 없다.
+        09-30 리뷰: 판정(f09 `_memory_concept`)은 그래프로 못 이은 노드를 이 이름 찾기로 다시 찾아, 다른 발표의 「비용」 기억과
+        그 결손이 판정 프롬프트에 실리고 코칭이 발판(scaffold)부터 시작했다.
+        """
+        key = memory_key(label)
+        if not key:
+            return None
+        hits = [c for c in self.concepts if c.key == key]
+        if len(hits) != 1 or (hits[0].deck_keys and not self.scoped):
+            return None
+        return hits[0]
+
+    @property
+    def stalled(self) -> list[ConceptMemory]:
+        return [c for c in self.concepts if c.stalled]
+
+    @property
+    def last(self) -> RehearsalSummary | None:
+        return self.sessions[0] if self.sessions else None
+
+    def by_node(self, graph: "ConceptGraph | None") -> dict[str, ConceptMemory]:
+        """
+        이번 ConceptGraph 의 노드에 기억을 잇는다 → {node_id: ConceptMemory}. 이름(열쇠)이 같은 것을 먼저, 그다음
+        `memory_similarity` ≥ MEMORY_LINK_MIN (표기만 다르거나 내용 낱말을 덧붙인 이름 — 반대·치환은 0). 한 기억은 한 노드에만
+        (같은 이름이 둘이면 weight 큰 쪽).
+
+        **발표가 맞는 기억만 잇는다** (09-30 감사 G-A23d): 조인 키가 이름이라, 같은 사람이 연습한 다른 발표의 「비용」 기억이
+        이번 발표의 「비용」 노드에 붙어 「지난번에 못 넘긴 개념」 으로 맨 앞에 서고 그 발표의 빠진 점을 겨냥한 질문이 나왔다.
+        지문(deck_keys)이 있는 기억은 그 발표에서 물은 **다른** 개념 이름들이 이번 그래프에도 충분히 있어야 잇는다
+        (`memory_presentation_fit`). 다른 이름이 하나도 없는 지문(그 발표에서 한 개념만 물었다)은 잇지 않는다 — 이름 하나로는
+        발표를 가를 수 없고, 노드 id 도 LLM 이 붙인 영문 슬러그라(「비용」→ cost) 다른 발표와 겹친다 (09-30 리뷰).
+        이번 발표에 맞춰 거른 기억(scoped)은 지문 대조를 건너뛴다.
+        """
+        if graph is None or not self.concepts or not graph.nodes:
+            return {}
+        nodes = sorted(graph.nodes, key=lambda n: (-n.weight, n.id))
+        graph_keys = tuple(dict.fromkeys(k for k in (memory_key(n.label) for n in graph.nodes) if k))
+        fit = {i: memory_presentation_fit(cm.deck_keys, cm.key, graph_keys) for i, cm in enumerate(self.concepts)}
+
+        def fits(i: int) -> bool:
+            if self.scoped or not self.concepts[i].deck_keys:
+                return True
+            matched, total = fit[i]
+            return total > 0 and matched >= min(MEMORY_PRESENTATION_KEYS_MIN, total) and matched / total >= MEMORY_PRESENTATION_MIN
+
+        def rank(i: int, score: float) -> tuple:
+            matched, total = fit[i]
+            return (score, (matched / total) if total else 0.0, self.concepts[i].last_at, -i)
+
+        out: dict[str, ConceptMemory] = {}
+        used: set[int] = set()
+        for exact in (True, False):
+            for node in nodes:
+                if node.id in out:
+                    continue
+                key = memory_key(node.label)
+                if not key:
+                    continue          # 이름이 비면(기호뿐인 라벨) 이을 근거가 없다 — 빈 열쇠끼리 잇지 않는다
+                best: tuple | None = None
+                for i, cm in enumerate(self.concepts):
+                    if i in used or not cm.key or not fits(i):
+                        continue
+                    score = 1.0 if cm.key == key else (0.0 if exact else memory_similarity(key, cm.key))
+                    if (exact and score < 1.0) or score < MEMORY_LINK_MIN:
+                        continue
+                    if best is None or rank(i, score) > best[0]:
+                        best = (rank(i, score), i)
+                if best is not None:
+                    out[node.id] = self.concepts[best[1]]
+                    used.add(best[1])
+        return out
+
+
+#: 이름이 정확히 같지 않을 때 같은 개념으로 볼 글자 2-gram 겹침(Dice) 하한. "알림의 주의 비용" vs "알림 주의 비용" 은 0.73,
+#: "환경 설계" vs "환경 요인" 은 0.33. 낱말 단위(Jaccard)는 한국어 조사(의·은·는) 하나에 갈라져서 글자 단위로 잰다.
+MEMORY_LINK_MIN = 0.6
+#: 조사·띄어쓰기·영어 복수 꼬리만 다른 이름의 점수 — Dice 가 낮아도(「수면의 질」↔「수면 질」 0.40) 같은 개념이다. 1.0 은 같은 열쇠 몫.
+MEMORY_SAME_NAME = 0.95
+#: Dice 가 이 아래면 글자 차이를 따져 볼 것도 없이 다른 이름이다 (조사 하나 차이는 짧은 이름도 0.4 위).
+_MEMORY_DICE_FLOOR = 0.3
+#: 이름 대조에 쓰는 열쇠 앞 글자 수 — difflib 는 길이의 곱으로 느려진다 (6000자 두 개 3초, 09-30 리뷰). 개념 이름은 이보다 훨씬 짧다.
+_MEMORY_CMP_MAX = 80
+#: 발표 지문 대조 — 지난 발표에서 물은 **다른** 개념 이름 가운데 이번 그래프에 있어야 할 몫과 최소 개수.
+#: 09-30 실측 기준: 같은 덱을 다시 올리면 그래프가 캐시돼 1.0, 자료를 고친 판도 핵심 개념 이름은 대개 남는다. 다른 발표가
+#: 흔한 이름 두셋(「비용」「효과」)을 나눠도 물은 이름의 절반을 넘기는 어렵다.
+MEMORY_PRESENTATION_MIN = 0.5
+MEMORY_PRESENTATION_KEYS_MIN = 2
+
+#: 두 이름의 글자 차이가 이것뿐이면 표기 차이다 — 조사, 복수·형용 꼬리(「들」「적」), 영어 굴절 꼬리.
+_MEMORY_PARTICLE_RE = re.compile(r"^(?:의|은|는|이|가|을|를|과|와|에서|에게|에|으로|로|도|만|및|들|적)+$")
+_MEMORY_INFLECT_RE = re.compile(r"^(?:s|es|ed|d|ing|y|ies|ied)$")
+#: 한쪽 이름에만 붙은 조각에 이 낱말이 있으면 **다른 개념**이다 — 방향·양·해결·부정적 관계를 말하는 말. 어느 분야에나 쓰는
+#: 문법·평가 어휘만 둔다 (09-30 G-A23c: 「인력 부족」↔「인력 부족 해소」 Dice 0.75 로 이어졌다).
+_MEMORY_POLARITY_KO = (
+    "증가", "감소", "증대", "감축", "상승", "하락", "향상", "저하", "개선", "악화", "확대", "축소", "강화", "약화",
+    "부족", "결핍", "결여", "부재", "과다", "과잉", "과소", "충분", "해소", "해결", "완화", "심화", "극복", "방지",
+    "예방", "억제", "촉진", "절감", "저감", "제거", "손실", "이익", "이득", "손해", "성공", "실패", "장점", "단점",
+    "긍정", "부정", "찬성", "반대", "높은", "낮은", "많은", "적은", "없는", "없음", "유지", "상실", "금지",
+    "허용", "폐지", "도입", "불가", "가능", "방해", "장벽", "저해", "차단", "중단", "지연", "위협", "위험", "부작용",
+    "한계", "피해", "오류", "손상", "결함",
+)
+_MEMORY_POLARITY_EN = (
+    "increas", "decreas", "reduc", "declin", "improv", "worsen", "deterior", "enhanc", "mitigat", "prevent", "loss",
+    "gain", "lack", "shortage", "deficit", "deficien", "excess", "surplus", "overload", "benefit", "harm", "positive",
+    "negative", "high", "low", "less", "more", "without", "absen", "fail", "success", "barrier", "obstacle", "disrupt",
+    "interrupt", "risk", "threat", "delay", "damage", "error",
+)
+#: 이름 맨 앞에만 붙은 짧은 영어 조각은 접두다 (un·in·non·dis·anti·semi…) — 뜻을 뒤집거나 바꾼다.
+_MEMORY_PREFIX_EN_MAX = 4
+
+
+def _memory_piece(seg: str, at_start: bool) -> str:
+    """한쪽 이름에만 있는 조각 하나 → "same"(표기) · "extends"(내용 덧붙임) · "different"(뜻이 바뀜)."""
+    if not at_start and (_MEMORY_PARTICLE_RE.match(seg) or _MEMORY_INFLECT_RE.match(seg)):
+        return "same"
+    if len(seg) == 1 and "가" <= seg <= "힣":
+        return "different"       # 한 글자 접두·접미 — 비·불·무·미·반·탈·저·고·과·양 …
+    if any(m in seg for m in _MEMORY_POLARITY_KO) or any(m in seg for m in _MEMORY_POLARITY_EN):
+        return "different"
+    if at_start and seg.isascii() and seg.isalpha() and len(seg) <= _MEMORY_PREFIX_EN_MAX:
+        return "different"
+    return "extends"
+
+
+def memory_name_diff(key_a: str, key_b: str) -> str:
+    """
+    두 열쇠의 글자 차이의 성격 — "same"(조사·띄어쓰기·굴절만 다르다) · "extends"(한쪽이 내용 낱말을 덧붙였다) ·
+    "different"(치환·반대말·부정 접두·방향 표지). difflib 편집 단위로 본다. 결정적.
+
+    치환은 늘 different 다: 한국어 개념 이름에서 한 낱말만 바뀐 짝은 대개 반대말이다(상위/하위 · 손실/수익 · 단기/장기 ·
+    내부/외부 · 온라인/오프라인). 동의어 치환(사용/이용)도 못 잇지만 — 잘못 이은 기억은 사람을 억울하게 하고, 못 이은 기억은
+    「지난 리허설 없음」 과 같을 뿐이다.
+    """
+    kinds: list[str] = []
+    for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, key_a, key_b, autojunk=False).get_opcodes():
+        if op == "equal":
+            continue
+        sa, sb = key_a[i1:i2], key_b[j1:j2]
+        if op == "replace":
+            same = all(_MEMORY_PARTICLE_RE.match(s) for s in (sa, sb)) or all(_MEMORY_INFLECT_RE.match(s) for s in (sa, sb))
+            kinds.append("same" if same and i1 > 0 else "different")
+            continue
+        kinds.append(_memory_piece(sa or sb, (i1 if sa else j1) == 0))
+    if "different" in kinds:
+        return "different"
+    return "extends" if "extends" in kinds else "same"
+
+
+@functools.lru_cache(maxsize=8192)
+def memory_similarity(key_a: str, key_b: str) -> float:
+    """
+    개념 이름(또는 memory_key) 두 개가 같은 개념인 정도 (0~1). 같은 열쇠 1.0 · 표기만 다름 MEMORY_SAME_NAME ·
+    내용 덧붙임은 글자 2-gram Dice · 치환·반대말·부정 접두·방향 표지가 한쪽에만 있으면 0 (`memory_name_diff`).
+    둘 중 하나가 두 글자 미만이면 같을 때만 1. 이름을 그대로 넣어도 된다 — 안에서 memory_key 로 접는다(열쇠에는 멱등).
+    """
+    key_a, key_b = memory_key(key_a)[:_MEMORY_CMP_MAX], memory_key(key_b)[:_MEMORY_CMP_MAX]
+    if not key_a or not key_b:
+        return 0.0
+    if key_a == key_b:
+        return 1.0
+    a = {key_a[i:i + 2] for i in range(len(key_a) - 1)}
+    b = {key_b[i:i + 2] for i in range(len(key_b) - 1)}
+    if not a or not b:
+        return 0.0
+    dice = 2 * len(a & b) / (len(a) + len(b))
+    if dice < _MEMORY_DICE_FLOOR:
+        return 0.0
+    kind = memory_name_diff(key_a, key_b)
+    if kind == "different":
+        return 0.0
+    return max(dice, MEMORY_SAME_NAME) if kind == "same" else dice
+
+
+def memory_presentation_fit(deck_keys, own_key: str, graph_keys) -> tuple[int, int]:
+    """
+    발표 지문 대조 → (이번 그래프에도 있는 다른 개념 이름 수, 지문의 다른 개념 이름 수). 자기 이름(own_key)은 세지 않는다 —
+    그 이름이 같다는 것은 이미 아는 사실이고, 물을 것은 「같은 발표인가」 다. 이름 대조는 `memory_similarity` (반대말은 0).
+    """
+    # 자기 이름의 표기 변형(「비용」·「비용의」)도 「다른 이름」 이 아니다 — 세면 한 개념만 물은 발표가 둘을 물은 것처럼 부풀었다
+    others = [k for k in dict.fromkeys(deck_keys or ())
+              if k and k != own_key and not (own_key and memory_similarity(k, own_key) >= MEMORY_SAME_NAME)]
+    graph_keys = tuple(graph_keys or ())
+    exact = set(graph_keys)
+    matched = sum(1 for k in others
+                  if k in exact or any(memory_similarity(k, g) >= MEMORY_LINK_MIN for g in graph_keys))
+    return matched, len(others)
+
+
+@dataclass
+class TriageMark:
+    """
+    개념 하나의 질문 가치 심사 결과 (F-08 1차).
+
+    node_id·source·rank 는 **코드가 결정적으로** 채우고,
+    severity·trap·angle 만 LLM 이 손댄다. 후보 밖 node_id 는 어댑터가 버린다.
+    """
+    node_id: str
+    severity: int = QA_SEVERITY_FALLBACK   # 1 치명 | 2 보통 | 3 가벼움
+    trap: bool = False                     # 함정 질문을 팔 수 있는 개념인가
+    angle: str = ""                        # 질문 각도 한 줄 (2차 프롬프트 입력)
+    source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
+    rank: int = 0                          # 파생: 결정적 후보 순위 (1부터)
+    doc_weight: float = 0.0                # 파생: F-07 weight 복사
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TriageMark":
+        try:
+            severity = int(d.get("severity", QA_SEVERITY_FALLBACK))
+        except (TypeError, ValueError):
+            severity = QA_SEVERITY_FALLBACK
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            node_id=str(d["node_id"]),
+            severity=severity if severity in QA_SEVERITIES else QA_SEVERITY_FALLBACK,
+            trap=bool(d.get("trap", False)),
+            angle=str(d.get("angle", "") or ""),
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            rank=int(d.get("rank", 0)),
+            doc_weight=float(d.get("doc_weight", 0.0)),
+        )
+
+
+@dataclass
+class QaTriage:
+    """
+    F-08 1차 산출물. 트랙과 무관해서 **세션에 한 번만** 만들고 재사용한다.
+
+    marks 는 결정적 우선순위(rank) 오름차순이다.
+    """
+    file_name: str
+    total_slides: int = 0
+    marks: list[TriageMark] = field(default_factory=list)
+    model: str = ""
+    #: 주장 그래프(F-26)에서 찾은 탐침. marks 중 source 가 PROBE_KINDS 인 것은 여기 같은 node_ids[0] 의 탐침이 있다.
+    probes: list[Probe] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "model": self.model,
+            "marks": [m.to_dict() for m in self.marks],
+            "probes": [p.to_dict() for p in self.probes],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaTriage":
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            marks=[TriageMark.from_dict(m) for m in d.get("marks", [])],
+            model=d.get("model", ""),
+            probes=[Probe.from_dict(p) for p in (d.get("probes") or [])],
+        )
+
+    def probe_for(self, node_id: str) -> "Probe | None":
+        return next((p for p in self.probes if p.node_ids and p.node_ids[0] == node_id), None)
+
+    def mark(self, node_id: str) -> TriageMark | None:
+        for m in self.marks:
+            if m.node_id == node_id:
+                return m
+        return None
+
+
+@dataclass
+class Question:
+    """
+    예상 질문 하나. 필드 이름은 프론트가 이미 소비하는 키와 같다 (app.js 실전 QA).
+
+    node_id 로 ConceptGraph·AlignmentDoc 과 조인해서 "이 질문이 리포트의 어느
+    개념인지" 를 되짚는다.
+    """
+    id: str                                # 질문 안정 키 (프론트 results 조인)
+    node_id: str                           # 조인 키 — ConceptGraph.nodes[].id
+    label: str                             # 개념 이름 (화면 칩)
+    question: str                          # 질문 문장
+    why: str = ""                          # 왜 이걸 묻나 (근거 한 줄)
+    hint: str = ""                         # 막혔을 때 보여 줄 힌트
+    severity: int = QA_SEVERITY_FALLBACK   # 1 치명 | 2 보통 | 3 가벼움
+    trap: bool = False                     # 자료와 어긋난 주장으로 찔러보는 질문인가
+    source: str = QA_SOURCE_FALLBACK       # 파생: 뽑힌 결정적 근거
+    slide_nos: list[int] = field(default_factory=list)  # 근거 장
+    doc_weight: float = 0.0                # 파생: F-07 weight 복사
+    #: 이 질문에 기대하는 답의 골자. 되묻기가 끝날 때 "그래서 뭐라고 답했어야 하나" 를
+    #: 보여 주는 재료다. 대화가 끝났는데 답을 모른 채면 코칭이 실패한 것이므로 비워 두지 않는다.
+    answer_gist: str = ""
+    #: 질문이 **둘 이상**을 물을 때 골자를 요소로 쪼갠 것. F-09 의 채점 체크리스트다 —
+    #: 하나라도 안 나오면 good 을 막는다 (f09_judge `_enforce_gist_parts`).
+    #:
+    #: **비었거나 2개 이상이다.** 1개는 쪼갠 의미가 없어 F-08 이 빈 배열로 되돌린다.
+    #: `answer_gist` 를 대체하지 않고 옆에 둔다 — 프론트의 「이렇게 답했으면 됐다」
+    #: 카드와 F-08 의 쌍둥이 질문 판별이 둘 다 `answer_gist` 원문을 읽기 때문이다.
+    answer_gist_parts: list[str] = field(default_factory=list)
+    #: 근거 장에서 **그대로 옮긴** 한 문장과 그 장 번호. 힌트·코칭이 "자료 3장은 이렇게
+    #: 말해요: «…»" 로 쓴다 — 기억을 요구하지 않고 보고 짚게 하기 위해서다.
+    #: F-08 이 slidedoc 을 받았을 때만 채운다. 없으면 빈 값이고 힌트 사다리는 예전 그대로다.
+    evidence_slide_no: int = 0
+    evidence_quote: str = ""
+    #: 같은 장에서 발표자가 실제로 한 말 한 구절 (STT). 해설이 "발표에서는 …라고 했어요" 로 쓴다.
+    speech_quote: str = ""
+    #: 이 질문이 근거로 든 문헌 (PaperDoc.refs[].id). F-08 이 papers 를 받았을 때만 채운다.
+    #: 목록 밖 인용은 F-08 어댑터가 버리므로, 여기 있는 id 는 전부 PaperDoc 에 실재한다.
+    paper_ids: list[str] = field(default_factory=list)
+    #: 이 질문이 나온 근거 묶음 (P1). 옛 세션은 None — 화면은 「근거」 칸을 안 그린다.
+    basis: QuestionBasis | None = None
+    #: 함정 질문이면 얹은 틀린 전제와 자료의 사실 (qa/trap). trap=True 인데 None 이면 옛 세션이다 — 판정은 예전 규칙으로.
+    trap_premise: TrapPremise | None = None
+
+    def __post_init__(self) -> None:
+        # 불변식을 **타입에서** 지킨다. F-08 은 dataclass 로 직접 짓고 프론트·세션
+        # 복원은 from_dict 로 오는데, 둘 중 한쪽만 정규화하면 F-09 가 매번 다시
+        # 세어야 한다 — 그러면 「요소 1개」 라는 성립하지 않는 상태가 새어 나간다.
+        self.answer_gist_parts = _gist_parts_of(self.answer_gist_parts)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "label": self.label,
+            "question": self.question,
+            "why": self.why,
+            "hint": self.hint,
+            "severity": self.severity,
+            "trap": self.trap,
+            "source": self.source,
+            "slide_nos": list(self.slide_nos),
+            "doc_weight": self.doc_weight,
+            "answer_gist": self.answer_gist,
+            "answer_gist_parts": list(self.answer_gist_parts),
+            "evidence_slide_no": self.evidence_slide_no,
+            "evidence_quote": self.evidence_quote,
+            "speech_quote": self.speech_quote,
+            "paper_ids": list(self.paper_ids),
+            "basis": self.basis.to_dict() if self.basis else None,
+            "trap_premise": self.trap_premise.to_dict() if self.trap_premise else None,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Question":
+        try:
+            severity = int(d.get("severity", QA_SEVERITY_FALLBACK))
+        except (TypeError, ValueError):
+            severity = QA_SEVERITY_FALLBACK
+        source = d.get("source", QA_SOURCE_FALLBACK)
+        return cls(
+            id=str(d["id"]),
+            node_id=str(d.get("node_id", "") or ""),
+            label=str(d.get("label", "") or ""),
+            question=str(d.get("question", "") or ""),
+            why=str(d.get("why", "") or ""),
+            hint=str(d.get("hint", "") or ""),
+            severity=severity if severity in QA_SEVERITIES else QA_SEVERITY_FALLBACK,
+            trap=bool(d.get("trap", False)),
+            source=source if source in QA_SOURCES else QA_SOURCE_FALLBACK,
+            slide_nos=[int(n) for n in d.get("slide_nos", [])],
+            doc_weight=float(d.get("doc_weight", 0.0)),
+            answer_gist=str(d.get("answer_gist", "") or ""),
+            # 정규화는 __post_init__ 이 한다 — 옛 세션이 하나만 실어 보내도 거기서
+            # 「요소 검사 없음」 으로 떨어진다.
+            answer_gist_parts=d.get("answer_gist_parts") or [],
+            evidence_slide_no=int(d.get("evidence_slide_no") or 0),
+            evidence_quote=str(d.get("evidence_quote", "") or ""),
+            speech_quote=str(d.get("speech_quote", "") or ""),
+            paper_ids=[str(x) for x in (d.get("paper_ids") or [])],
+            basis=QuestionBasis.from_dict(d["basis"]) if d.get("basis") else None,
+            trap_premise=TrapPremise.from_dict(d.get("trap_premise")),
+        )
+
+
+@dataclass
+class QuestionDoc:
+    """
+    F-08 의 산출물. 프론트 실전 QA 루프가 이 questions[] 를 그대로 재생한다.
+
+    불변식은 f08_questions.build_questions() 가 보장한다:
+    질문 id 유일 · 개념(node_id) 중복 없음 · 트랙 상한 준수 ·
+    severity 는 enum 안 · 1분 트랙에는 함정 없음 · 같은 triage 면 결과가 같다.
+    """
+    file_name: str
+    total_slides: int = 0
+    track: str = QA_TRACK_FALLBACK
+    questions: list[Question] = field(default_factory=list)
+    #: 후보였지만 이번 트랙 상한에서 밀린 개념. "더 길게 하면 이것도 물어요" 안내용.
+    deferred_node_ids: list[str] = field(default_factory=list)
+    model: str = ""
+    #: 질문들이 실제로 인용한 문헌만 (PaperDoc 의 부분집합). 화면이 질문 카드 옆에
+    #: 「이 논문을 보고 묻는 질문이에요」 를 그릴 때 PaperDoc 을 따로 안 들고 있어도 되게.
+    papers: list[PaperRef] = field(default_factory=list)
+    #: 녹음을 **받았는데** 질문 재료로 쓰지 않은 까닭 (09-30 WP-S2 — 문서 단위 신호는 이것 하나다). "" 이면 녹음을 썼거나
+    #: 원래 녹음이 없었다(자료만 올린 경로). 값은 RubricFault.kind 와 같은 말이다 — "unrelated_speech"(녹음이 이 자료의 발표가
+    #: 아님) · "align_fallback"(정합 판정이 짐작뿐). 값이 있으면 모든 질문이 자료만으로 만든 것이다.
+    speech_unused: str = ""
+    #: 위 까닭을 화면에 그대로 띄울 한 줄 (해요체). speech_unused 가 비면 빈 문자열.
+    speech_note: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "file_name": self.file_name,
+            "total_slides": self.total_slides,
+            "track": self.track,
+            "questions": [q.to_dict() for q in self.questions],
+            "deferred_node_ids": list(self.deferred_node_ids),
+            "model": self.model,
+            "papers": [p.to_dict() for p in self.papers],
+            "speech_unused": self.speech_unused,
+            "speech_note": self.speech_note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QuestionDoc":
+        track = str(d.get("track", QA_TRACK_FALLBACK))
+        unused = str(d.get("speech_unused", "") or "")
+        return cls(
+            file_name=d["file_name"],
+            total_slides=int(d.get("total_slides", 0)),
+            track=track if track in QA_TRACKS else QA_TRACK_FALLBACK,
+            questions=[Question.from_dict(q) for q in d.get("questions", [])],
+            deferred_node_ids=[str(x) for x in d.get("deferred_node_ids", [])],
+            model=d.get("model", ""),
+            papers=[PaperRef.from_dict(p) for p in (d.get("papers") or [])],
+            speech_unused=unused if unused in QA_SPEECH_UNUSED else "",
+            speech_note=str(d.get("speech_note", "") or "") if unused in QA_SPEECH_UNUSED else "",
+        )
+
+    def question(self, question_id: str) -> Question | None:
+        """id 로 질문 하나. 판정(F-09)이 question_id 로 되찾을 때 쓴다."""
+        for q in self.questions:
+            if q.id == question_id:
+                return q
+        return None
+
+    @property
+    def node_ids(self) -> list[str]:
+        return [q.node_id for q in self.questions]
+
+
+@dataclass
+class QaTurn:
+    """
+    주고받은 질문·답변 한 턴 (F-09 history).
+
+    프론트는 한글 키(`질문`·`답변`·`판정`)로 보낸다 — 이미 굳은 계약이라
+    from_dict 가 한글·영문 양쪽을 받아 준다.
+
+    `question_id` 는 턴을 질문에 잇는 조인 키다. 문면(`question`)으로는 이을 수
+    없다 — 프론트가 2턴째부터 원래 질문이 아니라 **직전 후속 질문**을 그 턴의
+    question 으로 적기 때문이다(app.js submitLiveAnswer). 문면으로 세면 되물은
+    턴이 다른 질문으로 읽혀 막힘 코칭이 explain 단계로 못 올라간다.
+    옛 클라이언트는 이 키 없이 보내므로, 빈 문자열이면 문면 비교로 폴백한다.
+
+    `gave_up` 은 **의사**지 텍스트가 아니다. 「모르겠어요」 버튼을 누른 사실을
+    답변 글에서 역추정하면(`looks_stuck`) 사용자가 뭔가 써 놓고 눌렀을 때 놓친다 —
+    그러면 F-09 막힘 코칭이 explain 단계로 못 올라가 같은 질문에 갇힌다.
+    """
+    question: str = ""
+    answer: str = ""
+    verdict: str = QA_VERDICT_FALLBACK
+    question_id: str = ""
+    gave_up: bool = False
+
+    def to_dict(self) -> dict:
+        return {
+            "질문": self.question,
+            "답변": self.answer,
+            "판정": self.verdict,
+            "question_id": self.question_id,
+            "포기": self.gave_up,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaTurn":
+        verdict = str(d.get("판정", d.get("verdict", QA_VERDICT_FALLBACK)) or "")
+        return cls(
+            question=str(d.get("질문", d.get("question", "")) or ""),
+            answer=str(d.get("답변", d.get("answer", "")) or ""),
+            # 프론트는 넘긴 질문에 'skipped' 를 붙인다 — enum 밖이라 보류로 떨어진다
+            verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            question_id=str(d.get("question_id", "") or ""),
+            gave_up=bool(d.get("포기", d.get("gave_up", False))),
+        )
+
+
+#: 판정 근거 한 줄의 쓰임 — 답이 짚은 줄 · 답에서 빠진 줄 · 답과 어긋난 줄 (2026-10-01).
+QA_GROUND_ROLES = ("covered", "missing", "conflict")
+#: 판정 한 번에 싣는 근거 줄의 최대 수. 넷부터는 발표자가 어느 줄을 먼저 볼지 모른다.
+QA_GROUNDS_MAX = 3
+
+
+@dataclass
+class JudgeGround:
+    """
+    판정이 기댄 **자료 줄 하나** (2026-10-01 · qa/judge-grounds).
+
+    사용자 보고: 「자료에서 제시한 '시간 × 연속성 × 규칙성'…」 이라는 반응이 자료에서 왔는데 몇 장의 어느 줄인지, 왜 그 줄이 이 질문의
+    답인지가 안 보였다. LLM 은 자료 줄의 **번호**(`S4-2`)만 돌려주고, 줄 글(quote)은 코드가 그 번호로 자료에서 찾아 넣는다 — 인용을
+    LLM 이 옮겨 쓰게 하면 질문·골자를 베끼거나 말을 바꾼다(09-29 논문 대조의 교훈). 그래서 quote 는 언제나 자료의 글자 그대로다.
+
+    - role: QA_GROUND_ROLES — covered(답이 짚은 줄) · missing(답에서 빠진 줄) · conflict(답과 어긋난 줄 — 코드 가드가 찾은 줄)
+    - note: 이 줄이 이 질문에 왜 답이 되는지 한 문장(해요체). 비어 있을 수 있다(코드가 고른 줄·정답을 통째로 옮긴 설명은 뺀다).
+    - ref: 프롬프트의 줄 번호(`S4-2`) — 하네스·로그용. 화면은 slide_no·quote·role·note 만 쓴다.
+    """
+    slide_no: int
+    quote: str
+    role: str = "missing"
+    note: str = ""
+    ref: str = ""
+
+    def to_dict(self) -> dict:
+        return {"slide_no": self.slide_no, "quote": self.quote, "role": self.role, "note": self.note, "ref": self.ref}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "JudgeGround":
+        role = str(d.get("role", "") or "")
+        try:
+            no = int(d.get("slide_no") or 0)
+        except (TypeError, ValueError):
+            no = 0
+        return cls(slide_no=max(0, no), quote=str(d.get("quote", "") or ""),
+                   role=role if role in QA_GROUND_ROLES else "missing",
+                   note=str(d.get("note", "") or ""), ref=str(d.get("ref", "") or ""))
+
+
+@dataclass
+class QaJudgement:
+    """
+    F-09 의 산출물. 답변 하나의 판정이다.
+
+    최상위 키(`verdict`·`react`·`summary_sentence`·`score`)는 프론트가 이미
+    소비하는 이름이라 바꾸지 않는다.
+
+    불변식은 f09_judge.judge_answer() 가 보장한다:
+    verdict 는 enum 안 · score 0~100 · react·summary_sentence 는 항상 채워짐 ·
+    node_id 는 질문에서 승계(LLM 값 무시).
+    """
+    question_id: str
+    node_id: str = ""
+    verdict: str = QA_VERDICT_FALLBACK     # good | partial | wrong | unknown
+    score: int = 0                         # 0~100. 없으면 verdict 기본값
+    react: str = ""                        # 즉답 반응 한 마디 (말풍선)
+    summary_sentence: str = ""             # 이 개념에 대한 총평 한 문장
+    missing_points: list[str] = field(default_factory=list)  # 답변에서 빠진 포인트
+    model: str = ""
+    #: 정답 계열에 못 미칠 때 되물을 후속 질문. 원래 질문을 반복하지 않고
+    #: 빠진 지점을 겨냥한다. 통과한 답에는 빈 문자열이다.
+    followup: str = ""
+    #: 힌트 사다리 (방향 → 범위 → 근접). f08_questions.build_hint_ladder 가 만든다.
+    #: 판정에 함께 실어 보내 프론트가 추가 왕복 없이 즉시 보여 줄 수 있게 한다.
+    hints: list[str] = field(default_factory=list)
+    #: 막힘 코칭 단계 (QA_COACH_STAGES). "" 면 평시 판정이다.
+    #: **단계는 서버가 history 로 계산한다** — 프론트가 들고 있으면 저장된 옛 세션에서
+    #: 값이 비고, 질문마다 초기화하는 것도 빠뜨리기 쉽다.
+    coach_stage: str = ""
+    #: coach_stage == "explain" 일 때 채우는 해설. 다른 단계에서는 빈 문자열이다.
+    explanation: str = ""
+    #: 이 질문에 낸 답변의 순번 (1부터). 서버가 누적 답변 수로 센다.
+    #: 화면이 「1차 방어 → 2차 압박 → 3차 확인」 을 표시하는 근거이자,
+    #: mastered·probe_tier 를 계산하는 입력이다.
+    round_no: int = 1
+    #: 되묻기 압박 단계 (QA_PROBE_TIERS). 정복했으면 빈 문자열이다.
+    probe_tier: str = ""
+    #: 막힘 코칭의 선택지 (둘 중 하나). 비어 있으면 자유 답. 프론트가 칩으로 그린다.
+    choices: list[str] = field(default_factory=list)
+    #: 코칭이 근거로 든 자료 인용과 장 번호 (Question 에서 승계). 화면이 카드로 그린다.
+    evidence_quote: str = ""
+    evidence_slide_no: int = 0
+    #: 코드 가드가 등급을 내린 까닭 (「자료 4장과 어긋난 곳: …」「질문이 묻는 것: …」). **결손(missing_points)과 따로 둔다** —
+    #: 09-30 대화 감사 §6: 가드 사유가 결손 맨 앞에 끼어 되물음 틀에 들어가 「질문이 묻는 것: 인지 비용 — 이 부분은 어떻게 봐요?」 가 나갔다.
+    guard_reason: str = ""
+    #: 코드 가드만 통과를 막았는가 (qa_mastered 참고). 3라운드 출구를 연다.
+    guard_blocked: bool = False
+    #: 등급·점수를 정한 코드 가드의 **이름** (QA_JUDGE_GUARDS). "" 면 LLM 판정 그대로다.
+    #: 09-30 레드팀: 가드 사유(guard_reason)는 사람에게 보일 문장이라, 하네스·화면이 「어느 가드였나」 를 문장에서 짐작하고 있었다.
+    guard: str = ""
+    #: 판정의 근거 자료 줄 (JudgeGround, 많아야 QA_GROUNDS_MAX) — 맞힌 것·빠진 것·어긋난 것이 자료 몇 장의 어느 줄에서 왔는지.
+    #: evidence_quote(질문의 근거 인용, 코칭 카드)와 따로 둔다 — 그것은 질문이 정해 둔 한 줄이고, 이것은 **이번 답**을 판정한 줄이다.
+    #: 옛 세션(이 키 없음)은 빈 목록으로 읽는다 (2026-10-01).
+    grounds: list[JudgeGround] = field(default_factory=list)
+
+    @property
+    def close_reason(self) -> str:
+        """
+        질문이 닫힌 까닭 — "" (안 닫힘) · "good" (설득) · "rounds" (3라운드에서 통과 수준으로 닫음) · "guard" (가드에 막힌 채 3라운드에서 닫음).
+        결과 화면이 **진짜 설득과 라운드 출구를 나눠** 세게 한다 (09-30 §10: 「7개를 모두 자기 말로 지켰어요」 중 4개가 라운드 출구였다).
+        """
+        if not self.mastered:
+            return ""
+        if self.verdict == "good":
+            return "good"
+        return "rounds" if self.passed else "guard"
+
+    @property
+    def passed(self) -> bool:
+        """정답 계열인가. **리포트가 방어 여부를 셀 때 쓰는 값이다.**"""
+        return qa_passed(self.verdict, self.score)
+
+    @property
+    def mastered(self) -> bool:
+        """
+        이 질문을 닫아도 되는가. **되묻기를 멈추는 유일한 출구다.**
+
+        passed 보다 엄격하다 — 절반만 맞힌 답에 한 걸음 더 묻기 위해서다.
+        자세한 이유는 `qa_mastered` 를 보라.
+        """
+        return qa_mastered(self.verdict, self.score, self.round_no, self.guard_blocked)
+
+    def to_dict(self) -> dict:
+        return {
+            "question_id": self.question_id,
+            "node_id": self.node_id,
+            "verdict": self.verdict,
+            "score": self.score,
+            "react": self.react,
+            "summary_sentence": self.summary_sentence,
+            "missing_points": list(self.missing_points),
+            "model": self.model,
+            "followup": self.followup,
+            "hints": list(self.hints),
+            "coach_stage": self.coach_stage,
+            "explanation": self.explanation,
+            "round_no": self.round_no,
+            "probe_tier": self.probe_tier,
+            "choices": list(self.choices),
+            "evidence_quote": self.evidence_quote,
+            "evidence_slide_no": self.evidence_slide_no,
+            "guard_reason": self.guard_reason,
+            "guard": self.guard,
+            "grounds": [g.to_dict() for g in self.grounds],
+            # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
+            # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
+            "passed": self.passed,
+            "mastered": self.mastered,
+            "close_reason": self.close_reason,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "QaJudgement":
+        verdict = str(d.get("verdict", QA_VERDICT_FALLBACK) or "")
+        coach_stage = str(d.get("coach_stage", "") or "")
+        probe_tier = str(d.get("probe_tier", "") or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        try:
+            round_no = int(d.get("round_no", 1) or 1)
+        except (TypeError, ValueError):
+            round_no = 1
+        return cls(
+            question_id=str(d.get("question_id", "") or ""),
+            node_id=str(d.get("node_id", "") or ""),
+            verdict=verdict if verdict in QA_VERDICTS else QA_VERDICT_FALLBACK,
+            score=max(0, min(100, score)),
+            react=str(d.get("react", "") or ""),
+            summary_sentence=str(d.get("summary_sentence", "") or ""),
+            missing_points=[str(x) for x in d.get("missing_points", [])],
+            model=d.get("model", ""),
+            followup=str(d.get("followup", "") or ""),
+            hints=[str(x) for x in d.get("hints", [])],
+            coach_stage=coach_stage if coach_stage in QA_COACH_STAGES else "",
+            explanation=str(d.get("explanation", "") or ""),
+            round_no=max(1, round_no),
+            probe_tier=probe_tier if probe_tier in QA_PROBE_TIERS else "",
+            choices=[str(c) for c in (d.get("choices") or []) if str(c).strip()],
+            evidence_quote=str(d.get("evidence_quote", "") or ""),
+            evidence_slide_no=int(d.get("evidence_slide_no") or 0),
+            guard_reason=str(d.get("guard_reason", "") or ""),
+            guard=str(d.get("guard", "") or "") if str(d.get("guard", "") or "") in QA_JUDGE_GUARDS else "",
+            grounds=[JudgeGround.from_dict(g) for g in (d.get("grounds") or []) if isinstance(g, dict)
+                     and str(g.get("quote", "") or "").strip()][:QA_GROUNDS_MAX],
+            # `passed`·`mastered`·`guard_blocked` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
+            # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
+            # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-14 채점표 채점 (rubric v3)
+# ---------------------------------------------------------------------------
+
+#: 항목 하나의 상태.
+#: - scored: 실제로 매겼다
+#: - situation_excluded: 이 발표 상황에서는 평가하지 않는 항목이다 (채점표 가중치 0)
+#: - unmeasured: 평가해야 할 항목인데 이번 실행에서 못 쟀다 (자료 없음·LLM 실패·음향 없음)
+#:
+#: 뒤의 둘을 한 필드로 합치지 않는다. 화면 문구가 다르다 —
+#: "이 상황에서는 평가하지 않아요" 와 "이번엔 측정할 수 없었어요" 는 다른 말이다.
+RUBRIC_ITEM_STATUSES = ("scored", "situation_excluded", "unmeasured")
+RUBRIC_ITEM_STATUS_FALLBACK = "unmeasured"
+
+#: 클러스터 상태. omitted 면 그 클러스터 가중치를 남은 클러스터에 재분배한다.
+RUBRIC_CLUSTER_STATUSES = ("scored", "omitted")
+
+#: 채점의 완결성.
+#: - full: 잴 수 있는 항목은 다 쟀다 (영구 측정 불가 항목은 계산에서 제외한다)
+#: - partial: 잴 수 있었어야 할 항목을 못 쟀다
+#:
+#: 음량 안정성(25)·핵심 구간 강조(26)는 음향 특징이 없어 언제나 못 잰다. 이 둘까지
+#: partial 로 치면 basis 가 영영 full 이 못 되고, 늘 켜진 경고는 아무도 안 읽는다.
+RUBRIC_BASES = ("full", "partial")
+
+
+@dataclass
+class RubricItemScore:
+    """채점표 항목 하나의 결과. 점수 한 자리를 끝까지 역추적하게 해 주는 단위다."""
+
+    no: int
+    cluster: str = ""
+    name: str = ""
+    status: str = "scored"     # RUBRIC_ITEM_STATUSES
+    score: int = 0             # 0~100. status == "scored" 일 때만 뜻이 있다
+    weight: int = 0            # 이 상황의 내부 가중치 (재분배 전 원본)
+    source: str = ""           # det | llm | na
+    evidence: str = ""         # 발화 인용 또는 수치 근거 한 줄. 비면 점수를 안 쓴다
+    note: str = ""             # 왜 이 점수인지 / 왜 못 쟀는지
+
+    def to_dict(self) -> dict:
+        return {
+            "no": self.no,
+            "cluster": self.cluster,
+            "name": self.name,
+            "status": self.status,
+            "score": self.score,
+            "weight": self.weight,
+            "source": self.source,
+            "evidence": self.evidence,
+            "note": self.note,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricItemScore":
+        status = str(d.get("status", "scored") or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        try:
+            weight = int(d.get("weight", 0) or 0)
+        except (TypeError, ValueError):
+            weight = 0
+        return cls(
+            no=int(d.get("no", 0) or 0),
+            cluster=str(d.get("cluster", "") or ""),
+            name=str(d.get("name", "") or ""),
+            status=status if status in RUBRIC_ITEM_STATUSES else RUBRIC_ITEM_STATUS_FALLBACK,
+            score=max(0, min(100, score)),
+            weight=max(0, weight),
+            source=str(d.get("source", "") or ""),
+            evidence=str(d.get("evidence", "") or ""),
+            note=str(d.get("note", "") or ""),
+        )
+
+
+@dataclass
+class RubricClusterScore:
+    """클러스터 하나의 가중평균. 리포트 막대 한 줄이 이것이다."""
+
+    key: str
+    name: str = ""
+    weight: int = 0                  # 채점표의 클러스터 가중치(%)
+    effective_weight: float = 0.0    # 재분배 후 실제 적용 비중. 살아 있는 것들의 합이 1.0
+    average: float = 0.0             # 0~100
+    contribution: float = 0.0        # average * effective_weight
+    item_nos: list[int] = field(default_factory=list)   # 평균에 실제로 들어간 항목
+    status: str = "scored"           # RUBRIC_CLUSTER_STATUSES
+
+    def to_dict(self) -> dict:
+        return {
+            "key": self.key,
+            "name": self.name,
+            "weight": self.weight,
+            "effective_weight": round(self.effective_weight, 4),
+            "average": round(self.average, 2),
+            "contribution": round(self.contribution, 2),
+            "item_nos": list(self.item_nos),
+            "status": self.status,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricClusterScore":
+        status = str(d.get("status", "scored") or "")
+        return cls(
+            key=str(d.get("key", "") or ""),
+            name=str(d.get("name", "") or ""),
+            weight=int(d.get("weight", 0) or 0),
+            effective_weight=float(d.get("effective_weight", 0.0) or 0.0),
+            average=float(d.get("average", 0.0) or 0.0),
+            contribution=float(d.get("contribution", 0.0) or 0.0),
+            item_nos=[int(x) for x in d.get("item_nos", [])],
+            status=status if status in RUBRIC_CLUSTER_STATUSES else "omitted",
+        )
+
+
+#: RubricFault.kind — 채점표가 점수와 **따로** 알리는 사실 (09-30 held-out C-06·C-07).
+#: 앞의 둘은 발표자의 치명 결함이라 하나마다 총점 상한을 내린다(RUBRIC_CAP_KINDS) — 자료와 어긋나게 말한 수치·방향,
+#: 말로 건너뛴 핵심 장. 뒤의 둘은 결함이 아니라 「말 내용을 못 쟀다」 는 사실이다 — 다른 발표 녹음(이 자료의 발표로는
+#: 가장 낮은 상한을 건다 — f14 CAP_FLOOR), 정합 판정 실패(상한 없음).
+RUBRIC_FAULT_KINDS = ("contradiction", "skipped_slide", "unrelated_speech", "align_fallback")
+RUBRIC_CAP_KINDS = ("contradiction", "skipped_slide")
+
+
+@dataclass
+class RubricFault:
+    """점수 옆에 반드시 같이 읽혀야 하는 사실 한 줄. text 는 화면·F-19 가 그대로 쓴다."""
+
+    kind: str                      # RUBRIC_FAULT_KINDS
+    text: str = ""
+    slide_no: int | None = None
+
+    def to_dict(self) -> dict:
+        return {"kind": self.kind, "text": self.text, "slide_no": self.slide_no}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricFault":
+        slide_no = d.get("slide_no")
+        return cls(kind=str(d.get("kind", "") or ""), text=str(d.get("text", "") or ""),
+                   slide_no=None if slide_no is None else int(slide_no))
+
+
+@dataclass
+class RubricScore:
+    """
+    F-14 산출물. 발표 하나의 최종 점수와 그 근거 전부다.
+
+    불변식은 f14_rubric.score_rubric() 이 보장한다:
+    살아 있는 클러스터의 effective_weight 합이 1.0 · score == min(cap, round(Σ contribution)) (cap 이 None 이면 상한 없음) ·
+    excluded 와 unmeasured 는 서로 섞이지 않음 · 근거(evidence) 없는 점수는 채택하지 않음.
+    """
+
+    score: int = 0
+    situation: str = ""            # 채점 기준이 된 상황 key
+    situation_label: str = ""      # 화면에 그대로 나가는 한글 라벨
+    rubric_version: str = "v3"     # "v3-fallback" 이면 채점표가 아니라 예전 방식으로 매긴 것
+    clusters: list[RubricClusterScore] = field(default_factory=list)
+    items: list[RubricItemScore] = field(default_factory=list)
+    excluded: list[int] = field(default_factory=list)     # 이 상황에서 평가하지 않는 항목 번호
+    unmeasured: list[int] = field(default_factory=list)   # 이번에 못 잰 항목 번호
+    basis: str = "full"            # RUBRIC_BASES
+    model: str = ""
+    note: str = ""                 # 사용자에게 보일 한 줄 (상황 추정·폴백·전부 못 잼 등)
+    #: 치명 결함 상한 — 없으면 None. 있으면 score 는 이 값을 넘지 않는다 (까닭은 faults 의 RUBRIC_CAP_KINDS 줄).
+    cap: int | None = None
+    faults: list[RubricFault] = field(default_factory=list)
+
+    def item(self, no: int) -> "RubricItemScore | None":
+        for it in self.items:
+            if it.no == no:
+                return it
+        return None
+
+    def cluster(self, key: str) -> "RubricClusterScore | None":
+        for c in self.clusters:
+            if c.key == key:
+                return c
+        return None
+
+    def to_dict(self) -> dict:
+        return {
+            "score": self.score,
+            "situation": self.situation,
+            "situation_label": self.situation_label,
+            "rubric_version": self.rubric_version,
+            "clusters": [c.to_dict() for c in self.clusters],
+            "items": [i.to_dict() for i in self.items],
+            "excluded": list(self.excluded),
+            "unmeasured": list(self.unmeasured),
+            "basis": self.basis,
+            "model": self.model,
+            "note": self.note,
+            "cap": self.cap,
+            "faults": [f.to_dict() for f in self.faults],
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RubricScore":
+        basis = str(d.get("basis", "full") or "")
+        try:
+            score = int(d.get("score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0
+        cap = d.get("cap")
+        try:
+            cap = None if cap is None else max(0, min(100, int(cap)))
+        except (TypeError, ValueError):
+            cap = None
+        return cls(
+            score=max(0, min(100, score)),
+            situation=str(d.get("situation", "") or ""),
+            situation_label=str(d.get("situation_label", "") or ""),
+            rubric_version=str(d.get("rubric_version", "v3") or "v3"),
+            clusters=ensure_dict_list(d.get("clusters", []), RubricClusterScore.from_dict),
+            items=ensure_dict_list(d.get("items", []), RubricItemScore.from_dict),
+            excluded=[int(x) for x in d.get("excluded", [])],
+            unmeasured=[int(x) for x in d.get("unmeasured", [])],
+            basis=basis if basis in RUBRIC_BASES else "partial",
+            model=str(d.get("model", "") or ""),
+            note=str(d.get("note", "") or ""),
+            cap=cap,
+            faults=[f for f in ensure_dict_list(d.get("faults", []) or [], RubricFault.from_dict)
+                    if f.kind in RUBRIC_FAULT_KINDS],
+        )
+
+
+# ---------------------------------------------------------------------------
+# 세션 기록 · 피드백  (데모 브리지 보관소 — main/server/session_archive.py)
+# ---------------------------------------------------------------------------
+#
+# 업로드 한 건 = 세션 하나. 브리지가 파싱 때 id 를 발급하고, 이후 모든 호출이
+# `session_id` 를 실어 보낸다. 디스크에는 `var/data/sessions/YYYY/MM/DD/{id}/`
+# 로 남는다 — id 앞의 UTC 타임스탬프 덕에 `ls` 만으로 시간순이다.
+#
+# **동의(consent_learning)가 없으면 원본·분석 산출물을 남기지 않는다.** 파싱본과
+# 받아쓰기만 캐시로 하루 두고 지운다 (재파싱·재녹음 없이 이어가기 위한 것).
+
+#: 세션에 남기는 산출물 종류. 이 밖의 이름은 저장하지 않는다.
+SESSION_ARTIFACT_KINDS = (
+    "slide_doc",       # F-01 (동의 무관 캐시)
+    "transcript",      # F-05 (동의 무관 캐시)
+    "concept_doc",     # F-06
+    "concept_graph",   # F-07
+    "alignment_doc",   # F-11
+    "flow_diff",       # F-11 파생
+    "chatter_doc",     # F-12
+    "pace_doc",        # F-17
+    "habit_doc",       # F-18
+    "rubric_score",    # F-14
+    "report_doc",      # F-19
+    "question_doc",    # F-08
+    "paper_doc",       # F-24 (09-23: 브리지가 쓰는데 목록에 없어 조용히 버려지고 있었다)
+    "memory_doc",      # F-25 — 이 세션이 만들어 쓴 지난 리허설 기억 (재생·리포트용)
+    "claim_doc",       # F-26 — 주장 그래프 (paper_doc 처럼 목록에 없으면 조용히 버려진다)
+)
+
+#: 동의 없이도 남기는 캐시. 나머지는 동의한 세션에만 쓴다.
+SESSION_CACHE_KINDS = ("slide_doc", "transcript")
+
+
+@dataclass
+class SessionRecord:
+    """세션 하나의 manifest. 파일 위치·동의·모델·개수만 담고 본문은 옆 파일에 둔다."""
+    session_id: str
+    uploaded_at: float
+    updated_at: float
+    consent_learning: bool = False
+    consent_at: float | None = None
+    title: str = ""            # 화면용 이름 (파일명에서 안전한 글자만)
+    file_name: str = ""
+    upload_ext: str = ""       # ".pdf" | ".pptx" — 매직바이트로 판별한 값
+    upload_sha256: str = ""
+    upload_bytes: int = 0
+    context: dict = field(default_factory=dict)      # Context.to_dict()
+    artifacts: dict = field(default_factory=dict)    # kind → 상대 경로
+    models: dict = field(default_factory=dict)       # kind → 응답의 model/provider
+    code_version: str = ""     # 만들 때의 git sha — 프롬프트를 고친 뒤 재생 diff 용
+    qa_turn_count: int = 0
+    feedback_count: int = 0
+    learner_id: str = ""       # 브라우저가 준 익명 학습자 id (F-25 기억을 잇는 열쇠). 없으면 같은 파일(sha256)로만 잇는다
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SessionRecord":
+        return cls(
+            session_id=str(d.get("session_id", "")),
+            uploaded_at=float(d.get("uploaded_at", 0.0) or 0.0),
+            updated_at=float(d.get("updated_at", 0.0) or 0.0),
+            consent_learning=bool(d.get("consent_learning", False)),
+            consent_at=d.get("consent_at"),
+            title=str(d.get("title", "")),
+            file_name=str(d.get("file_name", "")),
+            upload_ext=str(d.get("upload_ext", "")),
+            upload_sha256=str(d.get("upload_sha256", "")),
+            upload_bytes=int(d.get("upload_bytes", 0) or 0),
+            context=dict(d.get("context") or {}),
+            learner_id=str(d.get("learner_id", "") or ""),
+            artifacts=dict(d.get("artifacts") or {}),
+            models=dict(d.get("models") or {}),
+            code_version=str(d.get("code_version", "")),
+            qa_turn_count=int(d.get("qa_turn_count", 0) or 0),
+            feedback_count=int(d.get("feedback_count", 0) or 0),
+        )
+
+
+#: 사용자가 남길 수 있는 피드백 종류와, 종류별 허용 값.
+#: 이것만이 라벨이다 — 침묵·모델 출력·점수는 라벨이 아니다 (DATA_PIPELINE.md §5).
+FEEDBACK_KINDS = ("question_vote", "judgement_dispute", "rubric_dispute", "habit_dispute")
+FEEDBACK_VALUES: dict[str, tuple[str, ...]] = {
+    "question_vote": ("up", "down"),
+    "judgement_dispute": ("wrong_verdict",),
+    "rubric_dispute": ("too_high", "too_low"),
+    "habit_dispute": ("not_habit",),
+}
+FEEDBACK_COMMENT_MAX = 200
+
+
+@dataclass
+class FeedbackEvent:
+    """feedback.jsonl 한 줄. `payload` 는 판정 대상의 스냅샷이라 프롬프트가 바뀌어도 라벨이 산다."""
+    kind: str
+    target_id: str      # 질문 id / "q:<qid>:r<round>" / 채점표 항목 번호 / "span:<start_sec>"
+    value: str
+    at: float
+    comment: str = ""
+    payload: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FeedbackEvent":
+        """모르는 kind·value 는 ValueError. 저장소가 쓰레기를 받지 않게 경계에서 거른다."""
+        kind = str(d.get("kind", ""))
+        if kind not in FEEDBACK_KINDS:
+            raise ValueError(f"모르는 피드백 종류: {kind!r}")
+        value = str(d.get("value", ""))
+        if value not in FEEDBACK_VALUES[kind]:
+            raise ValueError(f"{kind} 에 허용되지 않는 값: {value!r}")
+        target = str(d.get("target_id", "")).strip()
+        if not target:
+            raise ValueError("target_id 가 비었어요")
+        comment = str(d.get("comment", "") or "").strip()[:FEEDBACK_COMMENT_MAX]
+        payload = d.get("payload")
+        return cls(
+            kind=kind,
+            target_id=target[:120],
+            value=value,
+            at=float(d.get("at", 0.0) or 0.0),
+            comment=comment,
+            payload=dict(payload) if isinstance(payload, dict) else {},
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-22 : 또래 기준 (세션 코퍼스에서 뽑은 백분위)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PeerNorm:
+    """한 버킷(상황×발표 길이)·한 지표의 분포. n 이 최소치 미만이면 만들지 않는다."""
+    metric: str
+    bucket: str
+    n: int
+    p10: float
+    p25: float
+    p50: float
+    p75: float
+    p90: float
+    built_at: float = 0.0
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PeerNorm":
+        return cls(
+            metric=str(d.get("metric", "")), bucket=str(d.get("bucket", "")), n=int(d.get("n", 0) or 0),
+            p10=float(d.get("p10", 0.0)), p25=float(d.get("p25", 0.0)), p50=float(d.get("p50", 0.0)),
+            p75=float(d.get("p75", 0.0)), p90=float(d.get("p90", 0.0)),
+            built_at=float(d.get("built_at", 0.0) or 0.0),
+        )
+
+
+# ---------------------------------------------------------------------------
+# 예외
+# ---------------------------------------------------------------------------
+
+class ChuckchuckError(Exception):
+    """모듈 공통 예외. 프론트는 이것만 잡으면 된다."""
+
+
+class ParseError(ChuckchuckError):
+    """F-01 파싱 실패."""
+
+
+class STTError(ChuckchuckError):
+    """F-05 음성 인식 실패."""
+
+
+class WordTimestampUnsupported(STTError):
+    """STT 제공자가 단어별 시각을 주지 않을 때."""
+
+
+class ConceptError(ChuckchuckError):
+    """F-06 개념 추출 실패."""
+
+
+class GraphError(ChuckchuckError):
+    """F-07 개념 그래프 생성 실패."""
+
+
+class AlignError(ChuckchuckError):
+    """F-11 정합 판정 실패."""
+
+
+class PaceError(ChuckchuckError):
+    """F-17 말 속도·시간 배분 실패."""
+
+
+class HabitError(ChuckchuckError):
+    """F-18 음성 습관 추출 실패."""
+
+
+class ReportError(ChuckchuckError):
+    """F-19 종합 리포트 생성 실패."""
+
+
+class ChatterError(ChuckchuckError):
+    """삐약 청중석 수다 생성 실패."""
+
+
+class QuestionError(ChuckchuckError):
+    """F-08 예상 질문 생성 실패."""
+
+
+class JudgeError(ChuckchuckError):
+    """F-09 답변 판정 실패."""
+
+
+class StrategyError(ChuckchuckError):
+    """F-20 발표 전략 제안 실패."""
+
+
+class RubricError(ChuckchuckError):
+    """F-14 채점표 채점 실패."""
+
+
+class PaperError(ChuckchuckError):
+    """F-24 문헌 검색 실패 (외부 API 오류·시간 초과). 호출자는 deck 문헌만으로 폴백한다."""
+
+
+def ensure_dict_list(items: list[Any] | list[dict], factory):
+    """dict 리스트면 dataclass로 변환. 프론트 JSON 직결용."""
+    if not items:
+        return []
+    if isinstance(items[0], dict):
+        return [factory(x) for x in items]
+    return list(items)

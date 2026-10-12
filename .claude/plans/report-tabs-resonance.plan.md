@@ -12,20 +12,20 @@
 ## Patterns to Mirror
 | Category | Source | Pattern |
 |---|---|---|
-| 진단 블록 구조 | `demo/YEHS_demo/js/app.js:2821` (`reportVerdict`) | "판단은 헤드, 단서는 아래 작은 줄" — 점수 임계값 → 해요체 한 줄, 근거는 subnotes 로 |
-| 헤드라인 선택 규칙 | `demo/YEHS_demo/js/app.js:153-178` (`voiceEasyBlocks`) | 데이터 조건 분기로 해요체 headline + actions[] 를 이미 만든다 — 음성 탭은 이걸 승격하면 된다 |
-| 접기 | `demo/YEHS_demo/js/app.js:3600` (rSummary) | `<details class="fold"><summary>… 더 보기</summary>` — 1순위만 펼치고 나머지를 접는 기존 관례 |
-| 정직성 (지어내지 않기) | `demo/YEHS_demo/js/app.js:3540, 4178` | 분석 없으면 empty-card, 샘플이면 ⚠️ 샘플 배지 — 헤드라인도 근거 없으면 생략 |
-| 렌더 함수 이름 | `demo/YEHS_demo/js/app.js:4044, 4117` | 탭 렌더는 `r접두사`(`rLogic`/`rPace`), 순수 도우미는 camelCase 별도 함수 |
-| CSS 토큰·타이포 | `demo/YEHS_demo/css/app.css:135, 738` | `.section-title`/`.voice-lead` 급 크기, `:root` 토큰 밖의 색·radius 금지 |
+| 진단 블록 구조 | `main/web/js/app.js:2821` (`reportVerdict`) | "판단은 헤드, 단서는 아래 작은 줄" — 점수 임계값 → 해요체 한 줄, 근거는 subnotes 로 |
+| 헤드라인 선택 규칙 | `main/web/js/app.js:153-178` (`voiceEasyBlocks`) | 데이터 조건 분기로 해요체 headline + actions[] 를 이미 만든다 — 음성 탭은 이걸 승격하면 된다 |
+| 접기 | `main/web/js/app.js:3600` (rSummary) | `<details class="fold"><summary>… 더 보기</summary>` — 1순위만 펼치고 나머지를 접는 기존 관례 |
+| 정직성 (지어내지 않기) | `main/web/js/app.js:3540, 4178` | 분석 없으면 empty-card, 샘플이면 ⚠️ 샘플 배지 — 헤드라인도 근거 없으면 생략 |
+| 렌더 함수 이름 | `main/web/js/app.js:4044, 4117` | 탭 렌더는 `r접두사`(`rLogic`/`rPace`), 순수 도우미는 camelCase 별도 함수 |
+| CSS 토큰·타이포 | `main/web/css/app.css:135, 738` | `.section-title`/`.voice-lead` 급 크기, `:root` 토큰 밖의 색·radius 금지 |
 | Tests | 해당 없음 | 프론트 JS 테스트가 없다 — 검증은 pytest 회귀(파이프라인 불변 확인) + 수동 체크리스트 |
 
 ## Files to Change
 | File | Action | Why |
 |---|---|---|
-| `demo/YEHS_demo/js/app.js` | UPDATE | 진단 도우미 2개 추가 + `rLogic`/`rPace` 재배열 + 해석 라벨 |
-| `demo/YEHS_demo/css/app.css` | UPDATE | `.tab-verdict` 진단 블록·해석 라벨 스타일 (기존 토큰만 사용) |
-| `demo/YEHS_demo/index.html` | UPDATE | 캐시 버전 `?v=qa73` → `?v=qa74` (app.js·app.css) — CLAUDE.md §2 함정 |
+| `main/web/js/app.js` | UPDATE | 진단 도우미 2개 추가 + `rLogic`/`rPace` 재배열 + 해석 라벨 |
+| `main/web/css/app.css` | UPDATE | `.tab-verdict` 진단 블록·해석 라벨 스타일 (기존 토큰만 사용) |
+| `main/web/index.html` | UPDATE | 캐시 버전 `?v=qa73` → `?v=qa74` (app.js·app.css) — CLAUDE.md §2 함정 |
 
 ## Tasks
 
@@ -62,15 +62,15 @@
 - **Validate**: 두 탭 전수 육안 점검 — 라벨 없는 숫자 0개
 
 ### Task 6: 캐시 버전 + 회귀 + 커밋
-- **Action**: `index.html` 의 app.js·app.css `?v=qa73`→`qa74`. `python -m pytest tests/ -q` 초록(기준 561 passed · 7 skipped) 확인 후 커밋·푸시 (§3-5 — 묻지 않는다).
+- **Action**: `index.html` 의 app.js·app.css `?v=qa73`→`qa74`. `python -m pytest etc/tests/ -q` 초록(기준 561 passed · 7 skipped) 확인 후 커밋·푸시 (§3-5 — 묻지 않는다).
 - **Validate**: 아래 Validation 블록 전체
 
 ## Validation
 ```bash
 cd /home/ubuntu/workspace/00_chuckchuck
-python -m pytest tests/ -q                          # 561 passed · 7 skipped 유지 (파이프라인 불변 증명)
-grep -c 'v=qa74' demo/YEHS_demo/index.html          # app.js·app.css 캐시 버전 갱신 확인
-# 수동: DEMO_PORT=8799 ./demo/run_bridge_midm.sh 로 실데이터 리포트 열어
+python -m pytest etc/tests/ -q                          # 561 passed · 7 skipped 유지 (파이프라인 불변 증명)
+grep -c 'v=qa74' main/web/index.html          # app.js·app.css 캐시 버전 갱신 확인
+# 수동: DEMO_PORT=8799 ./main/server/run_bridge_midm.sh 로 실데이터 리포트 열어
 #  - 논리 흐름·음성 습관 탭 첫 화면(아이패드 가로)에 진단+처방+근거가 스크롤 없이 보이는지
 #  - 샘플 경로(#/report/imu2clip 폴백)도 같은 구조 + 샘플 배지 유지되는지
 #  - 이슈 0건 데이터에서 헤드라인이 거짓말하지 않는지

@@ -9,13 +9,13 @@ model: inherit
 
 ## 고쳐도 되는 곳
 
-- `pipeline/f06_concepts.py` — 개념 추출 SYSTEM_PROMPT · 배치 크기 · 발화 보완 규칙
-- `pipeline/f07_graph.py` — 위계·간선 SYSTEM_PROMPT · weight 계산 상수
-- `pipeline/f11_align.py` — 4-class 판정 SYSTEM_PROMPT · 근거 인용 규칙 · 발췌 길이 상수
+- `main/pipeline/f06_concepts.py` — 개념 추출 SYSTEM_PROMPT · 배치 크기 · 발화 보완 규칙
+- `main/pipeline/f07_graph.py` — 위계·간선 SYSTEM_PROMPT · weight 계산 상수
+- `main/pipeline/f11_align.py` — 4-class 판정 SYSTEM_PROMPT · 근거 인용 규칙 · 발췌 길이 상수
 
 ## 절대 고치지 않는 곳
 
-`contracts.py` · `fixtures/` (holdout 은 읽지도 않는다) · `tests/` · `demo/` · `.env` · `examples/graph_eval.py`(자) · `f08/f09`(Q&A 루프 담당).
+`contracts.py` · `etc/fixtures/` (holdout 은 읽지도 않는다) · `etc/tests/` · `demo/` · `.env` · `etc/bench/graph_eval.py`(자) · `f08/f09`(Q&A 루프 담당).
 
 ## 이 단계에서 특히
 
@@ -26,6 +26,6 @@ model: inherit
 ## 절차
 
 1. 대상 파일의 SYSTEM_PROMPT 와 주변 함수를 읽는다. 이미 반영돼 있으면 `applied: false`.
-2. 그 한 가지만 Edit. `git diff --stat pipeline/` 로 범위 확인.
-3. `.venv/bin/python -m pytest tests/ -q -p no:cacheprovider`. 빨간 게 있으면 `git checkout -- <파일>` 후 `applied: false`.
+2. 그 한 가지만 Edit. `git diff --stat main/pipeline/` 로 범위 확인.
+3. `.venv/bin/python -m pytest etc/tests/ -q -p no:cacheprovider`. 빨간 게 있으면 `git checkout -- <파일>` 후 `applied: false`.
 4. 돌려주는 것: `applied` · 고친 파일 · 무엇을 왜 두 문장.

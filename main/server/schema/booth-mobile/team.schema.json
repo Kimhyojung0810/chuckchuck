@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chuckchuck/booth-mobile/team.schema.json",
+  "title": "척척발표 팀 소개 카드 (v1)",
+  "description": "/hi 랜딩의 팀원 카드. 파일은 main/web/data/team.json. 카드 수는 members 배열 길이로 정해진다 — 사람이 늘거나 줄어도 코드를 고치지 않는다. 문서: docs/booth-mobile/team-schema.md. 이 파일이 단일 원본이다.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "team_name", "project_line", "contest", "members"],
+  "properties": {
+    "schema": { "const": "chuckchuck.team" },
+    "version": { "const": 1 },
+    "team_name": { "type": "string", "minLength": 1, "maxLength": 20 },
+    "project_line": { "type": "string", "minLength": 1, "maxLength": 50, "description": "척척발표를 한 줄로." },
+    "contest": { "type": "string", "minLength": 1, "maxLength": 30 },
+    "members": {
+      "type": "array", "minItems": 1, "maxItems": 12,
+      "description": "보여 줄 순서대로.",
+      "items": { "$ref": "#/$defs/member" }
+    }
+  },
+  "$defs": {
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "headline", "did", "quote", "photo", "links", "draft"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]{1,24}$", "description": "주소 조각(#/hi/<id>)·사진 파일 이름에 쓴다. 바꾸지 않는다." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 10, "description": "성(姓)이 확실하지 않으면 이름만." },
+        "role": { "type": "string", "minLength": 1, "maxLength": 16, "description": "짧은 역할명." },
+        "headline": { "type": "string", "minLength": 1, "maxLength": 40, "description": "한 줄 소개, 해요체." },
+        "did": {
+          "type": "array", "minItems": 2, "maxItems": 3,
+          "description": "척척발표에서 만든 것. 저장소 이력 등 확인할 수 있는 사실만.",
+          "items": { "type": "string", "minLength": 1, "maxLength": 40 }
+        },
+        "quote": { "type": ["string", "null"], "maxLength": 60, "description": "본인이 준 한마디. 받기 전엔 null(화면에서 숨긴다) — 대신 지어 넣지 않는다." },
+        "photo": {
+          "type": ["string", "null"],
+          "pattern": "^assets/team/[a-z0-9-]+\\.(webp|png|jpg)$",
+          "description": "index.html 기준 상대 경로. null 이면 이름 첫 글자 + 병아리 아바타로 대신한다."
+        },
+        "links": {
+          "type": "array", "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "url"],
+            "properties": {
+              "label": { "type": "string", "minLength": 1, "maxLength": 12 },
+              "url": { "type": "string", "pattern": "^https://[^\\s\"'<>]+$" }
+            }
+          }
+        },
+        "draft": { "type": "boolean", "description": "true=팀원 본인 확인 전. 화면에 표시는 안 하되, 결선 전에 전원 false 가 돼야 한다(체크리스트)." }
+      }
+    }
+  }
+}

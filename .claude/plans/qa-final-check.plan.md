@@ -3,7 +3,7 @@
 **입력**: 대화형 (자유 서술)
 **마감 맥락**: 최종 개발 마감 2026-08-09(일). 데모가 돌아가는 것이 판단 기준.
 **복잡도**: Medium — 6개 워크스트림, 대부분 국소 수정. 판정 조절만 측정이 선행돼야 한다.
-**테스트 기준선**: `python -m pytest tests/ -q` → **581 passed · 7 skipped** (오늘 실측. CLAUDE.md §3-5 의 552는 낡은 값)
+**테스트 기준선**: `python -m pytest etc/tests/ -q` → **581 passed · 7 skipped** (오늘 실측. CLAUDE.md §3-5 의 552는 낡은 값)
 
 ---
 
@@ -92,7 +92,7 @@
 
 **(c) 서버 쪽 세션 키 — 확인 완료. 지금은 새는 데가 없다. 선택 사항이다.**
 
-`session_id` 는 `SessionStore._sessions` (`demo/session_store.py:77`) 의 **dict 키**
+`session_id` 는 `SessionStore._sessions` (`main/server/session_store.py:77`) 의 **dict 키**
 하나다. `MAX_SESSIONS = 32` LRU · `TTL_SEC = 6시간`. `'flat'` → `'flat:<해시>'` 로
 바꾸는 비용은 키가 몇 개 더 생기는 것뿐이고, 데모 한 번에 32개를 넘길 일이 없다.
 
@@ -114,7 +114,7 @@
 
 ### W3 — 정답 판정이 너무 광범위 ✅ 측정 완료 (2026-08-08) — **원인이 F-09 가 아니었다**
 
-측정 도구: `examples/qa_judge_probe.py` (실 LLM · solar · `fixtures/live_qa_run.json` 기반)
+측정 도구: `etc/bench/qa_judge_probe.py` (실 LLM · solar · `etc/fixtures/live_qa_run.json` 기반)
 질문 3개 × 답 5벌 = 18 판정, 전부 1턴째(prior_answers 없음).
 
 | 깊이 | 답변 성격 | verdict | 평균점 | 1턴에 닫힘 | 판단 |
@@ -202,11 +202,11 @@ qa_mastered(v, s, r) = v == "good" or (r >= 3 and qa_passed(v, s))
 | 3 | `QA_PASS_SCORE` | `contracts.py:1369` | 리포트 집계 + 3라운드 종료 폴백에만 영향. 마지막에 |
 
 **Task 3-1 (수정 아님, 측정)**: 지난 세션에 저장해 둔
-`fixtures/raw/*.slidedoc.json` 으로 **얕은 답 세트**를 만들어
+`etc/fixtures/raw/*.slidedoc.json` 으로 **얕은 답 세트**를 만들어
 `/api/v1/qa/judge` 에 흘리고 `verdict × score × 몇 라운드에 닫혔나` 를 표로 뽑는다.
 숫자를 보기 전에 프롬프트를 만지면 되돌릴 근거가 없다.
 
-**Task 3-2**: `tests/test_judge.py` 가 대역을 고정하고 있는지 먼저 읽는다
+**Task 3-2**: `etc/tests/test_judge.py` 가 대역을 고정하고 있는지 먼저 읽는다
 (현재 55·63·85 같은 개별 값을 검사 중 — 대역 자체는 안 고정한 것으로 보이나 확인).
 
 **✅ 해결**: fixture 는 `2b2e516` 로 커밋해 고정했다.
@@ -218,7 +218,7 @@ qa_mastered(v, s, r) = v == "good" or (r >= 3 and qa_passed(v, s))
 ### W7 — PPT 와 다른 내용의 녹음본을 올리면 아예 인식을 못 한다 🔴 (2026-08-08 사용자 제보)
 
 **원인을 저장된 fixture 에서 그대로 재현했다.**
-`fixtures/raw/척척발표_수면발표_정상슬라이드.transcript.json` 이 바로 그 경우다 —
+`etc/fixtures/raw/척척발표_수면발표_정상슬라이드.transcript.json` 이 바로 그 경우다 —
 수면 슬라이드(8장)에 집중·알림 발표 녹음이 붙어 있다.
 
 ```
@@ -336,15 +336,15 @@ MVP_SPEC §3 「한 화면의 주인공은 하나」에 어긋나고, 실제로 
 
 ```bash
 # 1. 회귀 — 기준선 581 passed · 7 skipped (오늘 실측)
-python -m pytest tests/ -q
+python -m pytest etc/tests/ -q
 
 # 2. 실 API 로만 띄운다. mock 금지 (CLAUDE.md §2)
-DEMO_PORT=8799 ./demo/run_bridge_midm.sh
+DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 
 # 3. js/*.js 를 고쳤으면 반드시 ?v= 를 올린다 — 안 올리면 옛 파일이 서빙된다
-grep -o 'v=q[a-z0-9]*' demo/YEHS_demo/index.html | sort -u
+grep -o 'v=q[a-z0-9]*' main/web/index.html | sort -u
 # f11_reveal 을 건드렸으면 이것도 (2026-08-07 에 20분 날림)
-grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js
+grep -n 'f11_reveal.html?embed' main/web/js/app.js
 ```
 
 **손으로 눌러 볼 것**
@@ -381,7 +381,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js
 
 ## 확인 필요 (진행 전 결정)
 
-1. `fixtures/raw/*.slidedoc.json` 미커밋 수정 — 커밋할까요, 동결할까요?
+1. `etc/fixtures/raw/*.slidedoc.json` 미커밋 수정 — 커밋할까요, 동결할까요?
 2. W3 를 **측정부터** 갈까요, 아니면 프롬프트 대역(70~79 → 60~69)만 바로 내리고
    화면에서 볼까요? (마감이 내일이라 후자도 합리적입니다)
 3. W2(c) 세션 키 변경까지 갈까요, (a)+(b) 클라이언트만으로 막을까요?
@@ -400,7 +400,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js
 | 커밋 | 무엇 |
 |---|---|
 | `2b2e516` | 측정용 fixture 고정 |
-| `2261a14` | `examples/qa_judge_probe.py` — 판정이 무른지 재는 도구 |
+| `2261a14` | `etc/bench/qa_judge_probe.py` — 판정이 무른지 재는 도구 |
 | `ab4133a` | W7 빈 장 비율 가드 + `marks_reason` 을 화면에 정직하게 |
 | `5c1ca6d` | W1 마이크 폴백 · W2 새 발표 초기화 · W5-a 말풍선 중복 |
 | `312fe06` | 발표 중 「처음부터」가 녹음기를 안 놓던 것 |

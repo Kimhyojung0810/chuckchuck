@@ -13,7 +13,7 @@
 
 모든 작업은 **`/home/ubuntu/workspace/00_chuckchuck`** 안에서 한다.
 이 폴더 밖의 파일은 읽기만 하고 고치지 않는다 (토스 문서 `11_heonseok/toss` 포함).
-`pytest` 는 `pyproject.toml` 의 `pythonpath=["."]` 에 기대므로 **반드시 저장소 루트에서** 돌린다.
+`pytest` 는 `pyproject.toml` 의 `pythonpath=["main", "etc", "."]` 에 기대므로 **반드시 저장소 루트에서** 돌린다.
 
 **브랜치 가정:** 스프린트 동안 `fix/qa-evidence-and-demo-hardening` 위에 쌓고, 마감 직전에만 `main` 으로 합친다.
 새 브랜치는 만들지 않는다. 다르게 가야 하면 그때 말해 줄 것.
@@ -25,14 +25,14 @@
 **브리지는 언제나 실 API + 실 LoRA 로 띄운다.** `MOCK_EXTERNAL_APIS=true` 를 쓰지 않는다.
 
 ```bash
-DEMO_PORT=8799 ./demo/run_bridge_midm.sh      # ← 이것만 쓴다
+DEMO_PORT=8799 ./main/server/run_bridge_midm.sh      # ← 이것만 쓴다
 ```
 
 이 스크립트가 `MOCK_EXTERNAL_APIS=false` · `HABIT_PROVIDER=lora` · midm python 을 셸에서 고정한다.
-그냥 `python -m demo.bridge` 로 띄우면 torch 가 없어서 F-18 이 조용히 heuristic 으로 떨어진다.
+그냥 `python -m server.bridge` 로 띄우면 torch 가 없어서 F-18 이 조용히 heuristic 으로 떨어진다.
 
-**mock 이 만드는 착시가 실제로 사람을 태웠다.** `demo/bridge.py` 의 `_handle_parse` 는
-mock 이면 업로드한 파일을 버리고 `fixtures/sample_slidedoc.json`(IMU2CLIP) 을 돌려주면서
+**mock 이 만드는 착시가 실제로 사람을 태웠다.** `main/server/bridge.py` 의 `_handle_parse` 는
+mock 이면 업로드한 파일을 버리고 `etc/fixtures/sample_slidedoc.json`(IMU2CLIP) 을 돌려주면서
 **파일 이름만 업로드한 것으로 바꿔치기한다.** 그래서 화면에는 내가 올린 자료로 보이는데
 개념 그래프·「슬라이드로 보는 발표」에는 남의 자료가 나온다.
 "내 자료로 제대로 도는가" 를 mock 으로 확인하는 것은 불가능하다.
@@ -46,12 +46,12 @@ curl -sS -X POST http://127.0.0.1:8799/api/v1/habits -H 'Content-Type: applicati
       {"text":"지도","start_sec":0,"end_sec":0.4},{"text":"지도력은","start_sec":0.4,"end_sec":1}]}]}}'
 # 응답에 "provider":"lora" 가 있어야 한다. heuristic(lora-fallback) 이면 python 을 잘못 쓴 것이다.
 
-python -m pytest tests/ -q                    # 회귀 스모크 (파이썬)
-node tests/js/qa_live.smoke.mjs               # 질문 코칭 프론트 순수 함수 (브라우저 없이)
-node tests/js/booth.smoke.mjs                 # 부스 체험(booth_logic.js) 순수 함수 — gate 는 tests/js/*.smoke.mjs 전부 돌린다
+python -m pytest etc/tests/ -q                    # 회귀 스모크 (파이썬)
+node etc/tests/js/qa_live.smoke.mjs               # 질문 코칭 프론트 순수 함수 (브라우저 없이)
+node etc/tests/js/booth.smoke.mjs                 # 부스 체험(booth_logic.js) 순수 함수 — gate 는 etc/tests/js/*.smoke.mjs 전부 돌린다
 ```
 
-`tests/` 는 파이썬만 모은다. **프론트 JS 를 고쳤으면 위 노드 스모크도 같이 돌린다** —
+`etc/tests/` 는 파이썬만 모은다. **프론트 JS 를 고쳤으면 위 노드 스모크도 같이 돌린다** —
 질문 코칭의 세션 초기화(`qaDocKey`·`qaLiveActive`)·출구 조건(`liveStalled`)·힌트
 분모를 브라우저 없이 잡아 준다. 마지막 케이스는 **하네스가 진짜로 회귀를 잡는지**
 스스로 검사하므로, `liveHints()` 를 고치면 그 케이스도 같이 고쳐야 한다.
@@ -64,11 +64,11 @@ IP 만 알면 아무나 눌러서 팀 계정으로 과금된다. 원격에서 �
 
 ### ⚠️ 캐시 버전 — 데모 날 20분 날리는 함정
 
-`demo/YEHS_demo/index.html` 은 CSS/JS 를 `?v=…` 로 물고 있다 (값은 계속 올라간다).
+`main/web/index.html` 은 CSS/JS 를 `?v=…` 로 물고 있다 (값은 계속 올라간다).
 **`css/*.css` 나 `js/*.js` 를 고쳤으면 `index.html` 의 해당 `?v=` 를 같이 올린다.**
 안 올리면 브라우저가 옛 파일을 그대로 서빙해서 "고쳤는데 안 바뀐다"가 된다.
 
-브리지(8799·8800)로 볼 때는 이 값을 브리지가 **내용 해시로 바꿔서** 내준다 (2026-10-01, `demo/static_assets.py`) —
+브리지(8799·8800)로 볼 때는 이 값을 브리지가 **내용 해시로 바꿔서** 내준다 (2026-10-01, `main/server/static_assets.py`) —
 해시가 맞는 파일만 1년 캐시하므로 올리는 걸 잊어도 옛 파일이 안 뜬다. 그래도 브리지 밖 정적 호스팅과 `chk gate` 를 위해 계속 올린다.
 첫 화면에 안 쓰는 파일(베타 화면·랜딩·모션·pdf.js)은 `index.html` 의 `<template id="lazyAssets">` 에 있다 (`js/lazy.js`).
 
@@ -79,8 +79,8 @@ IP 만 알면 아무나 눌러서 팀 계정으로 과금된다. 원격에서 �
 옛 값을 물고 있어서 하드 리로드해도 옛 화면이 나왔다.
 
 ```bash
-grep -o 'v=q[a-z0-9]*' demo/YEHS_demo/index.html | sort -u   # 지금 값 확인
-grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — 위와 같아야 한다
+grep -o 'v=q[a-z0-9]*' main/web/index.html | sort -u   # 지금 값 확인
+grep -n 'f11_reveal.html?embed' main/web/js/app.js      # 리빌 값 — 위와 같아야 한다
 ```
 
 ## 3. UI 는 무조건 토스처럼
@@ -108,20 +108,20 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 
 ### 3-3. 색·토큰은 우리 것
 
-**단일 원본은 `demo/YEHS_demo/css/app.css` 의 `:root` 다.** 토스의 `blue500` 을 가져오지 않는다.
+**단일 원본은 `main/web/css/app.css` 의 `:root` 다.** 토스의 `blue500` 을 가져오지 않는다.
 
 - 브랜드 딥그린 `--brand:#08B879`, 다크 면 `--navy:#155C46`, 크림 배경 `--canvas:#FFFDF7`
 - 판정 색 5종(`--ok/--mid/--no/--ct/--om`)은 **불변**. 의미가 붙어 있어서 바꾸면 리포트가 거짓말이 된다.
 - radius(`--r-print:20px`/`--r-inner:16px`/`--r-ctl:12px`/`--r-pill`/`--r-dot`) · weight 4단(`--w-body/--w-med/--w-bold/--w-display`) 밖의 값은 쓰지 않는다.
 - 캐릭터 시각 스펙·연출 규율 문서(`docs/`)는 2026-10-12 폴더 정리로 지웠다 — 필요하면 git 기록에서 꺼낸다 (`git log --diff-filter=D -- docs/`).
 - 서체는 Pretendard 하나.
-- 토큰 표가 문서와 어긋나면 **코드가 맞고 문서를 고친다** ([`MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) §디자인 토큰).
+- 토큰 표가 문서와 어긋나면 **코드가 맞고 문서를 고친다** ([`MVP_SPEC.md`](main/web/MVP_SPEC.md) §디자인 토큰).
 
 ### 3-4. 어느 화면에 어느 규율인가
 
 두 디자인 문서는 충돌이 아니라 **담당 화면이 다르다.**
 
-- **앱 화면**(`#/`, `#/new`, `#/qa`, `#/report`) → [`MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) §3 절제 규율.
+- **앱 화면**(`#/`, `#/new`, `#/qa`, `#/report`) → [`MVP_SPEC.md`](main/web/MVP_SPEC.md) §3 절제 규율.
   히어로·마케팅 카피·장식 이모지·glassmorphism·스크롤 하이재킹 금지. 한 화면의 주인공은 하나.
 - **객석·극장 화면**(`theater.css`, `chatter.js`, 병아리 연출) → 척척극장 연출 규율 (옛 `docs/UI_REDESIGN.md`, git 기록).
   단 §14 「토스의 규율」이 위에 있다: 숫자는 신성하고, 판정 색은 안 건드리고, 모든 연출은 스킵 가능하고,
@@ -135,12 +135,12 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 
 한 덩어리의 기준은 *검증까지 끝난 변경* 이다. 커밋 전에 이것만 지킨다.
 
-1. `python -m pytest tests/ -q` 초록 (기준 830 passed · 7 skipped, 2026-09-13)
-2. `css/*.css` · `js/*.js` 를 고쳤으면 `index.html` 의 `?v=` 를 올린다 (§2 함정) — `scripts/chk bump` 가 올려 준다
+1. `python -m pytest etc/tests/ -q` 초록 (기준 830 passed · 7 skipped, 2026-09-13)
+2. `css/*.css` · `js/*.js` 를 고쳤으면 `index.html` 의 `?v=` 를 올린다 (§2 함정) — `etc/scripts/chk bump` 가 올려 준다
 3. 커밋 대상에 키가 없는지 훑는다 (§4 보안은 예외 없음)
 4. 커밋 메시지에 **왜** 를 적는다 — 무엇을 고쳤는지는 diff 가 말한다
 
-**1~3 은 `scripts/chk gate` 한 명령이 검사한다** (node 스모크 포함). `scripts/chk install-hooks` 를 한 번 하면
+**1~3 은 `etc/scripts/chk gate` 한 명령이 검사한다** (node 스모크 포함). `etc/scripts/chk install-hooks` 를 한 번 하면
 `git commit` 마다 자동으로 돌고, Claude Code 에서는 `.claude/settings.json` 의 훅이 `git commit` 을 부르기 전에 같은 검사를 한다.
 2026-09-13 에 테스트 실패가 `| tail` 에 가려진 채 두 번 커밋된 뒤 만들었다. 실패하면 커밋이 안 된다 — 고쳐서 다시.
 
@@ -164,7 +164,7 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 - **보안은 예외 없다** (`.claude/rules/common/security.md`). `.env` 에는 실키가 들어 있다.
   키를 코드·문서·채팅·커밋에 넣지 않는다. 공유는 `.env.example`(변수명만).
   노출되면 Upstage / A.X / Friendli 전부 재발급이고 Friendli dedicated 는 과금된다.
-- **`python -m pytest tests/ -q` 는 초록으로 유지한다.** 2026-09-13 기준 **830 passed · 7 skipped** 가 기준선이다 (`scripts/chk_lib/common.py PYTEST_MIN`).
+- **`python -m pytest etc/tests/ -q` 는 초록으로 유지한다.** 2026-09-13 기준 **830 passed · 7 skipped** 가 기준선이다 (`etc/scripts/chk_lib/common.py PYTEST_MIN`).
   순수 함수 모듈(`test_flow_diff.py`·`test_score.py`)과 `test_voice_report.py` 가 파이프라인 회귀를 잡아 준다.
   새 기능에 테스트를 안 붙이는 건 괜찮지만, 있는 걸 깨고 넘어가지 않는다.
 - **모듈 계약** (옛 `docs/DEV_POLICY.md` §4). 모듈끼리 import 하지 않고, 교환은 `contracts.py` 타입으로만.
@@ -176,5 +176,5 @@ grep -n 'f11_reveal.html?embed' demo/YEHS_demo/js/app.js      # 리빌 값 — �
 | 문서 | 내용 |
 |---|---|
 | [`README.md`](README.md) | 설치·실행·손으로 눌러보는 체크리스트 |
-| [`demo/YEHS_demo/MVP_SPEC.md`](demo/YEHS_demo/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
-| `scripts/chk --help` | 개발 도구 — `gate`(문지기) · `bump`(`?v=`) · `doctor`(이 머신 점검) · `warmup`(브리지 예열) · `brief`(세션 브리핑, `/continue`) · `ledger-chart`(결선 그래프). README §개발 도구 |
+| [`main/web/MVP_SPEC.md`](main/web/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
+| `etc/scripts/chk --help` | 개발 도구 — `gate`(문지기) · `bump`(`?v=`) · `doctor`(이 머신 점검) · `warmup`(브리지 예열) · `brief`(세션 브리핑, `/continue`) · `ledger-chart`(결선 그래프). README §개발 도구 |
