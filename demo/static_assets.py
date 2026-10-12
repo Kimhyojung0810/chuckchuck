@@ -55,6 +55,7 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
     | css/{_NAME}\.css
     | js/{_NAME}\.m?js
     | js/vendor/(?:{_NAME}/)?{_NAME}\.(?:m?js|wasm|xml)
+    | js/vendor/mediapipe/(?:wasm/)?{_NAME}\.(?:m?js|wasm|task)
     | assets/{_NAME}\.(?:png|svg|ico|webp)
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
@@ -62,8 +63,11 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
 )$""", re.X)
 #: ↑ 마지막 줄은 부스 모바일 /hi · #/tour (2026-10-11, docs/booth-mobile/) — 팀 카드 · 녹화 투어 · 팀 사진. 다른 data/*.json 은 그대로 팀 전용.
 #:   intro.html 은 /hi 랜딩 본체 (브리지가 /hi · /hi/<id> 에서 이 파일을 그대로 준다 — bridge.standalone_page_for).
+#:   js/vendor/mediapipe/ 는 부스 스캔 화면(/booth/scan)의 MediaPipe 런타임·모델 (scripts/get_mediapipe.sh 로 받는다, git 밖) —
+#:   받아 둔 서버에서만 있고, 없으면 404 라 워커가 jsDelivr · Google 모델 저장소로 간다. 공개 오픈소스 파일이라 공개로 둔다.
 #: 팀 샘플 데모만 쓰는 파일 — /auth 를 거친 팀 브라우저(또는 DEV_ROUTES 브리지)에만 연다. 공개 방문자에게는 404.
-_TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf)$")
+#: booth_scan.html 은 부스 「사람 그래프」 스캔 화면 본체 (브리지가 /booth/scan 에서 팀일 때만 준다 — bridge.team_page_for, 2026-10-12).
+_TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf|booth_scan\.html)$")
 
 
 #: 화면 JS 가 `?v=` 없이 받는 공개 파일 — 부스 /hi · #/tour 의 팀 카드 · 녹화 투어 · 팀 사진 · 덱 그림 (2026-10-11).

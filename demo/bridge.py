@@ -278,6 +278,8 @@ TEAM_TOOLS = (
 #: /auth?next= 로 돌려보낼 수 있는 앱 안 화면 (열린 리다이렉트 금지 — 이 목록의 해시만, 늘 /index.html 뒤에 붙인다)
 _NEXT_ROUTE = re.compile(r"^#/(?:|new|qa|report|report/last|report/sample-[a-z0-9-]{1,40}|graph|about"
                          r"|vision|temp|test/qa|replay|booth/qa|booth/call)$")
+#: /auth?next= 로 돌려보낼 수 있는 팀 전용 독립 페이지 — 해시 앱이 아니라 주소 그대로 간다 (_TEAM_PAGES 와 같은 주소만)
+_NEXT_PAGES = frozenset({"/booth/scan"})
 
 
 def _safe_next(raw: str) -> str:
@@ -286,7 +288,7 @@ def _safe_next(raw: str) -> str:
     if len(v) > 64:
         return ""
     v = v.lower()
-    return v if _NEXT_ROUTE.match(v) else ""
+    return v if _NEXT_ROUTE.match(v) or v in _NEXT_PAGES else ""
 
 
 # ─── 방패 — 트래픽 급증·공격 대응 (2026-10-05, AI Festa 부스 전날) ─────────────────────
@@ -1585,6 +1587,20 @@ _SCREEN_PATH = re.compile(r"^(/[A-Za-z0-9_-]+)+$")
 _STANDALONE_PAGES = ((re.compile(r"^/hi(?:/[a-z0-9-]{1,24})?/?$", re.I), "/intro.html"),)
 
 
+#: 팀 모드에서만 여는 독립 페이지 — /booth/scan 은 결선 부스에 띄워 두는 「사람 그래프」 스캔 화면 booth_scan.html (2026-10-12,
+#: ~/meetings/2026-10-12_부스_사람그래프_스캔화면.md). 파일은 static_assets._TEAM_PATH 라 /booth_scan.html 로 바로 와도 팀이 아니면 404.
+#: 팀이 아닌 브라우저는 /auth?next=/booth/scan 으로 보낸다(팀 코드가 없는 브리지면 404 — 있다는 것도 알리지 않는다).
+_TEAM_PAGES = ((re.compile(r"^/booth/scan/?$", re.I), "/booth_scan.html"),)
+
+
+def team_page_for(url_path: str) -> str | None:
+    """주소창 경로 → 팀일 때 내줄 정적 HTML 파일 경로. 해당 없으면 None."""
+    for pattern, page in _TEAM_PAGES:
+        if pattern.match(url_path or ""):
+            return page
+    return None
+
+
 def standalone_page_for(url_path: str) -> str | None:
     """주소창 경로 → 그 자리에서 내줄 정적 HTML 파일 경로. 해당 없으면 None (그다음 hash_route_for 가 본다)."""
     for pattern, page in _STANDALONE_PAGES:
@@ -1971,9 +1987,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self.wfile.write(html)
 
     def _redirect_next(self, nxt: str, cookie: str | None = None):
-        """코드가 맞으면 가려던 앱 화면으로 (303 — 새로 고쳐도 폼을 다시 보내지 않게)."""
+        """코드가 맞으면 가려던 앱 화면으로 (303 — 새로 고쳐도 폼을 다시 보내지 않게). 팀 전용 독립 페이지(/booth/scan)는 주소 그대로."""
         self.send_response(303)
-        self.send_header("Location", "/index.html" + nxt)
+        self.send_header("Location", nxt if nxt in _NEXT_PAGES else "/index.html" + nxt)
         self.send_header("Content-Length", "0")
         self.send_header("Cache-Control", "no-store")
         if cookie is not None:
@@ -2095,6 +2111,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # 주소창의 화면 주소(/booth/call · /test/QA · /temp …)는 앱의 해시 주소로 자동으로 돌려보낸다 — 앱이 해시 라우팅이라.
             # 예전엔 고정 표(/test/qa · /temp · /vision · /booth/qa)라 새 화면을 만들 때마다 여기를 고치고 8799 를 재시작해야 했고,
             # 그걸 빠뜨리면 404 가 났다 (2026-10-01 /booth/call). 이제 파일이 아닌 주소면 다 해시로 간다 — 앱이 모르는 화면은 홈이 그린다.
+            team_page = team_page_for(parsed.path)
+            if team_page:
+                return self._serve_team_page(parsed, team_page)
             page = standalone_page_for(parsed.path)
             if page:
                 return self._serve_static(parsed._replace(path=page))
@@ -2120,6 +2139,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return
         try:
             parsed = urlparse(self.path)
+            team_page = team_page_for(parsed.path)
+            if team_page:
+                return self._serve_team_page(parsed, team_page, head_only=True)
             page = standalone_page_for(parsed.path)
             return self._serve_static(parsed._replace(path=page) if page else parsed, head_only=True)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -2586,6 +2608,21 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self.end_headers()
         self.wfile.write(data)
 
+    def _serve_team_page(self, parsed, page: str, head_only: bool = False):
+        """팀 전용 독립 페이지(/booth/scan). 팀이면 그 파일을, 아니면 /auth 로(팀 코드가 없는 브리지면 404)."""
+        if _dev_open():
+            return self._serve_static(parsed._replace(path=page), head_only=head_only)
+        if not TEAM_CODE:
+            self.send_error(404)
+            return None
+        self.send_response(302)
+        # 주소는 _TEAM_PAGES 정규식을 통과한 글자(영문 · /)뿐이라 그대로 붙여도 된다 — /auth 가 _NEXT_PAGES 로 한 번 더 거른다
+        self.send_header("Location", "/auth?next=" + parsed.path.rstrip("/").lower())
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        return None
+
     def _serve_static(self, parsed, head_only: bool = False):
         """
         데모 화면 파일과 /sdk/ 모듈 (demo/static_assets.py). HTML·ES 모듈은 참조 주소에 내용 해시를 넣어 내고,
@@ -2613,14 +2650,16 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if suffix in (".js", ".mjs", ".css"):
             data = MINIFY(data, "css" if suffix == ".css" else "js", path.name)
         extra = []
-        if suffix == ".html":
+        if level == "team":
+            # 팀 전용 — Cloudflare 가 들고 있다가 공개 방문자에게 내주지 않게. HTML(booth_scan.html)도 여기 — 아래 HTML 갈래의
+            # CDN-Cache-Control 을 받으면 팀이 연 화면이 60초 동안 공개 주소로 새 나간다
+            cache = "private, no-store"
+        elif suffix == ".html":
             cache = REVALIDATE  # 입구는 늘 재검증 — 새 판의 해시 주소를 바로 물게
             # Cloudflare 에게만: 60초 들고 있다가 그 뒤엔 가진 걸 먼저 내주며 뒤에서 새로 받는다. HTML 은 누구에게나
             # 같아서(팀 여부는 /api/v1/team) 나눠 써도 되고, 첫 방문의 VM 왕복(0.2~1.8초)이 빠진다.
             # Cloudflare 는 HTML 을 기본으로 저장하지 않아서 캐시 규칙을 켜야 쓰인다 (docs/DEPLOYMENT.md §10-5)
             extra.append(("CDN-Cache-Control", CDN_HTML_CACHE))
-        elif level == "team":
-            cache = "private, no-store"  # 팀 전용 — Cloudflare 가 들고 있다가 공개 방문자에게 내주지 않게
         else:
             v = (parse_qs(parsed.query).get("v") or [""])[0]
             cache = IMMUTABLE if v and v == digest else REVALIDATE
