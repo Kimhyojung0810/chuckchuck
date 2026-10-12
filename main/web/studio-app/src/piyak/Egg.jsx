@@ -4,7 +4,7 @@
    껍데기 너머로 캡슐 눈이 비쳐 커서를 보고, 속에서 노란 빛이 숨 쉬듯 일렁이다가 목소리(readLevel)에 맞춰 밝아지고 볼록해진다.
    알 깨기에서는 틈 사이 점 눈이 커서를 본다 */
 import { useEffect, useId, useRef } from 'react'
-import { motion, useMotionValue, useSpring, useTransform, useVelocity, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
+import { motion, useMotionValue, useSpring, useTransform, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
 import { useGaze, Sprout } from './Piyak.jsx'
 import { ShellDefs, ShellPiece, EGG } from './Shell.jsx'
 
@@ -14,13 +14,13 @@ const WOBBLE = {
   peek: { every: [3200, 2400], deg: 4 },
 }
 const EYE_SPRING = { stiffness: 260, damping: 20, mass: 0.6 }
-/* Live Orb 눈 — 10-13 사용자: 「진짜 live-orb 처럼 적극적으로 눈이 움직여야 귀엽다」.
-   크게(ORB_GAZE) · 휙(ORB_SPRING, 살짝 지나쳤다 돌아옴) 움직이고, 빠를수록 캡슐이 옆으로 늘며 납작해지고(SMEAR),
-   알 가장자리로 갈수록 구 표면을 돌아가듯 좁아진다(WRAP). 커서가 멈추면 금방 혼자 휙휙 둘러본다(ORB_PACE) */
+/* Live Orb 눈 — 10-13 사용자: 「live-orb 처럼 적극적으로」 → 「아직 마우스 따라가는 눈이 이상해」.
+   마우스가 화면 안에 있으면 멈춰 있어도 계속 커서를 본다(stay) — 혼자 두리번은 마우스가 나갔거나 손가락을 뗐을 때만.
+   크게(ORB_GAZE) 움직이되 출렁이지 않고 부드럽게 붙어 따라간다(ORB_SPRING, 지나치지 않음).
+   알 가장자리로 갈수록 구 표면을 돌아가듯 좁아진다(WRAP). 속도로 늘이기 · 알 기울이기는 출렁여 보여서 뺐다 */
 const ORB_GAZE = 2.6
-const ORB_SPRING = { stiffness: 420, damping: 17, mass: 0.5 }
-const ORB_PACE = { reach: 0.25, idle: 900, glance: [450, 900], front: 0.2 }
-const SMEAR = 90               // 이 속도(단위/초)에서 가장 많이 늘어난다
+const ORB_SPRING = { stiffness: 320, damping: 34, mass: 0.6 }
+const ORB_PACE = { reach: 0.25, idle: 900, glance: [700, 1100], front: 0.25, stay: true }
 const WRAP = 0.3               // 가장자리에서 이만큼 좁아진다
 const ORB_X = 4.2 * ORB_GAZE   // 눈이 갈 수 있는 끝 (GAZE_X × ORB_GAZE)
 /** 금이 가는 길 — crack(0..1) 만큼 그려진다. 눈 아래를 가로지른다 (10-13 사용자: 「눈 아래에서 금 가는 게 좋을듯」) */
@@ -47,7 +47,6 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
   const box = useRef(null)
   const id = `pxe${useId().replace(/:/g, '')}`
   const tilt = useMotionValue(0)
-  const hop = useMotionValue(0)
   const lid = useMotionValue(0)        // 위 껍데기가 들린 정도 0..1 (peek) — 위로 11 · 왼쪽으로 14°
   const lidY = useTransform(lid, (v) => v * -11)
   const lidTurn = useTransform(lid, (v) => v * -14)
@@ -58,12 +57,7 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
   // 캡슐 눈 — 크게 · 휙 · 빠르면 늘어나고 · 가장자리는 좁게
   const ox = useSpring(useTransform(gazeX, (v) => v * ORB_GAZE), ORB_SPRING)
   const oy = useSpring(useTransform(gazeY, (v) => v * ORB_GAZE), ORB_SPRING)
-  const vx = useVelocity(ox)
-  const vy = useVelocity(oy)
-  const smear = useTransform([vx, vy], ([a, b]) => Math.min(1, Math.hypot(a, b) / SMEAR))
-  const eyeSx = useTransform([smear, ox], ([m, x]) => (1 + 0.45 * m) * (1 - WRAP * Math.min(1, Math.abs(x) / ORB_X)))
-  const eyeSy = useTransform([smear, blink], ([m, b]) => (1 - 0.3 * m) * b)
-  const lean = useTransform([tilt, ox], ([t, x]) => t + x * 0.5)   // 알도 그쪽으로 살짝 기운다
+  const eyeSx = useTransform(ox, (x) => 1 - WRAP * Math.min(1, Math.abs(x) / ORB_X))
 
   // Live Orb — 속빛은 숨 쉬듯(breath) 일렁이고 목소리(level)에 밝아진다. 알은 옆으로만 볼록 (세로로 늘지 않는다)
   const level = useLevel(readLevel)
@@ -80,11 +74,10 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
   const haloOpacity = useTransform(level, (l) => 0.12 + 0.55 * l)
   const haloScale = useTransform(level, (l) => 0.9 + 0.3 * l)
 
-  /** 들썩 — 좌우로 기울었다 돌아오고 살짝 뜬다 */
+  /** 들썩 — 좌우로 기울었다 돌아온다 (뛰지는 않는다 — 10-13 사용자 「알에서는 점프 모션 없어도 될듯」) */
   const wobble = (deg) => {
     if (reduced) return
     animate(tilt, [0, -deg, deg * 0.8, -deg * 0.45, deg * 0.2, 0], { duration: 0.7, ease: 'easeInOut' })
-    animate(hop, [0, -2.5, 0, -1.2, 0], { duration: 0.7, ease: 'easeInOut' })
   }
   useEffect(() => {
     const w = WOBBLE[stage] || WOBBLE.egg
@@ -123,8 +116,8 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
             style={{ opacity: haloOpacity, scale: haloScale, originX: 0.5, originY: 0.5 }} />
         )}
         <ellipse className="px-shadow" cx="50" cy="91.5" rx="22" ry="3" />
-        <motion.g style={{ y: hop }}>
-          <motion.g style={{ rotate: lean, originX: 0.5, originY: 1 }}>
+        <g>
+          <motion.g style={{ rotate: tilt, originX: 0.5, originY: 1 }}>
             {peek ? (
               <>
                 {/* 안에 있는 삐약이 — 틈 위로 눈만 보인다 */}
@@ -151,7 +144,7 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
                   <motion.ellipse className="px-orb-glow" cx="50" cy="58" rx="26" ry="28" fill={`url(#${id}-glow)`}
                     style={{ opacity: glowOpacity, scale: glowScale, originX: 0.5, originY: 0.5 }} />
                   <motion.g style={{ x: ox, y: oy }}>
-                    <motion.g className="px-orb-eyes" style={{ scaleX: eyeSx, scaleY: eyeSy, originX: 0.5, originY: 0.5 }}>
+                    <motion.g className="px-orb-eyes" style={{ scaleX: eyeSx, scaleY: blink, originX: 0.5, originY: 0.5 }}>
                       <rect x="37.2" y="47" width="5.6" height="11" rx="2.8" />
                       <rect x="57.2" y="47" width="5.6" height="11" rx="2.8" />
                     </motion.g>
@@ -167,7 +160,7 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
               </motion.g>
             )}
           </motion.g>
-        </motion.g>
+        </g>
       </svg>
     </button>
   )

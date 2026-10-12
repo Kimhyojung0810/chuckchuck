@@ -86,9 +86,10 @@ export function Sprout({ y = 18, scale = 1 }) {
 
 /**
  * 커서를 본다. 커서가 멈추거나(마우스) 손가락을 떼면(터치) 혼자 이쪽저쪽 두리번거린다.
- * pace: { reach(삐약이 폭의 몇 배에서 끝까지 보나), idle(ms 멈추면 두리번), glance:[최소, 더하는 ms](두리번 간격), front(앞을 볼 확률) }
+ * pace: { reach(삐약이 폭의 몇 배에서 끝까지 보나), idle(ms 멈추면 두리번), glance:[최소, 더하는 ms](두리번 간격), front(앞을 볼 확률),
+ *         stay(마우스가 화면 안에 있으면 멈춰 있어도 계속 커서를 본다 — 두리번은 마우스가 나갔거나 손가락을 뗐을 때만) }
  */
-const PACE = { reach: 0.45, idle: GAZE_IDLE_MS, glance: [GLANCE_MIN_MS, GLANCE_SPAN_MS], front: 0.33 }
+const PACE = { reach: 0.45, idle: GAZE_IDLE_MS, glance: [GLANCE_MIN_MS, GLANCE_SPAN_MS], front: 0.33, stay: false }
 export function useGaze(target, wander, pace) {
   const p = { ...PACE, ...pace }
   const gx = useMotionValue(0)
@@ -119,7 +120,8 @@ export function useGaze(target, wander, pace) {
       last = { x: e.clientX, y: e.clientY }
       clearTimeout(glance); clearTimeout(idle)
       if (!frame) frame = requestAnimationFrame(look)
-      idle = setTimeout(rest, e.pointerType === 'touch' ? Math.min(1200, p.idle) : p.idle)
+      if (e.pointerType === 'touch') idle = setTimeout(rest, Math.min(1200, p.idle))
+      else if (!p.stay) idle = setTimeout(rest, p.idle)
     }
     const leave = (e) => { if (!e.relatedTarget) { clearTimeout(idle); clearTimeout(glance); rest() } }
     addEventListener('pointermove', on, { passive: true })
