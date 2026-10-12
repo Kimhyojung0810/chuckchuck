@@ -3,29 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function useCamera() {
-  const [video, setVideo] = useState(null)
+  const [stream, setStream] = useState(null)
   const [state, setState] = useState('off')   // off · asking · on · denied
-  const stream = useRef(null)
+  const held = useRef(null)
   const start = useCallback(async () => {
-    if (stream.current) return
+    if (held.current) return
     setState('asking')
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false })
-      stream.current = s
-      const v = document.createElement('video')
-      v.muted = true; v.playsInline = true; v.autoplay = true; v.srcObject = s
-      await v.play().catch(() => {})
-      setVideo(v); setState('on')
+      held.current = s
+      setStream(s); setState('on')      // 영상은 창 안의 <video> 가 그린다 (SPACE v3 §6 — WebGL 텍스처는 검게 나왔다)
     } catch (e) {
       setState('denied')
     }
   }, [])
   const stop = useCallback(() => {
-    stream.current?.getTracks().forEach((t) => t.stop())
-    stream.current = null; setVideo(null); setState('off')
+    held.current?.getTracks().forEach((t) => t.stop())
+    held.current = null; setStream(null); setState('off')
   }, [])
   useEffect(() => stop, [stop])
-  return { video, state, start, stop }
+  return { stream, state, start, stop }
 }
 
 export function useMicLevel() {

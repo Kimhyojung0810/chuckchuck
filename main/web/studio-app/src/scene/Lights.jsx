@@ -3,7 +3,8 @@ import { useRef, useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { easing } from 'maath'
-import { LIGHT, CEIL, ROOM, DIST, toward, stationAngle } from '../config.js'
+import { LIGHT, CEIL, toward, stationAngle } from '../config.js'
+import { BACK_R } from './Room.jsx'
 import { rig } from '../rig.js'
 
 export function Lights({ coveRef }) {
@@ -14,7 +15,7 @@ export function Lights({ coveRef }) {
   const targets = useMemo(() => [0, 1, 2, 3].map((k) => {
     const o = new THREE.Object3D()
     // 카메라 정거장(② ③)은 큰 카메라 화면을, 나머지는 창 뒤 벽을 비춘다
-    const [x, z] = toward(stationAngle(k), k === 1 || k === 2 ? DIST + 0.2 : ROOM)
+    const [x, z] = toward(stationAngle(k), BACK_R)
     o.position.set(x, 1.5, z)
     return o
   }), [])
@@ -22,20 +23,23 @@ export function Lights({ coveRef }) {
 
   useFrame((_, dt) => {
     const L = LIGHT[rig.at]
-    const st = rig.reduced ? 0.0001 : 0.7
+    const st = rig.reduced ? 0.0001 : 0.45
     easing.dampC(cur.color, L.color, st, dt)
     easing.damp(cur, 'amb', L.amb, st, dt)
     easing.damp(cur, 'cove', L.cove, st, dt)
     easing.damp(cur, 'fog', L.fog, st, dt)
-    for (let k = 0; k < 4; k++) easing.damp(cur.k, k, k === rig.at ? 1 : 0, st, dt)
-    if (amb.current) { amb.current.intensity = cur.amb * 0.9; amb.current.color.copy(cur.color) }
+    for (let k = 0; k < 4; k++) easing.damp(cur.k, k, k === 0 ? 1 : 0, st, dt)   // 시점 고정 — 비추는 건 언제나 정면 벽, 단계마다 색 · 세기만
+    // 움직이는 동안(rig.motion → 1)은 공간이 조금 밝아져 곡선 전체가 보이고, 멈추면 가라앉아 지금 창에 집중한다
+    const focus = 0.72 + 0.28 * rig.motion
+    if (amb.current) { amb.current.intensity = cur.amb * 0.9 * focus; amb.current.color.copy(cur.color) }
     spots.current.forEach((s, k) => {
       if (!s) return
       s.color.copy(cur.color)
-      s.intensity = 18 + cur.k[k] * L.spot
+      s.intensity = (18 + cur.k[k] * L.spot) * (k === 0 ? 1 : focus)
       s.angle = THREE.MathUtils.lerp(0.6, L.angle, cur.k[k])
     })
-    coveRef.current.forEach((m) => m && m.color.setRGB(0.5 * cur.cove + 0.04, 0.46 * cur.cove + 0.04, 0.38 * cur.cove + 0.03))
+    const cv = cur.cove * (0.6 + 0.4 * rig.motion)
+    coveRef.current.forEach((m) => m && m.color.setRGB(0.5 * cv + 0.04, 0.46 * cv + 0.04, 0.38 * cv + 0.03))
     scene.fog.far = cur.fog
   })
 
@@ -44,7 +48,7 @@ export function Lights({ coveRef }) {
       <ambientLight ref={amb} intensity={0.5} />
       <hemisphereLight args={['#7a7266', '#1e1b17', 1.2]} />
       {[0, 1, 2, 3].map((k) => {
-        const [x, z] = toward(stationAngle(k), 2.2)
+        const [x, z] = toward(stationAngle(k), 2.4)
         return (
           <group key={k}>
             <primitive object={targets[k]} />

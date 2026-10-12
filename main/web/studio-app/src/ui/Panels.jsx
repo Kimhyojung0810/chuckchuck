@@ -1,5 +1,5 @@
 /* 정거장 창 내용 — ds.css 부품 (DESIGN_SYSTEM §6). 시제품 자리표시 내용이고, 3차에서 지금 앱 화면으로 바뀐다 */
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { VoiceOrb } from './VoiceOrb.jsx'
 
 const Arrow = () => <span className="ds-btn__arrow">→</span>
@@ -25,6 +25,40 @@ export function UploadWindow({ onNext }) {
         <span className="ds-mono">자료를 읽었어요 · 12장</span>
         <span className="ds-window__end"><button className="ds-btn ds-btn--primary" type="button" onClick={onNext}>발표하러 가기 <Arrow /></button></span>
       </div>
+    </div>
+  )
+}
+
+/** 내 모습 — 창 안의 <video>, 거울처럼 좌우 반전 */
+function Mirror({ stream }) {
+  const v = useRef(null)
+  useEffect(() => {
+    const el = v.current
+    if (!el) return
+    el.srcObject = stream || null
+    if (stream) el.play().catch(() => {})
+  }, [stream])
+  return <video ref={v} className="sx-mirror" autoPlay muted playsInline aria-label="내 모습" />
+}
+
+/** ② ③ 카메라 창 — 카메라가 중심 (SPACE v3 §6). 영상 위 작은 창은 CSS 유리 */
+export function CameraStage({ mode, cam, mic, onNext }) {
+  if (cam.state !== 'on') return <CameraPrompt cam={cam} titleId={mode === 'present' ? 't-present' : 't-qa'} />
+  return (
+    <div className="sx-stage">
+      <Mirror stream={cam.stream} />
+      {mode === 'present' ? (
+        <>
+          <h2 className="ds-sr" id="t-present" tabIndex={-1}>발표하고 있어요</h2>
+          <div className="sx-float sx-float--slide"><SlideWindow /></div>
+          <div className="sx-float sx-float--bar"><PresentBar mic={mic} onNext={onNext} /></div>
+        </>
+      ) : (
+        <>
+          <div className="sx-float sx-float--q"><QuestionWindow /></div>
+          <div className="sx-float sx-float--a"><AnswerWindow mic={mic} onNext={onNext} /></div>
+        </>
+      )}
     </div>
   )
 }

@@ -36,10 +36,11 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 /* ② 조작 줄 · ③ 답 창 */
 .sx-bar { position: absolute; inset: 0; display: flex; align-items: center; gap: 16px; padding: 0 16px 0 14px; }
 .sx-bar__state { display: grid; gap: 2px; min-width: 0; }
-.sx-answer { position: absolute; inset: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 16px 20px; }
+.sx-answer { position: absolute; inset: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; gap: 10px 18px; align-items: center; padding: 14px 18px; }
 .sx-answer__main { display: grid; gap: 8px; min-width: 0; }
 .sx-answer__main .ds-textarea { min-height: 64px; background: rgb(18 18 16 / .35); }
-.sx-answer__actions { display: grid; gap: 8px; justify-items: stretch; }
+.sx-answer__actions { grid-column: 2; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.sx-answer .sx-orb { grid-row: 1 / span 2; }
 .sx-orb { position: relative; flex: none; border-radius: 50%; overflow: hidden; }
 .sx-orb--still { background: radial-gradient(circle at 40% 35%, #E8D2A6, #C9A96E 45%, #5B4A2E 100%); transform: scale(calc(.9 + var(--k, 0) * .15)); }
 .sx-report { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start; }
@@ -64,8 +65,7 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
   .hud .ds-step[aria-current="step"] .hud__step-name { display: inline; }
   .hud__note { left: 12px; right: 12px; bottom: 8px; font-size: 10px; }
   .sx-bar { flex-wrap: wrap; padding: 12px; align-content: center; }
-  .sx-answer { grid-template-columns: auto minmax(0, 1fr); }
-  .sx-answer__actions { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+  .sx-answer__actions { grid-column: 1 / -1; }
   .sx-report { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 
@@ -75,3 +75,30 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 /* ④ 리포트 — 지금 앱의 리포트 화면을 담는 틀 */
 .sx-frame-wrap { flex: 1; min-height: 0; position: relative; }
 .sx-frame { width: 100%; height: 100%; border: 0; display: block; background: transparent; color-scheme: light; }
+
+/* ── ② ③ 카메라 창 — 카메라가 중심 (SPACE v3 §6) ── */
+.sx-panel--solid { background: #0d0c0a; }
+.sx-stage { position: absolute; inset: 0; overflow: hidden; border-radius: inherit; background: #0d0c0a; }
+.sx-mirror { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+/* 영상 위 작은 창 — 영상은 WebGL 밖이라 CSS 유리(흐림 + 막 + 테두리 빛) */
+.sx-float {
+  position: absolute;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgb(18 18 16 / .5);
+  border: 1px solid rgba(242, 237, 228, .22);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .18) inset, 0 18px 50px -18px rgba(0, 0, 0, .7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  backdrop-filter: blur(22px) saturate(1.4);
+}
+.sx-float .ds-window { background: transparent; border: 0; box-shadow: none; border-radius: inherit; }
+.sx-float--slide { left: 22px; top: 22px; width: min(380px, 30%); aspect-ratio: 380 / 272; }
+.sx-float--bar { left: 50%; bottom: 22px; translate: -50% 0; width: min(860px, calc(100% - 44px)); height: 80px; border-radius: 22px; }
+.sx-float--q { left: 50%; top: 22px; translate: -50% 0; width: min(900px, calc(100% - 44px)); height: 128px; }
+.sx-float--a { left: 50%; bottom: 22px; translate: -50% 0; width: min(900px, calc(100% - 44px)); height: 196px; }
+@media (max-width: 720px) {
+  .sx-float--slide { left: 12px; top: 12px; width: 46%; }
+  .sx-float--bar { bottom: 12px; height: auto; min-height: 120px; }
+  .sx-float--q { top: auto; bottom: 254px; height: 150px; }
+  .sx-float--a { bottom: 12px; height: 250px; }
+}

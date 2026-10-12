@@ -1,16 +1,15 @@
-/* 가상 발표 스튜디오 — 1차-2 (React Three Fiber). design/SPACE.md v2 */
+/* 가상 발표 스튜디오 — React Three Fiber. design/SPACE.md v3 (Horizon OS 방식: 시점 고정, 창이 곡선 위를 미끄러진다) */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { STATIONS, FOV, FOV_PHONE, EYE, PEEK_MAX, PEEK_GO, mod4 } from './config.js'
+import { STATIONS, FOV, FOV_PHONE, EYE } from './config.js'
 import { rig } from './rig.js'
 import { Room } from './scene/Room.jsx'
 import { Lights } from './scene/Lights.jsx'
 import { CameraRig } from './scene/CameraRig.jsx'
 import { GlassPass } from './scene/Glass.jsx'
 import { Station } from './scene/Station.jsx'
-import { CameraScreen } from './scene/CameraScreen.jsx'
 import { useCamera, useMicLevel } from './media.js'
-import { UploadWindow, CameraPrompt, SlideWindow, PresentBar, QuestionWindow, AnswerWindow, ReportWindow } from './ui/Panels.jsx'
+import { UploadWindow, CameraStage, ReportWindow } from './ui/Panels.jsx'
 
 const indexOfHash = () => Math.max(0, STATIONS.findIndex((s) => s.key === location.hash.slice(1)))
 
@@ -23,7 +22,7 @@ function useViewport() {
 
 export default function App() {
   const vp = useViewport()
-  const [at, setAt] = useState(() => { const i = indexOfHash(); rig.at = i; rig.yawTarget = i * 90; rig.yaw = i * 90; return i })
+  const [at, setAt] = useState(() => { const i = indexOfHash(); rig.at = i; rig.f = i; return i })
   const cam = useCamera()
   const mic = useMicLevel()
   const live = useRef(null)
@@ -31,24 +30,20 @@ export default function App() {
   const [reportSeen, setReportSeen] = useState(false)   // 리포트 iframe 은 처음 갈 때 불러온다 (지금 앱 전체를 싣는다)
   const htmlLayer = useRef(null)   // drei Html 이 붙을 고정 층 — 첫 Html 이 붙을 자리를 못 찾고 사라지던 것을 막는다
 
-  /** 정거장으로 — dir +1 오른쪽 · −1 왼쪽 · 0 최단(두 칸이면 오른쪽 180°) */
-  const go = useCallback((to, { dir = 0, push = true } = {}) => {
-    const from = rig.at
-    to = mod4(to)
-    let turns = dir || mod4(to - from)
-    if (!dir) turns = turns === 3 ? -1 : turns
-    if (!turns && to === from) { rig.peek = 0; return }
-    rig.yawTarget += turns * 90
+  /** 그 단계로 — 곡선이 미끄러진다 (시점은 그대로) */
+  const go = useCallback((to, { push = true } = {}) => {
+    to = Math.max(0, Math.min(STATIONS.length - 1, to))
+    rig.drag = 0
+    if (to === rig.at) return
     rig.at = to
-    rig.peek = 0
     setAt(to)
     if (to === 3) setReportSeen(true)
     if (push) history.pushState({ at: to }, '', '#' + STATIONS[to].key)
     document.title = `척척발표 — ${STATIONS[to].name} (시제품)`
     if (live.current) live.current.textContent = `${to + 1}단계 ${STATIONS[to].name}(으)로 왔어요`
-    setTimeout(() => document.getElementById(`t-${STATIONS[to].key}`)?.focus({ preventScroll: true }), rig.reduced ? 0 : 1400)
+    setTimeout(() => document.getElementById(`t-${STATIONS[to].key}`)?.focus({ preventScroll: true }), rig.reduced ? 0 : 700)
   }, [])
-  const next = useCallback(() => go(rig.at + 1, { dir: +1 }), [go])
+  const next = useCallback(() => go(rig.at === STATIONS.length - 1 ? 0 : rig.at + 1), [go])
   // 실험실 · 헤드리스용 — 상태를 읽고, 전환 중간 자세로 멈춰 찍는다
   useEffect(() => { window.studioDebug = { rig, go } }, [go])
 
@@ -59,60 +54,44 @@ export default function App() {
     return () => removeEventListener('popstate', onPop)
   }, [go])
 
-  // ── 마우스: 시선 따라오기 · 빈 공간 끌어서 둘러보기 (SPACE §7) ──
+  // ── 끌기: 곡선이 손가락을 그대로 따른다 (SPACE v3 §7) — 시점은 움직이지 않는다 ──
   const drag = useRef(null)
   const onPointerMove = (e) => {
-    if (e.pointerType === 'mouse') { rig.lookX = (e.clientX / vp.w) * 2 - 1; rig.lookY = (e.clientY / vp.h) * 2 - 1 }
     const d = drag.current
     if (!d) return
-    const dx = e.clientX - d.x
-    rig.peek = Math.max(-PEEK_MAX, Math.min(PEEK_MAX, -dx * (90 / vp.w) * 1.4))
+    const slot = vp.w * 0.62                                  // 창 한 칸 = 화면 폭의 62% 를 끌면
+    rig.drag = Math.max(-rig.at - 0.35, Math.min(STATIONS.length - 1 - rig.at + 0.35, -(e.clientX - d.x) / slot))
   }
   const onPointerDown = (e) => {
     if (e.target.tagName !== 'CANVAS') return          // 창 위는 창 안 조작이 먼저
     drag.current = { x: e.clientX }
+    rig.dragging = true
     e.currentTarget.setPointerCapture?.(e.pointerId)
   }
   const onPointerUp = () => {
     if (!drag.current) return
     drag.current = null
-    const p = rig.peek
-    if (p > PEEK_GO) go(rig.at + 1, { dir: +1 })
-    else if (p < -PEEK_GO) go(rig.at - 1, { dir: -1 })
-    else rig.peek = 0
+    rig.dragging = false
+    const to = Math.round(rig.at + rig.drag)
+    if (to !== rig.at) go(to)
+    else rig.drag = 0
   }
 
   // ── 창 크기 (CSS px) ──
   const winW = Math.round(Math.min(1080, vp.w * (vp.phone ? 0.92 : 0.74)))
   const winH = Math.round(Math.min(660, vp.h * (vp.phone ? 0.74 : 0.7)))
-  const camH = Math.round(vp.h * (vp.phone ? 0.62 : 0.84))
-  const camW = Math.round(Math.min(camH * 16 / 9, vp.w * 0.96))
-  const camHh = Math.round(Math.min(camH, camW * 9 / 16))
-  const pad = vp.phone ? 12 : 24
-  const slideW = Math.round(Math.min(380, camW * 0.3)), slideH = Math.round(slideW * 0.5625 + 58)
-  const barW = Math.round(Math.min(860, camW - pad * 2)), barH = vp.phone ? 132 : 80
-  const qW = Math.round(Math.min(900, camW - pad * 2)), qH = vp.phone ? 150 : 128
-  const aH = vp.phone ? 230 : 150
-  const repW = Math.round(Math.min(1280, vp.w * (vp.phone ? 0.94 : 0.84))), repH = Math.round(Math.min(840, vp.h * (vp.phone ? 0.8 : 0.8)))
-
-  const present = cam.state === 'on'
-    ? [
-        { id: 'slide', x: -camW / 2 + slideW / 2 + pad, y: -camHh / 2 + slideH / 2 + pad, w: slideW, h: slideH, radius: 18, tint: 0.68, children: <SlideWindow /> },
-        { id: 'bar', x: 0, y: camHh / 2 - barH / 2 - pad, w: barW, h: barH, radius: 22, tint: 0.68, children: <PresentBar mic={mic} onNext={next} /> },
-      ]
-    : [{ id: 'prompt', x: 0, y: 0, w: Math.min(520, vp.w * 0.86), h: 230, radius: 24, children: <CameraPrompt cam={cam} titleId="t-present" /> }]
-  const qa = cam.state === 'on'
-    ? [
-        { id: 'q', x: 0, y: -camHh / 2 + qH / 2 + pad, w: qW, h: qH, radius: 22, tint: 0.7, children: <QuestionWindow /> },
-        { id: 'a', x: 0, y: camHh / 2 - aH / 2 - pad, w: qW, h: aH, radius: 22, tint: 0.7, children: <AnswerWindow mic={mic} onNext={next} /> },
-      ]
-    : [{ id: 'prompt', x: 0, y: 0, w: Math.min(520, vp.w * 0.86), h: 230, radius: 24, children: <CameraPrompt cam={cam} titleId="t-qa" /> }]
+  const camH = Math.round(vp.h * (vp.phone ? 0.66 : 0.82))
+  const camW = Math.round(Math.min(camH * 16 / 9, vp.w * (vp.phone ? 0.94 : 0.9)))
+  const camHh = Math.round(Math.min(camH, camW * 9 / 16) + (vp.phone ? 120 : 0))
+  const repW = Math.round(Math.min(1280, vp.w * (vp.phone ? 0.94 : 0.84))), repH = Math.round(Math.min(840, vp.h * 0.8))
+  const camPanel = (mode) => ({ id: 'cam', x: 0, y: 0, w: camW, h: camHh, radius: 28, glass: false,
+    children: <CameraStage mode={mode} cam={cam} mic={mic} onNext={next} /> })
 
   const stations = [
-    { panels: [{ id: 'w', x: 0, y: 0, w: winW, h: winH, children: <UploadWindow onNext={next} /> }] },
-    { panels: present, behind: <CameraScreen video={cam.video} widthPx={camW} heightPx={camHh} /> },
-    { panels: qa, behind: <CameraScreen video={cam.video} widthPx={camW} heightPx={camHh} /> },
-    { panels: [{ id: 'w', x: 0, y: 0, w: repW, h: repH, paper: true, children: <ReportWindow onNext={next} load={reportSeen || at === 3} /> }] },
+    [{ id: 'w', x: 0, y: 0, w: winW, h: winH, children: <UploadWindow onNext={next} /> }],
+    [camPanel('present')],
+    [camPanel('qa')],
+    [{ id: 'w', x: 0, y: 0, w: repW, h: repH, paper: true, children: <ReportWindow onNext={next} load={reportSeen || at === 3} /> }],
   ]
 
   return (
@@ -137,7 +116,7 @@ export default function App() {
           <a className="hud__exit" href="/#/home">나가기</a>
         </span>
       </header>
-      <p className="hud__note ds-mono">시제품 — 빈 곳을 끌면 둘러볼 수 있어요. 분석은 연결하지 않았어요.</p>
+      <p className="hud__note ds-mono">시제품 — 빈 곳을 좌우로 끌면 창을 넘길 수 있어요. 분석은 연결하지 않았어요.</p>
       <p className="ds-sr" ref={live} aria-live="polite" />
     </div>
   )
@@ -151,8 +130,8 @@ function Scene({ stations, at, go, quality, portal }) {
       <Lights coveRef={coveRef} />
       <Room coveRef={coveRef} quality={quality} />
       <GlassPass />
-      {stations.map((s, k) => (
-        <Station key={k} k={k} active={k === at} onEnter={go} panels={s.panels} behind={s.behind} portal={portal} />
+      {stations.map((panels, k) => (
+        <Station key={k} k={k} active={k === at} onEnter={go} panels={panels} portal={portal} />
       ))}
     </>
   )

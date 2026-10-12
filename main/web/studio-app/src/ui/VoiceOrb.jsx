@@ -1,4 +1,4 @@
-/* 음성 구 — shadergradient(MIT, ruucm · stone-skipper) 의 sphere. 소리 크기가 세기 · 속도를 바꾼다 (DESIGN_SYSTEM §6-10).
+/* 음성 구 — shadergradient(MIT, ruucm · stone-skipper) 의 흐르는 그라디언트(waterPlane)를 둥글게 잘라 쓴다. 소리 크기가 세기 · 속도를 바꾼다 (DESIGN_SYSTEM §6-10).
    색은 금빛 계열만 — 판정 색과 섞이지 않게. 낱말을 꼭 같이 둔다 */
 import { useEffect, useState } from 'react'
 import { ShaderGradientCanvas, ShaderGradient } from '@shadergradient/react'
@@ -20,10 +20,11 @@ export function VoiceOrb({ levelRef, size = 96, speaking = false }) {
   return (
     <div className="sx-orb" style={{ width: size, height: size }} aria-hidden="true">
       <ShaderGradientCanvas style={{ position: 'absolute', inset: 0 }} pixelDensity={1} fov={40} lazyLoad={false} pointerEvents="none">
-        <ShaderGradient control="props" type="sphere" animate="on"
+        <ShaderGradient control="props" type="waterPlane" animate="on"
           color1="#C9A96E" color2="#E8D2A6" color3="#5B4A2E"
-          uStrength={0.25 + k * 0.95} uSpeed={0.2 + k * 0.6} uDensity={1.3} uFrequency={5.5} uAmplitude={1.4}
-          cDistance={3.4} cPolarAngle={90} cAzimuthAngle={180} lightType="3d" brightness={1.25} grain="off" />
+          uStrength={1.2 + k * 2.4} uSpeed={0.18 + k * 0.7} uDensity={1.4} uFrequency={5.5} uAmplitude={0}
+          cDistance={2.2} cPolarAngle={90} cAzimuthAngle={180} cameraZoom={1} positionX={0} positionY={0} positionZ={0}
+          rotationX={0} rotationY={0} rotationZ={0} lightType="3d" brightness={1.25} grain="off" />
       </ShaderGradientCanvas>
     </div>
   )

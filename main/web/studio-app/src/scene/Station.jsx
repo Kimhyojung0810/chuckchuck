@@ -3,7 +3,7 @@
 import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
-import { DIST, EYE, deg, stationAngle, toward } from '../config.js'
+import { DIST, EYE, SPACING, HIDE_DOM, deg, toward } from '../config.js'
 import { rig } from '../rig.js'
 import { GlassPanel } from './Glass.jsx'
 
@@ -14,26 +14,32 @@ export function useWorldPerPx() {
   return (2 * DIST * Math.tan(deg(camera.fov) / 2)) / h
 }
 
-const angleGap = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180)
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) }
 
 /**
- * panels: [{ id, x, y, w, h, radius, paper, children }] — x·y 는 창 가운데에서의 CSS px (오른쪽 · 아래로 +)
- * behind: 창들 뒤에 놓을 3D 물건(카메라 화면 등)
+ * 곡선 위의 창 하나 (SPACE v3 §2). 매 프레임 (k − f) 로 각도 · 크기 · 흐림을 정한다 — 시점은 그대로, 창이 미끄러진다.
+ * panels: [{ id, x, y, w, h, radius, paper, tint, glass, children }] — x·y 는 창 가운데에서의 CSS px (오른쪽 · 아래로 +)
  */
-export function Station({ k, active, onEnter, panels, behind = null, portal }) {
-  const theta = stationAngle(k)
-  const [x, z] = toward(theta, DIST)
+export function Station({ k, active, onEnter, panels, portal }) {
   const world = useWorldPerPx()
-  const op = useRef(active ? 1 : 0.35)
+  const group = useRef()
+  const op = useRef(active ? 1 : 0.45)
   const htmlRefs = useRef([])
 
   useFrame(() => {
-    // 시선에서 멀어지면 DOM 은 감춘다 — CSS 3D 는 카메라 옆 · 뒤로 넘어간 면을 뒤집어 그린다 (SPACE §9)
-    const gap = angleGap(rig.yaw, theta)
-    const near = 1 - smoothstep(34, 54, gap)
-    const target = (active ? 1 : 0.35) * near
-    op.current += (target - op.current) * 0.18
+    const rel = k - rig.f
+    const ang = rel * SPACING
+    // 이동 중에는 곡선 전체가 뒤로 물러나고 작아진다(줌 아웃), 멈추면 지금 창이 정면 1:1 로 다가온다(집중)
+    const m = rig.motion
+    const [x, z] = toward(ang, DIST + 1.1 * m)
+    const g = group.current
+    if (g) {
+      g.position.set(x, EYE + 0.06 * m, z)
+      g.rotation.set(0, -deg(ang), 0)
+      g.scale.setScalar((1 - 0.1 * Math.min(1, Math.abs(rel))) * (1 - 0.06 * m))
+    }
+    const off = Math.abs(ang)
+    op.current = (1 - 0.55 * Math.min(1, Math.abs(rel))) * (1 - smoothstep(HIDE_DOM - 22, HIDE_DOM, off))
     htmlRefs.current.forEach((el) => {
       if (!el) return
       el.style.opacity = op.current.toFixed(3)
@@ -42,14 +48,13 @@ export function Station({ k, active, onEnter, panels, behind = null, portal }) {
   })
 
   return (
-    <group position={[x, EYE, z]} rotation={[0, -deg(theta), 0]}>
-      {behind}
+    <group ref={group}>
       {panels.map((p, i) => (
         <group key={p.id} position={[p.x * world, -p.y * world, i * 0.002]}>
-          <GlassPanel widthPx={p.w} heightPx={p.h} radius={p.radius ?? 24} world={world} paper={p.paper} tint={p.tint} opacityRef={op} />
+          {p.glass !== false && <GlassPanel widthPx={p.w} heightPx={p.h} radius={p.radius ?? 24} world={world} paper={p.paper} tint={p.tint} opacityRef={op} />}
           <Html transform portal={portal} distanceFactor={400 * world} zIndexRange={[20, 0]} style={{ pointerEvents: 'auto' }}>
             <div ref={(el) => { htmlRefs.current[i] = el }}
-              className={`sx-panel${p.paper ? ' sx-panel--paper' : ''}${active ? '' : ' is-away'}`}
+              className={`sx-panel${p.paper ? ' sx-panel--paper' : ''}${p.glass === false ? ' sx-panel--solid' : ''}${active ? '' : ' is-away'}`}
               style={{ width: p.w, height: p.h, borderRadius: p.radius ?? 24 }}
               inert={!active}
               onClickCapture={active ? undefined : (e) => { e.preventDefault(); e.stopPropagation(); onEnter(k) }}>

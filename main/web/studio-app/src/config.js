@@ -21,10 +21,10 @@ export const LIGHT = [
   { color: '#F2EDE4', spot: 300, angle: .78, cove: 1.0, amb: 2.1, fog: 28 },
 ]
 
-export const SMOOTH = .7        // 카메라 스프링 반응 시간(s) — 90° 가 2초 안팎에 자리 잡는다
-export const STEP_BACK = .55    // 돌 때 물러서는 걸음(m)
-export const LOOK = { yaw: 4, pitch: 2.5 }   // 마우스 시선 따라오기(°)
-export const PEEK_MAX = 70, PEEK_GO = 35       // 끌어서 둘러보기(°)
+/* SPACE v3 — 시점은 고정, 창이 곡선 위를 미끄러진다 (Horizon OS 방식) */
+export const SPACING = 64       // 곡선 위 창 간격(°) — 이웃 창이 화면 가장자리에 살짝 비친다
+export const SLIDE = .2         // 미끄러짐 스프링 반응 시간(s) — .6~.7초에 자리 잡는다, 튕김 없음
+export const HIDE_DOM = 60      // 정면에서 이만큼(°) 비켜나면 DOM 을 감춘다 (CSS 3D 뒤집힘 방지)
 
 export const deg = (d) => d * Math.PI / 180
 export const mod4 = (n) => ((n % 4) + 4) % 4
