@@ -5,6 +5,18 @@
    10-12 랜딩 기조(~/meetings/리서치/2026-10-12_랜딩페이지_디자인기조.md — 토스 · 현대 · 삼성 · 미리캔버스 · 캔바 · 당근 · 카카오뱅크):
    흰 바탕 + 중립 회색 면 + 색은 우리 초록 하나 · 한 구역에 한 메시지와 한 그림 · 큰 제목과 짧은 본문의 굵기 대비 ·
    제품 화면을 그림으로(남의 사진 없이, 녹화 투어에 실제로 나온 값으로 CSS 로 그린다) · 스크롤에 맞춰 한 번 살짝 떠오르는 움직임만. */
+
+/* /hi 전용 글꼴 — Pretendard(OFL 1.1)에서 이 페이지에 나오는 글자만 뽑은 가변 woff2 한 장 (10-13, CDN 조각 14개 362KB → 56KB).
+   OFL 예약 이름 때문에 이름은 「CC Hi Sans」. 만드는 법 · 빠진 글자 확인은 etc/scripts/subset_hi_font.py (team.json · 문구를 고치면 다시 돌린다).
+   ?v= 는 그 스크립트가 브리지 해시와 같은 값으로 적는다 — intro.html 의 preload 와 같은 주소여야 두 번 안 받는다.
+   여기 없는 글자는 --font 다음 칸(Pretendard → 시스템 서체)으로 떨어진다 */
+@font-face {
+  font-family: "CC Hi Sans";
+  src: url("/assets/fonts/cc-hi-sans.woff2?v=h65f68eac8d") format("woff2");
+  font-weight: 500 830;
+  font-style: normal;
+  font-display: swap;
+}
 :root {
   --navy: #064E3B;
   --brand: #0E8850;          /* 흰 글씨 4.51:1 — 이보다 밝게 올리지 않는다 */
@@ -39,7 +51,7 @@
   --shadow-float: 0 12px 32px rgba(24, 24, 27, .10), 0 2px 6px rgba(24, 24, 27, .05);
   --ease: cubic-bezier(.22, 1, .36, 1);
   --press: 90ms cubic-bezier(.2, .9, .3, 1);
-  --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --font: "CC Hi Sans", "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
 
   --gutter: 24px;
   --dock-h: 76px;            /* 버튼 52 + 위아래 12 — 본문 아래 여백도 이 값을 따른다 */
@@ -305,7 +317,7 @@ html.fly-skip .spark { display: none; }
   font-size: 17px;
   line-height: 1.6;
   color: var(--text-2);
-  text-wrap: pretty;
+  text-wrap: balance;   /* 두 줄로 꺾일 때 아랫줄이 한두 낱말만 남지 않게 */
 }
 .text-link {
   align-self: flex-start;
@@ -318,6 +330,10 @@ html.fly-skip .spark { display: none; }
   font-size: 16px;
   font-weight: var(--w-bold);
   text-decoration: none;
+  /* 포커스 링이 글자에 딱 붙은 네모였다 — 둥글게, 좌우로 조금 띄운다(여백만큼 바깥으로 당겨 자리는 그대로) */
+  padding: 0 8px; margin-left: -8px; margin-right: -8px;
+  border-radius: var(--r-ctl);
+  transition: opacity 120ms ease-out;
 }
 .text-link::after {
   content: "";
@@ -373,7 +389,7 @@ html.fly-skip .spark { display: none; }
   display: inline-grid; place-items: center;
   width: 22px; height: 22px;
   border-radius: var(--r-dot);
-  background: var(--brand-weak);
+  background: var(--brand-tint);   /* --brand-weak 는 흰 바탕과 1.03:1 이라 동그라미가 안 보였다 */
   color: var(--brand-ink);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -449,22 +465,23 @@ html.fly-skip .spark { display: none; }
 .mock-rows li + li { border-top: 1px solid var(--border); }
 .mock-rows small { flex-basis: 100%; color: var(--text-3); font-size: 12px; font-weight: var(--w-body); }
 
-/* 리허설 — 자료 화면 + 객석 */
+/* 리허설 — 자료 화면 + 객석. 「발표 중」 · 「1 / 3장」 알약은 자료 위 어두운 띠에 — 자료 위에 얹었더니 슬라이드 머리글 글자와 겹쳤다 (10-13) */
 .mock-stage {
   position: relative;
   width: 100%; max-width: 320px;
+  padding-top: 28px;
   border-radius: 12px;
   overflow: hidden;
-  background: var(--surface);
+  background: #27272A;
   box-shadow: var(--shadow-float);
 }
 .mock-slide { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
 .mock-pill {
-  position: absolute; top: 8px;
+  position: absolute; top: 5px;
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 8px;
   border-radius: var(--r-pill);
-  background: rgba(24, 24, 27, .72);
+  background: rgba(255, 255, 255, .14);
   color: #fff; font-size: 11px; font-weight: var(--w-bold); line-height: 1.4;
 }
 .mock-live { left: 8px; }
@@ -660,6 +677,11 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   transition-timing-function: ease-out;
 }
 .btn-primary:active { transform: scale(.97); background: var(--brand-strong); }
+/* 낮은 창(200% 확대 · 가로 폰)에서는 고정을 풀어 본문 끝에 둔다 — 고정 띠가 화면의 41% 를 덮었다 (10-13) */
+@media (max-height: 480px) {
+  .dock { position: static; padding-top: 8px; background: none; }
+  main { padding-bottom: 24px; }
+}
 
 /* ── 인앱 브라우저 안내 (실제 흐름으로 갈 때만) ────────────────────────── */
 .sheet-scrim {
@@ -673,20 +695,22 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   width: 100%; max-width: 480px;
   padding: 24px var(--gutter) calc(16px + var(--safe-b));
   background: var(--surface);
-  border-radius: var(--r-print) var(--r-print) 0 0;
+  border-radius: var(--r-stage) var(--r-stage) 0 0;
   animation: sheet-up 260ms var(--ease) both;
 }
 .sheet:focus { outline: none; }
 .sheet-title { font-size: 20px; font-weight: var(--w-bold); line-height: 1.4; letter-spacing: -.02em; }
 .sheet-text { margin-top: 8px; color: var(--text-2); font-size: 15px; text-wrap: pretty; }
 .sheet-hint { margin-top: 10px; padding: 10px 12px; border-radius: var(--r-inner); background: var(--fill); font-size: 14px; color: var(--text); }
+.sheet-hint:empty { display: none; }   /* #inapp-hint(role=status) 는 늘 문서에 있고 글이 들어올 때만 보인다 */
 /* 버튼은 세로로 — 주 버튼 → 주소 복사 → 여기서 계속 열기 → 닫기 (투어 끝 화면 시트와 같은 순서, 10-12 점검) */
 .sheet-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
 .sheet-grip { display: block; width: 36px; height: 4px; margin: -10px auto 14px; border-radius: var(--r-pill); background: var(--border); }
 .sheet-tip b { font-weight: var(--w-bold); }
 .btn-ghost { padding: 0 16px; border: 0; background: var(--fill); color: var(--text); }
 .btn-solid { padding: 0 16px; border: 0; background: var(--brand); color: #fff; height: 52px; }
-.sheet-actions .btn-ghost { height: 52px; }
+/* 시트 버튼 둥글기는 아래 고정 주 버튼(--r-float)과 같게 — 같은 화면에 8 · 16 이 섞여 있었다 */
+.sheet-actions .btn-ghost, .sheet-actions .btn-solid { height: 52px; border-radius: var(--r-float); }
 .sheet-anyway {
   display: flex; align-items: center; justify-content: center;
   min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
@@ -726,7 +750,6 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   .team-box { margin-top: 0; }
   .outro-panel { padding: 80px 40px 56px; }
   .outro-lead { font-size: 18px; }
-  .sheet { border-radius: var(--r-stage) var(--r-stage) 0 0; }
 }
 
 /* ── 움직임 줄이기 ──────────────────────────────────────────────────────── */
