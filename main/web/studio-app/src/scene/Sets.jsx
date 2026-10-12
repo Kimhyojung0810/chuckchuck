@@ -193,7 +193,7 @@ export function StationSet({ k, W, H, L, world }) {
   // 텍스처가 늦게 들어와도 다시 그리게 한 번 깨운다
   const [, kick] = useState(0)
   useEffect(() => { const id = setTimeout(() => kick(1), 400); return () => clearTimeout(id) }, [])
-  if (k === 1 && L && L.screen) return <StageWide L={L} world={world} />
+  if (k === 1 && L && L.overlay) return <StageWide L={L} world={world} />
   if (k === 2 && L && L.judge) return <JudgesWide L={L} world={world} />
   const C = SETS[k]
   return C ? <C W={W} H={H} world={world} /> : null

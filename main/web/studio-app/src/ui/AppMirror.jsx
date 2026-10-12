@@ -5,6 +5,7 @@
    읽기만 한다 — 넘기기 · 다시 듣기 · 보내지 않기는 숨긴 앱 단추를 누른다. 카메라 · 녹음 · 받아쓰기 코드는 그대로. */
 import { useEffect, useRef, useState } from 'react'
 import { VoiceViz } from '../voice/VoiceViz.jsx'
+import { rig } from '../rig.js'
 import { createMicMeter } from '../voice/meter.js'
 import { qaVoiceState, viewFor, speakMsFor, rmsToVolume, pickVolume } from '../voice/signal.js'
 
@@ -88,24 +89,35 @@ export function useAppMirror(api, mode) {
 /** 숨긴 앱 단추 누르기 */
 export const pressApp = (api, sel) => { const el = api.current?.doc()?.querySelector(sel); if (el && !el.disabled) el.click() }
 
-/* ── ② 무대 스크린 — 지금 장을 크게 ── */
-export function StageScreen({ slide, onNav }) {
-  if (!slide) return <div className="sx-screen" />
+/* ── ② 카메라 위 자료 창 — 지금 장을 크게 (10-13 사용자: 「발표 자료를 사람 카메라에 overlay」 · 「PPT 너무 작다」).
+   앱의 자료 창과 같은 밝은 유리 판. iframe(카메라) 위 고정 층이라 곡선이 멈췄을 때만 보인다 ── */
+export function SlideOverlay({ slide, box, onNav }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    let raf = 0, was = null
+    const t = () => {
+      const s = rig.settled && !rig.dragging
+      if (s !== was && ref.current) { was = s; ref.current.classList.toggle('is-shown', s) }
+      raf = requestAnimationFrame(t)
+    }
+    raf = requestAnimationFrame(t)
+    return () => cancelAnimationFrame(raf)
+  }, [])
   return (
-    <div className="sx-screen">
+    <div ref={ref} className="sx-screen" style={{ left: box.left, top: box.top, width: box.w }} aria-label="발표 자료">
       <div className="sx-screen__stage">
-        {slide.src ? <img className="sx-screen__img" src={slide.src} alt={slide.title || '지금 장'} draggable="false" />
-          : slide.html ? <div className="sx-screen__doc" dangerouslySetInnerHTML={{ __html: slide.html }} />
+        {slide && slide.src ? <img className="sx-screen__img" src={slide.src} alt={slide.title || '지금 장'} draggable="false" />
+          : slide && slide.html ? <div className="sx-screen__doc" dangerouslySetInnerHTML={{ __html: slide.html }} />
           : <p className="sx-screen__empty">자료를 불러오고 있어요</p>}
-        {slide.caption && <p className="sx-screen__sub">{slide.caption}</p>}
         <button type="button" className="sx-screen__side is-prev" onClick={() => onNav(-1)} aria-label="이전 장">‹</button>
         <button type="button" className="sx-screen__side is-next" onClick={() => onNav(1)} aria-label="다음 장">›</button>
       </div>
       <div className="sx-screen__cap">
-        <strong>{slide.title}</strong>
-        <span className="sx-screen__no">{slide.no}</span>
-        <span className="sx-screen__prog" aria-hidden="true"><i style={{ width: slide.prog || '0%' }} /></span>
+        <strong>{slide ? slide.title : ''}</strong>
+        <span className="sx-screen__no">{slide ? slide.no : ''}</span>
+        <span className="sx-screen__prog" aria-hidden="true"><i style={{ width: (slide && slide.prog) || '0%' }} /></span>
       </div>
+      {slide && slide.caption && <p className="sx-screen__sub">{slide.caption}</p>}
     </div>
   )
 }

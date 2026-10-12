@@ -15,7 +15,7 @@ import { PresentDock } from './ui/PresentDock.jsx'
 import { Companion } from './piyak/Companion.jsx'
 import { rmsToVolume } from './voice/signal.js'
 import { stationLayout, appRect } from './layout.js'
-import { useAppMirror, pressApp, StageScreen, Listener, Judge } from './ui/AppMirror.jsx'
+import { useAppMirror, pressApp, SlideOverlay, Listener, Judge } from './ui/AppMirror.jsx'
 
 function useViewport() {
   const read = () => ({ w: innerWidth, h: innerHeight, phone: innerWidth < 720 })
@@ -92,15 +92,13 @@ export default function App() {
   const stations = STATIONS.map((s, k) => {
     const L = Ls[k]
     const panels = [{ id: 'w', x: L.app.x, y: L.app.y, w: L.app.w, h: L.app.h, children: <CoverCard no={k + 1} name={s.name} line={s.line} /> }]
-    if (L.screen) panels.push({ id: 'screen', ...L.screen, glass: false, radius: 18,
-      children: <StageScreen slide={k === at && mirror ? mirror.slide : null} onNav={slideNav} /> })
     if (L.listener) panels.push({ id: 'listener', ...L.listener, glass: false, bare: true,
       children: <Listener bird={k === at && mirror ? mirror.bird : null} size={L.seat} onEar={() => pressApp(frameApi, '#vrEar')} /> })
     if (L.judge) panels.push({ id: 'judge', ...L.judge, glass: false, bare: true,
       children: <Judge judge={k === at ? mirror : null} size={L.seat} onCancel={() => pressApp(frameApi, '#bcSendCancel')} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
     if (!vp.phone) {
-      const at2 = k === 1 && L.dock ? { x: L.app.x + L.app.w / 2 - 105, y: L.dock.top - vp.h / 2 - 160 }
+      const at2 = k === 1 && L.dock ? { x: L.app.x + L.app.w / 2 - 105, y: L.dock.top - vp.h / 2 - 70 }   // 알 그림이 칸 위쪽이라 카메라에 가리지 않게 내린다
         : k === 2 && L.judge ? { x: L.judge.x, y: L.judge.y - L.judge.h / 2 - 150 }
         : { x: L.app.x - (L.app.w / 2 + 118), y: k === 0 ? L.app.h / 2 - 140 : L.app.h / 2 - 250 }
       panels.push({ id: 'piyak', x: Math.round(at2.x), y: Math.round(at2.y), w: 210, h: 300, glass: false, bare: true,
@@ -118,6 +116,10 @@ export default function App() {
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} />
+      {at === 1 && Ls[1].overlay && mirror && mirror.slide && (
+        <SlideOverlay slide={mirror.slide} onNav={slideNav}
+          box={{ left: rect.left + Ls[1].overlay.left, top: rect.top + Ls[1].overlay.top, w: Ls[1].overlay.w, h: Ls[1].overlay.h }} />
+      )}
       <PresentDock api={frameApi} box={Ls[1].dock || { left: rect.left, width: rect.width, top: rect.top + rect.height + 14 }} on={at === 1 && !vp.phone} />
 
       <header className="hud">
