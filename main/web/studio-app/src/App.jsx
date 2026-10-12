@@ -11,6 +11,7 @@ import { GlassPass } from './scene/Glass.jsx'
 import { Station } from './scene/Station.jsx'
 import { useMicLevel } from './media.js'
 import { AppFrame, CoverCard } from './ui/Frame.jsx'
+import { PresentDock } from './ui/PresentDock.jsx'
 import { PiyakStage } from './piyak/PiyakStage.jsx'
 
 function useViewport() {
@@ -93,6 +94,7 @@ export default function App() {
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} />
+      <PresentDock api={frameApi} rect={rect} on={at === 1 && !vp.phone} />
 
       <header className="hud">
         <span className="hud__brand"><img src="assets/chuckchuck-app-icon-64.png" alt="" /><span>척척발표</span></span>

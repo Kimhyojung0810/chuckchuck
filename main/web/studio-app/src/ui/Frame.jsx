@@ -89,7 +89,10 @@ export function AppFrame({ rect, onStation, api }) {
   }
 
   useEffect(() => {
-    if (api) api.current = { next: () => act('next'), back: () => act('back'), key: (e) => onKey(e, document.activeElement) }
+    if (api) api.current = {
+      next: () => act('next'), back: () => act('back'), key: (e) => onKey(e, document.activeElement),
+      doc: () => frame.current?.contentDocument || null, win: () => frame.current?.contentWindow || null,
+    }
   })
 
   const onLoad = () => {

@@ -560,6 +560,18 @@ body #vrCall.vr-call .vr-dock .vr-nav[hidden] { display: inline-flex; visibility
   #vrCall #slideNo:is(.is-turn-next, .is-turn-prev) { animation: none; color: var(--brand-strong, #0E8850); }
 }
 
-/* 10-13 하단 마이크 표시 = orb-ui Bars (js/voice-viz.js · app.js recVoiceMount) — 진짜 마이크 음량. 옛 물결 막대 자리(20px 줄)에 맞춘다 */
-.vr-rec .meter.meter-voice { width: 34px; height: 28px; margin-left: 4px; align-items: center; justify-content: center; overflow: visible; }
-.vr-rec .meter.meter-voice .cv-orb { flex: none; }
+/* 10-13 하단 마이크 표시 = 흐르는 파형 (js/voice-viz.js · app.js recVoiceMount) — 진짜 마이크 음량, 새 소리는 오른쪽에서 들어온다 */
+.vr-rec .meter.meter-voice { display: block; width: 140px; height: 28px; margin-left: 4px; color: rgba(255, 255, 255, .6); }
+
+/* 10-13 사용자 「PPT 사이즈랑 미리보기가 안 맞는다 — 16:9 기준으로」: 넓은 화면의 자료 칸은 늘 16:9.
+   창 높이에 자막 자리까지 들어 있어 장 칸이 16:9 보다 길어졌고, 장 위아래로 흰 띠가 생겼다. 남는 높이는 자막 칸이 쓴다 */
+@media (orientation: landscape) and (min-height: 561px) {
+  #vrCall .vr-slide-stage { flex: none; width: 100%; aspect-ratio: 16 / 9; }
+  #vrCall .vr-slide-stage :is(.vr-slide-img, .vr-slide-canvas) { width: 100%; height: 100%; max-height: none; object-fit: contain; }
+}
+/* 「이전 · 다음 이랑 PPT 좌우 버튼 위계가 이상하다」: 장을 넘기는 주인공은 아래 큰 「이전 · 다음」(클리커 · 키보드와 같다).
+   자료 위 ‹ › 는 마우스를 올렸을 때만 작게 — 손가락 기기(hover 없음)는 그대로 */
+@media (hover: hover) {
+  .vr-side { width: 30px; height: 44px; font-size: 20px; border-radius: 8px; background: rgba(16, 20, 32, .3); opacity: 0; transition: opacity .15s; }
+  .vr-slide:hover .vr-side, .vr-side:focus-visible { opacity: 1; }
+}

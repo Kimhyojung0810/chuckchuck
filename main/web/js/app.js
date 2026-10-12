@@ -2812,7 +2812,7 @@ function bindRecUpload() {
   });
 }
 
-/* 발표 중 하단 마이크 표시 — 음성 시각화(js/voice-viz.js · orb-ui Bars)가 받아져 있으면 진짜 마이크 음량으로 (10-13 사용자).
+/* 발표 중 하단 마이크 표시 — 음성 시각화(js/voice-viz.js · 흐르는 파형)가 받아져 있으면 진짜 마이크 음량으로 (10-13 사용자).
    비전 리허설은 이미 재고 있는 음량(visionReadLevel)을 그대로 쓴다 — 마이크를 더 열지 않는다. 없으면 예전 CSS 물결 */
 let recVoice = null;
 function recVoiceMount(p) {
@@ -2822,7 +2822,7 @@ function recVoiceMount(p) {
   el.classList.add('meter-voice');
   el.textContent = '';
   recVoice = window.ChuckVoice.mount(el, {
-    kind: 'bars', barsSize: 34, label: '마이크 입력',
+    kind: 'wave', height: 28, label: '마이크 파형',   // 10-13 사용자: Bars 대신 오른쪽에서 왼쪽으로 흐르는 파형 — 녹음하는 느낌
     tone: el.closest('#vrCall[data-flow="rehearsal"]') ? 'light' : 'dark',   // 리허설 흐름의 하단 독은 밝은 유리
     read: typeof visionReadLevel === 'function' ? visionReadLevel : null,
   });

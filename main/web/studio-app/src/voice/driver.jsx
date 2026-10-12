@@ -1,6 +1,7 @@
 // window.ChuckVoice — 바닐라 앱 화면(비전 리허설 · 글라스 화상판)에 음성 시각화를 꽂는 입구. 빌드: ../js/voice-viz.js
 //
 //   const h = ChuckVoice.mount(el, { kind: 'bars', read: () => rms | null, tone: 'light' })   // 발표 하단 — 내 목소리
+//   const h = ChuckVoice.mount(el, { kind: 'wave', read })  // 발표 하단 — 흐르는 파형(10-13 사용자: Bars 대신 녹음하는 느낌)
 //   const h = ChuckVoice.mount(el, { kind: 'qa' })                             // Q&A — 삐약이 구 / 내 Bars
 //   h.update({ thinking, micOn, speakText })   // speakText: 삐약이가 새로 한 말(그 길이만큼 말하는 중)
 //   h.destroy()
@@ -9,6 +10,7 @@
 // AI 목소리: ChuckVoice.outputFrom(<audio>) 로 TTS 를 이으면 그 소리 크기, 없으면 speechSynthesis 말하기 여부, 그것도 없으면 글 길이만큼 흉내.
 import { createRoot } from 'react-dom/client'
 import { VoiceViz } from './VoiceViz.jsx'
+import { Waveform } from './Waveform.jsx'
 import { createMicMeter, createOutputMeter } from './meter.js'
 import { qaVoiceState, viewFor, speakMsFor, rmsToVolume, pickVolume } from './signal.js'
 
@@ -35,7 +37,30 @@ function ttsSpeaking() {
   return typeof window.speechSynthesis !== 'undefined' && window.speechSynthesis.speaking
 }
 
-function mount(el, { kind = 'bars', read = null, barsSize = 40, orbSize = 64, tone = 'dark', label } = {}) {
+/** 흐르는 파형 — 앱이 재는 음량(read) 우선, 없으면 재기 전용 마이크(iOS 는 안 염), 그것도 없으면 흉내(Waveform 안) */
+function mountWave(el, { read = null, tone = 'dark', label, height = 32 } = {}) {
+  const root = createRoot(el)
+  const meter = createMicMeter()
+  const level = () => {
+    const ext = typeof read === 'function' ? read() : null
+    if (ext !== null && ext !== undefined) return rmsToVolume(ext)
+    meter.open()
+    const own = meter.read()
+    return own === null ? null : rmsToVolume(own)
+  }
+  root.render(<Waveform active read={level} height={height} barColor={tone === 'light' ? '#0e8850' : '#3fd599'} label={label || '마이크 파형'} />)
+  let dead = false
+  const destroy = () => { if (dead) return; dead = true; clearInterval(watch); meter.close(); root.unmount() }
+  const watch = setInterval(() => { if (!el.isConnected) destroy() }, 1000)   // 앱이 자리를 다시 그리면 스스로 정리
+  return { update() {}, destroy }
+}
+
+function mount(el, opts = {}) {
+  if (opts.kind === 'wave') return mountWave(el, opts)
+  return mountOrb(el, opts)
+}
+
+function mountOrb(el, { kind = 'bars', read = null, barsSize = 40, orbSize = 64, tone = 'dark', label } = {}) {
   const adapter = createSignalAdapter()
   const root = createRoot(el)
   const meter = createMicMeter()
