@@ -52,25 +52,22 @@ const GLANCE_SPAN_MS = 2200
 const BLINK_MIN_MS = 2600
 const BLINK_SPAN_MS = 3800
 
-/* 10-13 사용자: 「모양 자체를 바꿔도 된다」 → 아기 도식(Kindchenschema)대로 — 달걀 → 동그란 몸, 눈은 크게 · 몸 가운데선 아래로 · 넓게,
-   부리는 작게, 볼은 크게, 다리는 짧게. 초록 외곽선 · 노란 몸 · 새싹 · 슬라이드 소품은 그대로. 옛 모양은 js/chatter.js chickSvg */
-const TORSO = 'M50 17C28 17 12 32 12 53c0 20 17 34 38 34s38-14 38-34C88 32 72 17 50 17z'
-const EYE = { cy: 55, rx: 6.6, ry: 7.4 }
+/* 10-13 사용자: 「모양을 바꿔도 된다」 → 큰 눈 동그란 몸 시안은 「이상하다」 → 사용자 레퍼런스(카와이 병아리 이모지 · 병아리 스티커)대로:
+   머리 · 몸이 한 덩어리인 방울 떡(옆으로 조금 넓고 바닥이 평평), 하이라이트 없는 작은 점 눈을 멀리 · 낮게, 작은 둥근 부리, 작은 볼,
+   배 무늬 · 꼬리 없이 날개 · 발은 살짝만. 초록 외곽선 · 노란 몸 · 새싹 · 쏠라의 슬라이드는 그대로. 옛 달걀 모양은 js/chatter.js chickSvg */
+const TORSO = 'M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z'
+const EYE = { cy: 56, r: 3.1 }
 
-/** 눈 한 짝 — 눈동자와 하이라이트가 따로 움직여(하이라이트가 덜) 시선에 깊이가 생긴다 */
-function Eye({ cx, gx, gy, hx, hy, sx }) {
-  const { cy, rx, ry } = EYE
+/** 눈 한 짝 — 작은 점. 표정 곡선(기쁨 ∩ · 아쉬움 ∪)은 mood 가 켠다 */
+function Eye({ cx, gx, gy, sx }) {
+  const { cy, r } = EYE
   return (
     <motion.g className="px-eye" style={{ scaleX: sx, originX: 0.5, originY: 0.5 }}>
       <motion.g style={{ x: gx, y: gy }}>
-        <ellipse className="px-eye-ball" cx={cx} cy={cy} rx={rx} ry={ry} />
+        <circle className="px-eye-ball" cx={cx} cy={cy} r={r} />
       </motion.g>
-      <motion.g className="px-eye-hi" style={{ x: hx, y: hy }}>
-        <circle cx={cx + 2.3} cy={cy - 3.1} r="2.6" />
-        <circle cx={cx - 2.5} cy={cy + 2.8} r="1.3" opacity=".75" />
-      </motion.g>
-      <path className="px-eye-line px-eye-happy" d={`M${cx - 7} ${cy - 2}q7 9 14 0`} />
-      <path className="px-eye-line px-eye-grumpy" d={`M${cx - 7} ${cy + 4}q7 -9 14 0`} />
+      <path className="px-eye-line px-eye-happy" d={`M${cx - 3.8} ${cy + 1.2}q3.8 -4.8 7.6 0`} />
+      <path className="px-eye-line px-eye-grumpy" d={`M${cx - 3.8} ${cy - 1.2}q3.8 4.4 7.6 0`} />
     </motion.g>
   )
 }
@@ -90,7 +87,7 @@ function useGaze(target, wander) {
       if (!el || !last) return
       const r = el.getBoundingClientRect()
       if (!r.width) return
-      const g = gaze(last.x, last.y, r.left + r.width / 2, r.top + r.height * 0.58, r.width * 0.45)
+      const g = gaze(last.x, last.y, r.left + r.width / 2, r.top + r.height * 0.59, r.width * 0.45)
       gx.set(g.x); gy.set(g.y)
     }
     /** 혼자 있을 때 — 세 번에 한 번은 앞을, 나머지는 옆 · 위아래를 본다 */
@@ -169,8 +166,6 @@ export function Piyak({ mood = 'neutral', levelRef, listening = false, onPoke, o
   const { gx: gazeX, gy: gazeY } = useGaze(box, !reduced)
   const gx = useSpring(gazeX, EYE_SPRING)
   const gy = useSpring(gazeY, EYE_SPRING)
-  const hx = useTransform(gx, (v) => v * 0.6)
-  const hy = useTransform(gy, (v) => v * 0.6)
 
   // 몸 돌리기 (10-13 사용자: 「몸이 진짜로 회전하는 게 중요」) — 반쯤 입체: 앞에 있는 것일수록 더 옆으로 밀리고,
   // 얼굴 · 배는 몸 윤곽 안에서만 보여서 옆으로 돌면 윤곽 너머로 넘어간다. 먼 쪽 눈 · 볼 · 날개는 좁아지고, 몸이 그쪽으로 기운다
@@ -181,13 +176,11 @@ export function Piyak({ mood = 'neutral', levelRef, listening = false, onPoke, o
   const faceX = useTransform(turn, by('face'))
   const faceY = useTransform(pitch, by('faceY'))
   const blushX = useTransform(turn, by('blush'))
-  const bellyX = useTransform(turn, by('belly'))
   const bellyY = useTransform(pitch, by('bellyY'))
   const propX = useTransform(turn, by('prop'))
   const tuftX = useTransform(turn, by('tuft'))
   const tuftY = useTransform(pitch, by('tuftY'))
   const legX = useTransform(turn, by('legs'))
-  const tailX = useTransform(turn, by('tail'))
   const wingX = useTransform(turn, by('wing'))
   const torsoSx = useTransform(turn, (t) => 1 - AMP.narrow * Math.abs(t))
   const eyeLSx = useTransform(turn, far('farEye', -1))
@@ -286,60 +279,57 @@ export function Piyak({ mood = 'neutral', levelRef, listening = false, onPoke, o
         </defs>
         <motion.circle className="px-glow" cx="50" cy="52" r="58" fill={`url(#${glowId})`}
           style={{ opacity: glowOpacity, scale: glowScale, originX: 0.5, originY: 0.5 }} />
-        <motion.ellipse className="px-shadow" cx="50" cy="95.5" rx="26" ry="3" style={{ scaleX: shadowS, originX: 0.5, originY: 0.5 }} />
+        <motion.ellipse className="px-shadow" cx="50" cy="91.5" rx="28" ry="3" style={{ scaleX: shadowS, originX: 0.5, originY: 0.5 }} />
 
         <motion.g style={{ y: bodyY }}>
           <motion.g style={{ rotate: lean, originX: 0.5, originY: 1 }}>
             <motion.g style={{ scaleX: sx, scaleY: sy, originX: 0.5, originY: 1 }}>
               <g className="px-breath">
                 <motion.g className="px-legs" style={{ x: legX }}>
-                  <path className="px-leg-l" d="M41 87c-2.8 3.2-1.6 6.5 1.6 6.5 2.6 0 4.4-1.8 4.2-5.4z" />
-                  <path className="px-leg-r" d="M59 87c2.8 3.2 1.6 6.5-1.6 6.5-2.6 0-4.4-1.8-4.2-5.4z" />
+                  <ellipse className="px-leg-l" cx="41" cy="88.6" rx="3.4" ry="2" />
+                  <ellipse className="px-leg-r" cx="59" cy="88.6" rx="3.4" ry="2" />
                 </motion.g>
-                <motion.path className="px-fill px-w24" d="M17 72c-5.5-1-9 1.5-9.5 5.5 4 1.2 7.5.3 10-1.8z" style={{ x: tailX }} />
 
                 <motion.g style={{ scaleX: torsoSx, originX: 0.5, originY: 0.5 }}>
                   <path className="px-body" d={TORSO} />
                   <g clipPath={`url(#${clipId})`}>
-                    <motion.ellipse className="px-belly" cx="50" cy="77" rx="12.5" ry="7" style={{ x: bellyX, y: bellyY }} />
                     <motion.g style={{ x: blushX, y: faceY }}>
-                      <motion.ellipse className="px-blush" cx="25.5" cy="64" rx="5.6" ry="3.3" style={{ scaleX: blushLSx, originX: 0.5, originY: 0.5 }} />
-                      <motion.ellipse className="px-blush" cx="74.5" cy="64" rx="5.6" ry="3.3" style={{ scaleX: blushRSx, originX: 0.5, originY: 0.5 }} />
+                      <motion.ellipse className="px-blush" cx="31.5" cy="62.5" rx="4.8" ry="2.8" style={{ scaleX: blushLSx, originX: 0.5, originY: 0.5 }} />
+                      <motion.ellipse className="px-blush" cx="68.5" cy="62.5" rx="4.8" ry="2.8" style={{ scaleX: blushRSx, originX: 0.5, originY: 0.5 }} />
                     </motion.g>
                     <motion.g style={{ x: faceX, y: faceY }}>
                       <motion.g className="px-eyes" style={{ scaleY: blink, originX: 0.5, originY: 0.5 }}>
-                        <Eye cx={37} gx={gx} gy={gy} hx={hx} hy={hy} sx={eyeLSx} />
-                        <Eye cx={63} gx={gx} gy={gy} hx={hx} hy={hy} sx={eyeRSx} />
+                        <Eye cx={37.5} gx={gx} gy={gy} sx={eyeLSx} />
+                        <Eye cx={62.5} gx={gx} gy={gy} sx={eyeRSx} />
                       </motion.g>
-                      <path className="px-beak" d="M50 60.5c2 0 3.2 1 3.2 2.1 0 1.4-1.4 2.4-3.2 2.4s-3.2-1-3.2-2.4c0-1.1 1.2-2.1 3.2-2.1z" />
+                      <path className="px-beak" d="M50 58.2c1.9 0 3 .8 3 1.8 0 1.3-1.3 2.3-3 2.3s-3-1-3-2.3c0-1 1.1-1.8 3-1.8z" />
                     </motion.g>
                   </g>
                   {/* 외곽선은 맨 위에 한 번 더 — 얼굴이 윤곽 밑으로 미끄러져 들어가 보인다 */}
                   <path className="px-outline" d={TORSO} />
                 </motion.g>
 
-                <motion.path className="px-fill px-w24" d="M13.5 60c-5 .8-8 4.4-7.4 9 4.4 1 8.6-.7 11-4z"
+                <motion.path className="px-fill px-w24" d="M12.6 58.5c-5.4.4-8.4 4.4-7.6 8.6 4.4.8 8-1.2 9.2-4.4z"
                   style={{ x: wingX, rotate: wingL, scale: wingLS, originX: 1, originY: 0 }} />
-                <motion.path className="px-fill px-w24" d="M86.5 60c5 .8 8 4.4 7.4 9-4.4 1-8.6-.7-11-4z"
+                <motion.path className="px-fill px-w24" d="M87.4 58.5c5.4.4 8.4 4.4 7.6 8.6-4.4.8-8-1.2-9.2-4.4z"
                   style={{ x: wingX, rotate: wingR, scale: wingRS, originX: 0, originY: 0 }} />
 
                 <motion.g className="px-tuft" style={{ x: tuftX, y: tuftY }}>
-                  <path d="M50 17V12.5" fill="none" strokeWidth="2" strokeLinecap="round" />
-                  <path className="px-mint" d="M50 13C49 9.8 46.2 8.6 43.8 9.6c.5 2.7 3 4 6.2 3.4z" />
-                  <path className="px-mint" d="M50 13c1-3.2 3.8-4.4 6.2-3.4-.5 2.7-3 4-6.2 3.4z" />
+                  <path d="M50 18V14" fill="none" strokeWidth="1.8" strokeLinecap="round" />
+                  <path className="px-mint" d="M50 14.4c-.9-2.8-3.4-3.9-5.6-3 .5 2.4 2.7 3.6 5.6 3z" />
+                  <path className="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z" />
                 </motion.g>
 
-                {/* 쏠라의 소품 — 겹친 슬라이드 두 장 (자료를 통독한 병아리). 몸 앞에 들고 있어서 윤곽에 잘리지 않는다 */}
+                {/* 쏠라의 소품 — 겹친 슬라이드 두 장 (자료를 통독한 병아리). 몸 옆에 끼고 있어서 얼굴 · 볼을 가리지 않는다 */}
                 <motion.g style={{ x: propX, y: bellyY }}>
-                  <g className="px-prop" transform="translate(6 11) rotate(-8 76 68)">
-                    <rect x="71.5" y="56.5" width="17" height="12.5" rx="2.5" fill="#F2FBF6" />
-                    <rect x="68.5" y="59.5" width="17" height="12.5" rx="2.5" fill="#FFFFFF" />
-                    <rect x="71" y="62" width="5.5" height="3.2" rx="1" className="px-mint" stroke="none" />
-                    <path d="M71 67.5h12M71 69.8h8.5" stroke="#BFD9CB" strokeWidth="1.4" strokeLinecap="round" />
+                  <g className="px-prop" transform="translate(84 66) rotate(12)">
+                    <rect x="0" y="0" width="15" height="11" rx="2.2" fill="#F2FBF6" />
+                    <rect x="-2.6" y="2.6" width="15" height="11" rx="2.2" fill="#FFFFFF" />
+                    <rect x="-.4" y="4.8" width="4.8" height="2.8" rx=".9" className="px-mint" stroke="none" />
                   </g>
                 </motion.g>
 
-                <g className="px-emote" transform="translate(0 7)">
+                <g className="px-emote" transform="translate(3 4)">
                   <path className="px-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z" />
                   {/* 물음표는 글자가 아니라 선 — 바깥 font-size 를 물려받아 상자가 커지면 몸의 회전 기준점이 틀어진다 */}
                   <g className="px-mark">
