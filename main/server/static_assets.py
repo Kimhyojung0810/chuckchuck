@@ -57,6 +57,7 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
     | js/vendor/(?:{_NAME}/)?{_NAME}\.(?:m?js|wasm|xml)
     | js/vendor/mediapipe/(?:wasm/)?{_NAME}\.(?:m?js|wasm|task)
     | assets/{_NAME}\.(?:png|svg|ico|webp)
+    | assets/fonts/{_NAME}\.woff2
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
     | data/team\.json | data/tour/{_TOUR}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
