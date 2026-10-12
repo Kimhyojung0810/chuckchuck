@@ -329,7 +329,7 @@ function rhExitClicked() {
     const act = rhExitTarget();
     if (act.kind === 'back') history.back();
     else if (act.kind === 'replace') location.replace(act.to);
-    else location.hash = '#/';
+    else location.hash = '#/home';
     return;
   }
   const layer = document.getElementById('bqStage');
@@ -361,7 +361,7 @@ function rhExitClicked() {
   sheet.addEventListener('click', (e) => {
     const act = e.target.closest('[data-sheet]');
     if (e.target === sheet || (act && act.dataset.sheet === 'close')) close();
-    else if (act && act.dataset.sheet === 'leave') { sheet.remove(); location.hash = '#/'; }
+    else if (act && act.dataset.sheet === 'leave') { sheet.remove(); location.hash = '#/home'; }
   });
   sheet.querySelector('[data-sheet="close"]').focus();
 }
@@ -1130,7 +1130,7 @@ function rhConfirmRecording(layer) {
  * 예전엔 브라우저 확인 창(확인/취소)이었고, 확인해도 녹음기 · 마이크가 홈에서 계속 돌았다 (10-03 점검 V3 · perf-1)
  */
 function rehearsalVisionLeave(layer) {
-  if (!nf || nf.mic !== 'on') { location.hash = '#/'; return; }
+  if (!nf || nf.mic !== 'on') { location.hash = '#/home'; return; }
   if (document.getElementById('rhLeaveSheet')) return;
   const back = document.activeElement;
   const sheet = document.createElement('div');
@@ -1160,7 +1160,7 @@ function rehearsalVisionLeave(layer) {
     else if (act && act.dataset.sheet === 'leave') {
       sheet.remove();
       if (typeof visionStopTake === 'function') visionStopTake();
-      location.hash = '#/';
+      location.hash = '#/home';
     }
   });
   sheet.querySelector('[data-sheet="close"]').focus();

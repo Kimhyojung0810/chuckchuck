@@ -1136,7 +1136,7 @@ function nfStep3Vision() {
       <span class="vr-top-fill">${precomputeNoteHtml()}</span>
       <button class="btn vr-glass" id="vrCamToggle" type="button">카메라 켜기</button>
       ${rehearsalTab ? '' : '<button class="btn vr-glass" id="vrClassic" type="button">일반 리허설</button>'}
-      <a class="btn vr-glass" href="#/" id="vrLeave">나가기</a>
+      <a class="btn vr-glass" href="#/home" id="vrLeave">나가기</a>
     </header>
     <p class="vr-hear vr-glass" id="vrHear" hidden></p>
     <div class="vr-dock vr-glass">

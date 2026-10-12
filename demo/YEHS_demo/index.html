@@ -74,6 +74,9 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
       history.replaceState({ hi: true, depth: 0 }, '');
     }
   } catch (_) { /* 기록 표시는 덤 — 없으면 「팀 소개로」 가 /hi 로 바꿔 간다 */ }
+  /* 도메인 첫 화면은 리허설 올리기다 (10-12 사용자 「리허설이 main」). 빈 주소 · #/ 를 app.js 가 읽기 전에 #/rehearsal 로 바꿔
+     앱 셸(내 발표)이 한 번 비쳤다 사라지지 않게 한다. 예전 홈(내 발표 목록)은 #/home. 앱 안에서 #/ 로 가는 링크는 route() 가 같은 규칙으로 돌린다 */
+  if (/^(#\/?)?$/.test(location.hash)) history.replaceState(history.state, '', '#/rehearsal');
 </script>
 <style>
   html.tour-boot .sidenav, html.tour-boot .topbar, html.tour-boot #app { display: none !important; }
@@ -103,7 +106,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
        사이트맵처럼 읽히고, 지금 어디인지도 글자 무게로만 말하게 된다.
        선 아이콘 하나로 통일하고 색은 currentColor 로 받아 선택 상태를 따라간다 -->
   <ul class="sidenav-list">
-    <li><a href="#/" data-nav="">
+    <li><a href="#/home" data-nav="home">
       <svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.6 12 3.8l8.5 6.8V20a1 1 0 0 1-1 1h-4.6v-6H9.1v6H4.5a1 1 0 0 1-1-1z"/></svg>
       <span>내 발표</span></a></li>
     <!-- 카메라 앞 리허설(#/rehearsal) — 자료를 올리고 카메라 앞에서 발표 → 질문 3개 → 리포트 (10-08 공개 사이트 편입) -->
@@ -156,16 +159,16 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <link rel="stylesheet" href="css/booth_call.css?v=bc23" data-bundle="beta">
   <link rel="stylesheet" href="css/rehearsal.css?v=rh24" data-bundle="beta">
   <!-- 통화 배치 흐름 #/temp (발표: 자료 정면 + 내 모습 작은 창 · Q&A: 내 모습 가운데). app.js 의 전역을 호출 시점에 찾는다 -->
-  <script src="js/call_flow.js?v=cf6" data-bundle="beta"></script>
+  <script src="js/call_flow.js?v=cf7" data-bundle="beta"></script>
   <script src="js/vision_cue.js?v=vr4" data-bundle="beta"></script>
-  <script src="js/vision_rehearsal.js?v=vr32" data-bundle="beta"></script>
+  <script src="js/vision_rehearsal.js?v=vr33" data-bundle="beta"></script>
   <!-- 부스 Q&A 무대 #/booth/qa — 카메라 판단(OpenCV.js 는 이 화면에서만 받는다) · 화면 흐름 -->
   <script src="js/booth_cv.js?v=bq4" data-bundle="beta"></script>
   <script src="js/booth_ops.js?v=bo10" data-bundle="beta"></script>
   <script src="js/booth_qa.js?v=bq17" data-bundle="beta"></script>
   <script src="js/booth_call.js?v=bc18" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
-  <script src="js/rehearsal.js?v=rh51" data-bundle="beta"></script>
+  <script src="js/rehearsal.js?v=rh52" data-bundle="beta"></script>
   <!-- 부스 모바일 체험 투어 #/tour/* — 녹화 응답 재생(API · 카메라 0). 순수 판단 → 셸 · 시작/자료/끝 → 발표 · 분석 · 질문 · 리포트 순서 -->
   <link rel="stylesheet" href="css/tour.css?v=tr12" data-bundle="tour">
   <script src="js/funnel.js?v=fn2" data-bundle="tour"></script>
@@ -187,10 +190,10 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/report-strategy.js?v=qlst"></script>
 <!-- 실전 QA(F-08·F-09) — app.js 에서 떼어냈다. 전역을 공유하므로 app.js 앞에 둔다 -->
 <script src="js/conn_watch.js?v=cw2"></script>
-<script src="js/qa_live.js?v=qlbc34"></script>
+<script src="js/qa_live.js?v=qlbc35"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv4"></script>
-<script src="js/app.js?v=qlbc72"></script>
+<script src="js/app.js?v=qlbc73"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
 <script type="module" src="js/chuckchuck_bridge.js?v=qkxbc14"></script>
 </body>

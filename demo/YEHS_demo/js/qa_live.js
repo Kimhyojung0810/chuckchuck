@@ -603,7 +603,7 @@ function renderQaLive() {
   if (typeof callFlowOn === 'function' && callFlowOn()) return renderQaLiveCall();
   if (typeof boothQaOn === 'function' && boothQaOn()) return renderQaLiveBooth();
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
+    <div class="coach-nav"><a href="#/home">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
       <aside class="qa-context" id="qaContext">${liveContextHtml()}</aside>
       <section class="qa-dialog">
@@ -2308,7 +2308,7 @@ function qaLiveEnd() {
     </div>` : '';
 
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
+    <div class="coach-nav"><a href="#/home">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
     <div class="card cere-card qres">
       <p class="qres-eyebrow">실전 질문 코칭 결과</p>
       <!-- 숫자는 아래 묶음과 반드시 같아야 한다. 헤드라인·퀘스트 막대(liveWonCount)·리포트 「끝까지 설명」 이
@@ -2365,7 +2365,7 @@ function qaLiveEnd() {
 function qaModeGate() {
   app.className = 'narrow';
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>시작 전 설정</span></div>
+    <div class="coach-nav"><a href="#/home">← 내 발표로 나가기</a><span>시작 전 설정</span></div>
     <div class="card qa-quick">
       <div class="qm-head"><b>질문 코칭 시간을 골라주세요</b><span>시간에 맞춰 질문 범위를 짜요 — 짧을수록 치명적인 것만 다뤄요</span></div>
       ${qaModeButtonsHtml()}

@@ -247,7 +247,8 @@ function voiceTimeChartHtml(pace) {
 
 /* ══ 라우팅 ══ */
 const routes = {
-  '': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout,
+  // 첫 화면(#/)은 리허설이다 — route() 가 #/rehearsal 로 돌린다. 예전 홈(내 발표 목록)은 #/home (10-12 사용자)
+  '': renderHome, 'home': renderHome, 'new': renderNew, 'report': renderReport, 'qa': renderQa, 'about': renderAbout,
   // 저장된 발표로 이어서 (개발용). 어디에도 링크를 걸지 않는다 — 부스 방문객이
   // 흘러 들어오면 남의 발표 기록을 보게 된다. 주소를 아는 사람만 들어온다.
   'replay': renderReplay,
@@ -377,6 +378,9 @@ function route() {
   const key = parts[0];
   if (key !== 'new') dismissF11Reveal();
   const rawKey = location.hash.replace(/^#\/?/, '').split('/')[0];
+  // 도메인 첫 화면은 리허설 올리기다 (10-12 사용자 「리허설이 main」). 앱 안의 「홈으로」 · 로고(#/)도 여기로 온다.
+  // 처음 열 때는 index.html 이 app.js 보다 먼저 바꿔 둔다 — 같은 규칙. 내 발표 목록은 #/home
+  if (!rawKey) { location.replace('#/rehearsal'); return; }
   // #/hi · #/hi/<id> — 팀 소개는 앱 화면이 아니라 /hi 랜딩(intro.html, 브리지가 그 자리에서 준다)이다. 옛 링크·뒤로 가기로 와도 그쪽으로 (2026-10-12 부스 모바일 통합)
   if (rawKey === 'hi') {
     const id = (location.hash.match(/^#\/?hi\/([a-z0-9-]{1,24})\/?$/i) || [])[1];
@@ -424,7 +428,7 @@ function route() {
   if (lazy.length && !lazy.every((b) => ccLazy.loaded(b))) { renderLazyWait(lazy); return; }
   /* 「내 발표」는 지난 발표 벽이다. 리포트를 보다가 여기로 오면 이번 회차를
      벽에 붙여 둔다. 같은 테이크면 Playbill 이 갱신만 하므로 중복 티켓은 안 생긴다 */
-  if (!key) {
+  if (key === 'home') {
     const pending = currentShow();
     if (pending && pending.takeId) recordShow();
   }
@@ -1087,7 +1091,7 @@ function applyTeam(team) {
   // 같은 답이면 다시 그리지 않는다 — 베타 경로마다 다시 묻게 됐으니, 부스 화면이 판정마다 새로 그려지면 안 된다
   if (((BETA_ROUTES.has(key) || BETA_ROUTES.has(rawKey)) && (pending || changed || !wasChecked))
       || (pending && key === 'report')
-      || (changed && (key === '' || key === 'report'))) route();
+      || (changed && (key === 'home' || key === 'report'))) route();
   // 리허설 첫 화면 — 공개 기본(내 자료 올리기)으로 그렸는데 팀이면 시연 고르기로 (js/rehearsal.js)
   else if (changed && typeof rehearsalTeamChanged === 'function') rehearsalTeamChanged();
 }
@@ -1752,7 +1756,7 @@ function refreshStepBar() {
 function nfSteps() {
   return `<div class="flow-toolbar">
     <div class="steps">${stepsHtml()}</div>
-    <div class="flow-save"><span>자동으로 저장하고 있어요</span><a href="#/new" data-fresh-practice>처음부터</a><a href="#/">나가기</a></div>
+    <div class="flow-save"><span>자동으로 저장하고 있어요</span><a href="#/new" data-fresh-practice>처음부터</a><a href="#/home">나가기</a></div>
   </div>`;
 }
 
@@ -5393,7 +5397,7 @@ function renderProfileReport(p) {
   app.className = 'wide';
   app.innerHTML = `
     <div class="report-head history-head">
-      <a class="back-link" href="#/">← 내 발표</a>
+      <a class="back-link" href="#/home">← 내 발표</a>
       <span class="final-label">발표 + 질문 코칭 최종 분석</span>
       <h1 class="page-title">${p.title}</h1>
       <p class="report-meta">${p.occasion} · 슬라이드 ${p.slides}개 · ${p.duration} · ${p.nth}번째 연습</p>
@@ -5426,7 +5430,7 @@ function renderProfileReport(p) {
     <div class="card history-priorities">
       <h2 class="section-title">다음 발표에서 고칠 3가지</h2>
       <ol>${p.priorities.map(x => `<li>${x}</li>`).join('')}</ol>
-      <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/">내 발표로 돌아가기</a></div>
+      <div class="step-actions"><a class="btn btn-primary" href="#/new">이 자료로 다시 연습하기</a><a class="btn btn-text" href="#/home">내 발표로 돌아가기</a></div>
       ${sessionDeleteHtml()}
     </div>`;
 }
@@ -6449,7 +6453,7 @@ function wireSendoff() {
   // 요소마다 붙이면 나중에 그려지는 탭(개념별 판정·논리 흐름·말 속도·연습 도구)의
   // 링크가 영영 안 잡힌다. §4 는 '요약 탭을 떠날 때'가 아니라 '리포트를 떠날 때'다
   document.addEventListener('click', (e) => {
-    const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/landing"], [data-fresh-practice]');
+    const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/home"], a[href="#/landing"], [data-fresh-practice]');
     if (!el || el === sendoffPassthrough) return;
     // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
     if (routeParts()[0] !== 'report') return;
@@ -8832,7 +8836,7 @@ function renderQaBuilding() {
   const shown = pool.slice(0, QA_BUILD_POOL_MAX);
   const rest = pool.length - shown.length;
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 준비 중</span></div>
+    <div class="coach-nav"><a href="#/home">← 저장하고 나가기</a><span>질문 준비 중</span></div>
     <div class="card qa-building" role="status" aria-live="polite">
       <b>내 발표에서 예상 질문을 만들고 있어요</b>
       <p class="note">개념 그래프와 실제 발화를 대조해 치명적인 것부터 골라요. 10초쯤 걸려요.</p>
@@ -9258,7 +9262,7 @@ function renderQaUnavailable() {
     body = qa.liveError || '질문 생성 요청이 실패했어요.';
   }
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>질문 코칭</span></div>
+    <div class="coach-nav"><a href="#/home">← 저장하고 나가기</a><span>질문 코칭</span></div>
     ${running ? `<div class="card qa-building" role="status" aria-live="polite">
         <b>${escapeHtml(title)}</b><p class="note">${escapeHtml(body)}</p><div class="qb-bar"><i></i></div></div>`
       : stageAccidentHtml(body, { title })}
@@ -9317,7 +9321,7 @@ function renderQa() {
     qa.sub = beat().kind === 'trap' ? 'choice' : 'answer';
   saveSession('qa-flow', qa);
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
+    <div class="coach-nav"><a href="#/home">← 저장하고 나가기</a><span>자동으로 저장하고 있어요</span></div>
     <div class="qa-shell">
       <aside class="qa-context">
     ${qaNoticeHtml()}
@@ -9725,7 +9729,7 @@ function qaEnd() {
   ];
   const aw = qa.award || { earned: 0, level: 1, streak: 1, xp: 0 };
   app.innerHTML = `
-    <div class="coach-nav"><a href="#/">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
+    <div class="coach-nav"><a href="#/home">← 내 발표로 나가기</a><span>${historySaved ? '코칭 기록 저장됨' : '기록을 저장하지 못했어요 — 화면을 캡처해 두세요'}</span></div>
     <div class="cere">
       <div class="cere-head">
         <span class="cere-eyebrow">${qa.aud} 질문 코칭 완료</span>

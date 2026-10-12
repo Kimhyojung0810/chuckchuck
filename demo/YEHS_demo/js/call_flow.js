@@ -252,7 +252,7 @@ function nfStep3Call() {
       <span class="cf-pill cf-glass cf-slide-meta"><b id="slideNo" class="num">${nf.slide} / ${nPages}</b><span id="slideTitle">${escapeHtml(titleAt(nf.slide - 1))}</span></span>
       <span class="cf-top-fill">${precomputeNoteHtml()}</span>
       <button class="btn cf-glass" id="cfCamToggle" type="button">카메라 끄기</button>
-      <a class="btn cf-glass" href="#/" id="cfLeave">나가기</a>
+      <a class="btn cf-glass" href="#/home" id="cfLeave">나가기</a>
     </header>
 
     <div class="cf-dock cf-glass">
@@ -323,7 +323,7 @@ function renderQaLiveCall() {
       <span class="cf-top-fill"></span>
       <button class="btn cf-glass" id="cfQuestList" type="button" aria-expanded="false" aria-controls="qaContext">질문 목록</button>
       <button class="btn cf-glass" id="cfCamToggle" type="button">카메라 끄기</button>
-      <a class="btn cf-glass" href="#/">저장하고 나가기</a>
+      <a class="btn cf-glass" href="#/home">저장하고 나가기</a>
     </header>
     <aside class="cf-drawer card" id="qaContext" hidden>${liveContextHtml()}</aside>
 
