@@ -85,14 +85,12 @@ main {
 }
 
 /* ── 1) 히어로 ─────────────────────────────────────────────────────────── */
-/* 화면을 꽉 채우지 않고 아래 구역 머리를 살짝 보여 준다 — 「아래로 더 있다」 를 글 없이 말한다.
-   눈썹 한 줄(56px)만 보이면 「발표 한 번이면」 이 고정 버튼 바로 위 10px 에 붙어 버튼 이름표처럼 읽혔다 — 구역 제목 첫 줄까지 보인다 (10-12 2차 r2-10) */
+/* 예전엔 히어로가 화면 높이를 거의 채우고 글을 가운데 세워서 「바로 내 자료로 해 보기」 와 「발표 한 번이면」 사이가
+   반 화면쯤 비었다(10-12 사용자 「공백이 너무 길다」). 이제 제 내용만큼만 — 다음 구역이 바로 이어진다 */
 .hero {
-  min-height: calc(100svh - var(--dock-h) - var(--safe-b) - 104px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 32px 0 24px;
+  padding: 40px 0 0;
 }
 .hero-art {
   position: relative;
@@ -101,13 +99,50 @@ main {
   gap: 10px;
   margin-bottom: 28px;
 }
+/* 삐약이(앱 아이콘)가 들어오며 마법봉을 한 번 휘두르고, 봉 끝에서 반짝이가 튄다 — 접속할 때 한 번만 (10-12 사용자) */
+.hero-mascot { position: relative; flex: none; width: 88px; height: 88px; animation: mascot-in 460ms var(--ease) both; }
 .hero-icon {
+  display: block;
   width: 88px; height: 88px;
   /* 그림 자체가 둥근 모서리(투명) — box-shadow 는 네모로 깔리니 그림 모양을 따르는 drop-shadow */
   filter: drop-shadow(0 8px 14px rgba(6, 78, 59, .16)) drop-shadow(0 1px 1px rgba(24, 24, 27, .08));
-  flex: none;
+  /* 봉을 쥔 오른쪽 아래를 축으로 돈다 */
+  transform-origin: 82% 86%;
+  animation: wand-swing 900ms ease-in-out 520ms both;
 }
-/* 병아리가 던지는 질문 — 「질문이 두렵다」 를 한 문장 그림으로. 장식이 아니라 이 페이지의 문제 제기다 */
+@keyframes mascot-in {
+  from { opacity: 0; transform: translateY(10px) scale(.7); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wand-swing {
+  0%   { transform: rotate(0); }
+  28%  { transform: rotate(-9deg); }
+  58%  { transform: rotate(7deg); }
+  80%  { transform: rotate(-2deg); }
+  100% { transform: rotate(0); }
+}
+/* 반짝이 — 봉 끝(그림의 빨간 점, 88px 기준 약 70,16)에서 사방으로. 별 모양은 clip-path */
+.spark {
+  position: absolute;
+  left: 62px; top: 8px;
+  width: 16px; height: 16px;
+  background: var(--yellow);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  pointer-events: none;
+  animation: spark 760ms var(--ease) 820ms both;
+}
+.spark:nth-child(2) { --dx: 34px;  --dy: -28px; --s: 1.2; }
+.spark:nth-child(3) { --dx: 44px;  --dy: 4px;   --s: .9; background: var(--brand); animation-delay: 870ms; }
+.spark:nth-child(4) { --dx: 10px;  --dy: -38px; --s: .8; animation-delay: 900ms; }
+.spark:nth-child(5) { --dx: -18px; --dy: -30px; --s: 1; background: var(--mint); animation-delay: 850ms; }
+.spark:nth-child(6) { --dx: 30px;  --dy: 28px;  --s: .7; animation-delay: 940ms; }
+@keyframes spark {
+  0%   { opacity: 0; transform: translate(0, 0) scale(.2) rotate(0); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx, 20px), var(--dy, -20px)) scale(var(--s, 1)) rotate(90deg); }
+}
+/* 말풍선 — 병아리가 던지는 질문. 「질문이 두렵다」 를 한 문장 그림으로. 장식이 아니라 이 페이지의 문제 제기다 */
 .hero-bubble {
   position: relative;
   margin-top: 6px;
@@ -120,11 +155,70 @@ main {
   font-weight: var(--w-med);
   line-height: 1.35;
   color: var(--text);
-  animation: bubble-in 420ms var(--ease) 380ms both;
+  animation: bubble-in 420ms var(--ease) 900ms both;
 }
 @keyframes bubble-in {
-  from { opacity: 0; transform: translateY(6px) scale(.96); }
+  from { opacity: 0; transform: translateY(6px) scale(.9); }
+  60%  { transform: scale(1.04); }
   to   { opacity: 1; transform: none; }
+}
+
+/* ── 첫 방문 연출 (html.fly — intro.html 안의 짧은 스크립트가 켠다) ─────────────────────
+   삐약이가 화면 가운데에 크게 나와 → 마법봉을 휘두르고 「척척, 발표 채점~!」 → 제 자리(아이콘 칸)로 날아가 앉는다.
+   그동안 나머지 글은 숨었다가 삐약이가 내려앉을 때 함께 나타난다. 전부 합쳐 약 2.2초, 한 번만 (10-12 사용자) */
+.fly-caption { display: none; }
+html.fly .hero-mascot {
+  z-index: 30;
+  animation: mascot-fly 1900ms both;
+}
+@keyframes mascot-fly {
+  0%   { opacity: 0; transform: translate(var(--fx, 0), var(--fy, 0)) scale(1.3); animation-timing-function: var(--ease); }
+  16%  { opacity: 1; transform: translate(var(--fx, 0), var(--fy, 0)) scale(2.2); }
+  64%  { opacity: 1; transform: translate(var(--fx, 0), var(--fy, 0)) scale(2.2); animation-timing-function: cubic-bezier(.65, 0, .25, 1); }
+  100% { opacity: 1; transform: none; }
+}
+html.fly .hero-icon { animation-delay: 380ms; }
+html.fly .spark { animation-delay: 640ms; }
+html.fly .spark:nth-child(3) { animation-delay: 690ms; }
+html.fly .spark:nth-child(4) { animation-delay: 720ms; }
+html.fly .spark:nth-child(5) { animation-delay: 670ms; }
+html.fly .spark:nth-child(6) { animation-delay: 760ms; }
+html.fly .fly-caption {
+  display: block;
+  position: fixed;
+  left: 0; right: 0;
+  top: calc(42% + 112px);
+  z-index: 30;
+  text-align: center;
+  color: var(--brand-strong);
+  font-size: 22px;
+  font-weight: var(--w-display);
+  letter-spacing: -.02em;
+  pointer-events: none;
+  animation: caption-show 880ms var(--ease) 380ms both;
+}
+@keyframes caption-show {
+  0%   { opacity: 0; transform: translateY(8px) scale(.94); }
+  22%  { opacity: 1; transform: none; }
+  70%  { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+/* 나머지는 삐약이가 내려앉을 때 */
+html.fly .hero > :not(.hero-art):not(.fly-caption):not(script),
+html.fly main > :not(.hero),
+html.fly .dock {
+  animation: content-in 520ms var(--ease) 1500ms both;
+}
+html.fly .hero-bubble { animation-delay: 1850ms; }
+@keyframes content-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* 움직임을 줄인 기기 — 연출 없이 처음부터 그대로 */
+@media (prefers-reduced-motion: reduce) {
+  .hero-mascot, .hero-icon, .hero-bubble { animation: none; }
+  .spark { display: none; }
 }
 .hero .eyebrow { margin-bottom: 10px; }
 .hero-title {
@@ -164,6 +258,8 @@ main {
 
 /* ── 공통 구역 ─────────────────────────────────────────────────────────── */
 .block { padding: 48px 0 8px; }
+/* 히어로 바로 다음 구역은 조금 붙인다 — 「바로 내 자료로 해 보기」 와 「발표 한 번이면」 사이 (10-12 사용자) */
+#what { padding-top: 32px; }
 .block .eyebrow { margin-bottom: 6px; }
 .block-title {
   font-size: 24px;
@@ -214,157 +310,68 @@ main {
 }
 .step-text { margin-top: 4px; color: var(--text-2); font-size: 15px; line-height: 1.55; text-wrap: pretty; }
 
-/* ── 3) 팀 카드 ────────────────────────────────────────────────────────── */
+/* ── 3) 팀 소개 — 한 사람 한 줄 목록 ─────────────────────────────────────── */
+/* 10-12 사용자: 카드 넘기기는 길다 — 다섯 줄 간단 소개면 충분하다. 이름 · 역할 · 한 줄만, 넘기기 없이 한눈에 */
 .team .eyebrow { display: inline-block; }
-/* /hi/<id>·건너뛰기 링크로 왔을 때 위 여백(48px)을 건너뛰고 제목부터 */
-#team { scroll-margin-top: -36px; }
-.carousel { margin-top: 16px; }
-/* 가로 스와이프는 브라우저 스크롤 + scroll-snap 에 맡긴다 — 손가락을 직접 따라가는 코드를 짜지 않으니
-   touch-action·pointercancel 로 장이 안 넘어가는 일(10/8 public-rh) 이 생길 자리가 없다.
-   카드 폭은 화면 폭 - 여백 - 다음 카드 살짝(28px) 이라 「옆으로 더 있다」 가 보인다 */
-.track {
-  position: relative;          /* 카드 offsetLeft 를 트랙 기준으로 */
-  display: flex;
-  /* 카드 높이는 제 내용만큼 — stretch 면 가장 긴 카드에 맞춰 늘어나 짧은 카드는 아래가 120~300px 비고,
-     아이폰 SE(375x667)에서는 「2 / 5」 가 아래 고정 버튼 뒤로 숨었다 (10-12 점검) */
-  align-items: flex-start;
-  gap: 12px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  overscroll-behavior-x: contain;
-  scroll-padding-inline: var(--gutter);
-  margin-inline: calc(-1 * var(--gutter));
-  padding: 4px var(--gutter) 12px;
-  scrollbar-width: none;
-  touch-action: pan-x pan-y;
-  border-radius: 0;
-}
-.track::-webkit-scrollbar { display: none; }
-.track:focus-visible { outline-offset: -3px; }
-.card {
-  flex: 0 0 calc(100% - 28px);
-  max-width: 400px;
-  /* flex 항목은 min-width:auto 라 띄어쓰기 없는 긴 영문 덩어리(파일 이름 · 기술 나열)만큼 카드가 넓어졌다 — 다음 카드 미리보기가
-     사라지고 글이 오른쪽에서 잘렸다(10-12 점검, 360 폭에서 286 → 392px). 0 으로 풀고 글 칸은 아무 데서나 줄을 바꾼다 */
-  min-width: 0;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 20px 18px;
+/* /hi/<id>·건너뛰기 링크로 왔을 때 위 여백을 건너뛰고 제목부터 */
+#team { scroll-margin-top: -24px; }
+.team-box { margin-top: 16px; }
+.team-list {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-print);
   box-shadow: var(--shadow-panel);
-  transition-property: opacity, transform;
-  transition-duration: 240ms;
-  transition-timing-function: var(--ease);
+  overflow: hidden;
 }
-.carousel[data-state="ready"] .card:not([data-active]) { opacity: .55; transform: scale(.98); }
-/* 옆 카드 미리보기는 지금 카드 높이까지만, 아래는 흐리게 — 더 긴 카드의 빈 흰 판이 지금 카드보다 70px 아래까지 남았다 (r2-10, js/intro.js --active-h) */
-.carousel[data-state="ready"] .track[style*="--active-h"] .card:not([data-active]) {
-  max-height: var(--active-h); overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent);
+.team-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  scroll-margin-top: 24px;
+  transition: background-color 600ms ease;
 }
-
-.card-head { display: flex; align-items: center; gap: 14px; }
+.team-row + .team-row { border-top: 1px solid var(--border); }
+/* /hi/<id> 로 들어온 사람 줄 — 잠깐 밝혀 「이 사람이에요」 */
+.team-row[data-active] { background: var(--brand-weak); }
 .avatar {
   position: relative;
   flex: none;
-  width: 64px; height: 64px;
+  width: 44px; height: 44px;
   border-radius: var(--r-dot);
   display: grid; place-items: center;
   background: var(--av, var(--brand-weak));
   color: var(--navy);
-  font-size: 26px;
+  font-size: 18px;
   font-weight: var(--w-bold);
-  overflow: visible;
 }
 .avatar img {
-  width: 64px; height: 64px; border-radius: var(--r-dot); object-fit: cover;
+  width: 44px; height: 44px; border-radius: var(--r-dot); object-fit: cover;
   outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px;
 }
 .avatar .chick {
-  position: absolute; right: -6px; bottom: -4px;
-  width: 30px; height: 30px;
+  position: absolute; right: -5px; bottom: -3px;
+  width: 20px; height: 20px;
   filter: drop-shadow(0 1px 1px rgba(24, 24, 27, .12));
 }
-.who { min-width: 0; }
-.name, .role, .headline, .did li, .quote, .links a { overflow-wrap: anywhere; }
-.name { font-size: 22px; line-height: 1.3; font-weight: var(--w-bold); letter-spacing: -.02em; }
-.role {
-  display: inline-block;
-  margin-top: 4px;
-  padding: 3px 10px;
-  /* 한 줄(≈22px)이면 반지름 12px 가 알약과 같고, 스키마가 허용하는 16자 역할이 두 줄로 접히면 둥근 덩어리 대신 둥근 네모가 된다 (r2-8) */
-  border-radius: var(--r-ctl);
-  background: var(--fill);
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: var(--w-med);
-}
+.who { min-width: 0; flex: 1; }
+.who-top { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 2px; }
+.name, .role, .headline { overflow-wrap: anywhere; }
+.name { font-size: 17px; line-height: 1.35; font-weight: var(--w-bold); letter-spacing: -.01em; }
+.role { color: var(--text-3); font-size: 13px; font-weight: var(--w-med); line-height: 1.35; }
 .headline {
-  margin-top: 16px;
-  font-size: 18px;
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: 15px;
   line-height: 1.45;
-  font-weight: var(--w-bold);
-  letter-spacing: -.01em;
   text-wrap: pretty;
-}
-.did-label { margin-top: 16px; font-size: 13px; color: var(--text-3); font-weight: var(--w-med); }
-.did { margin-top: 8px; display: grid; gap: 8px; }
-.did li {
-  position: relative;
-  padding-left: 22px;
-  color: var(--text);
-  font-size: 15px;
-  line-height: 1.5;
-  text-wrap: pretty;
-}
-.did li::before {
-  content: "";
-  position: absolute; left: 3px; top: .5em;
-  width: 10px; height: 6px;
-  border-left: 2px solid var(--brand); border-bottom: 2px solid var(--brand);
-  transform: rotate(-45deg);
-}
-.quote {
-  margin: 18px 0 0;
-  padding: 12px 14px;
-  border-radius: var(--r-inner);
-  background: var(--brand-weak);
-  color: var(--navy);
-  font-size: 15px;
-  font-weight: var(--w-med);
-  line-height: 1.5;
-}
-.quote::before { content: "“"; margin-right: 2px; }
-.quote::after { content: "”"; margin-left: 2px; }
-.links { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
-.links a {
-  display: inline-flex; align-items: center;
-  min-height: 44px; padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  font-size: 14px; font-weight: var(--w-med);
-  text-decoration: none;
-  color: var(--text);
-}
-.card-count {
-  margin-top: auto;
-  padding-top: 16px;
-  font-size: 13px;
-  color: var(--text-3);
-  font-variant-numeric: tabular-nums;
 }
 
-/* 불러오는 동안 자리를 잡아 둔다 — 카드가 들어올 때 아래 내용이 밀리지 않게 */
-.card-skeleton { min-height: 360px; gap: 12px; }
-.sk { display: block; height: 14px; border-radius: var(--r-pill); background: var(--fill); width: 100%; }
-.sk-avatar { width: 64px; height: 64px; border-radius: var(--r-dot); margin-bottom: 8px; }
-.sk.w40 { width: 40%; } .sk.w60 { width: 60%; } .sk.w80 { width: 80%; }
+/* 불러오는 동안 다섯 줄 자리를 잡아 둔다 — 목록이 들어올 때 아래 내용이 밀리지 않게 */
+.sk-row .who { display: grid; gap: 8px; }
+.sk { display: block; height: 12px; border-radius: var(--r-pill); background: var(--fill); width: 100%; }
+.sk-avatar { width: 44px; height: 44px; flex: none; border-radius: var(--r-dot); background: var(--fill); }
+.sk.w40 { width: 40%; } .sk.w80 { width: 80%; }
 
 .team-error {
   padding: 20px;
@@ -375,16 +382,9 @@ main {
   font-size: 15px;
 }
 .team-error .btn-ghost { margin-top: 12px; }
-.carousel[data-state="error"] .track { display: none; }
+.team-box[data-state="error"] .team-list { display: none; }
 
-/* 넘기기 버튼은 카드 위 — 아이폰 SE 처럼 낮은 화면에서 카드 아래가 고정 버튼에 가려도 버튼은 보인다 */
-.pager {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.icon-btn, .btn-next, .btn-ghost, .btn-solid {
+.btn-ghost, .btn-solid {
   min-height: 44px;
   border-radius: var(--r-ctl);
   font: inherit;
@@ -395,44 +395,7 @@ main {
   transition-duration: 120ms;
   transition-timing-function: ease-out;
 }
-.icon-btn {
-  width: 44px; flex: none;
-  display: grid; place-items: center;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-}
-.icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.icon-btn:disabled { opacity: .35; cursor: default; }
-.btn-next {
-  flex: none;
-  padding: 0 16px;
-  border: 0;
-  background: var(--fill);
-  color: var(--text);
-}
-.icon-btn:active:not(:disabled), .btn-next:active, .btn-ghost:active, .btn-solid:active { transform: scale(.97); }
-
-/* 점은 8px 지만 누르는 자리는 44×44 (부스 모바일 규칙 · 10-12 통합 캡처에서 32×44 를 잡음).
-   다섯 명이면 220px 라 360px 폭에서 이전·다음 버튼 사이에 안 들어간다 — 점 줄을 버튼 위 한 줄로 따로 둔다 */
-.pager { flex-wrap: wrap; row-gap: 4px; }
-.dots { order: -1; flex: 1 0 100%; display: flex; justify-content: center; }
-.pager .btn-next { flex: 1 1 auto; }
-.dot {
-  width: 44px; height: 44px;
-  display: grid; place-items: center;
-  padding: 0; border: 0; background: none; cursor: pointer;
-}
-.dot::before {
-  content: "";
-  width: 8px; height: 8px;
-  border-radius: var(--r-pill);
-  background: #C4C4CA;
-  transition: width 200ms var(--ease), background-color 200ms ease;
-}
-.dot[aria-current="true"]::before { width: 20px; background: var(--brand); }
-/* 사람이 7명 이상이면 한 줄(320px)에 들어가게 점 자리를 조금 줄인다 — 8명까지 40px */
-.dots[data-many] .dot { width: 40px; }
+.btn-ghost:active, .btn-solid:active { transform: scale(.97); }
 
 /* ── 4) 마무리 ─────────────────────────────────────────────────────────── */
 .outro { padding-top: 56px; }
