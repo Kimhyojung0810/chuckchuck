@@ -1,0 +1,269 @@
+/* /hi/stage — 시안 A 「들어오자마자 채점당한다」 무대 (2026-10-13). intro.css 다음에 싣는다 — 토큰 · 본문 구역 · 시트는 intro.css 그대로.
+   방향: 진초록 무대(스튜디오 입구) 위에서 사람이 그래프로 읽히고 판정이 붙는다 → 스크롤하면 흰 본문으로 밝아진다(wt-design 「무대와 대본」과 이어짐).
+   색: 무대 --brand-ink · 노드 --brand-vivid · 간선 --brand-tint 반투명 · 버튼은 --brand. 판정 칩은 intro.css 의 .chip.st-*(app.css 판정 색과 같은 값) 그대로.
+   금색은 무대 조명(위쪽 옅은 빛)에만. 움직임은 transform · opacity 만. */
+/* 서체가 늦게 붙을 때(시스템 서체 → Pretendard) 제목 글줄이 몇 px 내려앉는 것(CLS)을 막는다 — 대체 서체의 위아래 높이를 Pretendard(950/-250)에 맞춘다.
+   /hi 는 연출 중에 제목이 투명이라 안 보였는데, 여기는 제목이 첫 그림부터 보인다 */
+@font-face {
+  font-family: "Pretendard Fallback";
+  src: local("Apple SD Gothic Neo"), local("AppleSDGothicNeo-Regular"), local("Noto Sans KR"), local("Noto Sans CJK KR"), local("Malgun Gothic");
+  ascent-override: 95%; descent-override: 25%; line-gap-override: 0%;
+}
+:root {
+  --font: "Pretendard Variable", "Pretendard", "Pretendard Fallback", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --stage: var(--brand-ink);          /* #066339 — 흰 글자 7.36:1 */
+  --stage-deep: #04492A;              /* 무대 바닥 그늘 — 같은 색상각에서 어둡게 */
+  --stage-text-2: rgba(255, 255, 255, .82);   /* 무대 위 둘째 글자 — 5.4:1 */
+  --stage-light: rgba(240, 180, 41, .16);     /* 무대 조명(금색) — 장식 전용 */
+  --laser: #E85C4A;                   /* 봉 끝 구슬과 같은 색 — 앱 아이콘의 그 빨강 */
+  --fig-h: clamp(236px, 48svh, 470px);
+  --lift: 0;
+}
+
+/* 모든 버튼 둥글기를 하나로 — /hi 는 주 버튼 16 · 시트 버튼 8 로 갈렸다(접근성 점검 지적) */
+.btn-primary, .btn-solid, .btn-ghost, .stage-skip, .ground-close { border-radius: var(--r-float); }
+
+/* ── 무대 ──────────────────────────────────────────────────────────────── */
+.stage {
+  position: relative;
+  isolation: isolate;
+  color: #fff;
+  background:
+    radial-gradient(120% 60% at 30% -10%, var(--stage-light), transparent 60%),
+    linear-gradient(to bottom, var(--stage) 0%, var(--stage) 72%, var(--stage-deep) 100%);
+  /* 첫 화면을 무대로 채운다 — 아래 고정 주 버튼이 무대 위에 얹히고, 둘째 링크가 버튼 밑에 숨지 않게 그만큼 띄운다 */
+  min-height: 100svh;
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) calc(var(--dock-h) + var(--safe-b) + 16px) max(16px, env(safe-area-inset-left, 0px));
+  overflow: hidden;
+}
+/* 스크롤하면 무대가 흰 본문 쪽으로 밝아진다 — intro_stage.js 가 --lift(0~0.55)만 바꾼다. 스크롤을 붙잡지 않는다 */
+.stage::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: var(--page);
+  opacity: var(--lift);
+  pointer-events: none;
+  z-index: 5;
+}
+.stage-top {
+  max-width: 1120px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  height: 56px;   /* 고정 — 「연출 건너뛰기」 가 나타나고 서체가 바뀌어도 아래가 밀리지 않게(CLS 0) */
+}
+.stage-brand { min-width: 0; overflow: hidden; white-space: nowrap; display: flex; align-items: center; flex-wrap: nowrap; gap: 4px 8px; font-size: 16px; font-weight: var(--w-bold); letter-spacing: -.01em; }
+/* 이름 · 건너뛰기 버튼은 폭을 고정 — 서체가 바뀌어도 옆 배지가 옆으로 밀리지 않게(CLS 0) */
+.stage-name { flex: none; width: 4.4em; }
+.stage-badge {
+  padding: 2px 10px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, .14); color: #fff;
+  font-size: 13px; font-weight: var(--w-med);
+}
+.stage-skip { display: none; }
+/* 연출 중에만 — 첫 그림부터 자리에 있다가(나타나며 밀리지 않게) 3.4초에 스스로 숨는다. 스크립트가 없어도 숨는다 */
+html.stage-play .stage-skip { display: inline-flex; align-items: center; animation: skip-out 1ms linear 3400ms forwards; }
+@keyframes skip-out { to { visibility: hidden; } }
+.stage-skip {
+  min-height: 44px; width: 128px; padding: 0; justify-content: center; flex: none;
+  border: 1px solid rgba(255, 255, 255, .4);
+  background: transparent; color: #fff;
+  font: inherit; font-size: 14px; font-weight: var(--w-med);
+  cursor: pointer;
+  transition-property: transform, opacity, background-color;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+}
+.stage-skip:active { transform: scale(.96); background: rgba(255, 255, 255, .1); }
+.stage :focus-visible { outline-color: var(--mint); }
+
+/* 그림 자리 — 높이를 미리 잡아 둔다(CLS 0). 사람은 아래 맞춤 · 가운데, 칩은 오른쪽 위 빈자리, 삐약이는 오른쪽 아래 */
+.stage-fig {
+  position: relative;
+  max-width: 1120px;
+  height: var(--fig-h);
+  margin: 4px auto 0;
+}
+.fig-hit {
+  position: absolute; inset: 0;
+  z-index: 1;
+  padding: 0; border: 0; background: none; color: inherit;
+  border-radius: var(--r-stage);
+  cursor: pointer;
+}
+.fig-svg, .fig-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.fig-canvas { z-index: 2; pointer-events: none; }
+/* 캔버스가 첫 그림을 그리면 정지 그림을 걷는다 */
+.fig-live .fig-svg { visibility: hidden; }
+
+.verdicts {
+  position: absolute; right: 0; top: 4px; z-index: 3;
+  width: min(176px, 45%);
+}
+.v-list { display: grid; gap: 8px; }
+.vchip {
+  width: 100%;
+  display: grid; justify-items: start; gap: 4px;
+  min-height: 44px;
+  padding: 8px 10px 9px;
+  border: 0;
+  border-radius: var(--r-float);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 20px rgba(2, 40, 22, .28), 0 1px 2px rgba(2, 40, 22, .2);
+  font: inherit; text-align: left;
+  cursor: pointer;
+  transition-property: transform, box-shadow;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease);
+}
+.vchip:active { transform: scale(.97); }
+.vchip .chip { font-size: 12px; }
+.v-k { font-size: 13px; line-height: 1.35; font-weight: var(--w-med); color: var(--text-2); text-wrap: pretty; }
+.v-num { color: var(--text); font-weight: var(--w-bold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 지금 장면의 칩 — 그래프에서 같은 무리가 빛나는 동안 테두리가 켜진다 */
+.vchip.is-now { box-shadow: 0 0 0 2px var(--brand-tint), 0 8px 20px rgba(2, 40, 22, .28); }
+.vchip[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--mint), 0 8px 20px rgba(2, 40, 22, .28); }
+.rec-note { height: 2.8em; display: flex; align-items: flex-end; justify-content: flex-end; margin-bottom: 8px; color: var(--stage-text-2); font-size: 12px; line-height: 1.4; text-align: right; text-wrap: balance; }
+
+.judge {
+  position: absolute; right: 0; bottom: 0; z-index: 3;
+  display: flex; align-items: flex-end; gap: 6px;
+  pointer-events: none;
+}
+.judge-face { position: relative; flex: none; width: 64px; height: 64px; }
+.judge-icon { width: 64px; height: 64px; filter: drop-shadow(0 6px 10px rgba(2, 40, 22, .35)); }
+.judge-wand { width: 64px; height: 64px; }
+.judge-bubble {
+  position: relative;
+  margin-bottom: 14px;
+  width: 168px;   /* 고정 폭 — 서체가 바뀌어도 삐약이 자리가 그대로(CLS 0) */
+  padding: 9px 12px;
+  border-radius: var(--r-float) var(--r-float) 4px var(--r-float);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 20px rgba(2, 40, 22, .28);
+  font-size: 14px; font-weight: var(--w-bold); line-height: 1.35;
+  text-wrap: balance;
+}
+
+/* 근거 — 그림 아래쪽에 떠오르는 흰 카드. 그림 자리 안에서만 움직여 아래 내용을 밀지 않는다 */
+.ground {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  max-width: 420px; margin: 0 auto;
+  padding: 16px 16px 12px;
+  border-radius: var(--r-stage);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 40px rgba(2, 40, 22, .4);
+  animation: ground-in 260ms var(--ease) both;
+}
+.ground-k { color: var(--brand-ink); font-size: 13px; font-weight: var(--w-bold); }
+.ground-main { margin-top: 6px; font-size: 17px; line-height: 1.45; font-weight: var(--w-bold); letter-spacing: -.01em; text-wrap: pretty; }
+.ground-sub { margin-top: 6px; color: var(--text-2); font-size: 14px; line-height: 1.5; text-wrap: pretty; }
+.ground-src { margin-top: 10px; color: var(--text-3); font-size: 12px; line-height: 1.45; }
+.ground-close {
+  display: block; width: 100%; min-height: 44px; margin-top: 10px;
+  border: 0; background: var(--fill); color: var(--text);
+  font: inherit; font-size: 15px; font-weight: var(--w-bold);
+  cursor: pointer;
+  transition-property: transform, background-color;
+  transition-duration: 120ms;
+  transition-timing-function: ease-out;
+}
+.ground-close:active { transform: scale(.97); }
+@keyframes ground-in { from { opacity: 0; transform: translateY(12px); } }
+
+/* 제목 — 연출과 상관없이 첫 그림부터 보인다(지표 목표 ≤ 1.0초) */
+.stage-copy { position: relative; z-index: 3; max-width: 1120px; margin: 16px auto 0; }
+.stage-title {
+  font-size: clamp(30px, 8.8vw, 40px);
+  line-height: 1.22;
+  font-weight: var(--w-display);
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+.stage-lead { margin-top: 12px; color: var(--stage-text-2); font-size: 17px; line-height: 1.55; text-wrap: pretty; }
+.stage-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 44px; margin-top: 8px;
+  color: var(--mint);   /* 무대 위 민트 글자 5.9:1 */
+  font-size: 16px; font-weight: var(--w-bold); text-decoration: none;
+}
+.stage-link::after {
+  content: ""; width: 7px; height: 7px; margin-left: 2px;
+  border-right: 2px solid currentColor; border-top: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+.stage-link:active { opacity: .7; }
+
+/* 본문 첫 구역은 무대 바로 아래 — /hi 의 히어로 뒤 간격과 같게 */
+#what { padding-top: 56px; }
+
+/* 아래 고정 주 버튼 — 무대 위에서는 진초록으로 흐려지는 띠, 무대를 지나면 흰 띠(intro_stage.js 가 html.past-stage) */
+html:not(.past-stage) .dock { background: linear-gradient(to bottom, rgba(4, 73, 42, 0), var(--stage-deep) 45%); }
+html:not(.past-stage) .btn-primary { box-shadow: 0 6px 16px rgba(0, 0, 0, .24), 0 0 0 1px rgba(206, 250, 220, .35); }
+
+/* ── 첫 연출 (html.stage-play — <head> 안의 짧은 스크립트가 켠다) ─────────────────────
+   시간표: 0.3초 점(캔버스) → 0.8초 선 → 1.6 · 2.0 · 2.4초 판정 칩이 하나씩 똑딱 → 3.0초 삐약이가 봉으로 마지막 칩을 가리키며 말풍선.
+   스크립트가 늦게 오거나 실패해도 정지 그림이 0.3초에 떠서 무대가 비지 않는다 */
+html.stage-play .fig-svg { animation: st-fade 500ms ease-out 300ms both; }
+html.stage-play .v-list li { animation: chip-tick 420ms var(--ease) both; }
+html.stage-play .v-list li:nth-child(1) { animation-delay: 1500ms; }
+html.stage-play .v-list li:nth-child(2) { animation-delay: 1900ms; }
+html.stage-play .v-list li:nth-child(3) { animation-delay: 2300ms; }
+html.stage-play .rec-note { animation: st-fade 400ms ease-out 1400ms both; }
+html.stage-play .judge-face { animation: judge-in 460ms var(--ease) 2500ms both; }
+html.stage-play .judge-bubble { animation: bubble-pop 420ms var(--ease) 2700ms both; }
+html.stage-play .judge-face .w-spin { animation: judge-aim 600ms var(--ease) 2700ms both; }
+@keyframes st-fade { from { opacity: 0; } }
+@keyframes chip-tick {
+  0%   { opacity: 0; transform: translateX(18px) scale(.92); }
+  70%  { opacity: 1; transform: translateX(-2px) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes judge-in { from { opacity: 0; transform: translateY(14px) scale(.8); } }
+@keyframes bubble-pop {
+  0%   { opacity: 0; transform: translateY(6px) scale(.9); }
+  60%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: none; }
+}
+/* 봉을 한 번 들었다가 칩을 겨눈다 — 손(477,341)이 축 */
+.judge-face .w-spin { transform-box: view-box; transform-origin: 477px 341px; }
+@keyframes judge-aim { 0% { transform: rotate(18deg); } 60% { transform: rotate(-6deg); } 100% { transform: none; } }
+/* 건너뛰면 모든 연출을 끝 상태로 */
+html.stage-done .stage * { animation: none !important; }
+
+/* 낮은 화면(360×640 등) — 칩을 한 단계 촘촘하게. 칩 셋 + 라벨이 그림 높이 안에 들고, 말풍선과 겹치지 않게 */
+@media (max-height: 720px) and (max-width: 599px) {
+  .v-list { gap: 6px; }
+  .vchip { padding: 6px 10px 7px; gap: 2px; }
+  .v-k { font-size: 12px; }
+  .rec-note { margin-bottom: 6px; font-size: 11px; }
+  .judge-face, .judge-icon, .judge-wand { width: 56px; height: 56px; }
+}
+
+/* ── 넓은 화면 ─────────────────────────────────────────────────────────── */
+@media (min-width: 600px) {
+  :root { --fig-h: clamp(320px, 52svh, 500px); }
+  .verdicts { width: 200px; }
+  .stage-copy { max-width: 600px; }
+}
+/* 데스크톱 — 그림 왼쪽 · 글 오른쪽. 무대가 첫 화면을 채운다 */
+@media (min-width: 960px) {
+  :root { --fig-h: min(600px, calc(100svh - 200px)); }
+  .stage { padding-left: 40px; padding-right: 40px; padding-bottom: 72px; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-areas: "top top" "fig copy"; column-gap: 56px; align-items: center; justify-content: center; }
+  .stage-top { grid-area: top; width: 100%; max-width: none; }
+  .stage-fig { grid-area: fig; width: 100%; margin: 16px 0 0; }
+  .stage-copy { grid-area: copy; margin: 0; max-width: 460px; }
+  .stage-title { font-size: 56px; }
+  .stage-lead { font-size: 20px; }
+  .verdicts { width: 220px; }
+  .judge-bubble { width: 200px; font-size: 15px; }
+  #what { padding-top: 120px; }
+}
+
+/* ── 움직임 줄이기 — 연출 없이 끝 그림 그대로(head 스크립트가 stage-play 를 안 켠다). 남은 전환도 끈다 ── */
+@media (prefers-reduced-motion: reduce) {
+  .ground { animation: none; }
+  .vchip, .stage-skip, .ground-close { transition: none; }
+}
