@@ -1,0 +1,170 @@
+/* 부스 「사람 그래프」 스캔 화면(/booth/scan, booth_scan.html) — 2026-10-12.
+   가로 화면(1920×1080 모니터 · 1280×800 노트북) 전용. 폰은 대상이 아니다.
+   전체 화면 거울 캠(살짝 어둡게) 위에 캔버스 그래프, 왼쪽 위 머리글 · 오른쪽 「읽는 것」 판 · 오른쪽 아래 QR.
+   색은 css/app.css :root 토큰 값(--brand #0E8850 · --cyan #3fd599 · --mint #aeefd5 · --navy-deep #043027)을 이 파일 안에 옮겨 둔다 —
+   app.css 를 통째로 싣지 않는 독립 페이지라서. 판은 booth_call 과 같은 어두운 글라스(부스 화면 규율, MVP_SPEC 의 금지는 앱 화면 몫). */
+:root {
+  --brand: #0E8850;
+  --cyan: #3fd599;
+  --mint: #aeefd5;
+  --navy-deep: #043027;
+  --ink: #04140F;
+  --text-on-dark: #F3FFF9;
+  --text-on-dark-2: rgba(232, 250, 242, .72);
+  --panel: rgba(4, 22, 16, .58);
+  --panel-edge: rgba(174, 239, 213, .16);
+  --r-print: 10px;
+  --r-pill: 999px;
+  --w-body: 500; --w-med: 650; --w-bold: 750; --w-display: 830;
+  --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  /* 화면 크기에 따라 — 1280 에서 작게, 1920 에서 크게 */
+  --gap: clamp(24px, 2.2vw, 44px);
+  --side-w: clamp(272px, 19vw, 360px);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body.bs {
+  background: var(--ink);
+  color: var(--text-on-dark);
+  font-family: var(--font);
+  font-weight: var(--w-body);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+  user-select: none;
+}
+body.bs-nocursor, body.bs-nocursor * { cursor: none; }
+
+/* 배경 캠 — 거울 · cover · 어둡게. 그래프 좌표는 js/booth_scan_logic.js coverMap 이 같은 거울·cover 로 맞춘다 */
+.bs-video {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; object-position: 50% 50%;
+  transform: scaleX(-1);
+  filter: brightness(.52) saturate(.75) contrast(1.05);
+  background: var(--ink);
+}
+/* 글자 자리만 조금 더 어둡게 — 왼쪽 위(머리글) · 오른쪽(판) · 아래(안내 줄) */
+.bs-shade {
+  position: fixed; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 60% at 0% 0%, rgba(2, 12, 9, .62) 0%, rgba(2, 12, 9, 0) 55%),
+    linear-gradient(270deg, rgba(2, 12, 9, .55) 0%, rgba(2, 12, 9, 0) 32%),
+    linear-gradient(0deg, rgba(2, 12, 9, .45) 0%, rgba(2, 12, 9, 0) 18%);
+}
+.bs-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* ── 머리글 ── */
+.bs-head {
+  position: fixed; top: var(--gap); left: var(--gap);
+  right: calc(var(--side-w) + var(--gap) * 2);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .45);
+}
+.bs-brand {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 14px;
+  font-size: clamp(16px, 1.05vw, 20px); font-weight: var(--w-bold); color: var(--mint); letter-spacing: -.01em;
+}
+.bs-brand img { width: 1.6em; height: 1.6em; border-radius: 8px; }
+.bs-title {
+  margin: 0; max-width: 18em;
+  font-size: clamp(30px, 2.55vw, 50px); line-height: 1.22; font-weight: var(--w-display); letter-spacing: -.025em;
+  text-wrap: balance;
+}
+
+/* ── 가운데 안내 (아무도 없을 때 · 준비 중 · 카메라가 안 될 때) ── */
+.bs-center {
+  position: fixed; left: var(--gap); right: calc(var(--side-w) + var(--gap) * 2);
+  top: 50%; transform: translateY(-50%);
+  text-align: center; pointer-events: none;
+  transition: opacity .5s var(--ease);
+}
+body[data-msg="none"] .bs-center { opacity: 0; }
+.bs-prompt {
+  margin: 0; font-size: clamp(30px, 2.8vw, 56px); font-weight: var(--w-bold); letter-spacing: -.02em;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, .5);
+}
+body[data-msg="idle"] .bs-prompt { animation: bs-breathe 3.2s ease-in-out infinite; }
+.bs-hint {
+  margin: 12px 0 0; font-size: clamp(16px, 1.15vw, 22px); color: var(--text-on-dark-2);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, .5);
+}
+@keyframes bs-breathe { 0%, 100% { opacity: .78; } 50% { opacity: 1; } }
+
+/* ── 오른쪽 기둥: 「읽는 것」 판 + QR ── */
+.bs-side {
+  position: fixed; top: var(--gap); right: var(--gap); bottom: var(--gap); width: var(--side-w);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.bs-panel, .bs-qr {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: var(--r-print);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 30px rgba(0, 0, 0, .25);
+}
+.bs-panel { padding: clamp(18px, 1.4vw, 26px); }
+.bs-panel-title {
+  margin: 0 0 clamp(10px, .9vw, 16px); font-size: clamp(18px, 1.2vw, 23px); font-weight: var(--w-bold);
+  color: var(--mint); letter-spacing: .02em;
+}
+.bs-sigs { list-style: none; margin: 0; padding: 0; display: grid; gap: clamp(4px, .45vw, 8px); }
+.bs-sig {
+  --lv: 0;
+  position: relative; display: flex; align-items: center; gap: 14px;
+  padding: clamp(9px, .75vw, 13px) 12px; margin: 0 -12px; border-radius: 8px;
+  background: rgba(63, 213, 153, calc(var(--lv) * .14));
+  transition: background-color .25s linear;
+}
+.bs-dot {
+  flex: none; position: relative; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(174, 239, 213, .5);
+  background: rgba(63, 213, 153, calc(var(--lv) * 1));
+  box-shadow: 0 0 calc(var(--lv) * 18px) rgba(63, 213, 153, calc(var(--lv) * .9));
+  transition: border-color .25s linear;
+}
+.bs-sig[data-on] .bs-dot { border-color: var(--mint); }
+/* 막 켜졌을 때 한 번 번지는 고리 */
+.bs-dot::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 50%; border: 2px solid var(--cyan); opacity: 0;
+}
+.bs-sig.bs-fire .bs-dot::after { animation: bs-ring .9s var(--ease); }
+@keyframes bs-ring { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(2.8); } }
+.bs-sig-text { display: grid; gap: 2px; min-width: 0; }
+.bs-sig-text b {
+  font-size: clamp(17px, 1.2vw, 23px); font-weight: var(--w-med); letter-spacing: -.01em;
+  color: rgba(243, 255, 249, calc(.62 + var(--lv) * .38));
+  transition: color .25s linear;
+}
+.bs-sig-text small { font-size: clamp(13px, .82vw, 15px); color: var(--text-on-dark-2); }
+.bs-sig[data-mic-off] { opacity: .45; }
+.bs-panel-foot {
+  margin: clamp(10px, .9vw, 16px) 0 0; padding-top: clamp(10px, .9vw, 14px);
+  border-top: 1px solid var(--panel-edge);
+  font-size: clamp(13px, .82vw, 15px); color: var(--text-on-dark-2);
+}
+
+.bs-qr {
+  margin-top: auto; display: flex; align-items: center; gap: 16px; padding: 14px;
+}
+.bs-qr img {
+  flex: none; width: clamp(104px, 7.4vw, 140px); height: auto; aspect-ratio: 1;
+  background: #fff; border-radius: 8px; padding: 0; image-rendering: pixelated;
+}
+.bs-qr p { margin: 0; display: grid; gap: 4px; }
+.bs-qr b { font-size: clamp(18px, 1.25vw, 24px); font-weight: var(--w-bold); color: var(--text-on-dark); }
+.bs-qr small { font-size: clamp(13px, .82vw, 15px); color: var(--text-on-dark-2); line-height: 1.4; }
+
+/* ── 아래 안내 한 줄 ── */
+.bs-privacy {
+  position: fixed; left: var(--gap); bottom: var(--gap); margin: 0;
+  right: calc(var(--side-w) + var(--gap) * 2);
+  font-size: clamp(13px, .85vw, 16px); color: var(--text-on-dark-2);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, .6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-msg="idle"] .bs-prompt { animation: none; }
+  .bs-sig.bs-fire .bs-dot::after { animation: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .bs-panel, .bs-qr { background: rgba(4, 22, 16, .86); }
+}
