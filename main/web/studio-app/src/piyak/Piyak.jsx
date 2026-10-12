@@ -84,8 +84,13 @@ export function Sprout({ y = 18, scale = 1 }) {
   )
 }
 
-/** 커서를 본다. 커서가 멈추거나(마우스) 손가락을 떼면(터치) 혼자 이쪽저쪽 두리번거린다 */
-export function useGaze(target, wander) {
+/**
+ * 커서를 본다. 커서가 멈추거나(마우스) 손가락을 떼면(터치) 혼자 이쪽저쪽 두리번거린다.
+ * pace: { reach(삐약이 폭의 몇 배에서 끝까지 보나), idle(ms 멈추면 두리번), glance:[최소, 더하는 ms](두리번 간격), front(앞을 볼 확률) }
+ */
+const PACE = { reach: 0.45, idle: GAZE_IDLE_MS, glance: [GLANCE_MIN_MS, GLANCE_SPAN_MS], front: 0.33 }
+export function useGaze(target, wander, pace) {
+  const p = { ...PACE, ...pace }
   const gx = useMotionValue(0)
   const gy = useMotionValue(0)
   useEffect(() => {
@@ -99,22 +104,22 @@ export function useGaze(target, wander) {
       if (!el || !last) return
       const r = el.getBoundingClientRect()
       if (!r.width) return
-      const g = gaze(last.x, last.y, r.left + r.width / 2, r.top + r.height * 0.59, r.width * 0.45)
+      const g = gaze(last.x, last.y, r.left + r.width / 2, r.top + r.height * 0.59, r.width * p.reach)
       gx.set(g.x); gy.set(g.y)
     }
     /** 혼자 있을 때 — 세 번에 한 번은 앞을, 나머지는 옆 · 위아래를 본다 */
     const roam = () => {
-      const front = Math.random() < 0.33
+      const front = Math.random() < p.front
       gx.set(front ? 0 : (Math.random() < 0.5 ? -1 : 1) * (0.55 + Math.random() * 0.45) * GAZE_X)
       gy.set(front ? 0 : (Math.random() * 1.1 - 0.6) * GAZE_Y)
-      glance = setTimeout(roam, GLANCE_MIN_MS + Math.random() * GLANCE_SPAN_MS)
+      glance = setTimeout(roam, p.glance[0] + Math.random() * p.glance[1])
     }
     const rest = () => { if (wander) roam(); else { gx.set(0); gy.set(0) } }
     const on = (e) => {
       last = { x: e.clientX, y: e.clientY }
       clearTimeout(glance); clearTimeout(idle)
       if (!frame) frame = requestAnimationFrame(look)
-      idle = setTimeout(rest, e.pointerType === 'touch' ? 1200 : GAZE_IDLE_MS)
+      idle = setTimeout(rest, e.pointerType === 'touch' ? Math.min(1200, p.idle) : p.idle)
     }
     const leave = (e) => { if (!e.relatedTarget) { clearTimeout(idle); clearTimeout(glance); rest() } }
     addEventListener('pointermove', on, { passive: true })

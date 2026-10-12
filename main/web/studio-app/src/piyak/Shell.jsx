@@ -1,6 +1,7 @@
 /* 알 껍데기 — 알(Egg.jsx) · 껍데기 바지 · 껍데기 모자(Piyak shell prop)가 같은 알 모양 · 같은 깨진 줄을 쓴다. 단위는 삐약이 viewBox(100) */
 
-export const EGG = 'M50 14C32 14 19 40 19 59c0 18 13 29 31 29s31-11 31-29C81 40 68 14 50 14z'
+// 10-13 사용자: 「알이 조금 더 동그래도 됨」 — 폭 62 → 70, 꼭대기를 낮춰 덜 뾰족하게
+export const EGG = 'M50 16C29 16 15 38 15 58c0 18 15 30 35 30s35-12 35-30C85 38 71 16 50 16z'
 /** 알을 가로로 가르는 깨진 줄 (y 52 ~ 58 사이를 지그재그) */
 export const ZIG = 'M15 52l7 5 6-6 6 6 6-6 6 6 6-6 6 6 6-6 6 6 6-5 6 4'
 // 깨진 줄은 x 20 에서 끝난다 — 그 왼쪽은 수평으로 0 까지 이어야 알 왼쪽 끝이 세로로 잘리지 않는다
@@ -42,7 +43,7 @@ export function ShellPiece({ id, part = 'whole', crack = false }) {
 
 /** 갓 깬 병아리가 입은 아래 껍데기 — 몸보다 넓게 · 낮게 눌러 배 아래만 덮는다 */
 export function ShellPants({ id }) {
-  return <g transform="translate(-15 28) scale(1.3 .72)"><ShellPiece id={id} part="bottom" /></g>
+  return <g transform="translate(-9 28) scale(1.18 .72)"><ShellPiece id={id} part="bottom" /></g>
 }
 /** 머리에 얹은 위 껍데기 — 새싹을 덮고 살짝 기울었다 */
 export function ShellCap({ id }) {

@@ -4,7 +4,7 @@
    껍데기 너머로 캡슐 눈이 비쳐 커서를 보고, 속에서 노란 빛이 숨 쉬듯 일렁이다가 목소리(readLevel)에 맞춰 밝아지고 볼록해진다.
    알 깨기에서는 틈 사이 점 눈이 커서를 본다 */
 import { useEffect, useId, useRef } from 'react'
-import { motion, useMotionValue, useSpring, useTransform, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
+import { motion, useMotionValue, useSpring, useTransform, useVelocity, useAnimationFrame, useReducedMotion, animate } from 'motion/react'
 import { useGaze, Sprout } from './Piyak.jsx'
 import { ShellDefs, ShellPiece, EGG } from './Shell.jsx'
 
@@ -14,9 +14,17 @@ const WOBBLE = {
   peek: { every: [3200, 2400], deg: 4 },
 }
 const EYE_SPRING = { stiffness: 260, damping: 20, mass: 0.6 }
-const ORB_GAZE = 1.5           // 캡슐 눈은 껍데기 안쪽이라 점 눈보다 크게 움직인다
-/** 금이 가는 길 — crack(0..1) 만큼 그려진다. 왼쪽 위에서 시작해 알을 가로지른다 */
-const CRACK = 'M24 47l6 4 5-5 6 5 5-5 6 5 5-5 6 5 5-4 5 3'
+/* Live Orb 눈 — 10-13 사용자: 「진짜 live-orb 처럼 적극적으로 눈이 움직여야 귀엽다」.
+   크게(ORB_GAZE) · 휙(ORB_SPRING, 살짝 지나쳤다 돌아옴) 움직이고, 빠를수록 캡슐이 옆으로 늘며 납작해지고(SMEAR),
+   알 가장자리로 갈수록 구 표면을 돌아가듯 좁아진다(WRAP). 커서가 멈추면 금방 혼자 휙휙 둘러본다(ORB_PACE) */
+const ORB_GAZE = 2.6
+const ORB_SPRING = { stiffness: 420, damping: 17, mass: 0.5 }
+const ORB_PACE = { reach: 0.25, idle: 900, glance: [450, 900], front: 0.2 }
+const SMEAR = 90               // 이 속도(단위/초)에서 가장 많이 늘어난다
+const WRAP = 0.3               // 가장자리에서 이만큼 좁아진다
+const ORB_X = 4.2 * ORB_GAZE   // 눈이 갈 수 있는 끝 (GAZE_X × ORB_GAZE)
+/** 금이 가는 길 — crack(0..1) 만큼 그려진다. 눈 아래를 가로지른다 (10-13 사용자: 「눈 아래에서 금 가는 게 좋을듯」) */
+const CRACK = 'M21 66l6 4 5-5 6 5 5-5 6 5 5-5 6 5 5-5 6 4 5-3'
 
 /** 목소리 0..1 — 빨리 오르고 천천히 내려온다 */
 function useLevel(readLevel) {
@@ -43,12 +51,19 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
   const lid = useMotionValue(0)        // 위 껍데기가 들린 정도 0..1 (peek) — 위로 11 · 왼쪽으로 14°
   const lidY = useTransform(lid, (v) => v * -11)
   const lidTurn = useTransform(lid, (v) => v * -14)
-  const { gx: gazeX, gy: gazeY } = useGaze(box, !reduced)
+  const { gx: gazeX, gy: gazeY } = useGaze(box, !reduced, stage === 'peek' ? undefined : ORB_PACE)
   const gx = useSpring(gazeX, EYE_SPRING)
   const gy = useSpring(gazeY, EYE_SPRING)
-  const ox = useTransform(gx, (v) => v * ORB_GAZE)
-  const oy = useTransform(gy, (v) => v * ORB_GAZE)
   const blink = useMotionValue(1)
+  // 캡슐 눈 — 크게 · 휙 · 빠르면 늘어나고 · 가장자리는 좁게
+  const ox = useSpring(useTransform(gazeX, (v) => v * ORB_GAZE), ORB_SPRING)
+  const oy = useSpring(useTransform(gazeY, (v) => v * ORB_GAZE), ORB_SPRING)
+  const vx = useVelocity(ox)
+  const vy = useVelocity(oy)
+  const smear = useTransform([vx, vy], ([a, b]) => Math.min(1, Math.hypot(a, b) / SMEAR))
+  const eyeSx = useTransform([smear, ox], ([m, x]) => (1 + 0.45 * m) * (1 - WRAP * Math.min(1, Math.abs(x) / ORB_X)))
+  const eyeSy = useTransform([smear, blink], ([m, b]) => (1 - 0.3 * m) * b)
+  const lean = useTransform([tilt, ox], ([t, x]) => t + x * 0.5)   // 알도 그쪽으로 살짝 기운다
 
   // Live Orb — 속빛은 숨 쉬듯(breath) 일렁이고 목소리(level)에 밝아진다. 알은 옆으로만 볼록 (세로로 늘지 않는다)
   const level = useLevel(readLevel)
@@ -109,7 +124,7 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
         )}
         <ellipse className="px-shadow" cx="50" cy="91.5" rx="22" ry="3" />
         <motion.g style={{ y: hop }}>
-          <motion.g style={{ rotate: tilt, originX: 0.5, originY: 1 }}>
+          <motion.g style={{ rotate: lean, originX: 0.5, originY: 1 }}>
             {peek ? (
               <>
                 {/* 안에 있는 삐약이 — 틈 위로 눈만 보인다 */}
@@ -136,7 +151,7 @@ export function Egg({ stage = 'egg', readLevel, crack = 0.45, onPoke, label = '�
                   <motion.ellipse className="px-orb-glow" cx="50" cy="58" rx="26" ry="28" fill={`url(#${id}-glow)`}
                     style={{ opacity: glowOpacity, scale: glowScale, originX: 0.5, originY: 0.5 }} />
                   <motion.g style={{ x: ox, y: oy }}>
-                    <motion.g className="px-orb-eyes" style={{ scaleY: blink, originX: 0.5, originY: 0.5 }}>
+                    <motion.g className="px-orb-eyes" style={{ scaleX: eyeSx, scaleY: eyeSy, originX: 0.5, originY: 0.5 }}>
                       <rect x="37.2" y="47" width="5.6" height="11" rx="2.8" />
                       <rect x="57.2" y="47" width="5.6" height="11" rx="2.8" />
                     </motion.g>
