@@ -35,7 +35,7 @@
 <!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i7">
+<link rel="stylesheet" href="/css/intro.css?v=i8">
 <script src="/js/funnel.js?v=fn2" defer></script>
 <script src="/js/intro.js?v=i7" defer></script>
 </head>
@@ -61,8 +61,23 @@
         <img class="hero-icon" src="/assets/chuckchuck-app-icon-180.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
         <i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i>
       </span>
-      <p class="hero-bubble"><span class="bubble-magic">척척, 발표 채점~!</span><span class="bubble-q">이 숫자, 근거가 뭐예요?</span></p>
+      <p class="hero-bubble">이 숫자, 근거가 뭐예요?</p>
     </div>
+    <p class="fly-caption" aria-hidden="true">척척, 발표 채점~!</p>
+    <!-- 첫 그림 전에 삐약이가 지금 자리에서 화면 가운데까지 얼마나 떨어져 있는지 재 둔다 — css .fly 연출이 거기서 출발해 제자리로 날아온다.
+         맨 위에서 처음 열 때만 (/hi/<id>·#팀 으로 바로 내려가는 길, 움직임 줄이기, 스크립트 꺼짐이면 연출 없이 그대로) -->
+    <script>
+      (function () {
+        try {
+          if (matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0 || /^\/hi\/./.test(location.pathname) || location.hash) return;
+          var r = document.querySelector('.hero-mascot').getBoundingClientRect();
+          var d = document.documentElement;
+          d.style.setProperty('--fx', Math.round(innerWidth / 2 - (r.left + r.width / 2)) + 'px');
+          d.style.setProperty('--fy', Math.round(innerHeight * 0.42 - (r.top + r.height / 2)) + 'px');
+          d.classList.add('fly');
+        } catch (_) { /* 연출은 덤 */ }
+      })();
+    </script>
     <p class="eyebrow">AI 발표 리허설 코치</p>
     <h1 id="hero-title" class="hero-title">발표 연습,<br>척척발표랑 같이 해요</h1>
     <p class="hero-lead">혼자 연습하면 뭘 고칠지 모르고, 질문은 늘 두렵죠. 척척발표가 듣고, 짚고, 미리 물어봐 줘요.</p>
