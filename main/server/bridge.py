@@ -3709,6 +3709,16 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 self._index_questions(body, track, ready)
                 return self._json(200, client_questions(ready))
             mine = _claim_questions(q_key)
+            if mine is not None:
+                # 「없다」 를 본 뒤 차례를 잡기 전 그 틈에 앞사람이 다 만들고 자리를 비웠을 수 있다 — 잡은 뒤 한 번 더 본다.
+                # 안 보면 같은 질문을 LLM 으로 두 번 만든다 (10-13 test_bridge_questions_prefetch 가 5번에 1번 잡았다)
+                ready = _questions_ready(q_key)
+                if ready is not None:
+                    _release_questions(q_key, mine)
+                    mine = None
+                    sys.stderr.write(f"[bridge] F-08 questions track={track} 방금 만들어진 질문을 씀 ({label})\n")
+                    self._index_questions(body, track, ready)
+                    return self._json(200, client_questions(ready))
             if mine is None:
                 # 누가 같은 질문을 만드는 중이다 — 끝나길 기다렸다가 그 결과를 쓴다. 실패했으면 아래에서 직접 만든다.
                 t0 = time.time()
