@@ -135,22 +135,32 @@
   }
 
   // ── 워커 ───────────────────────────────────────────────────────────────────────────────
+  // 모델 받기가 멈춘 채 끝나지 않을 때(부스 와이파이가 붙잡힘 — import · fetch 가 영영 안 끝난다) 「읽을 준비를 하고 있어요」 에
+  // 갇히지 않게 — 이 시간 안에 ready 가 안 오면 실패로 보고 다시 받는다. 실측 준비 1.6~3초(10-13 실험실), 첫 받기 여유를 크게
+  const LOAD_TIMEOUT_MS = 120000;
+  let loadTimer = 0;
   function startWorker() {
+    clearTimeout(loadTimer);
+    let w;
     try {
-      S.worker = new Worker(WORKER_URL, { type: 'module' });
+      w = new Worker(WORKER_URL, { type: 'module' });
     } catch (_) {
       return modelFailed();
     }
+    S.worker = w;
     S.model = 'loading';
     S.busy = false;
-    S.worker.onmessage = (e) => onWorker(e.data || {});
-    S.worker.onerror = () => modelFailed();
+    // 지난 워커가 늦게 보낸 소식(실패 · 오류)은 무시한다 — 한 번 실패에 다시 받기가 두 번 걸려 워커가 둘 도는 일이 없게
+    w.onmessage = (e) => { if (S.worker === w) onWorker(e.data || {}); };
+    w.onerror = () => { if (S.worker === w) modelFailed(); };
+    loadTimer = setTimeout(() => { if (S.worker === w && S.model === 'loading') modelFailed(); }, LOAD_TIMEOUT_MS);
     S.worker.postMessage({
       type: 'init', base: VENDOR_BASE, pickFace: L.PICK_FACE, pickPose: L.PICK_POSE,
       people: L.MAX_PEOPLE, delegate: query.has('cpu') ? 'CPU' : '',
     });
   }
   function modelFailed() {
+    clearTimeout(loadTimer);
     S.model = 'failed';
     try { if (S.worker) S.worker.terminate(); } catch (_) { /* 이미 끝남 */ }
     S.worker = null;
