@@ -9,8 +9,9 @@
 <title>척척발표 — AI 발표 리허설 코치 | 팀 소개</title>
 <meta name="description" content="척척발표는 발표 자료와 실제로 말한 것을 맞춰 보고, 나올 만한 질문까지 미리 물어봐 주는 AI 발표 리허설 코치예요. 만든 사람들을 소개하고, 폰에서 바로 체험해 볼 수 있어요.">
 <link rel="canonical" href="https://chuckchuck-present.com/hi">
-<meta name="theme-color" content="#FFFFFF">
-<meta name="color-scheme" content="light">
+<!-- 무대색(리허설 위 띠와 같은 #043027) — 폰 주소창 · 상태 표시줄도 무대와 이어진다 (10-14) -->
+<meta name="theme-color" content="#043027">
+<meta name="color-scheme" content="dark">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="/favicon.ico?v=i1">
 <link rel="icon" type="image/png" sizes="64x64" href="/assets/chuckchuck-app-icon-64.png?v=i1">
@@ -33,10 +34,10 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"척척발표","url":"https://chuckchuck-present.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web","inLanguage":"ko","description":"발표 자료와 실제로 말한 것을 맞춰 보고, 나올 만한 질문까지 미리 물어봐 주는 AI 발표 리허설 코치"}</script>
 <!-- 서체는 /hi 에 나오는 글자만 담은 woff2 한 장을 우리 서버에서 (10-13, etc/scripts/subset_hi_font.py). 예전 CDN 조각 14개 362KB 가 전송량의 83% 였다.
      preload 주소는 intro.css @font-face 와 같아야 한다(?v= 도 같은 값 — 스크립트가 맞춘다). 글꼴 preload 는 crossorigin 이 있어야 그 요청을 다시 쓴다 -->
-<link rel="preload" href="/assets/fonts/cc-hi-sans.woff2?v=h548c45fdda" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/css/intro.css?v=i15">
+<link rel="preload" href="/assets/fonts/cc-hi-sans.woff2?v=h44f8b50e30" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/intro.css?v=i16">
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i10" defer></script>
+<script src="/js/intro.js?v=i11" defer></script>
 </head>
 <body>
 <!-- 병아리 배지 한 장을 팀원 줄마다 같이 쓴다 -->
@@ -51,6 +52,15 @@
 </svg>
 
 <a class="skip" href="#team">팀 소개로 건너뛰기</a>
+
+<!-- 위 띠 — 리허설(#/rehearsal) 위 띠와 같은 모양: 이름 · 민트 이름표 · 오른쪽 테 두른 버튼 · 아래 가는 선 (10-14) -->
+<header class="bar">
+  <div class="bar-in">
+    <span class="bar-name">척척발표</span>
+    <span class="bar-chip" id="hero-contest">AI 루키 2026 결선</span>
+    <a class="bar-btn" href="#team">팀 소개</a>
+  </div>
+</header>
 
 <main id="top">
   <!-- 1) 히어로 — 3초 안에 읽히는 한 줄 + 문제 + 앱 아이콘. JS 없이 그려진다 -->
@@ -124,10 +134,24 @@
       })();
     </script>
     <!-- 첫 화면의 신뢰 신호 하나 — 사실(team.json contest)만, 작게 (지표 노트 #15) -->
-    <p class="eyebrow">AI 발표 리허설 코치<span class="sr-only"> · </span><span class="hero-badge" id="hero-contest">AI 루키 2026 결선</span></p>
+    <p class="eyebrow">AI 발표 리허설 코치</p>
     <h1 id="hero-title" class="hero-title">발표 연습,<br>척척발표랑 같이 해요</h1>
     <p class="hero-lead">말한 걸 자료와 맞춰 보고, 나올 질문까지 미리 물어봐 줘요.</p>
     <a class="text-link" id="own-link-1" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
+
+    <!-- 제품 한 장면 — 발표 자료 창 위에 판정이 붙는다 (/hi/stage 시안의 판정 칩을 가져왔다, 10-14).
+         칩의 값은 녹화 투어(data/tour/delivery-rating.json)와 같다: 3장 핵심 주장 · 질문 근거 · 1분에 253자. 「미리 녹화한」 표시를 그림 안에 둔다 -->
+    <figure class="shot" role="img" aria-label="「별점은 왜 4.7에 몰리는가」 발표 자료 위에 판정 세 개가 붙은 화면. 3장 핵심 주장은 말하지 않았어요, 질문에 답한 근거는 좋아요, 말 빠르기 1분에 253자는 더 연습이에요">
+      <div class="shot-win">
+        <span class="mock-pill mock-live"><i></i>발표 중</span>
+        <span class="mock-pill mock-page">1 / 3장</span>
+        <img class="shot-slide" src="/assets/deck-covers/delivery-rating.webp?v=i1" width="800" height="450" alt="" decoding="async">
+      </div>
+      <p class="shot-chip shot-a"><span class="chip st-om">말하지 않았어요</span><b>3장 핵심 주장</b></p>
+      <p class="shot-chip shot-b"><span class="chip st-ok">좋아요</span><b>질문에 답한 근거</b></p>
+      <p class="shot-chip shot-c"><span class="chip st-no">더 연습</span><b>말 빠르기 1분에 253자</b></p>
+      <figcaption class="shot-note">미리 녹화한 발표에서 나온 값이에요</figcaption>
+    </figure>
   </section>
 
   <!-- 2) 무엇을 해 주나 — 한 단계에 한 메시지 · 한 그림. 그림 속 글과 숫자는 녹화 투어(data/tour/delivery-rating.json)에 실제로 나온 값만 쓴다 -->
@@ -138,11 +162,16 @@
     </div>
     <ol class="feats">
       <li class="feat rv">
-        <div class="feat-visual" role="img" aria-label="발표 자료 아래 객석에서 병아리 청중이 듣고 있는 화면">
-          <div class="mock-stage">
-            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp?v=i1" width="800" height="450" alt="" loading="lazy" decoding="async">
-            <span class="mock-pill mock-live"><i></i>발표 중</span>
-            <span class="mock-pill mock-page">1 / 3장</span>
+        <!-- 자료 창은 히어로에 있다 — 여기는 발표 중 코치 판(투어 「발표」 화면의 .tp-coach 문구 그대로)과 객석 -->
+        <div class="feat-visual" role="img" aria-label="AI 코치가 「발표를 듣고 있어요」 라고 알려 주고, 그 아래 객석에서 병아리 청중이 듣고 있는 화면">
+          <div class="mock-coach">
+            <svg class="mock-coach-chick" viewBox="0 0 100 100"><use href="#chick"/></svg>
+            <div class="mock-coach-text">
+              <p class="mock-coach-k">지금 여기서 AI가 이렇게 봐요</p>
+              <p class="mock-coach-t">발표를 듣고 있어요</p>
+              <p class="mock-coach-s">말 속도 · 군더더기 말 · 장마다 쓴 시간을 봐요</p>
+            </div>
+            <span class="mock-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           </div>
           <div class="mock-seats">
             <svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg>
@@ -235,7 +264,7 @@
     </div>
   </section>
 
-  <!-- 4) 마무리 — 투어로 넘기는 이유를 한 번 더. 페이지에서 브랜드 초록 면은 여기 한 곳만 -->
+  <!-- 4) 마무리 — 투어로 넘기는 이유를 한 번 더. 무대에서 조명이 가장 센 판은 여기 한 곳만 -->
   <section class="block outro" aria-labelledby="outro-title">
     <div class="outro-panel rv">
       <h2 id="outro-title" class="outro-title">직접 눌러 보면<br>더 잘 보여요</h2>
@@ -263,7 +292,7 @@
 <template id="tour-prefetch">
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link href="/css/app.css?v=ql17"><link href="/css/graph3d.css?v=qku3"><link href="/css/chatter.css?v=qkh"><link href="/css/theater.css?v=qkh2">
-  <link href="/css/design-system.css?v=qlst3"><link href="/css/tablet.css?v=qkl3"><link href="/css/tour.css?v=tr12">
+  <link href="/css/design-system.css?v=qlst3"><link href="/css/tablet.css?v=qkl3"><link href="/css/tour.css?v=tr13">
   <script src="/js/lazy.js?v=lz1"></script><script src="/js/config.js?v=qkh"></script><script src="/js/data.js?v=qkn3"></script>
   <script src="/js/app.js?v=qlbc73"></script><script src="/js/tour_logic.js?v=tr5"></script><script src="/js/tour.js?v=tr18"></script>
   <script src="/js/tour_play.js?v=tr10"></script>

@@ -27,7 +27,8 @@
   const FETCH_TIMEOUT_MS = 8000;
   const ID_RE = /^[a-z0-9-]{1,24}$/;
   const PHOTO_RE = /^assets\/team\/[a-z0-9-]+\.(webp|png|jpg)$/;
-  const AVATAR_TINTS = ['#E7FBF0', '#FFF1C2', '#F4F4F5', '#D7F5E8'];
+  // 무대 위 동그라미 — 민트 · 노랑 · 흰 빛을 옅게 (흰 글자 첫 글자가 어느 칸에서도 7:1 넘게, 10-14)
+  const AVATAR_TINTS = ['rgba(63, 213, 153, .18)', 'rgba(240, 180, 41, .18)', 'rgba(255, 255, 255, .10)', 'rgba(63, 213, 153, .10)'];
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => {

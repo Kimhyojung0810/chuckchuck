@@ -2,9 +2,14 @@
    여기엔 이 페이지가 쓰는 것만 같은 이름·같은 값으로 옮겼다. app.css 의 값이 바뀌면 여기도 맞춘다.
    폰 세로(360·375·393·412) 기준. 넓은 화면(≥960)은 그림과 글을 양옆에 둔다.
 
-   10-12 랜딩 기조(~/meetings/리서치/2026-10-12_랜딩페이지_디자인기조.md — 토스 · 현대 · 삼성 · 미리캔버스 · 캔바 · 당근 · 카카오뱅크):
-   흰 바탕 + 중립 회색 면 + 색은 우리 초록 하나 · 한 구역에 한 메시지와 한 그림 · 큰 제목과 짧은 본문의 굵기 대비 ·
-   제품 화면을 그림으로(남의 사진 없이, 녹화 투어에 실제로 나온 값으로 CSS 로 그린다) · 스크롤에 맞춰 한 번 살짝 떠오르는 움직임만. */
+   10-14 재디자인(~/meetings/2026-10-14_랜딩_리허설색_재디자인.md): 「우리 녹색」 = 공개 중인 /rehearsal 의 짙은 숲 초록 무대 + 민트 빛.
+   흰 바탕(10-12)은 QR → 흰 랜딩 → 어두운 리허설로 두 브랜드처럼 보였다. 이제 랜딩도 리허설과 같은 무대 위의 한 제품이다.
+   - 바탕은 booth_qa.css .bq 와 같은 그라데이션(#043027 → #021A15 + 위 오른쪽 민트 빛 · 아래 왼쪽 초록 빛)
+   - 강조는 민트(--cyan #3FD599) 하나 — 번호 · 머리말 · 글자 링크. 채운 초록(#0E8850)은 주 버튼 하나
+   - 글자는 흰색 3단(100 · 76 · 58%) — 무대 가장 밝은 곳(#0B3A2E 근처)에서도 58% 가 5.3:1
+   - 면은 리허설과 같은 두 겹: 무대 위 「어두운 유리판」(흰 5%, 흰 10% 선) 위에, 제품 화면은 발표 중 자료 창 같은 「밝은 유리 · 먹색 글자」.
+     판정 색 칩은 밝은 유리 안에서만 쓴다 — 색 값은 불변
+   - 한 구역에 한 메시지와 한 그림 · 큰 제목과 짧은 본문의 굵기 대비 · 스크롤에 맞춰 한 번 떠오르는 움직임만 (10-12 기조 그대로) */
 
 /* /hi 전용 글꼴 — Pretendard(OFL 1.1)에서 이 페이지에 나오는 글자만 뽑은 가변 woff2 한 장 (10-13, CDN 조각 14개 362KB → 56KB).
    OFL 예약 이름 때문에 이름은 「CC Hi Sans」. 만드는 법 · 빠진 글자 확인은 etc/scripts/subset_hi_font.py (team.json · 문구를 고치면 다시 돌린다).
@@ -12,7 +17,7 @@
    여기 없는 글자는 --font 다음 칸(Pretendard → 시스템 서체)으로 떨어진다 */
 @font-face {
   font-family: "CC Hi Sans";
-  src: url("/assets/fonts/cc-hi-sans.woff2?v=h548c45fdda") format("woff2");
+  src: url("/assets/fonts/cc-hi-sans.woff2?v=h44f8b50e30") format("woff2");
   font-weight: 500 830;
   font-style: normal;
   font-display: swap;
@@ -28,7 +33,19 @@
   --brand-ink: #066339;      /* 작은 초록 글자 · 연한 면 위 초록 글자 — 흰 7.36 · --brand-tint 위 6.43 */
   --brand-tint: #CEFADC;     /* 「여기 보세요」 처럼 면 자체가 보여야 하는 곳. --brand-weak(#E7FBF0)는 흰 바탕과 1.03:1 이라 아이콘 바탕에만 */
   --brand-vivid: #0CAF68;    /* 장식 전용(반짝이 · 막대) — 흰 바탕 2.86:1 이라 글자 · 테두리에는 안 쓴다 */
-  --page: #FFFFFF;           /* 랜딩 바탕은 흰색 — 회색 면(--fill)과 흰 카드가 서로 갈리게 */
+  /* 무대 — booth_qa.css .bq 와 같은 값 (app.css --navy-deep · --cyan) */
+  --stage-top: #043027;
+  --stage: #021A15;
+  --page: var(--stage);
+  --cyan: #3FD599;           /* 무대 위 강조. #021A15 위 10.6:1 · #0B3A2E 위 7.9:1 */
+  --on: #FFFFFF;
+  --on-2: rgba(255, 255, 255, .76);
+  --on-3: rgba(255, 255, 255, .58);
+  --line: rgba(255, 255, 255, .10);
+  --line-2: rgba(255, 255, 255, .16);
+  --glass: rgba(255, 255, 255, .045);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, .07);   /* 유리판 윗변의 빛 한 줄 */
+  --light-glass: rgba(255, 255, 255, .96);               /* 리허설 발표 중 자료 창 · 질문 판과 같은 밝은 유리 */
   /* 판정 색 — app.css 와 같은 값. 그림 속 리포트·질문 칩에만 쓴다 */
   --ok: #0A8F68;   --ok-bg: #E9F7EF;
   --mid: #B45309;  --mid-bg: #FDF6E3;
@@ -46,9 +63,10 @@
   /* 랜딩 전용 큰 둥글기 — 그림 면(무대)과 그 위에 뜬 카드. 앱 화면 토큰(--r-print)은 그대로 둔다 */
   --r-stage: 24px; --r-float: 16px;
   --w-body: 500; --w-med: 650; --w-bold: 750; --w-display: 830;
-  --shadow: 0 1px 2px rgba(24, 24, 27, .04);
-  --shadow-panel: 0 4px 16px rgba(24, 24, 27, .06);
-  --shadow-float: 0 12px 32px rgba(24, 24, 27, .10), 0 2px 6px rgba(24, 24, 27, .05);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .2);
+  --shadow-panel: 0 8px 24px rgba(0, 0, 0, .28);
+  /* 무대 위에 뜬 밝은 창 — 바닥 그림자를 깊게, 가장자리는 아주 옅은 민트 빛으로 무대에서 떼어 낸다 */
+  --shadow-float: 0 24px 48px rgba(0, 0, 0, .42), 0 4px 12px rgba(0, 0, 0, .22), 0 0 0 1px rgba(255, 255, 255, .06);
   --ease: cubic-bezier(.22, 1, .36, 1);
   --press: 90ms cubic-bezier(.2, .9, .3, 1);
   --font: "CC Hi Sans", "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
@@ -69,12 +87,19 @@ html {
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
   scroll-padding-top: 16px;
+  background: var(--stage);   /* 위아래로 당겨 늘인 자리(오버스크롤)도 무대색 */
+  color-scheme: dark;
 }
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--page);
-  color: var(--text);
+  /* 리허설 무대(booth_qa.css .bq)와 같은 빛 두 개 + 위에서 아래로 짙어지는 초록. 빛은 첫 화면 크기로 묶는다 — 긴 문서 전체에 늘이면 타원이 세로로 퍼졌다 */
+  background:
+    radial-gradient(70% 55% at 78% -8%, rgba(63, 213, 153, .20), transparent 70%) top / 100% 900px no-repeat,
+    radial-gradient(60% 36% at 0% 58%, rgba(14, 136, 80, .22), transparent 70%) top / 100% 1600px no-repeat,
+    linear-gradient(180deg, var(--stage-top) 0, var(--stage) 1100px) top / 100% 1100px no-repeat,
+    var(--stage);
+  color: var(--on);
   font: var(--w-body) 16px/1.55 var(--font);
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -86,7 +111,7 @@ img { max-width: 100%; display: block; }
 a { color: inherit; }
 h1, h2, h3, p, ol, ul { margin: 0; }
 ol, ul { padding: 0; list-style: none; }
-:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+:focus-visible { outline: 2.5px solid var(--cyan); outline-offset: 3px; }
 
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
@@ -95,21 +120,62 @@ ol, ul { padding: 0; list-style: none; }
 .skip {
   position: absolute; left: 12px; top: -60px; z-index: 30;
   padding: 12px 16px; border-radius: var(--r-ctl);
-  background: var(--navy); color: #fff; font-weight: var(--w-bold); text-decoration: none;
+  background: var(--light-glass); color: var(--text); font-weight: var(--w-bold); text-decoration: none;
 }
 .skip:focus { top: calc(12px + env(safe-area-inset-top, 0px)); }
+
+/* ── 위 띠 — 리허설(.bq-top)과 같은 모양: 왼쪽 이름 + 민트 이름표, 오른쪽 테 두른 버튼, 아래 가는 선 ── */
+.bar {
+  border-bottom: 1px solid var(--line);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.bar-in {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 64px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px max(var(--gutter), env(safe-area-inset-right, 0px)) 10px max(var(--gutter), env(safe-area-inset-left, 0px));
+}
+.bar-name { font-size: 18px; font-weight: var(--w-bold); letter-spacing: -.02em; white-space: nowrap; }
+/* 민트 글자 + 민트 14% 면 — 리허설 「발표 리허설」 꼬리표(.bq-brand small)와 같다 */
+.bar-chip {
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(63, 213, 153, .14);
+  color: var(--cyan);
+  font-size: 13px; font-weight: var(--w-med);
+  white-space: nowrap;
+}
+.bar-btn {
+  margin-left: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-ctl);
+  background: var(--glass);
+  color: var(--on); font-size: 15px; font-weight: var(--w-med); text-decoration: none; white-space: nowrap;
+  transition-property: background-color, transform; transition-duration: 120ms; transition-timing-function: ease-out;
+}
+.bar-btn:active { transform: scale(.97); background: rgba(255, 255, 255, .1); }
+@media (hover: hover) { .bar-btn:hover { background: rgba(255, 255, 255, .09); } }
+/* 360 폭 — 이름 · 이름표 · 버튼이 한 줄에 다 들어가게 조금씩 줄인다 */
+@media (max-width: 370px) {
+  .bar-in { gap: 8px; }
+  .bar-name { font-size: 17px; }
+  .bar-chip { padding: 3px 8px; font-size: 12.5px; }
+  .bar-btn { padding: 0 12px; font-size: 14px; }
+}
 
 main {
   max-width: 480px;
   margin: 0 auto;
-  padding: env(safe-area-inset-top, 0px) max(var(--gutter), env(safe-area-inset-right, 0px))
+  padding: 0 max(var(--gutter), env(safe-area-inset-right, 0px))
            calc(var(--dock-h) + var(--safe-b) + 24px) max(var(--gutter), env(safe-area-inset-left, 0px));
 }
 
-/* 글자색 초록은 --brand-strong(5.28:1) — --brand(#0E8850) 는 캔버스 위 4.32:1 로 본문 크기 글자에 모자란다.
-   15px — 14px/750 은 APCA Lc 가 권장 75 에 못 미쳤다 (지표 노트 #10) */
+/* 무대 위 머리말은 민트(리허설 .bq-eyebrow 와 같은 색). 15px — 14px/750 은 APCA Lc 가 권장 75 에 못 미쳤다 (지표 노트 #10) */
 .eyebrow {
-  color: var(--brand-strong);
+  color: var(--cyan);
   font-size: 15px;
   font-weight: var(--w-bold);
   letter-spacing: -.01em;
@@ -121,7 +187,7 @@ main {
 .hero {
   display: flex;
   flex-direction: column;
-  padding: 40px 0 0;
+  padding: 32px 0 0;
 }
 .hero-art {
   position: relative;
@@ -132,6 +198,14 @@ main {
 }
 /* 삐약이(앱 아이콘)가 들어오며 마법봉을 한 번 휘두르고, 봉 끝에서 반짝이가 튄다 — 접속할 때 한 번만 (10-12 사용자) */
 .hero-mascot { position: relative; flex: none; width: 88px; height: 88px; animation: mascot-in 460ms var(--ease) both; }
+/* 무대 조명 — 삐약이 뒤 민트 빛. 삐약이와 한 몸이라 첫 연출에서 가운데로 갈 때도 같이 간다 */
+.hero-mascot::before {
+  content: "";
+  position: absolute; inset: -44px;
+  border-radius: var(--r-dot);
+  background: radial-gradient(closest-side, rgba(63, 213, 153, .30), rgba(63, 213, 153, .08) 55%, transparent);
+  pointer-events: none;
+}
 /* 얼굴(봉 뺀 그림 + SVG 봉)을 한 몸으로 — 연출이 없을 땐 봉을 쥔 오른쪽 아래를 축으로 한 번 흔든다 */
 .hero-face {
   position: absolute; inset: 0;
@@ -142,7 +216,7 @@ main {
   display: block;
   width: 88px; height: 88px;
   /* 그림 자체가 둥근 모서리(투명) — box-shadow 는 네모로 깔리니 그림 모양을 따르는 drop-shadow */
-  filter: drop-shadow(0 8px 14px rgba(6, 78, 59, .16)) drop-shadow(0 1px 1px rgba(24, 24, 27, .08));
+  filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .38)) drop-shadow(0 1px 1px rgba(0, 0, 0, .2));
 }
 /* 마법봉 — 앱 아이콘의 512 칸 좌표 그대로. 손(477,341)이 돌림 · 늘림의 축이다. 넘치는 봉 · 꼬리는 그대로 보인다 */
 .wand { position: absolute; inset: 0; width: 88px; height: 88px; overflow: visible; pointer-events: none; }
@@ -185,12 +259,11 @@ main {
   position: relative;
   margin-top: 6px;
   padding: 10px 14px;
-  border-radius: var(--r-print) var(--r-print) var(--r-print) 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-panel);
+  border-radius: var(--r-float) var(--r-float) var(--r-float) 4px;
+  background: var(--light-glass);
+  box-shadow: var(--shadow-float);
   font-size: 15px;
-  font-weight: var(--w-med);
+  font-weight: var(--w-bold);
   line-height: 1.35;
   color: var(--text);
   animation: bubble-in 420ms var(--ease) 900ms both;
@@ -257,12 +330,13 @@ html.fly .fly-caption {
   left: calc(50% - var(--hand, 0px));
   top: calc(42% + 112px);
   z-index: 30;
-  padding: 6px 16px;
+  padding: 8px 20px;
   border-radius: var(--r-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
+  background: rgba(4, 48, 39, .88);
+  border: 1px solid rgba(63, 213, 153, .4);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .4), 0 0 24px rgba(63, 213, 153, .18);
   white-space: nowrap;
-  color: var(--brand-strong);
+  color: var(--cyan);
   font-size: 22px;
   font-weight: var(--w-display);
   letter-spacing: -.02em;
@@ -277,7 +351,8 @@ html.fly .fly-caption {
 }
 /* 나머지는 삐약이가 날기 시작할 때 함께 */
 html.fly .hero > :not(.hero-art):not(.fly-caption):not(script),
-html.fly main > :not(.hero) {
+html.fly main > :not(.hero),
+html.fly .bar {
   animation: content-in 300ms var(--ease) 1100ms both;
 }
 html.fly .hero-bubble { animation-delay: 1600ms; }
@@ -296,14 +371,6 @@ html.fly-skip .spark { display: none; }
   .spark { display: none; }
 }
 .hero .eyebrow { margin-bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-.hero-badge {
-  padding: 2px 10px;
-  border-radius: var(--r-pill);
-  background: var(--fill);
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: var(--w-med);
-}
 /* 제목은 크고 굵게, 본문은 한 줄 반 — 첫 화면에서 읽을 건 제목 · 한 줄 · 링크 셋뿐 (리서치: 히어로 문구 2~3줄 + 부제 1줄) */
 .hero-title {
   font-size: clamp(32px, 9.4vw, 40px);
@@ -316,7 +383,7 @@ html.fly-skip .spark { display: none; }
   margin-top: 16px;
   font-size: 17px;
   line-height: 1.6;
-  color: var(--text-2);
+  color: var(--on-2);
   text-wrap: balance;   /* 두 줄로 꺾일 때 아랫줄이 한두 낱말만 남지 않게 */
 }
 .text-link {
@@ -326,7 +393,7 @@ html.fly-skip .spark { display: none; }
   gap: 4px;
   min-height: 44px;
   margin-top: 16px;
-  color: var(--brand-strong);
+  color: var(--cyan);
   font-size: 16px;
   font-weight: var(--w-bold);
   text-decoration: none;
@@ -346,6 +413,62 @@ html.fly-skip .spark { display: none; }
 .text-link:active { opacity: .6; }
 @media (hover: hover) { .text-link:hover::after { transform: translateX(3px) rotate(45deg); } }
 
+/* 제품 한 장면 — 어두운 자료 창(발표 중 · 1 / 3장 띠) 아래쪽에서 밝은 판정 칩 셋이 계단처럼 흘러나온다.
+   창은 오른쪽으로 비켜 두고 칩은 창 왼쪽 가장자리 밖으로 걸친다 — 「화면 캡처 한 장」 이 아니라 무대 위에 놓인 물건처럼.
+   칩 자리는 창 높이(폭 92% × 9/16 + 띠 30px)에 맞춘 비율이라 폭이 바뀌어도 창 띠(발표 중 · 장 번호)를 가리지 않는다 */
+.shot {
+  position: relative;
+  margin: 28px 0 0;
+  padding: 0 0 118px;
+}
+.shot::before {   /* 창 뒤 바닥 빛 */
+  content: "";
+  position: absolute; left: 10%; right: 0; top: 10%; bottom: 0;   /* 오른쪽으로 넘기면 폰이 화면을 넓혀 축소해 보였다(393 → 404) */
+  background: radial-gradient(closest-side, rgba(63, 213, 153, .18), transparent);
+  pointer-events: none;
+}
+.shot-win {
+  position: relative;
+  width: 92%;
+  margin-left: auto;
+  padding-top: 30px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0B241D;
+  box-shadow: var(--shadow-float);
+}
+.shot-slide { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+.shot .mock-pill { top: 6px; }
+.shot-chip {
+  position: absolute;
+  z-index: 1;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--r-ctl);
+  background: var(--light-glass);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .40), 0 2px 6px rgba(0, 0, 0, .2);
+  color: var(--text);
+  font-size: 13.5px; line-height: 1.3;
+  white-space: nowrap;
+  animation: chip-in 460ms var(--ease) both;
+}
+.shot-chip b { font-weight: var(--w-bold); }
+.shot-a { left: 0; bottom: 152px; animation-delay: 260ms; }
+.shot-b { right: 0; bottom: 104px; animation-delay: 420ms; }
+.shot-c { left: 16px; bottom: 56px; animation-delay: 580ms; }
+@keyframes chip-in {
+  from { opacity: 0; transform: translateY(10px) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+.shot-note {
+  position: absolute; left: 0; bottom: 0;
+  color: var(--on-3); font-size: 12.5px;
+}
+html.fly .shot-chip { animation-delay: 1700ms; }
+html.fly .shot-b { animation-delay: 1840ms; }
+html.fly .shot-c { animation-delay: 1980ms; }
+html.fly-skip .shot-chip { animation: none; }
+
 /* ── 공통 구역 ─────────────────────────────────────────────────────────── */
 /* 구역 사이는 넉넉하게(96), 구역 머리와 내용 사이는 좁게(28) — 한 구역 = 한 메시지 */
 .block { padding: 96px 0 0; }
@@ -361,7 +484,7 @@ html.fly-skip .spark { display: none; }
 }
 .block-lead {
   margin-top: 10px;
-  color: var(--text-2);
+  color: var(--on-2);
   font-size: 17px;
   text-wrap: pretty;
 }
@@ -369,29 +492,45 @@ html.fly-skip .spark { display: none; }
 /* ── 2) 네 단계 — 그림 한 장 + 메시지 한 줄씩 ──────────────────────────── */
 .feats { margin-top: 28px; display: grid; gap: 64px; }
 .feat { display: grid; gap: 20px; }
-/* 그림 면 — 중립 회색 무대 위에 흰 카드가 뜬다. 초록은 카드 안의 숫자 · 막대 · 표시에만 */
+/* 그림 면 — 무대 위 어두운 유리판(흰 4.5%, 흰 10% 선, 윗변 빛 한 줄) 위에 밝은 유리 창이 뜬다.
+   판 안 바닥에는 옅은 점 격자 — 부스 사람 그래프 · 노드 그래프의 「재는 무대」 느낌. 가장자리로 갈수록 사라진다.
+   위 오른쪽 민트 빛은 페이지 바탕의 빛과 같은 방향(위 오른쪽)이다 */
 .feat-visual {
   position: relative;
+  isolation: isolate;
   display: grid; place-items: center;
   min-height: 236px;
-  padding: 28px 20px;
+  padding: 32px 20px;
   border-radius: var(--r-stage);
-  background: var(--fill);
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(80% 70% at 85% 0%, rgba(63, 213, 153, .14), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .02));
+  box-shadow: var(--glass-hi);
   overflow: hidden;
 }
+.feat-visual::before {
+  content: "";
+  position: absolute; inset: 0; z-index: -1;
+  background: radial-gradient(rgba(255, 255, 255, .10) 1px, transparent 1.4px) 0 0 / 18px 18px;
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 55%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(70% 70% at 50% 55%, #000 30%, transparent 100%);
+  pointer-events: none;
+}
 .feat-label {
-  display: flex; align-items: center; gap: 8px;
-  color: var(--brand-strong);
+  display: flex; align-items: center; gap: 10px;
+  color: var(--cyan);
   font-size: 15px;
   font-weight: var(--w-bold);
 }
+/* 단계 번호 — 리허설 첫 화면 「1 · 2 · 3」(.rh-up-how b)과 같은 민트 18% 동그라미 + 민트 숫자 */
 .feat-no {
   display: inline-grid; place-items: center;
-  width: 22px; height: 22px;
+  width: 26px; height: 26px;
   border-radius: var(--r-dot);
-  background: var(--brand-tint);   /* --brand-weak 는 흰 바탕과 1.03:1 이라 동그라미가 안 보였다 */
-  color: var(--brand-ink);
-  font-size: 13px;
+  background: rgba(63, 213, 153, .18);
+  color: var(--cyan);
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 .feat-title {
@@ -401,16 +540,17 @@ html.fly-skip .spark { display: none; }
   font-weight: var(--w-bold);
   letter-spacing: -.025em;
 }
-.feat-text { margin-top: 8px; color: var(--text-2); font-size: 16px; line-height: 1.6; text-wrap: pretty; }
-.feats-note { margin-top: 40px; color: var(--text-3); font-size: 13px; line-height: 1.5; text-wrap: pretty; }
+.feat-text { margin-top: 8px; color: var(--on-2); font-size: 16px; line-height: 1.6; text-wrap: pretty; }
+.feats-note { margin-top: 40px; color: var(--on-3); font-size: 13px; line-height: 1.5; text-wrap: pretty; }
 
 /* 그림 속 제품 화면 — 글자는 읽히되 장식은 덜어 낸다. 크기는 rem 이 아니라 px — 그림이라 화면 확대에만 따른다 */
 .mock-card {
   width: 100%; max-width: 320px;
   padding: 18px;
   border-radius: var(--r-float);
-  background: var(--surface);
+  background: var(--light-glass);
   box-shadow: var(--shadow-float);
+  color: var(--text);
   font-size: 14px;
   line-height: 1.45;
   text-align: left;
@@ -465,14 +605,40 @@ html.fly-skip .spark { display: none; }
 .mock-rows li + li { border-top: 1px solid var(--border); }
 .mock-rows small { flex-basis: 100%; color: var(--text-3); font-size: 12px; font-weight: var(--w-body); }
 
-/* 리허설 — 자료 화면 + 객석. 「발표 중」 · 「1 / 3장」 알약은 자료 위 어두운 띠에 — 자료 위에 얹었더니 슬라이드 머리글 글자와 겹쳤다 (10-13) */
+/* 리허설 — 코치 판 + 객석. 판은 투어 「발표」 화면의 코치 판(tour.css .tp-coach)과 같은 어두운 유리 · 민트 테 */
+.mock-coach {
+  width: 100%; max-width: 320px;
+  display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center;
+  padding: 14px 16px;
+  border-radius: var(--r-float);
+  border: 1px solid rgba(63, 213, 153, .45);
+  background: linear-gradient(135deg, rgba(63, 213, 153, .16), rgba(63, 213, 153, .06)), rgba(4, 30, 24, .75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 18px 40px rgba(0, 0, 0, .38);
+  text-align: left;
+}
+.mock-coach-chick { width: 44px; height: 44px; }
+.mock-coach-text { min-width: 0; }
+.mock-coach-k { color: var(--cyan); font-size: 12px; font-weight: var(--w-med); }
+.mock-coach-t { margin-top: 2px; color: #fff; font-size: 17px; font-weight: var(--w-bold); line-height: 1.35; }
+.mock-coach-s { margin-top: 2px; color: var(--on-2); font-size: 12.5px; line-height: 1.4; }
+/* 듣는 중 — 민트 막대 넷이 소리처럼 오르내린다(보일 때 세 번만) */
+.mock-eq { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+.mock-eq i { width: 3px; height: 40%; border-radius: 2px; background: var(--cyan); transform-origin: bottom; }
+.mock-eq i:nth-child(2) { height: 85%; } .mock-eq i:nth-child(3) { height: 60%; } .mock-eq i:nth-child(4) { height: 30%; }
+.feat.in .mock-eq i { animation: eq 700ms ease-in-out 3 alternate; }
+.feat.in .mock-eq i:nth-child(2) { animation-delay: 140ms; }
+.feat.in .mock-eq i:nth-child(3) { animation-delay: 280ms; }
+.feat.in .mock-eq i:nth-child(4) { animation-delay: 70ms; }
+@keyframes eq { 50% { transform: scaleY(.35); } }
+
+/* (/hi/stage 시안이 아직 쓰는) 자료 화면 + 객석. 「발표 중」 · 「1 / 3장」 알약은 자료 위 어두운 띠에 — 자료 위에 얹었더니 슬라이드 머리글 글자와 겹쳤다 (10-13) */
 .mock-stage {
   position: relative;
   width: 100%; max-width: 320px;
   padding-top: 28px;
   border-radius: 12px;
   overflow: hidden;
-  background: #27272A;
+  background: #0B241D;
   box-shadow: var(--shadow-float);
 }
 .mock-slide { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
@@ -485,10 +651,10 @@ html.fly-skip .spark { display: none; }
   color: #fff; font-size: 11px; font-weight: var(--w-bold); line-height: 1.4;
 }
 .mock-live { left: 8px; }
-.mock-live i { width: 6px; height: 6px; border-radius: var(--r-dot); background: #4ADE80; }
+.mock-live i { width: 6px; height: 6px; border-radius: var(--r-dot); background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
 .mock-page { right: 8px; font-variant-numeric: tabular-nums; }
-.mock-seats { margin-top: 14px; display: flex; justify-content: center; gap: 10px; }
-.seat { width: 40px; height: 40px; filter: drop-shadow(0 2px 2px rgba(24, 24, 27, .10)); }
+.mock-seats { margin-top: 18px; display: flex; justify-content: center; gap: 10px; }
+.seat { width: 40px; height: 40px; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .35)); }
 /* 객석 병아리가 한 마리씩 고개를 끄덕인다 — 그림이 보일 때 두 번만 */
 .feat.in .seat { animation: nod 900ms var(--ease) 2 both; }
 .feat.in .seat:nth-child(2) { animation-delay: 120ms; }
@@ -511,10 +677,12 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 #team { scroll-margin-top: -24px; }
 .team-box { margin-top: 28px; }
 /* 그림 면과 같은 큰 둥글기 · 그림자 없이 선 하나 — 페이지 안의 상자는 모두 이 모양 */
+/* 어두운 유리판 하나에 다섯 줄 — 그림 면(.feat-visual)과 같은 판 */
 .team-list {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .025));
+  border: 1px solid var(--line);
   border-radius: var(--r-stage);
+  box-shadow: var(--glass-hi);
   overflow: hidden;
 }
 .team-row {
@@ -525,37 +693,43 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   scroll-margin-top: 24px;
   transition: background-color 600ms ease;
 }
-.team-row + .team-row { border-top: 1px solid var(--fill); }
-/* /hi/<id> 로 들어온 사람 줄 — 잠깐 밝혀 「이 사람이에요」 */
-.team-row[data-active] { background: var(--brand-tint); }
+.team-row + .team-row { border-top: 1px solid var(--line); }
+/* /hi/<id> 로 들어온 사람 줄 — 민트 빛을 깔고 왼쪽에 민트 띠 하나 「이 사람이에요」 */
+.team-row { position: relative; }
+.team-row[data-active] { background: rgba(63, 213, 153, .12); }
+.team-row[data-active]::before {
+  content: ""; position: absolute; left: 0; top: 12px; bottom: 12px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--cyan);
+}
 .avatar {
   position: relative;
   flex: none;
   width: 44px; height: 44px;
   border-radius: var(--r-dot);
   display: grid; place-items: center;
-  background: var(--av, var(--brand-weak));
-  color: var(--navy);
+  background: var(--av, rgba(63, 213, 153, .16));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08);
+  color: var(--on);
   font-size: 18px;
   font-weight: var(--w-bold);
 }
 .avatar img {
   width: 44px; height: 44px; border-radius: var(--r-dot); object-fit: cover;
-  outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px;
+  outline: 1px solid rgba(255, 255, 255, .12); outline-offset: -1px;
 }
 .avatar .chick {
   position: absolute; right: -5px; bottom: -3px;
   width: 20px; height: 20px;
-  filter: drop-shadow(0 1px 1px rgba(24, 24, 27, .12));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .4));
 }
 .who { min-width: 0; flex: 1; }
 .who-top { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; row-gap: 2px; }
 .name, .role, .headline { overflow-wrap: anywhere; }
 .name { font-size: 17px; line-height: 1.35; font-weight: var(--w-bold); letter-spacing: -.01em; }
-.role { color: var(--text-3); font-size: 13px; font-weight: var(--w-med); line-height: 1.35; }
+.role { color: var(--on-3); font-size: 13px; font-weight: var(--w-med); line-height: 1.35; }
 .headline {
   margin-top: 2px;
-  color: var(--text-2);
+  color: var(--on-2);
   font-size: 15px;
   line-height: 1.45;
   text-wrap: pretty;
@@ -563,19 +737,19 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 
 /* 불러오는 동안 다섯 줄 자리를 잡아 둔다 — 목록이 들어올 때 아래 내용이 밀리지 않게 */
 .sk-row .who { display: grid; gap: 8px; }
-.sk { display: block; height: 12px; border-radius: var(--r-pill); background: var(--fill); width: 100%; }
-.sk-avatar { width: 44px; height: 44px; flex: none; border-radius: var(--r-dot); background: var(--fill); }
+.sk { display: block; height: 12px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .08); width: 100%; }
+.sk-avatar { width: 44px; height: 44px; flex: none; border-radius: var(--r-dot); background: rgba(255, 255, 255, .08); }
 .sk.w40 { width: 40%; } .sk.w80 { width: 80%; }
 
 .team-error {
   padding: 20px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--r-stage);
-  background: var(--surface);
-  color: var(--text-2);
+  background: var(--glass);
+  color: var(--on-2);
   font-size: 15px;
 }
-.team-error .btn-ghost { margin-top: 12px; }
+.team-error .btn-ghost { margin-top: 12px; border: 1px solid var(--line-2); background: var(--glass); color: var(--on); }
 .team-box[data-state="error"] .team-list { display: none; }
 
 .btn-ghost, .btn-solid {
@@ -591,14 +765,21 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 }
 .btn-ghost:active, .btn-solid:active { transform: scale(.97); }
 
-/* ── 4) 마무리 — 페이지에서 단 하나의 진한 초록 면. 마지막 메시지만 크게 ─────────── */
+/* ── 4) 마무리 — 무대에서 조명이 가장 센 판 하나. 마지막 메시지만 크게 ─────────── */
 .outro { padding-top: 96px; }
 .outro-panel {
-  padding: 40px 24px 28px;
+  position: relative;
+  isolation: isolate;
+  padding: 44px 24px 28px;
   border-radius: var(--r-stage);
-  background: var(--navy);
+  border: 1px solid rgba(63, 213, 153, .24);
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgba(63, 213, 153, .26), transparent 70%),
+    linear-gradient(180deg, #0A4434 0%, #052E24 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10), 0 32px 64px rgba(0, 0, 0, .35);
   color: #fff;
   text-align: center;
+  overflow: hidden;
 }
 .outro-title {
   font-size: clamp(26px, 7.4vw, 30px);
@@ -607,7 +788,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   letter-spacing: -.03em;
   text-wrap: balance;
 }
-/* 진한 초록(#064E3B) 위 글자: 흰 9.7:1 · 민트(--mint) 7.4:1 · 흰 78% 6.4:1 */
+/* 판의 가장 밝은 곳(위 가운데, 약 #1C6B53) 위 글자: 흰 6.6:1 · 흰 78% 4.6:1 · 민트(--cyan) 3.5:1 이라 민트는 18px 넘는 굵은 글자 · 숫자만 */
 .outro-lead { margin-top: 10px; color: rgba(255, 255, 255, .78); font-size: 16px; text-wrap: balance; }
 /* 체험 순서 — 다섯 칸 한 줄(번호 점 + 아래 이름, 점 사이를 선으로). 칩을 늘어놓으면 393 에서 4 + 1 로 꺾였다 */
 .tour-path {
@@ -620,7 +801,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 .tour-path::before {
   content: "";
   position: absolute; left: 10%; right: 10%; top: 13px;
-  height: 2px; background: rgba(174, 239, 213, .35);
+  height: 2px; background: linear-gradient(90deg, rgba(63, 213, 153, .15), rgba(63, 213, 153, .5), rgba(63, 213, 153, .15));
 }
 .tour-path li {
   position: relative;
@@ -633,23 +814,23 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   display: grid; place-items: center;
   width: 28px; height: 28px;
   border-radius: var(--r-dot);
-  background: var(--mint); color: var(--navy);
-  box-shadow: 0 0 0 4px var(--navy);
+  background: var(--cyan); color: var(--stage-top);
+  box-shadow: 0 0 0 4px #073A2D, 0 0 16px rgba(63, 213, 153, .35);
   font-size: 13px; font-weight: var(--w-bold);
   font-variant-numeric: tabular-nums;
 }
-.outro .text-link { align-self: auto; margin-top: 20px; color: var(--mint); }
-.outro .text-link:focus-visible { outline-color: var(--mint); }
+.outro .text-link { align-self: auto; margin-top: 20px; color: #fff; }
+.outro .text-link::after { border-color: var(--cyan); }
 
 .foot {
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px;
-  color: var(--text-3);
+  color: var(--on-3);
   font-size: 13px;
 }
-.foot a { display: inline-flex; align-items: center; min-height: 44px; color: var(--text-2); }
+.foot a { display: inline-flex; align-items: center; min-height: 44px; color: var(--on-2); }
 
 /* ── 아래 고정 주 버튼 ─────────────────────────────────────────────────── */
 .dock {
@@ -658,7 +839,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   z-index: 10;
   /* 위 24px 는 바탕색으로 흐려지는 띠 — 아래로 지나가는 글이 버튼에 딱 붙어 보이지 않게 (r2-10) */
   padding: 24px max(var(--gutter), env(safe-area-inset-right, 0px)) calc(12px + var(--safe-b)) max(var(--gutter), env(safe-area-inset-left, 0px));
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--page) 40%);
+  background: linear-gradient(to bottom, rgba(2, 26, 21, 0), rgba(2, 26, 21, .92) 45%, var(--stage));
 }
 .btn-primary {
   display: flex; align-items: center; justify-content: center;
@@ -671,7 +852,8 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   font-size: 17px;
   font-weight: var(--w-bold);
   text-decoration: none;
-  box-shadow: 0 6px 16px rgba(14, 136, 80, .24);
+  /* 리허설 주 버튼(.bq-cta)과 같은 초록 빛 그림자 + 윗변 빛 한 줄 */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 10px 30px rgba(14, 136, 80, .35);
   transition-property: transform, background-color;
   transition-duration: 120ms;
   transition-timing-function: ease-out;
@@ -687,7 +869,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 .sheet-scrim {
   position: fixed; inset: 0; z-index: 40;
   display: flex; align-items: flex-end; justify-content: center;
-  background: rgba(24, 24, 27, .45);
+  background: rgba(0, 0, 0, .55);
   animation: fade-in 160ms ease-out both;
 }
 .sheet-scrim[hidden] { display: none; }
@@ -699,6 +881,9 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   animation: sheet-up 260ms var(--ease) both;
 }
 .sheet:focus { outline: none; }
+/* 리허설 시트(.bq-sheet)처럼 무대 위 밝은 판 — 안에서는 먹색 글자 · 초록 초점 테 */
+.sheet { color: var(--text); box-shadow: 0 -12px 48px rgba(0, 0, 0, .4); }
+.sheet :focus-visible { outline-color: var(--brand); }
 .sheet-title { font-size: 20px; font-weight: var(--w-bold); line-height: 1.4; letter-spacing: -.02em; }
 .sheet-text { margin-top: 8px; color: var(--text-2); font-size: 15px; text-wrap: pretty; }
 .sheet-hint { margin-top: 10px; padding: 10px 12px; border-radius: var(--r-inner); background: var(--fill); font-size: 14px; color: var(--text); }
@@ -729,10 +914,20 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 @media (min-width: 960px) {
   :root { --gutter: 40px; }
   main { max-width: 1120px; }
-  /* 넓은 화면의 첫 화면은 가운데로 — 오른쪽이 통째로 비었다 (리서치: 미리캔버스 · 캔바 · 당근 · 카카오뱅크 모두 가운데 히어로) */
-  .hero { padding-top: 88px; align-items: center; text-align: center; }
-  .hero .text-link { align-self: center; }
-  .hero .eyebrow { justify-content: center; }
+  /* 넓은 화면의 첫 화면 — 왼쪽 글 · 오른쪽 제품 한 장면 (10-14). 예전 가운데 히어로는 오른쪽 장면이 생기면서 두 칸으로 */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    column-gap: 72px;
+    align-items: start;
+    padding-top: 80px;
+  }
+  .hero > * { grid-column: 1; }
+  .hero .text-link { justify-self: start; }
+  .shot { grid-column: 2; grid-row: 1 / span 8; align-self: center; margin: 0; }
+  .shot-chip { font-size: 15px; padding: 10px 16px 10px 10px; }
+  .shot-a { bottom: 168px; } .shot-b { bottom: 112px; } .shot-c { left: 24px; bottom: 56px; }
+  .bar-in { max-width: 1120px; }
   #what .block-head { text-align: center; }
   .hero-title { font-size: 56px; }
   .hero-lead { font-size: 20px; }
@@ -743,7 +938,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   .feat { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: center; gap: 72px; }
   .feat:nth-child(even) .feat-visual { order: 2; }
   .feat-visual { min-height: 400px; padding: 48px; }
-  .mock-card, .mock-stage { max-width: 380px; }
+  .mock-card, .mock-stage, .mock-coach { max-width: 380px; }
   .feat-title { font-size: 32px; }
   .feat-text { font-size: 18px; }
   .team { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 72px; align-items: start; }
