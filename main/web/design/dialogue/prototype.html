@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>척척발표 Live Dialogue</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+/* 배치: 위 검토 막대 · [프로토타입] 띠(삐약이 구 + 질문 · 내 말 · 꼬리질문) · 웹캠 틀 · 자료 레일 · 옆 비교판 / [설계 노트] 문서 */
+:root {
+  color-scheme: dark;
+  --bg: #141613; --bg-2: #1B1D1A; --surface: #232722; --surface-2: #2D322C;
+  --line: rgb(240 238 228 / .1); --line-2: rgb(240 238 228 / .18);
+  --ivory: #F0EEE4; --ivory-2: rgb(240 238 228 / .76); --ivory-3: rgb(240 238 228 / .52); --ivory-4: rgb(240 238 228 / .3);
+  --em: #6FB59A; --em-deep: #3E7A63; --em-soft: rgb(111 181 154 / .16); --em-ink: #10231B;
+  --amber: #E2B04A; --amber-soft: rgb(226 176 74 / .14); --red-soft: rgb(220 38 38 / .16);
+  --ok: #0A8F68; --mid: #B45309; --no: #DC2626;
+  --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ivory); font: 500 15px/1.55 var(--font); word-break: keep-all; overflow-wrap: break-word; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--em); outline-offset: 2px; }
+.app { display: flex; flex-direction: column; min-height: 100%; }
+.rv { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: #0B0C0B; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.rv::-webkit-scrollbar { display: none; }
+.rv-name { flex: none; font-size: 12.5px; color: var(--ivory-3); white-space: nowrap; }
+.rv-name b { color: var(--ivory); }
+.seg { flex: none; display: inline-flex; gap: 3px; padding: 3px; border-radius: 999px; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--ivory-2); white-space: nowrap; }
+.seg button[aria-pressed="true"], .seg button[aria-selected="true"] { background: var(--ivory); color: var(--bg); font-weight: 700; }
+.app[data-view="notes"] .only-proto, .app[data-view="proto"] #notes, .app[data-view="notes"] #proto { display: none; }
+
+/* ══════ 프로토타입 ══════ */
+#proto { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; padding: 16px; }
+#proto > * { min-width: 0; }
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 180px; grid-template-rows: 214px minmax(300px, 1fr) 56px; grid-template-areas: "band band" "frame rail" "strip strip"; gap: 12px;
+  padding: 14px; border-radius: 20px; background: radial-gradient(120% 70% at 50% -10%, #20231E 0%, var(--bg-2) 55%, #121411 100%); box-shadow: inset 0 0 0 1px var(--line); height: min(760px, calc(100vh - 90px)); min-height: 560px; }
+.band { grid-area: band; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; }
+.pres { display: grid; justify-items: center; gap: 4px; }
+.halo { position: relative; width: 110px; height: 110px; }
+.orb { position: absolute; inset: 6px; border-radius: 50%; background: conic-gradient(from var(--spin, 0deg), #9CCBB5, #F0EEE4 18%, #3E7A63 33%, #9CCBB5 48%, #F0EEE4 63%, #6FB59A 80%, #9CCBB5);
+  transform: scale(var(--s, .9)); transition: transform .5s var(--ease), filter .5s; filter: saturate(.85); }
+.orb::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 50% 50%, rgb(240 238 228 / .55), transparent 42%); }
+.halo .bird { position: absolute; width: 58px; left: 50%; bottom: -8px; transform: translateX(-50%); transition: transform .5s var(--ease); filter: drop-shadow(0 6px 10px rgb(0 0 0 / .35)); }
+.halo .bird svg { display: block; width: 100%; height: auto; }
+.stage[data-moment="ai-speaking"] .orb { animation: talk 1.6s ease-in-out infinite; }
+.stage[data-moment="user-thinking"] .orb { --s: .86; }
+.stage[data-moment="user-speaking"] .orb { --s: calc(.88 + var(--lv, 0) * .14); }
+.stage[data-moment="user-speaking"] .bird { transform: translateX(-50%) rotate(-5deg); }
+.stage:is([data-moment="reading"], [data-moment="composing"]) .orb { animation: spin 3.2s linear infinite; --s: .84; filter: saturate(.6) brightness(.95); }
+.stage[data-moment="weaving"] .orb { --s: .95; }
+@keyframes talk { 0%, 100% { transform: scale(.9); } 50% { transform: scale(.95); } }
+@keyframes spin { to { --spin: 360deg; } }
+@property --spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.pres-state { font-size: 12.5px; color: var(--em); font-weight: 700; text-align: center; min-height: 18px; }
+.stage:is([data-moment="reading"], [data-moment="composing"]) .pres-state { color: var(--ivory-2); }
+
+.line { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 6px; height: 100%; }
+.meta { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ivory-3); min-height: 20px; white-space: nowrap; overflow: hidden; }
+.meta .strat { display: none; font-size: 11.5px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--em-soft); color: var(--em); }
+.meta .strat.on { display: inline-block; animation: fadein .3s var(--ease); }
+.react { margin: 0; font-size: 15px; color: var(--ivory); min-height: 0; display: none; }
+.react.on { display: block; animation: fadein .35s var(--ease); }
+.idea { margin: 0; display: none; align-items: center; gap: 8px; font-size: 14px; color: var(--ivory-2); min-width: 0; }
+.idea.on { display: flex; animation: fadein .35s var(--ease); }
+.idea .tag { flex: none; font-size: 11.5px; font-weight: 700; color: var(--em); padding: 1px 8px; border-radius: 999px; background: var(--em-soft); }
+.idea q { quotes: "「" "」"; color: var(--ivory); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q { margin: 0; font-size: 24px; line-height: 1.38; font-weight: 700; letter-spacing: -.01em; text-wrap: balance; transition: font-size .32s var(--ease), opacity .24s, transform .24s var(--ease); }
+.stage:not([data-moment="ai-speaking"]):not([data-moment="weaving"]) .q { font-size: 18px; }
+.q.out { opacity: 0; transform: translateY(-8px); }
+.q.in { animation: qin .4s var(--ease) both; }
+@keyframes qin { from { opacity: 0; transform: translateY(10px); } }
+@keyframes fadein { from { opacity: 0; transform: translateY(4px); } }
+.say { margin: 0; font-size: 17px; line-height: 1.5; color: var(--ivory-2); min-height: 26px; }
+.say .int { color: var(--ivory-4); }
+.say mark { background: linear-gradient(var(--em), var(--em)) no-repeat 0 100% / 0 2px; color: inherit; transition: background-size .5s var(--ease), color .3s; padding-bottom: 1px; }
+.say.caught .w { opacity: .35; transition: opacity .35s; }
+.say.caught mark { background-size: 100% 2px; color: var(--ivory); }
+.say.dim { color: var(--ivory-3); }
+.say .sweep { background: linear-gradient(90deg, transparent 0 40%, rgb(240 238 228 / .6) 50%, transparent 60% 100%) no-repeat; background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; animation: sweep 2.2s linear infinite; }
+@keyframes sweep { from { background-position: 120% 0; } to { background-position: -20% 0; } }
+.thread { position: absolute; left: -10px; width: 1.5px; top: 30px; height: 0; background: linear-gradient(var(--em), transparent); transition: height .4s var(--ease); }
+.thread.on { height: 90px; }
+
+.frame { grid-area: frame; border-radius: 18px; overflow: hidden; position: relative; background: linear-gradient(180deg, #3D3429, #2A251F); box-shadow: 0 0 0 1px var(--line); min-height: 0; }
+.frame svg { position: absolute; left: 50%; bottom: 0; height: 86%; transform: translateX(-50%); }
+.frame .cap { position: absolute; left: 12px; bottom: 10px; font-size: 12px; color: rgb(255 255 255 / .7); background: rgb(20 20 18 / .5); padding: 3px 9px; border-radius: 999px; }
+.rail { grid-area: rail; display: grid; gap: 8px; align-content: start; }
+.slide { aspect-ratio: 16 / 9; border-radius: 8px; background: #F4F2EC; color: #222; padding: 8px 10px; font-size: 10.5px; line-height: 1.35; box-shadow: 0 0 0 1px var(--line); transition: box-shadow .3s; }
+.slide b { display: block; font-size: 11.5px; margin-bottom: 4px; }
+.slide.focus { box-shadow: 0 0 0 2px var(--em); }
+.rail small { font-size: 12px; color: var(--ivory-3); }
+.rail small b { color: var(--em); }
+.strip { grid-area: strip; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.strip .center { display: flex; gap: 8px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; color: var(--ivory-2); }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--ivory-4); }
+.pill.on i { background: var(--em); }
+.btn { border: 0; height: 38px; padding: 0 14px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: var(--ivory-2); font-size: 13.5px; white-space: nowrap; }
+.btn:hover { color: var(--ivory); background: var(--surface-2); }
+.btn.primary { background: var(--em); color: var(--em-ink); font-weight: 700; box-shadow: none; }
+
+.side { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel { background: var(--surface); border-radius: 16px; padding: 14px 16px; box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 10px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 13px; color: var(--ivory-3); font-weight: 600; }
+.scen { display: grid; gap: 6px; }
+.scen button { text-align: left; border: 0; border-radius: 12px; padding: 9px 12px; background: var(--bg-2); color: var(--ivory-2); font-size: 13.5px; display: grid; gap: 1px; }
+.scen button small { color: var(--ivory-3); font-size: 12px; }
+.scen button[aria-pressed="true"] { background: var(--em-soft); color: var(--ivory); box-shadow: inset 0 0 0 1px rgb(111 181 154 / .45); }
+.cmp { display: grid; gap: 10px; }
+.cmp div { display: grid; gap: 3px; font-size: 13.5px; }
+.cmp b { font-size: 12px; font-weight: 700; }
+.cmp .now b { color: #F2A3A3; } .cmp .exp b { color: var(--amber); } .cmp .goal b { color: var(--em); }
+.cmp p { margin: 0; color: var(--ivory-2); }
+.cmp .flag { font-size: 12px; color: var(--amber); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 12.5px; }
+.kv dt { color: var(--ivory-3); } .kv dd { margin: 0; color: var(--ivory-2); }
+
+.grid7 { grid-column: 1 / -1; display: grid; gap: 10px; }
+.grid7 h2 { margin: 6px 0 0; font-size: 17px; }
+.grid7 p.lead { margin: 0; color: var(--ivory-3); font-size: 13.5px; }
+.tbl { overflow-x: auto; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+table { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 13px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); color: var(--ivory-2); }
+th { color: var(--ivory-3); font-weight: 600; font-size: 12px; background: rgb(240 238 228 / .03); }
+td:first-child { white-space: nowrap; color: var(--ivory); font-weight: 700; }
+td.same { background: var(--red-soft); }
+.chip { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--em-soft); color: var(--em); margin-bottom: 4px; }
+.chip.bad { background: var(--red-soft); color: #F2A3A3; }
+
+/* ══════ 노트 ══════ */
+#notes { background: var(--bg-2); }
+.doc { max-width: 1080px; margin: 0 auto; padding-block: 36px 96px; padding-inline: 24px; display: grid; gap: 48px; }
+.doc h1 { margin: 0 0 8px; font-size: 30px; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+.doc header p { margin: 0; color: var(--ivory-2); max-width: 70ch; }
+.doc section { display: grid; gap: 16px; min-width: 0; }
+.doc h2 { margin: 0; font-size: 21px; display: flex; gap: 10px; align-items: baseline; }
+.doc h2 small { font-size: 13px; color: var(--em); }
+.doc h3 { margin: 0; font-size: 15.5px; }
+.doc p, .doc li { color: var(--ivory-2); max-width: 74ch; }
+.doc p { margin: 0; }
+.doc ul, .doc ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.doc strong { color: var(--ivory); }
+code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; color: var(--ivory); }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.box { background: var(--surface); border-radius: 16px; padding: 16px 18px; box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.box.pick { box-shadow: inset 0 0 0 1.5px var(--em); }
+blockquote { margin: 0; padding: 10px 16px; border-left: 2px solid var(--em-deep); color: var(--ivory-2); background: rgb(240 238 228 / .03); border-radius: 0 10px 10px 0; font-size: 14px; }
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.flow span { padding: 8px 12px; border-radius: 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; }
+.flow span b { display: block; font-size: 12px; color: var(--em); }
+.flow i { color: var(--ivory-4); font-style: normal; }
+.wire { aspect-ratio: 16 / 10; max-width: 100%; border-radius: 10px; background: #121411; position: relative; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+.wire > i { position: absolute; display: block; border-radius: 4px; }
+.wire .cam { background: #3A3229; } .wire .t { background: var(--ivory-3); } .wire .t2 { background: var(--em); } .wire .orbw { border-radius: 50%; background: conic-gradient(#9CCBB5, #F0EEE4, #3E7A63, #9CCBB5); } .wire .pp { background: #E8E5DD; } .wire .ctl { background: var(--em-deep); }
+@media (max-width: 980px) { #proto { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 220px auto auto; grid-template-areas: "band" "frame" "rail" "strip"; min-height: 0; height: auto; }
+  .band { grid-template-columns: 76px minmax(0, 1fr); }
+  .halo { width: 72px; height: 72px; } .halo .bird { width: 40px; }
+  .q { font-size: 19px; } .rail { grid-template-columns: repeat(3, minmax(0, 1fr)); } .rail small { grid-column: 1 / -1; } .slide { font-size: 9px; overflow: hidden; }
+  .strip { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .1s !important; } }
+</style>
+</head><body>
+<div class="app" id="app" data-view="proto">
+  <nav class="rv" aria-label="검토 도구">
+    <span class="rv-name"><b>Q&amp;A 대화 재설계</b> · 1단계 검토</span>
+    <div class="seg" role="tablist">
+      <button type="button" role="tab" id="tProto" aria-selected="true">프로토타입</button>
+      <button type="button" role="tab" id="tNotes" aria-selected="false">설계 노트</button>
+    </div>
+    <button type="button" class="btn only-proto" id="replay">이 답으로 다시 재생</button>
+  </nav>
+
+  <main id="proto">
+    <section class="stage" id="stage" data-moment="ai-speaking" aria-label="대화 무대">
+      <header class="band">
+        <div class="pres">
+          <div class="halo"><div class="orb" id="orb"></div><span class="bird" id="bird"><svg xmlns="http://www.w3.org/2000/svg" class="px-chick" data-preset="cute" data-mood="neutral" viewBox="-10 -18 120 120" aria-hidden="true"><style>svg.px-chick{--px-body:#FFD96A;--px-line:#356B59;--px-mint:#9ADBC0;--px-beak:#F0A93C;--px-blush:#F7B6A8;}/* ── 삐약이 (studio-app/src/piyak) — 객석 발표새와 같은 색. 몸 · 외곽선 · 얼굴 색은 캐릭터 고유색이라 무대 색이 바뀌어도 그대로 ── */
+
+
+.px-chick svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.px-chick :is(g, path, ellipse, circle, rect, text) { transform-box: fill-box; }
+.px-glow { pointer-events: none; }
+.px-shadow { fill: rgba(0, 0, 0, .38); }
+.px-breath { transform-origin: 50% 100%; animation: pxBreathe 3.6s ease-in-out infinite; }
+/* 숨 · 흔들기 — 눈에 띄게 (10-13 사용자: 「훨씬 더 적극적으로」). 들숨에 늘고, 좌우로 몸을 흔든다 */
+@keyframes pxBreathe {
+  0%, 100% { transform: scale(1, 1) rotate(0deg); }
+  25%      { transform: scale(1.01, 1.03) rotate(2.2deg); }
+  50%      { transform: scale(1.02, 1.055) rotate(0deg); }
+  75%      { transform: scale(1.01, 1.03) rotate(-2.2deg); }
+}
+/* cute(기본) — 흔들기 대신 말랑하게 숨 쉰다: 옆으로만 볼록 퍼졌다 돌아온다 (세로로 늘지 않는다 — 「길쭉하면 안 귀엽다」 10-13) */
+.px-chick[data-preset="cute"] .px-breath { animation: pxBreatheCute 2.8s ease-in-out infinite; }
+@keyframes pxBreatheCute {
+  0%, 100% { transform: scale(1, 1); }
+  40%      { transform: scale(1.032, .982); }
+  70%      { transform: scale(1.012, .996); }
+}
+.px-chick[data-preset="cute"] :is(.px-leg-l, .px-leg-r) { transform-origin: 50% 0; animation: pxTap 1.4s ease-in-out infinite; }
+.px-chick[data-preset="cute"] .px-leg-r { animation-delay: -.7s; }
+@keyframes pxTap { 0%, 60%, 100% { transform: none; } 75% { transform: translateY(-1.6px) rotate(-8deg); } }
+/* 커서가 올라오거나 기쁘면 볼이 발그레 */
+.px-blush { transition: opacity .3s; }
+.px-chick:is(:hover, [data-mood="happy"], [data-mood="excited"]) .px-blush { opacity: .95; }
+
+.px-fill { fill: var(--px-body); stroke: var(--px-line); stroke-linejoin: round; }
+.px-w24 { stroke-width: 2.4; }
+.px-w3 { stroke-width: 2.6; }
+.px-legs :is(path, ellipse) { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.4; stroke-linejoin: round; }
+.px-body { fill: var(--px-body); }
+.px-outline { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-tuft path { stroke: var(--px-line); }
+.px-tuft .px-mint { fill: var(--px-mint); stroke-width: 1.6; stroke-linejoin: round; }
+.px-blush { fill: var(--px-blush); opacity: .65; }
+.px-beak { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.3; }
+.px-prop rect { stroke: var(--px-line); stroke-width: 2; }
+.px-prop rect.px-mint { fill: var(--px-mint); stroke: none; }
+.px-prop .px-cap { fill: var(--px-beak); }
+.px-prop .px-tip { fill: #F7E9B8; stroke: var(--px-line); stroke-width: 1.5; stroke-linejoin: round; }
+.px-rosette :is(.px-ribbon, .px-medal) { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 1.6; stroke-linejoin: round; }
+.px-rosette .px-star { fill: var(--px-body); stroke: var(--px-line); stroke-width: .7; }
+.px-phones .px-band { fill: none; stroke: var(--px-line); stroke-width: 3.4; stroke-linecap: round; }
+.px-phones rect.px-cup { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 2; }
+/* 알 · 껍데기 (Egg.jsx · Shell.jsx) · 닭 */
+.px-egg { fill: var(--px-egg); stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-egg-spot { fill: var(--px-egg-spot); }
+.px-crack, .px-zig { fill: none; stroke: var(--px-line); stroke-linecap: round; stroke-linejoin: round; }
+.px-crack { stroke-width: 2; }
+.px-zig { stroke-width: 2.6; }
+.px-comb { fill: var(--px-comb); stroke: var(--px-line); stroke-width: 2.2; stroke-linejoin: round; }
+.px-hen-feet { fill: none; stroke: var(--px-beak); stroke-width: 2.4; stroke-linecap: round; }
+/* 자라는 이야기 (Hatch.jsx) — 단계가 바뀌어도 자리가 그대로이게 그림 칸 크기를 고정한다 */
+.px-hatch__art { display: grid; width: var(--px-size); aspect-ratio: 120 / 118; }
+.px-hatch__frame { grid-area: 1 / 1; display: grid; place-items: end center; }
+/* 알 — Live Orb: 껍데기 너머 캡슐 눈 · 속빛 */
+.px-egg-line { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-orb-eyes rect { fill: #2A332D; opacity: .85; }
+.px-orb-halo, .px-orb-glow { pointer-events: none; }
+/* 정거장마다 자라는 삐약이 (Companion.jsx) */
+.px-companion { display: grid; justify-items: center; gap: var(--sp-2); }
+.px-companion .px-stage { --px-size: 150px; }
+
+/* 눈 · 표정 — 평소엔 또렷한 눈동자, mood 가 표정 곡선 · 감정 표시를 켠다 (chatter.css 와 같은 규칙) */
+.px-eye-ball { fill: #2F3B33; transform-origin: center; transition: transform .25s ease, opacity .18s; }
+.px-eye-line { fill: none; stroke: #2F3B33; stroke-width: 2; stroke-linecap: round; opacity: 0; transition: opacity .18s; }
+.px-emote > * { opacity: 0; transform-origin: center; transform: scale(.6); transition: opacity .2s, transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.px-heart { fill: #FF8FA3; }
+.px-mark path { fill: none; stroke: var(--px-mint); stroke-width: 2.8; stroke-linecap: round; }
+.px-mark circle { fill: var(--px-mint); }
+.px-spark path { fill: #FFF2C4; stroke: var(--px-line); stroke-width: .9; }
+.px-chick:is([data-mood="happy"], [data-mood="grumpy"]) .px-eye-ball { opacity: 0; }
+.px-chick[data-mood="happy"] .px-eye-happy, .px-chick[data-mood="grumpy"] .px-eye-grumpy { opacity: 1; }
+.px-chick[data-mood="happy"] .px-heart, .px-chick[data-mood="curious"] .px-mark, .px-chick[data-mood="excited"] .px-spark { opacity: 1; transform: none; }
+.px-chick[data-mood="curious"] .px-eye-ball { transform: scale(1.08); }
+.px-chick[data-mood="excited"] .px-eye-ball { transform: scale(1.18); }
+
+.px-line { margin: 0; min-height: 1.65em; color: var(--ink-2); font-size: var(--fs-sm); text-wrap: balance; }
+.px-mic { display: grid; justify-items: center; gap: var(--sp-1); }
+.px-mic__note { font-size: var(--fs-label); color: var(--ink-3); }
+.px-mic__note--error { color: var(--warn); max-width: 22em; }
+
+*{animation:none!important;transition:none!important}.px-glow{display:none}</style><defs><radialGradient id="pxg_R_0_"><stop offset="0" stop-color="var(--px-body)" stop-opacity=".9"></stop><stop offset=".55" stop-color="var(--px-body)" stop-opacity=".28"></stop><stop offset="1" stop-color="var(--px-body)" stop-opacity="0"></stop></radialGradient><clipPath id="pxc_R_0_"><path d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path></clipPath></defs><circle class="px-glow" cx="50" cy="52" r="58" fill="url(#pxg_R_0_)" style="transform:scale(0.9);opacity:0.14;transform-origin:50% 50% 0;transform-box:fill-box"></circle><ellipse class="px-shadow" cx="50" cy="91.5" rx="28" ry="3" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g style="transform:none;transform-origin:50% 100% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 100% 0;transform-box:fill-box"><g class="px-breath"><g class="px-legs" style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><ellipse class="px-leg-l" cx="41" cy="88.6" rx="3.4" ry="2"></ellipse><ellipse class="px-leg-r" cx="59" cy="88.6" rx="3.4" ry="2"></ellipse></g><g style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><path class="px-body" d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path><g clip-path="url(#pxc_R_0_)"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><ellipse class="px-blush" cx="31.5" cy="62.5" rx="4.8" ry="2.8" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse><ellipse class="px-blush" cx="68.5" cy="62.5" rx="4.8" ry="2.8" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-eyes" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g class="px-eye" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><circle class="px-eye-ball" cx="37.5" cy="56" r="3.1"></circle></g><path class="px-eye-line px-eye-happy" d="M33.7 57.2q3.8 -4.8 7.6 0"></path><path class="px-eye-line px-eye-grumpy" d="M33.7 54.8q3.8 4.4 7.6 0"></path></g><g class="px-eye" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><circle class="px-eye-ball" cx="62.5" cy="56" r="3.1"></circle></g><path class="px-eye-line px-eye-happy" d="M58.7 57.2q3.8 -4.8 7.6 0"></path><path class="px-eye-line px-eye-grumpy" d="M58.7 54.8q3.8 4.4 7.6 0"></path></g></g><path class="px-beak" d="M50 58.2c1.9 0 3 .8 3 1.8 0 1.3-1.3 2.3-3 2.3s-3-1-3-2.3c0-1 1.1-1.8 3-1.8z"></path></g></g><path class="px-outline" d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path></g><path class="px-fill px-w24" d="M12.6 58.5c-5.4.4-8.4 4.4-7.6 8.6 4.4.8 8-1.2 9.2-4.4z" style="transform:none;transform-origin:100% 0% 0;transform-box:fill-box"></path><path class="px-fill px-w24" d="M87.4 58.5c5.4.4 8.4 4.4 7.6 8.6-4.4.8-8-1.2-9.2-4.4z" style="transform:none;transform-origin:0% 0% 0;transform-box:fill-box"></path><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-tuft" transform="translate(50 18) scale(1) translate(-50 -18)"><path d="M50 18V14" fill="none" stroke-width="1.8" stroke-linecap="round"></path><path class="px-mint" d="M50 14.4c-.9-2.8-3.4-3.9-5.6-3 .5 2.4 2.7 3.6 5.6 3z"></path><path class="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z"></path></g></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-prop" transform="translate(84 66) rotate(12)"><rect x="0" y="0" width="15" height="11" rx="2.2" fill="#F2FBF6"></rect><rect x="-2.6" y="2.6" width="15" height="11" rx="2.2" fill="#FFFFFF"></rect><rect x="-.4" y="4.8" width="4.8" height="2.8" rx=".9" class="px-mint" stroke="none"></rect></g></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"></g><g class="px-emote" transform="translate(3 4)"><path class="px-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z"></path><g class="px-mark"><path d="M76.5 9.6c0-2.9 2.3-4.6 4.8-4.6s4.8 1.7 4.8 4.4c0 3.3-4.4 3.5-4.4 7"></path><circle cx="81.7" cy="21" r="1.6"></circle></g><g class="px-spark"><path d="M86 24l1.1 2.9 2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z"></path><path d="M14 22l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></g></g></g></g></g></g></svg></span></div>
+          <span class="pres-state" id="presState" role="status"></span>
+        </div>
+        <div class="line">
+          <p class="meta"><span id="count">질문 1 / 3 · 2C 충전 결과의 조건</span><span class="strat" id="strat"></span></p>
+          <p class="react" id="react"></p>
+          <p class="idea" id="idea"><span class="tag">내 말에서</span><q id="ideaQ"></q></p>
+          <p class="q" id="q"></p>
+          <p class="say" id="say"></p>
+          <span class="thread" id="thread"></span>
+        </div>
+      </header>
+      <div class="frame" aria-label="웹캠 자리"><svg viewBox="0 0 400 360" aria-hidden="true"><ellipse cx="200" cy="120" rx="74" ry="92" fill="#8C7357"/><path d="M40 360 C50 250 120 215 200 215 C280 215 350 250 360 360 Z" fill="#5B4C3C"/></svg><span class="cap">웹캠 — 크기 · 자리 고정</span></div>
+      <aside class="rail" aria-label="발표 자료">
+        <div class="slide" data-no="2"><b>2장 · 충전 속도와 온도만 바꾸고 나머지는 묶었다</b>셀 24개 · 충전 속도 3수준 × 온도 2수준</div>
+        <div class="slide" data-no="3"><b>3장 · 2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다</b>막대: 0.5C · 1C · 2C × 25 °C · 45 °C</div>
+        <div class="slide" data-no="4"><b>4장 · 가속 조건에서 나온 값이라 실사용과는 다르다</b>한계 · 해석 · 다음 단계</div>
+        <small id="railCap"></small>
+      </aside>
+      <footer class="strip">
+        <span class="pill" id="mic"><i></i><span id="micText">말하면 바로 들어요</span></span>
+        <span class="center" id="center"></span>
+        <span class="center"><button type="button" class="btn">힌트</button><button type="button" class="btn" id="switchBtn">다른 주제로</button></span>
+      </footer>
+    </section>
+
+    <aside class="side">
+      <div class="panel">
+        <h2>같은 첫 질문에 어떤 답을 할까요</h2>
+        <div class="scen" id="scen"></div>
+      </div>
+      <div class="panel">
+        <h2>이 답의 다음 질문 — 지금 · 실험 · 목표</h2>
+        <div class="cmp" id="cmp"></div>
+      </div>
+      <div class="panel">
+        <h2>이 답을 읽은 신호 → 전략</h2>
+        <dl class="kv" id="sig"></dl>
+      </div>
+    </aside>
+
+    <section class="grid7" aria-label="일곱 답 한눈에">
+      <h2>같은 질문, 다른 답 — 다음 질문이 달라지는가</h2>
+      <p class="lead">「지금」 은 오늘(10-13) 8810 실 판정 API 의 실제 출력이에요. 빨간 칸은 다른 답인데 글자까지 같은 꼬리질문이에요. 「목표」 는 아래 설계대로 나와야 할 모양(손으로 쓴 사양)이고, 그 옆이 같은 설계를 시험 프롬프트로 돌린 실측(A.X)이에요.</p>
+      <div class="tbl"><table id="t7"></table></div>
+    </section>
+  </main>
+
+  <div id="notes">
+    <article class="doc">
+      <header>
+        <h1>Q&amp;A 대화 재설계 · 1단계 — 「내 답 때문에 다음 질문이 달라졌다」</h1>
+        <p>지금 질문 생성 · 판정 · 대화 상태를 분석하고, 같은 첫 질문에 일곱 가지 답을 실제 API 에 넣어 원인을 쟀어요. 그 결과로 대화 엔진(Adaptive Dialogue Engine) · 상태 전이 · 대화 화면을 설계했어요. 앱의 대화 로직은 아직 바꾸지 않았어요(정직성 수정 하나만 — 아래 5).</p>
+      </header>
+
+      <section>
+        <h2><small>1</small>지금 구조</h2>
+        <div class="flow">
+          <span><b>F-08 질문 생성</b>발표 분석 뒤 트랙마다 질문 3개를 미리 만든다</span><i>→</i>
+          <span><b>화면</b>목록을 순서대로 하나씩 낸다 (qi 0 → 1 → 2)</span><i>→</i>
+          <span><b>F-09 판정</b>LLM 1콜: verdict · score · react · followup · claim · grounds</span><i>→</i>
+          <span><b>규칙 가드</b>초점 빗나감 · 주제 밖 · 이유 누락 · 자료 어긋남이면 react · followup 을 고정 문구로 덮는다</span><i>→</i>
+          <span><b>화면 사다리</b>통과면 닫고 다음 미리 만든 질문, 아니면 되묻기(넓게 → 좁게 → 거의 답) · 모르겠어요는 코칭 3단</span>
+        </div>
+        <blockquote>판정기 시스템 프롬프트의 첫 줄이 「당신은 발표 심사위원이다 … 실제로 방어했는지 판정한다」 이고, followup 규칙은 「빠진 지점 하나를 콕 집어 물어라」 예요. 대화 상대가 아니라 <strong>채점자가 정답의 빈칸으로 몰아가는 구조</strong>예요.</blockquote>
+      </section>
+
+      <section>
+        <h2><small>2</small>실측 — 같은 첫 질문, 일곱 답 (배터리 덱 · 8810 실 API)</h2>
+        <p>질문: 「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다는 결과가 어떤 조건에서만 성립하는지 설명해 주세요.」 결과 표는 프로토타입 탭 아래에 있어요. 요약:</p>
+        <ul>
+          <li><strong>B 일부만 · C 모호 · D 틀린 전제가 글자 하나 다르지 않은 같은 꼬리질문</strong>을 받았어요 — 「「2C 충전은 …」에 대한 질문이에요. 자료 3장을 다시 보고, 그 장이 … 하는 말을 한 문장으로 말해 볼래요?」 (규칙 가드의 고정 문구 <code>_FOLLOWUP_FOCUS</code>)</li>
+          <li>반응도 고정 문구예요. 맞는 조건(25도)을 말한 B 가 「조금 멀어요」, D 도 「조금 멀어요」, C 는 「질문과 다른 이야기예요」</li>
+          <li><strong>틀린 전제(D: 「45도에서만 측정」)를 짚지 못했어요</strong> — partial 65점, 바로잡는 질문이 없어요</li>
+          <li>반대 의견(G)에는 자료 수치(12%p)를 반응에 그대로 말하고, 수치를 외워 말하라는 질문을 했어요</li>
+          <li>충분한 답(A)은 바로 닫히고 미리 만든 다음 질문으로 넘어가요. 더 깊이 들어가지 않아요</li>
+          <li>「모르겠어요」 는 말로 하든 버튼으로 하든 같은 코칭 문구예요</li>
+          <li>관점 바꾸기 「반례」 는 422(새 질문이 계약 검사를 못 넘음)로 실패했어요 — 사용자에겐 오류로 보여요</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2><small>3</small>티키타카가 약한 근본 원인</h2>
+        <ol>
+          <li><strong>꼬리질문의 출발점이 내 말이 아니라 정답의 빈칸</strong>이에요(missing_points). 답이 달라도 빠진 칸이 같으면 다음 질문도 같아요.</li>
+          <li><strong>규칙 가드가 말까지 바꿔요.</strong> 점수 상한을 거는 장치가 react · followup 을 고정 문구로 덮어서, 가드에 걸리는 답은 모두 같은 말을 들어요.</li>
+          <li><strong>대화 전략이라는 개념이 없어요.</strong> 넓게 → 좁게 → 거의 답 사다리 하나뿐이라, 흐린 말 확인 · 틀린 전제 맞서기 · 반대 의견 탐색 · 잘한 답 더 깊이가 없어요.</li>
+          <li><strong>질문 목록을 순서대로 소비해요.</strong> 잘 답하면 대화가 끝나고 다음 카드로 넘어가요. 다음 주제를 대화가 고르지 않아요.</li>
+          <li><strong>claim(내 말)과 followup 을 따로 만들어요.</strong> 화면이 둘을 이어 보여 주면 거짓 연결이 돼요 → 오늘 막았어요(5).</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2><small>4</small>Adaptive Dialogue Engine — 채점과 대화를 나눈다</h2>
+        <div class="flow">
+          <span><b>① 채점</b>지금 판정기 그대로(verdict · score · grounds) — 리포트 · 기록용. 말은 안 만든다</span><i>→</i>
+          <span><b>② 읽기</b>답 원문에서 구절을 뽑는다: 핵심 생각 · 흐린 말 · 자료와 어긋난 말(+장) · 반대 의견 · 모름</span><i>→</i>
+          <span><b>③ 정책(코드)</b>신호 → 전략 하나. LLM 이 고르지 않는다</span><i>→</i>
+          <span><b>④ 말하기</b>그 전략의 꼴로 reaction · follow_up_question · source_slide</span><i>→</i>
+          <span><b>⑤ 검사(코드)</b>구절 원문 · 질문이 구절을 가리킴 · 자료 수치 흘림 0 · 해요체 · 원래 질문 되풀이 아님 → 실패면 한 번 다시, 그래도면 전략별 고정 틀(구절을 인용)</span>
+        </div>
+        <div class="tbl"><table>
+          <thead><tr><th>전략</th><th>언제 (정책 — 위가 먼저)</th><th>꼬리질문 꼴</th><th>예 (같은 첫 질문)</th></tr></thead>
+          <tbody>
+            <tr><td>hint 힌트</td><td>빈 답 · 「모르겠어요」 · 기억 안 남</td><td>정답 없이 볼 곳 하나 + 아주 쉬운 질문</td><td>자료 2장 배치도에서 이 실험이 바꾼 조건은 두 가지예요. 하나만 찾아볼래요?</td></tr>
+            <tr><td>explore 다른 관점</td><td>자료 결론에 반대하는 의견</td><td>그 관점의 이유 + 자료의 무엇과 견줄지</td><td>열 때문이라면, 항온조 온도를 바꿨을 때 결과가 어떻게 달라져야 그 생각이 맞는 걸까요?</td></tr>
+            <tr><td>challenge 맞서기</td><td>자료와 사실이 어긋난 말</td><td>내 말 ↔ 자료가 부딪히는 곳을 보여 주고 직접 확인</td><td>「45도에서만 측정했다」고 했는데, 자료 3장 그래프의 2C 막대는 어느 온도 조건에서 나왔나요?</td></tr>
+            <tr><td>deepen 더 깊이</td><td>verdict good</td><td>원리 · 적용 · 한계로 한 단계</td><td>방전심도 100%라는 조건이 왜 실사용보다 열화를 키운다고 볼 수 있을까요?</td></tr>
+            <tr><td>clarify 뜻 확인</td><td>흐린 말이 핵심을 대신함</td><td>그 말이 정확히 무엇을 뜻하는지 · 조건 하나</td><td>「상황마다 다를 것 같다」고 했는데, 이 실험에서 그 '상황'에 해당하는 조건 하나를 꼽으면 뭘까요?</td></tr>
+            <tr><td>connect 고리 잇기</td><td>방향은 맞고 고리가 빠짐</td><td>내 말에서 출발해 빠진 고리 하나</td><td>25도라는 조건을 바꾸면 이 결과가 그대로일까요, 달라질까요?</td></tr>
+            <tr><td>switch 주제 바꾸기</td><td>사용자가 고름 · 같은 고리에서 세 번 막힘</td><td>기록을 남기고 다음 주제(어긋남 → 빠뜨림 → 무게 순) · 돌아오기 가능</td><td>좋아요, 「가속 조건」 으로 가 볼게요</td></tr>
+          </tbody>
+        </table></div>
+        <div class="cols">
+          <div class="box"><h3>응답 구조 (판정 응답에 더한다)</h3>
+            <p><code>reaction</code> · <code>referenced_user_idea</code>(답 원문 구절, 검사) · <code>follow_up_question</code> · <code>dialogue_strategy</code> · <code>source_slide</code>. 채점 필드(verdict · score · grounds · claim)는 그대로라 리포트 · 기록은 안 바뀌어요.</p></div>
+          <div class="box"><h3>시간 — 두 박자로 감춘다</h3>
+            <p>①+② 를 한 콜로(지금 판정 콜에 읽기 필드를 더함, ~3초) → 화면에 <strong>내 말 밑줄</strong>이 먼저 뜨고 → ④ 한 콜(~1초) → 꼬리질문이 그 구절에서 이어져요. 한 턴 LLM 1콜 → 2콜.</p></div>
+          <div class="box"><h3>시험 프롬프트 실측이 알려 준 것</h3>
+            <ul>
+              <li>1판(LLM 이 전략도 고름): 7개 중 4개가 deepen, 자료 수치 흘림 → <strong>전략은 코드가 정해야</strong> 해요</li>
+              <li>2판(정책 + 검사): 기본 모델(solar)은 구절을 자주 못 뽑고 틀린 전제 · 반대를 못 읽어요. A.X 는 반대(G) · 흐림(C)을 바로 갈랐지만 D 는 못 잡고 반말이 섞였어요</li>
+              <li>→ 모델 · 프롬프트는 <strong>평가 묶음</strong>(덱 3 × 답 7)과 자동 점수로 골라요</li>
+            </ul></div>
+        </div>
+        <div class="box"><h3>다음 주제 — 목록 소비 대신</h3>
+          <p>질문 하나 = 주제 한 가닥. 한 가닥 안에서 전략이 이어지다가 통과 + deepen 한 번이면 「다음으로 갈까요, 더 깊이 갈까요」. 다음 가닥은 미리 만든 순서가 아니라 <strong>발표와 어긋난 개념 → 빠뜨린 개념 → 무게</strong> 순(지금 「다른 핵심 개념으로」 규칙)으로 고르고, 내려놓은 가닥은 기록에서 「이 주제로 돌아가기」 로 다시 열어요.</p></div>
+      </section>
+
+      <section>
+        <h2><small>5</small>정직성 — 오늘 막은 것</h2>
+        <p>측정 중에 화면이 B · C · D 의 고정 문구 꼬리질문 위에도 「내 말에서 「…」」 를 달아, 이어지지 않은 질문을 내 말에서 나온 것처럼 보이고 있었어요. 꼬리질문이 내 말의 낱말을 실제로 쓸 때만 잇게 고쳤어요(<code>qwClaimLinked</code>, 커밋 c9fb477, 테스트 포함). 엔진이 바뀌면 이 연결은 검사(⑤)가 보장해요.</p>
+      </section>
+
+      <section>
+        <h2><small>6</small>대화 상태 전이</h2>
+        <div class="flow">
+          <span><b>AI 말하기</b>질문(TTS 있으면 출력 음량)</span><i>→</i>
+          <span><b>생각 중(사용자)</b>마이크 열림 · 조용</span><i>→</i>
+          <span><b>사용자 말하기</b>마이크 실제 음량 · 받아쓰기</span><i>→</i>
+          <span><b>읽는 중</b>①② — 끝나면 내 말 밑줄</span><i>→</i>
+          <span><b>꼬리질문 짓는 중</b>④⑤ — 전략 꼬리표</span><i>→</i>
+          <span><b>엮기</b>이전 질문 물러남 → 내 말 → 새 질문</span><i>→</i>
+          <span><b>AI 말하기</b>…</span>
+        </div>
+        <p>곁가지: 「힌트」 → hint 전략으로 같은 흐름 · 「다른 주제로」 → 주제 바꾸기(실패로 안 셈) · 판정 실패 → 「다시 보내기」 · 끝 → 리포트. 웹캠 틀은 어느 상태에서도 그대로예요.</p>
+      </section>
+
+      <section>
+        <h2><small>7</small>대화 화면 — 세 가지</h2>
+        <div class="cols">
+          <div class="box pick"><h3>W1 띠 대화 (추천 · 지금 배치를 잇는다)</h3>
+            <div class="wire"><i class="orbw" style="left:3%;top:4%;width:11%;height:17%"></i><i class="t" style="left:18%;top:5%;width:30%;height:3%"></i><i class="t2" style="left:18%;top:10%;width:40%;height:3%"></i><i class="t" style="left:18%;top:15%;width:60%;height:5%"></i><i class="cam" style="left:3%;top:27%;width:76%;height:62%"></i><i class="pp" style="left:82%;top:27%;width:15%;height:12%"></i><i class="ctl" style="left:42%;top:92%;width:16%;height:5%"></i></div>
+            <p>카메라 바로 아래 한 줄로 반응 → 「내 말에서」 → 꼬리질문이 쌓였다 물러나요. 눈이 카메라 근처에 머물고 웹캠 틀 위엔 아무것도 없어요.</p></div>
+          <div class="box"><h3>W2 오른쪽 대화 기둥 (Split)</h3>
+            <div class="wire"><i class="cam" style="left:3%;top:5%;width:62%;height:88%"></i><i class="orbw" style="left:73%;top:6%;width:14%;height:22%"></i><i class="t" style="left:69%;top:33%;width:28%;height:6%"></i><i class="t2" style="left:69%;top:42%;width:24%;height:4%"></i><i class="t" style="left:69%;top:49%;width:28%;height:8%"></i><i class="pp" style="left:69%;top:66%;width:28%;height:16%"></i></div>
+            <p>대화 세 가지를 세로로 넉넉히 보여 줘요. 대신 질문을 읽을 때 눈이 옆으로 가고, 웹캠이 좁아져요.</p></div>
+          <div class="box"><h3>W3 아래 자막형 (Lower third)</h3>
+            <div class="wire"><i class="cam" style="left:3%;top:4%;width:94%;height:70%"></i><i class="orbw" style="left:4%;top:77%;width:10%;height:16%"></i><i class="t2" style="left:17%;top:78%;width:30%;height:3%"></i><i class="t" style="left:17%;top:84%;width:60%;height:5%"></i><i class="pp" style="left:80%;top:78%;width:16%;height:14%"></i></div>
+            <p>웹캠이 가장 커요. 대신 질문이 화면 아래라 읽을 때 고개가 숙여지고, 발표 연습에선 시선 습관이 나빠져요.</p></div>
+        </div>
+        <p>추천은 W1 이에요 — 이미 띠 · 틀 · 레일로 만든 화면에서 띠 안의 세 줄(반응 · 내 말 · 꼬리질문)과 전략 꼬리표만 더하면 돼요. 실제 화면에서 W2 와 비교 캡처를 2단계 첫 일로 해요.</p>
+      </section>
+
+      <section>
+        <h2><small>8</small>시험 · 통과 기준 (2단계)</h2>
+        <ul>
+          <li><strong>평가 묶음</strong>: 덱 3개 × 첫 질문 1~2개 × 답 A~G(+2턴 B · D) — 위 실험(<code>etc/labs/dialogue_probe</code>)을 키운다</li>
+          <li><strong>달라짐</strong>: 같은 질문의 A~D 꼬리질문끼리 같은 문장 0개, 낱말 겹침(바이그램) 0.5 미만</li>
+          <li><strong>전략 맞춤</strong>: 사람이 붙인 기대 전략과 덱마다 6/7 이상</li>
+          <li><strong>정직</strong>: 붙잡은 구절 100% 원문 · 질문이 그 구절을 가리킴 100% · 자료 수치 흘림 0 · 틀린 말을 맞다고 한 반응 0</li>
+          <li><strong>말투</strong>: 해요체 100%(반말 · 「~시」 0) · 반응 40자 안</li>
+          <li><strong>F</strong>: 주제 바꾸기 · 관점 바꾸기 성공률 · 「반례」 422 고침, 기록 · 리포트에 실패로 안 셈</li>
+          <li><strong>회귀</strong>: 리포트 점수 · 기록 · 힌트 사용 수 그대로, 카메라 · 받아쓰기 · 자동 보내기 그대로</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2><small>9</small>2단계 계획 · 위험</h2>
+        <ul>
+          <li>서버: <code>f09_dialogue.py</code>(새, 순수 정책 · 검사 + 말하기 LLM), 판정 응답에 대화 필드 추가, 가드는 점수 · 신호만 남기고 말은 대화 단계가 만든다</li>
+          <li>화면: <code>qa_stage.js</code> 띠에 반응 · 내 말 · 전략 꼬리표, 읽기 결과가 먼저 오면 밑줄부터. 목소리 구(승인된 후광)를 삐약이 자리에</li>
+          <li>위험: 한 턴 LLM 2콜(비용 · 1초 더), 모델 품질(평가 묶음으로 고름), midm 키 401 · exaone JSON 깨짐(운영 확인 필요)</li>
+        </ul>
+      </section>
+    </article>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const NOW = {"A 정확·충분": {"answer": "25도 항온조에서 방전심도 100%로 매번 끝까지 충방전한 가속 조건, 그리고 군마다 셀 4개라는 조건에서 나온 값이에요. 같은 2C라도 45도로 올리면 유지율이 더 떨어졌으니 온도에 따라 달라지고, 실사용과는 다를 수 있어요.", "verdict": "good", "score": 85, "react": "25도 항온조에서 방전심도 100%로 매번 끝까지 충방전한 가속 조건에서 나온 값이라는 점은 정확히 짚었어요. 같은 2C라도 45도로 올리면 유지율이 더 떨어진다는 점도 맞아요.", "followup": "", "claim": "25도 항온조에서 방전심도 100%로 매번 끝까지 충방전한 가속 조건", "missing_points": []}, "B 일부만": {"answer": "온도를 25도로 맞췄을 때 나온 결과예요.", "verdict": "partial", "score": 65, "react": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요.", "followup": "「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대한 질문이에요. 자료 3장을 다시 보고, 그 장이 「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대해 하는 말을 한 문장으로 말해 볼래요?", "claim": "온도를 25도로 맞췄을 때 나온 결과예요", "missing_points": ["45°C 조건에서의 용량 감소 정도"]}, "C 모호": {"answer": "음… 실험실에서 한 거라서 상황마다 좀 다를 것 같아요.", "verdict": "wrong", "score": 35, "react": "질문과 다른 이야기예요. 2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다에 대해 자료에 있는 대로 말해 보세요.", "followup": "「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대한 질문이에요. 자료 3장을 다시 보고, 그 장이 「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대해 하는 말을 한 문장으로 말해 볼래요?", "claim": "실험실에서 한 거라서 상황마다 좀 다를 것 같아요", "missing_points": ["2C 충전은 25°C와 45°C의 온도 조건에서 측정되었으며, 45°C에서 유지율이 더 크게 감소했다는 점"]}, "D 틀린 전제": {"answer": "45도처럼 높은 온도에서만 측정했을 때 나온 결과라서, 상온에서는 거의 안 깎여요.", "verdict": "partial", "score": 65, "react": "2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다에 대한 답으로는 조금 멀어요. 질문이 묻는 것에 맞춰 다시 말해 보세요.", "followup": "「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대한 질문이에요. 자료 3장을 다시 보고, 그 장이 「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대해 하는 말을 한 문장으로 말해 볼래요?", "claim": "45도처럼 높은 온도에서만 측정했을 때 나온 결과라서, 상온에서는 거의 안 깎여요.", "missing_points": ["25°C 조건에서의 용량 감소 정도"]}, "E1 모르겠어요(말)": {"answer": "잘 모르겠어요.", "verdict": "unknown", "score": 0, "react": "괜찮아요. 여기서 같이 짚어 볼게요.", "followup": "자료 3장을 다시 보면, 2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다에 대해 뭐라고 하나요? 한 문장으로 말해 볼래요?", "claim": "", "missing_points": []}, "E2 모르겠어요(버튼)": {"answer": "", "verdict": "unknown", "score": 0, "react": "괜찮아요. 여기서 같이 짚어 볼게요.", "followup": "자료 3장을 다시 보면, 2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다에 대해 뭐라고 하나요? 한 문장으로 말해 볼래요?", "claim": "", "missing_points": []}, "G 반대 의견": {"answer": "저는 그 조건이 중요하지 않다고 봐요. 2C면 어떤 조건이든 열이 나서 결국 비슷하게 깎일 거예요.", "verdict": "wrong", "score": 39, "react": "자료 3장에 따르면 2C 충전은 25°C와 45°C에서 유지율 차이가 12%p로, 온도 조건에 따라 결과가 달라져요.", "followup": "2C 충전 조건에서 25°C와 45°C의 유지율 차이는 얼마나 되나요?", "claim": "2C면 어떤 조건이든 열이 나서 결국 비슷하게 깎일 거예요", "missing_points": []}};
+  const AX = {"A 정확·충분": {"strategy": "challenge", "move": {"reaction": "25도에서 100% 방전심도로 가속했다고 말했는데", "follow_up_question": "같은 2C라도 45도로 올리면 유지율이 더 떨어졌다고 했는데, 2장 도표에서 2C·45°C 셀은 어떻게 표시되어 있나요?", "source_slide": 2}, "problems": ["수치 흘림 ['45°C']"]}, "B 일부만": {"strategy": "connect", "move": {"reaction": "25도 조건만 말했지 45도 조건은 건너뛴 거야.", "follow_up_question": "45°C에서 2C 충전은 500 사이클 후 용량 유지율이 얼마였는지, 그 차이를 어떻게 설명할 거야?", "source_slide": 3}, "problems": ["수치 흘림 ['45°C', '45도']", "붙잡은 구절과 질문이 안 이어짐"]}, "C 모호": {"strategy": "clarify", "move": {"reaction": "상황마다 다르다고만 하면 어떤 상황을 말하는지 알 수 없어.", "follow_up_question": "「상황마다 좀 다를 것 같아요」라고 했는데, 그 '상황'이 온도 조건도 포함한다는 뜻이야?", "source_slide": 2}, "problems": []}, "D 틀린 전제": {"strategy": "connect", "move": {"reaction": "45도 조건만 말했지 25도 조건은 아예 안 꺼냈어.", "follow_up_question": "25도에서는 같은 2C 충전으로 500 사이클 후 용량이 얼마나 깎였는지 그 값을 안 댔는데, 그 차이는 얼마나 커?", "source_slide": 3}, "problems": ["수치 흘림 ['25도', '25도']", "붙잡은 구절과 질문이 안 이어짐"]}, "E1 모르겠어요(말)": {"strategy": "hint", "move": {"reaction": "네가 '잘 모르겠다'고 했는데, 그 말은 아직 조건을 안 봤다는 뜻이야.", "follow_up_question": "발표자가 '2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다'고 했는데, 그 결과가 어떤 그림 속 특정 칸에서만 나온 건지 아니?", "source_slide": 2}, "problems": []}, "E2 모르겠어요(버튼)": {"strategy": "hint", "move": {"reaction": "그 결과는 45°C에서만 두드러졌다.", "follow_up_question": "발표에서 2C · 45°C가 유일하게 80%를 밑돌았다고 했는데, 25°C에서도 같은 현상이 일어난다고 볼 수 있나?", "source_slide": 3}, "problems": ["수치 흘림 ['45°C', '80%', '25°C', '45°C']"]}, "G 반대 의견": {"strategy": "explore", "move": {"reaction": "조건이 중요하지 않다는 주장은 자료에서 확인되지 않았어.", "follow_up_question": "네가 말한 '조건이 중요하지 않다'는 부분을, 충전 속도와 온도를 바꾼 실험 설계에서 어떻게 증명할 수 있다고 생각해?", "source_slide": 2}, "problems": []}};
+  const Q1 = '2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다는 결과가 어떤 조건에서만 성립하는지 설명해 주세요.';
+  /* 목표 — 설계대로 나와야 할 모양(손으로 쓴 사양). 붙잡는 구절은 답 원문 그대로 */
+  const GOAL = {
+    'A 정확·충분': { strat: 'deepen', label: '더 깊이', anchor: '방전심도 100%로 매번 끝까지 충방전한 가속 조건', react: '가속 조건이라는 점부터 짚었네요.', q: '방전심도 100%라는 조건이 왜 실사용보다 열화를 키운다고 볼 수 있을까요?', slide: 4, sig: '채점 good · 반대 · 어긋남 없음' },
+    'B 일부만': { strat: 'connect', label: '고리 잇기', anchor: '온도를 25도로 맞췄을 때', react: '온도 조건을 먼저 떠올렸네요.', q: '25도라는 조건을 바꾸면 이 결과가 그대로일까요, 달라질까요?', slide: 3, sig: '채점 partial · 빠진 것: 45 °C 조건' },
+    'C 모호': { strat: 'clarify', label: '뜻 확인', anchor: '상황마다 좀 다를 것 같아요', react: '조건에 따라 다르다는 감은 있네요.', q: '「상황마다 다를 것 같다」고 했는데, 이 실험에서 그 \'상황\'에 해당하는 조건 하나를 꼽으면 뭘까요?', slide: 2, sig: '흐린 말: 「상황마다 좀 다를 것 같아요」' },
+    'D 틀린 전제': { strat: 'challenge', label: '자료와 맞춰 보기', anchor: '45도처럼 높은 온도에서만 측정했을 때', react: '측정 온도를 짚었는데, 자료와 한번 맞춰 봐요.', q: '「45도에서만 측정했다」고 했는데, 자료 3장 그래프의 2C 막대는 어느 온도 조건에서 나왔나요?', slide: 3, sig: '어긋난 말: 「45도… 에서만 측정」 ↔ 3장(25 · 45 °C 둘 다)' },
+    'E1 모르겠어요(말)': { strat: 'hint', label: '힌트', anchor: '', react: '괜찮아요, 볼 곳부터 같이 찾아봐요.', q: '자료 2장 배치도를 보면, 이 실험이 바꾼 조건은 두 가지예요. 그중 하나만 찾아볼래요?', slide: 2, sig: '모름' },
+    'E2 모르겠어요(버튼)': { strat: 'hint', label: '힌트', anchor: '', react: '괜찮아요, 볼 곳부터 같이 찾아봐요.', q: '자료 2장 배치도를 보면, 이 실험이 바꾼 조건은 두 가지예요. 그중 하나만 찾아볼래요?', slide: 2, sig: '빈 답(모르겠어요 단추)' },
+    'G 반대 의견': { strat: 'explore', label: '다른 관점', anchor: '2C면 어떤 조건이든 열이 나서 결국 비슷하게 깎일 거예요', react: '열이 원인이라는 관점이네요.', q: '열 때문이라면, 항온조 온도를 바꿨을 때 결과가 어떻게 달라져야 그 생각이 맞는 걸까요?', slide: 3, sig: '반대: 「그 조건이 중요하지 않다고 봐요」' },
+  };
+  const KEYS = Object.keys(GOAL);
+  const MOMENT_LABEL = { 'ai-speaking': '묻고 있어요', 'user-thinking': '기다려요', 'user-speaking': '듣고 있어요', reading: '내 말을 읽는 중', composing: '이어서 물을 것을 고르는 중', weaving: '이어서 물어요' };
+  const st = $('#stage');
+  let timers = [];
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const stop = () => { timers.forEach(clearTimeout); timers = []; };
+  const setMoment = (m) => { st.dataset.moment = m; $('#presState').textContent = MOMENT_LABEL[m] || ''; $('#mic').classList.toggle('on', m === 'user-speaking' || m === 'user-thinking'); $('#micText').textContent = m === 'user-speaking' ? '듣고 있어요' : m === 'user-thinking' ? '말하면 바로 들어요' : m === 'reading' || m === 'composing' ? '보냈어요' : '말하면 바로 들어요'; };
+  const focusSlide = (no, why) => { document.querySelectorAll('.slide').forEach((s) => s.classList.toggle('focus', Number(s.dataset.no) === no)); $('#railCap').innerHTML = no ? `${why} <b>${no}장</b>` : ''; };
+
+  function answerHtml(ans, anchor, n) {
+    const words = ans.split(/(\s+)/);
+    const at = anchor ? ans.indexOf(anchor) : -1;
+    let pos = 0; let out = '';
+    let shown = 0;
+    for (const w of words) {
+      if (!w.trim()) { if (shown < n) out += w; pos += w.length; continue; }
+      if (shown >= n) break;
+      const inA = at >= 0 && pos >= at && pos < at + anchor.length;
+      out += inA ? `<mark>${esc(w)}</mark>` : `<span class="w">${esc(w)}</span>`;
+      pos += w.length; shown += 1;
+    }
+    return out.replace(/<\/mark>(\s*)<mark>/g, '$1');
+  }
+
+  function play(key) {
+    stop();
+    const g = GOAL[key];
+    const ans = (NOW[key] && NOW[key].answer) || '';
+    const words = ans.split(/\s+/).filter(Boolean);
+    document.querySelectorAll('#scen button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.k === key)));
+    paintSide(key);
+    // 처음 상태
+    ['react', 'idea'].forEach((id) => $(`#${id}`).classList.remove('on'));
+    $('#strat').classList.remove('on'); $('#thread').classList.remove('on');
+    $('#count').textContent = '질문 1 / 3 · 2C 충전 결과의 조건';
+    const q = $('#q'); q.className = 'q'; q.textContent = Q1;
+    const say = $('#say'); say.className = 'say'; say.innerHTML = '';
+    focusSlide(3, '질문이 가리키는');
+    $('#center').innerHTML = '';
+    setMoment('ai-speaking');
+    later(1800, () => setMoment('user-thinking'));
+    // 사용자 말하기 — 낱말이 하나씩 (프로토타입의 재생 흉내)
+    let n = 0;
+    const speak = () => {
+      if (!words.length) { say.innerHTML = '<span class="int">(「모르겠어요」 를 눌렀어요)</span>'; later(700, read); return; }
+      setMoment('user-speaking');
+      n += 1; say.innerHTML = answerHtml(ans, '', n) + (n < words.length ? '<span class="int"> …</span>' : '');
+      st.style.setProperty('--lv', String(0.3 + Math.random() * 0.6));
+      if (n < words.length) later(150 + Math.random() * 120, speak); else later(900, read);
+    };
+    later(2600, speak);
+    function read() {
+      st.style.setProperty('--lv', '0');
+      setMoment('reading');
+      $('#center').innerHTML = '';
+      say.innerHTML = `<span class="sweep">${esc(ans || '(빈 답)')}</span>`;
+      later(1500, () => {
+        // 읽기 결과 — 붙잡은 구절에 밑줄부터 (꼬리질문보다 먼저)
+        if (ans) { say.innerHTML = answerHtml(ans, g.anchor, 999); void say.offsetWidth; say.classList.add('caught'); }
+        setMoment('composing');
+        $('#strat').textContent = g.label; $('#strat').classList.add('on');
+      });
+      later(2700, weave);
+    }
+    function weave() {
+      setMoment('weaving');
+      q.classList.add('out');
+      later(260, () => {
+        $('#react').textContent = g.react; $('#react').classList.add('on');
+        if (g.anchor) { $('#ideaQ').textContent = g.anchor; $('#idea').classList.add('on'); $('#thread').classList.add('on'); }
+        say.className = 'say'; say.innerHTML = '';
+        q.className = 'q in'; q.textContent = g.q;
+        $('#count').textContent = `질문 1 / 3 · 꼬리질문 1`;
+        focusSlide(g.slide, g.strat === 'hint' ? '힌트가 가리키는' : '이 질문이 기대는');
+      });
+      later(2400, () => setMoment('user-thinking'));
+    }
+  }
+
+  function paintSide(key) {
+    const g = GOAL[key]; const now = NOW[key] || {}; const ax = AX[key] || {};
+    const same = KEYS.filter((k) => k !== key && NOW[k] && now.followup && NOW[k].followup === now.followup).map((k) => k.split(' ')[0]);
+    $('#cmp').innerHTML = `
+      <div class="now"><b>지금 엔진 (실측 · ${esc(now.verdict || '')} ${now.score ?? ''}점)</b><p>${esc(now.react || '')}</p><p>→ ${esc(now.followup || '(꼬리질문 없음 — 다음 미리 만든 질문으로)')}</p>${same.length ? `<span class="flag">다른 답 ${same.join(' · ')} 와 글자까지 같은 꼬리질문</span>` : ''}</div>
+      <div class="exp"><b>설계 시험 2판 (실측 · A.X · 전략 ${esc(ax.strategy || '')})</b><p>${esc((ax.move || {}).reaction || '')}</p><p>→ ${esc((ax.move || {}).follow_up_question || '')}</p>${(ax.problems || []).length ? `<span class="flag">검사에 걸림: ${esc(ax.problems.join(', '))}</span>` : ''}</div>
+      <div class="goal"><b>목표 (설계 사양 · ${esc(g.label)})</b><p>${esc(g.react)}</p><p>→ ${esc(g.q)}</p></div>`;
+    $('#sig').innerHTML = `<dt>답</dt><dd>${esc(now.answer || '(빈 답)')}</dd><dt>읽은 신호</dt><dd>${esc(g.sig)}</dd><dt>전략</dt><dd>${esc(g.strat)} · ${esc(g.label)}</dd><dt>붙잡은 구절</dt><dd>${g.anchor ? `「${esc(g.anchor)}」 (답 원문)` : '없음 — 힌트'}</dd>`;
+  }
+
+  $('#scen').innerHTML = KEYS.map((k) => `<button type="button" data-k="${esc(k)}" aria-pressed="false">${esc(k)}<small>${esc(((NOW[k] || {}).answer || '(빈 답 — 모르겠어요 단추)').slice(0, 44))}${((NOW[k] || {}).answer || '').length > 44 ? '…' : ''}</small></button>`).join('');
+  $('#scen').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) play(b.dataset.k); });
+  $('#replay').addEventListener('click', () => { const b = document.querySelector('#scen [aria-pressed="true"]'); play(b ? b.dataset.k : KEYS[0]); });
+  $('#switchBtn').addEventListener('click', () => {
+    stop(); setMoment('weaving');
+    $('#q').className = 'q out';
+    later(260, () => { ['react', 'idea'].forEach((id) => $(`#${id}`).classList.remove('on')); $('#thread').classList.remove('on'); $('#strat').textContent = '주제 바꾸기'; $('#strat').classList.add('on');
+      $('#react').textContent = '좋아요, 「가속 조건」 으로 가 볼게요. 앞 주제는 기록에 남겨 둘게요.'; $('#react').classList.add('on');
+      $('#count').textContent = '질문 2 / 3 · 가속 조건'; $('#q').className = 'q in'; $('#q').textContent = '이 결과를 실제 스마트폰 사용에 그대로 옮기기 어려운 이유는 뭘까요?'; $('#say').innerHTML = ''; focusSlide(4, '질문이 가리키는'); });
+    later(2000, () => setMoment('user-thinking'));
+  });
+
+  // 일곱 답 표
+  const counts = {};
+  KEYS.forEach((k) => { const f = (NOW[k] || {}).followup || ''; if (f) counts[f] = (counts[f] || 0) + 1; });
+  $('#t7').innerHTML = `<thead><tr><th>답</th><th>지금 — 반응</th><th>지금 — 꼬리질문</th><th>목표 — 전략 · 꼬리질문</th><th>시험 2판(A.X) — 꼬리질문</th></tr></thead><tbody>${KEYS.map((k) => {
+    const n = NOW[k] || {}; const g = GOAL[k]; const ax = AX[k] || {};
+    const dup = n.followup && counts[n.followup] > 1;
+    return `<tr><td>${esc(k)}</td><td>${esc(n.react || '')}</td><td class="${dup ? 'same' : ''}">${esc(n.followup || '(없음 — 닫고 다음 질문)')}</td>
+      <td><span class="chip">${esc(g.label)}</span><br>${esc(g.q)}</td>
+      <td><span class="chip${(ax.problems || []).length ? ' bad' : ''}">${esc(ax.strategy || '')}</span><br>${esc((ax.move || {}).follow_up_question || '')}</td></tr>`;
+  }).join('')}</tbody>`;
+
+  function tab(v) { $('#app').dataset.view = v; $('#tProto').setAttribute('aria-selected', String(v === 'proto')); $('#tNotes').setAttribute('aria-selected', String(v === 'notes')); window.scrollTo(0, 0); }
+  $('#tProto').addEventListener('click', () => tab('proto'));
+  $('#tNotes').addEventListener('click', () => tab('notes'));
+  play('D 틀린 전제');
+})();
+</script>
+</body></html>
