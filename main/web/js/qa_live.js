@@ -851,10 +851,12 @@ function liveBoothExit(booth) {
 function liveEndCardHtml() {
   const L = qa.live;
   const won = liveWonCount(L.results);
+  // 「다른 주제로」 로 내려놓은 질문은 분모에서 뺀다 — 리포트 기록(약함 · 분모)과 같은 수 (10-13)
+  const total = L.questions.length - (L.results || []).filter((r) => r && r.setAside).length;
   return `
     <div class="qa-input-label is-end">
       <b>오늘 질문은 여기까지예요</b>
-      <span>${L.questions.length}개 중 ${won}개를 스스로 설명했어요</span>
+      <span>${total}개 중 ${won}개를 스스로 설명했어요</span>
     </div>
     <p class="qa-end-note">위로 올리면 방금 주고받은 내용을 다시 볼 수 있어요. 다 봤으면 결과를 확인해요.</p>
     <div class="step-actions">

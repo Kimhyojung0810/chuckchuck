@@ -1,0 +1,294 @@
+/* ════════════════════════════════════════════════════════════════════════
+   Q&A 무대 「띠 · 틀 · 레일」 — js/qa_stage.js 가 #bqStage[data-qs="1"] 를 켠다 (리허설 Q&A · 스튜디오 ④, 2026-10-13).
+   설계 · 프로토타입: design/qa_stage/prototype.html
+
+   위 띠(대화) · 가운데 웹캠 16:9 틀 · 오른쪽 자료 레일 · 아래 행동 줄. 웹캠 틀 위에는 아무것도 얹지 않는다 —
+   띠 높이를 고정해 질문 길이 · 순간이 바뀌어도 틀이 1px 도 움직이지 않는다.
+   색은 따뜻한 차콜 · 아이보리 글자 · 뮤트 에메랄드 하나. 판정 색 5종(--ok · --mid · --no …)은 app.css 그대로, 점으로만.
+   선택자는 #bqStage 아이디로 범위를 잡아 booth_call.css · rehearsal.css 의 클래스 규칙보다 앞선다(!important 없이).
+   ════════════════════════════════════════════════════════════════════════ */
+
+#bqStage[data-qs="1"] {
+  --qs-ink: #F0F0E9; --qs-ink-2: rgb(240 240 233 / .76); --qs-ink-3: rgb(240 240 233 / .54); --qs-ink-4: rgb(240 240 233 / .3);
+  --qs-green: #6FB59A; --qs-green-soft: rgb(111 181 154 / .16); --qs-green-ink: #10231B;
+  --qs-bg: #151714; --qs-surface: #222724; --qs-surface-2: #2C312D; --qs-line: rgb(240 240 233 / .1); --qs-line-2: rgb(240 240 233 / .18);
+  --qs-ease: cubic-bezier(.2, .8, .2, 1);
+  --qs-band: 170px; --qs-strip: 60px; --qs-rail: clamp(220px, 21vw, 340px); --qs-pad: 16px; --qs-gap: 12px;
+  /* 기록 서랍 · 글 칸이 쓰는 리허설 유리 변수를 어두운 면으로 (studio-skin.css 와 같은 값) */
+  --rl-ink: var(--qs-ink); --rl-soft: #A4ADA6; --rl-green: var(--qs-green);
+  --lg-tint: rgb(17 21 18 / .7); --lg-tint-text: rgb(34 39 36 / .9); --lg-tint-now: rgb(34 39 36 / .92); --lg-tint-past: rgb(34 39 36 / .8);
+  --lg-tint-field: rgb(17 21 18 / .7); --lg-tint-me: rgb(52 74 64 / .92); --lg-edge: rgba(240, 240, 233, .12);
+  --lg-sheen: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 40%);
+  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 20px 40px -20px rgba(0, 0, 0, .6);
+  background: radial-gradient(120% 70% at 50% -10%, #20231E 0%, var(--qs-bg) 55%, #121411 100%);
+  color: var(--qs-ink);
+}
+html.sx-studio #bqStage.bq[data-qs="1"][data-flow="rehearsal"][data-screen="qa"] { background: var(--sx-bg, #111512); }
+#bqStage[data-qs="1"] .bq-top { display: none; }
+#bqStage[data-qs="1"] :focus-visible { outline: 2px solid var(--qs-green); outline-offset: 2px; box-shadow: none; }
+
+#bqStage[data-qs="1"] .bc-call {
+  display: grid; padding: var(--qs-pad); gap: var(--qs-gap); color: var(--qs-ink);
+  grid-template-columns: minmax(0, 1fr) var(--qs-rail);
+  grid-template-rows: var(--qs-band) minmax(0, 1fr) var(--qs-strip);
+  grid-template-areas: "band band" "frame rail" "strip strip";
+  word-break: keep-all; overflow-wrap: break-word;
+}
+/* 옛 조각 — 질문 카드 · 오른쪽 기둥 · 진행 칩 · 떠 있는 자료 창은 띠 · 레일이 맡는다. 대화 기둥은 「기록」 을 열 때만 */
+#bqStage[data-qs="1"] :is(.bc-ask, .bc-side, .bc-prog, .rh-slide, .rh-slide-slot, #vrSlide) { display: none; }
+#bqStage[data-qs="1"]:not([data-qs-hist="open"]) .bc-talk { display: none; }
+
+/* ── 웹캠 틀 ── <video> 는 제자리, 그 칸이 틀 자리다 */
+#bqStage[data-qs="1"] .bc-self {
+  position: relative; inset: auto; grid-area: frame; min-height: 0; min-width: 0; container-type: size;
+  display: grid; justify-items: center; align-items: start; background: none;
+}
+#bqStage[data-qs="1"] .bc-self video {
+  width: min(100cqw, calc(100cqh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; max-width: 100%;
+  border-radius: 22px; background: #2A2620; box-shadow: 0 0 0 1px var(--qs-line), 0 30px 80px -40px #000;
+}
+/* 카메라를 껐어도 틀 자리는 그대로 — 빈 틀 위에 안내 */
+#bqStage[data-qs="1"] .bc-self[data-camera="off"] video { visibility: visible; }
+#bqStage[data-qs="1"] .bc-self-off { left: 50%; top: calc(min(100cqh, 100cqw * 9 / 16) / 2); color: var(--qs-ink-2); }
+#bqStage[data-qs="1"] .bc-self-off b { color: var(--qs-ink); }
+#bqStage[data-qs="1"] .bc-self .bc-privacy {
+  position: absolute; margin: 0; left: calc((100cqw - min(100cqw, 100cqh * 16 / 9)) / 2 + 14px); top: calc(min(100cqh, 100cqw * 9 / 16) - 42px);
+  padding: 4px 10px; border-radius: 999px; border: 0; background: rgb(20 20 18 / .55); color: rgb(255 255 255 / .85); font-size: 12px; box-shadow: none;
+  animation: qsFadeOut .6s ease 5s forwards; pointer-events: none;
+}
+@keyframes qsFadeOut { to { opacity: 0; visibility: hidden; } }
+
+/* ── 위 띠 ── */
+#bqStage[data-qs="1"] .qs-band { grid-area: band; display: grid; grid-template-columns: 150px minmax(0, 1fr) 150px; gap: 20px; align-items: start; min-width: 0; }
+#bqStage[data-qs="1"] .qs-pres { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+#bqStage[data-qs="1"] .qs-pres .bc-host {
+  position: static; inset: auto; width: auto; min-height: 0; padding: 0; margin: 0; border: 0; border-radius: 0;
+  background: none; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  display: flex; align-items: center; gap: 6px;
+}
+#bqStage[data-qs="1"] .qs-pres .bc-host-bird { width: 62px; transition: transform .5s var(--qs-ease); transform-origin: 50% 85%; }
+#bqStage[data-qs="1"]:is([data-qs-phase="listening"], [data-qs-phase="sending"]) .qs-pres .bc-host-bird { transform: rotate(-5deg) translateX(2px); }   /* 사용자 쪽으로 기울여 듣는다 */
+#bqStage[data-qs="1"][data-qs-phase="encouraging"] .qs-pres .bc-host-bird { transform: rotate(4deg); }
+#bqStage[data-qs="1"] .qs-pres .bc-voice { width: 48px; height: 48px; display: grid; place-items: center; }
+/* 이름표 · 진행 멘트 줄은 화면에서 빼고 화면 읽기에만 — 지금 상태는 아래 한 줄이 말한다 */
+#bqStage[data-qs="1"] .qs-pres .bc-host-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#bqStage[data-qs="1"] .qs-pres-state { font-size: 13px; font-weight: 650; color: var(--qs-green); padding-left: 4px; }
+#bqStage[data-qs="1"][data-qs-phase="thinking"] .qs-pres-state { color: var(--qs-ink-2); }
+
+#bqStage[data-qs="1"] .qs-line { position: relative; min-width: 0; width: 100%; max-width: 900px; justify-self: center; height: 100%; display: flex; flex-direction: column; gap: 5px; }
+#bqStage[data-qs="1"] .qs-meta { margin: 0; display: flex; align-items: center; gap: 8px; min-height: 20px; font-size: 13px; color: var(--qs-ink-3); white-space: nowrap; overflow: hidden; }
+#bqStage[data-qs="1"] .qs-meta .qs-num { color: var(--qs-ink-2); font-variant-numeric: tabular-nums; }
+#bqStage[data-qs="1"] .qs-meta :is(.qs-topic-name, .qs-react) { overflow: hidden; text-overflow: ellipsis; }
+#bqStage[data-qs="1"] .qs-meta .qs-react { display: inline-flex; align-items: center; gap: 7px; color: var(--qs-ink); font-size: 14px; }
+#bqStage[data-qs="1"] .qs-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+#bqStage[data-qs="1"] .qs-dot.is-ok { background: var(--ok); } #bqStage[data-qs="1"] .qs-dot.is-mid { background: var(--mid); } #bqStage[data-qs="1"] .qs-dot.is-no { background: var(--no); }
+
+#bqStage[data-qs="1"] .qs-from { margin: 0; display: none; align-items: center; gap: 8px; min-width: 0; height: 22px; font-size: 14px; color: var(--qs-ink-2); }
+#bqStage[data-qs="1"] .qs-from.is-on { display: flex; animation: qsIn .3s var(--qs-ease) both; }
+#bqStage[data-qs="1"] :is(.qs-from, .qs-help) .qs-tag,
+#bqStage[data-qs="1"] .qs-tag { flex: none; font-size: 11.5px; font-weight: 650; color: var(--qs-green); padding: 1px 8px; border-radius: 999px; background: var(--qs-green-soft); }
+#bqStage[data-qs="1"] .qs-from q { quotes: "「" "」"; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--qs-ink); }
+#bqStage[data-qs="1"] .qs-thread { position: absolute; left: -14px; top: 30px; width: 1.5px; height: 58px; background: linear-gradient(var(--qs-green), rgb(111 181 154 / 0)); transform-origin: top; transform: scaleY(0); transition: transform .32s var(--qs-ease); }
+#bqStage[data-qs="1"] .qs-thread.is-on { transform: scaleY(1); }
+
+#bqStage[data-qs="1"] .qs-q {
+  margin: 0; font-weight: 650; letter-spacing: -.01em; color: var(--qs-ink); text-wrap: balance;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  font-size: 28px; line-height: 1.34; transition: font-size .32s var(--qs-ease), opacity .24s, transform .24s var(--qs-ease);
+}
+#bqStage[data-qs="1"] .qs-q[data-size="is-m"] { font-size: 24px; }
+#bqStage[data-qs="1"] .qs-q[data-size="is-s"] { font-size: 21px; }
+#bqStage[data-qs="1"] .qs-q[data-size="is-small"] { font-size: 19px; line-height: 1.42; -webkit-line-clamp: 2; }
+#bqStage[data-qs="1"] .qs-q.is-out { opacity: 0; transform: translateY(-8px); }
+#bqStage[data-qs="1"] .qs-q.is-in { animation: qsIn .34s var(--qs-ease) both; }
+@keyframes qsIn { from { opacity: 0; transform: translateY(8px); } }
+
+#bqStage[data-qs="1"] .qs-say {
+  position: relative; min-height: 0; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; overflow: hidden;
+  font-size: 18px; line-height: 1.5; color: var(--qs-ink-2);
+  -webkit-mask-image: linear-gradient(transparent 0, #000 12px); mask-image: linear-gradient(transparent 0, #000 12px);
+}
+#bqStage[data-qs="1"] .qs-say .qs-int { color: var(--qs-ink-4); }
+#bqStage[data-qs="1"] .qs-say .qs-tx.is-thinking {
+  color: var(--qs-ink-3); background: linear-gradient(90deg, transparent 0 40%, rgb(240 240 233 / .55) 50%, transparent 60% 100%) no-repeat; background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text; animation: qsSweep 2.4s linear infinite;
+}
+@keyframes qsSweep { from { background-position: 120% 0; } to { background-position: -20% 0; } }
+#bqStage[data-qs="1"] .qs-say .qs-help { display: flex; gap: 10px; align-items: baseline; color: var(--qs-ink); font-size: 16px; line-height: 1.45; }
+#bqStage[data-qs="1"] .qs-say .qs-help > span:last-child { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+#bqStage[data-qs="1"] .qs-say .qs-help + .qs-tx { font-size: 16px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+#bqStage[data-qs="1"] .qs-say .qs-nudge { color: var(--qs-ink-2); font-size: 16px; }
+/* D — 내 말 중 claim 에 밑줄, 나머지는 흐리게 */
+#bqStage[data-qs="1"] .qs-say mark.qs-cl {
+  background: linear-gradient(var(--qs-green), var(--qs-green)) no-repeat 0 100% / 0 2px; color: inherit; padding-bottom: 1px;
+  transition: background-size .45s var(--qs-ease), color .3s;
+}
+#bqStage[data-qs="1"] .qs-say.is-caught .qs-tx { color: rgb(240 240 233 / .3); transition: color .3s; }
+#bqStage[data-qs="1"] .qs-say.is-caught mark.qs-cl { background-size: 100% 2px; color: var(--qs-ink); }
+#bqStage[data-qs="1"] .qs-say.is-gone { opacity: 0; transition: opacity .2s; }
+.qs-fly {
+  position: fixed; z-index: 60; margin: 0; pointer-events: none; color: #F0F0E9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transform-origin: 0 0; background: linear-gradient(#6FB59A, #6FB59A) no-repeat 0 100% / 100% 2px; transition: transform .52s cubic-bezier(.2, .8, .2, 1), opacity .52s;
+}
+
+/* E — 주제 바뀜 */
+#bqStage[data-qs="1"] .qs-topic { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; opacity: 0; pointer-events: none; transition: opacity .25s; }
+#bqStage[data-qs="1"] .qs-topic.is-on { opacity: 1; }
+#bqStage[data-qs="1"] .qs-topic small { font-size: 12.5px; color: var(--qs-green); font-weight: 650; }
+#bqStage[data-qs="1"] .qs-topic b { font-size: 26px; font-weight: 650; letter-spacing: -.01em; }
+#bqStage[data-qs="1"] .qs-line.is-leaving > :not(.qs-topic):not(.qs-thread) { opacity: 0; transform: translateX(-24px); transition: opacity .22s, transform .22s var(--qs-ease); }
+
+#bqStage[data-qs="1"] .qs-sys { justify-self: end; display: flex; gap: 6px; }
+#bqStage[data-qs="1"] .qs-sys :is(button, a) {
+  min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--qs-line-2); background: rgb(240 240 233 / .04);
+  color: var(--qs-ink-2); font-size: 12.5px; font-weight: 500; box-shadow: none; white-space: nowrap;
+}
+#bqStage[data-qs="1"] .qs-sys :is(button, a):hover { background: rgb(240 240 233 / .09); color: var(--qs-ink); }
+
+/* ── 자료 레일 ── */
+#bqStage[data-qs="1"] .qs-rail { grid-area: rail; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+#bqStage[data-qs="1"] .qs-deck { border-radius: 16px; background: var(--qs-surface); box-shadow: inset 0 0 0 1px var(--qs-line); padding: 10px; display: flex; flex-direction: column; gap: 9px; }
+#bqStage[data-qs="1"] .qs-deck-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--qs-ink-3); padding: 0 2px; }
+#bqStage[data-qs="1"] .qs-deck-head b { color: var(--qs-ink-2); font-weight: 650; font-variant-numeric: tabular-nums; }
+#bqStage[data-qs="1"] .qs-deck-pic { display: block; width: 100%; padding: 0; border: 0; border-radius: 9px; overflow: hidden; background: #fff; cursor: zoom-in; box-shadow: 0 0 0 1px var(--qs-line); transition: box-shadow .3s; }
+#bqStage[data-qs="1"] .qs-deck-pic.is-focus { box-shadow: 0 0 0 2px var(--qs-green); }
+#bqStage[data-qs="1"] .qs-slide { margin: 0; padding: 0; background: none; border: 0; box-shadow: none; aspect-ratio: 16 / 9; display: block; min-height: 0; width: 100%; }
+#bqStage[data-qs="1"] .qs-slide figcaption { display: none; }
+#bqStage[data-qs="1"] .qs-slide .bq-slide-pic { display: block; width: 100%; height: 100%; }
+#bqStage[data-qs="1"] .qs-slide .bq-slide-pic :is(img, canvas) { width: 100%; height: 100%; object-fit: contain; display: block; background: #fff; border-radius: 0; box-shadow: none; max-height: none; }
+#bqStage[data-qs="1"] .qs-deck-cap { min-height: 22px; display: flex; align-items: center; gap: 6px; padding: 0 2px; font-size: 12.5px; color: var(--qs-ink-2); }
+#bqStage[data-qs="1"] .qs-deck-cap b { color: var(--qs-green); font-weight: 650; }
+#bqStage[data-qs="1"] .qs-back { border: 0; border-radius: 999px; padding: 3px 10px; background: var(--qs-green-soft); color: var(--qs-green); font-size: 12.5px; font-weight: 650; cursor: pointer; }
+#bqStage[data-qs="1"] .qs-deck-nav { display: flex; gap: 6px; }
+#bqStage[data-qs="1"] .qs-deck-nav button { flex: 1; min-height: 34px; border: 0; border-radius: 10px; background: var(--qs-surface-2); color: var(--qs-ink-2); font-size: 13px; cursor: pointer; }
+#bqStage[data-qs="1"] .qs-deck-nav button:hover:not(:disabled) { color: var(--qs-ink); background: #363C37; }
+#bqStage[data-qs="1"] .qs-deck-nav button:disabled { opacity: .35; cursor: default; }
+#bqStage[data-qs="1"] .qs-deck-nav .qs-wide { flex: 1.6; }
+#bqStage[data-qs="1"] .qs-rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+#bqStage[data-qs="1"] .qs-hist-btn { text-align: left; border: 0; background: none; padding: 9px 12px; border-radius: 12px; color: var(--qs-ink-3); font-size: 12.5px; cursor: pointer; }
+#bqStage[data-qs="1"][data-qs-phase="done"] #qsFinish { display: none; }
+#bqStage[data-qs="1"] .qs-hist-btn:hover, #bqStage[data-qs="1"] .qs-hist-btn[aria-expanded="true"] { background: rgb(240 240 233 / .05); color: var(--qs-ink-2); }
+
+/* ── 아래 행동 줄 ── 가운데에 주된 행동 하나 */
+#bqStage[data-qs="1"] .qs-strip { grid-area: strip; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; }
+#bqStage[data-qs="1"] :is(.qs-aux, .qs-alt) { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#bqStage[data-qs="1"] .qs-alt { justify-self: end; }
+#bqStage[data-qs="1"] .qs-act { display: flex; align-items: center; gap: 10px; }
+#bqStage[data-qs="1"] .qs-aux .bc-hint { position: static; transform: none; margin: 0; padding: 6px 12px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 999px; background: rgb(226 176 74 / .14); color: #E9C77F; border: 0; box-shadow: none; }
+#bqStage[data-qs="1"] .qs-mic {
+  display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 18px 0 16px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--qs-surface); box-shadow: inset 0 0 0 1px var(--qs-line); color: var(--qs-ink-2); font-size: 14.5px; white-space: nowrap;
+}
+#bqStage[data-qs="1"] .qs-mic i { width: 9px; height: 9px; border-radius: 50%; background: var(--qs-ink-3); }
+#bqStage[data-qs="1"] .qs-mic.is-on { color: var(--qs-ink); box-shadow: inset 0 0 0 1px rgb(111 181 154 / .45); }
+#bqStage[data-qs="1"] .qs-mic.is-on i { background: var(--qs-green); box-shadow: 0 0 0 0 rgb(111 181 154 / .5); animation: qsRec 1.6s ease-out infinite; }
+@keyframes qsRec { to { box-shadow: 0 0 0 7px rgb(111 181 154 / 0); } }
+#bqStage[data-qs="1"][data-qs-phase="asking"] .qs-mic { opacity: .7; }
+#bqStage[data-qs="1"] .qs-primary { height: 46px; border: 0; border-radius: 999px; padding: 0 22px; background: var(--qs-green); color: var(--qs-green-ink); font-weight: 750; font-size: 15px; white-space: nowrap; cursor: pointer; }
+#bqStage[data-qs="1"] .qs-primary:hover { background: #82C2A9; }
+#bqStage[data-qs="1"] .qs-second { height: 40px; border: 0; border-radius: 999px; padding: 0 16px; background: var(--qs-surface); box-shadow: inset 0 0 0 1px var(--qs-line); color: var(--qs-ink-2); font-size: 14px; white-space: nowrap; cursor: pointer; }
+#bqStage[data-qs="1"] .qs-second:hover:not(:disabled) { color: var(--qs-ink); background: var(--qs-surface-2); }
+#bqStage[data-qs="1"] .qs-second:disabled { opacity: .4; cursor: default; }
+#bqStage[data-qs="1"] .qs-second.is-em { color: var(--qs-green); }
+#bqStage[data-qs="1"] .qs-textlink { border: 0; background: none; color: var(--qs-ink-3); font-size: 13px; padding: 8px 6px; cursor: pointer; white-space: nowrap; }
+#bqStage[data-qs="1"] .qs-textlink:hover { color: var(--qs-ink-2); }
+#bqStage[data-qs="1"] .qs-status { font-size: 14px; color: var(--qs-ink-3); white-space: nowrap; }
+#bqStage[data-qs="1"] .qs-count { display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 6px 0 14px; border-radius: 999px; background: var(--qs-surface); box-shadow: inset 0 0 0 1px rgb(111 181 154 / .45); font-size: 14px; color: var(--qs-ink); white-space: nowrap; }
+#bqStage[data-qs="1"] .qs-count svg { width: 22px; height: 22px; transform: rotate(-90deg); }
+#bqStage[data-qs="1"] .qs-count circle { fill: none; stroke-width: 2.5; }
+#bqStage[data-qs="1"] .qs-count .bg { stroke: var(--qs-line-2); }
+#bqStage[data-qs="1"] .qs-count .fg { stroke: var(--qs-green); stroke-dasharray: 57; stroke-dashoffset: 0; }
+#bqStage[data-qs="1"] .qs-count.is-run .fg { transition: stroke-dashoffset 3s linear; stroke-dashoffset: 57; }
+/* 원래 「보내지 않기」 · 판정 줄은 화면 읽기에만 남기고 행동 줄이 대신 보여 준다 */
+#bqStage[data-qs="1"] .qs-pres :is(#bcSendCancel, #bqJudgeSay) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ── 원래 답 칸 — 평소엔 숨기고, 「글로 쓰기」 · 시연용 정답 칸 · 끝 카드 안내만 행동 줄 위 한 장으로 ── */
+#bqStage[data-qs="1"] .bc-dock { display: none; }
+#bqStage[data-qs="1"][data-qs-type="1"] .bc-dock,
+#bqStage[data-qs="1"] .bc-dock:has(#liveTryPanel:not([hidden])) {
+  display: block; position: absolute; z-index: 6; left: 50%; right: auto; bottom: calc(var(--qs-pad) + var(--qs-strip) + 10px); transform: translateX(-50%);
+  width: min(680px, calc(100% - 2 * var(--qs-pad))); max-width: none; margin: 0; padding: 12px; border-radius: 18px;
+  background: rgb(34 39 36 / .97); border: 1px solid var(--qs-line-2); box-shadow: 0 24px 60px -20px #000; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+#bqStage[data-qs="1"] .bc-dock :is(.qa-input-label, .step-actions-sub, .qa-try, .qa-end-note, #liveMic) { display: none; }
+#bqStage[data-qs="1"]:not([data-qs-type="1"]) .bc-dock:has(#liveTryPanel:not([hidden])) :is(textarea, .step-actions) { display: none; }
+#bqStage[data-qs="1"] .bc-dock .step-actions { margin: 8px 0 0; justify-content: flex-end; }
+#bqStage[data-qs="1"] .bc-dock textarea { height: 64px; min-height: 0; color: var(--qs-ink); background: rgb(17 21 18 / .6); border: 1px solid var(--qs-line-2); border-radius: 12px; font-size: 16px; }
+#bqStage[data-qs="1"] .bc-dock .qa-try-panel { margin: 0; color: var(--qs-ink); }
+#bqStage[data-qs="1"] .bc-dock .qa-try-model { color: var(--qs-ink); }
+
+/* ── 다른 주제로 · 막혔어요 메뉴 — 행동 줄 오른쪽 위, 얼굴 구역 밖 ── */
+#bqStage[data-qs="1"] .qs-pop {
+  position: absolute; z-index: 7; right: var(--qs-pad); bottom: calc(var(--qs-pad) + var(--qs-strip) + 10px); width: min(360px, calc(100% - 2 * var(--qs-pad)));
+  border-radius: 18px; background: rgb(36 40 37 / .98); box-shadow: 0 0 0 1px var(--qs-line-2), 0 24px 60px -20px #000; padding: 8px;
+  transform-origin: 90% 100%; animation: qsPop .2s var(--qs-ease);
+}
+#bqStage[data-qs="1"] .qs-pop[hidden] { display: none; }
+@keyframes qsPop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+#bqStage[data-qs="1"] .qs-pop h2 { margin: 6px 10px; font-size: 13px; font-weight: 600; color: var(--qs-ink-3); }
+#bqStage[data-qs="1"] .qs-opt { width: 100%; text-align: left; border: 0; background: none; border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; color: var(--qs-ink); cursor: pointer; }
+#bqStage[data-qs="1"] .qs-opt:hover:not(:disabled), #bqStage[data-qs="1"] .qs-opt:focus-visible { background: rgb(240 240 233 / .06); }
+#bqStage[data-qs="1"] .qs-opt:disabled { opacity: .45; cursor: default; }
+#bqStage[data-qs="1"] .qs-opt b { font-weight: 650; font-size: 15px; }
+#bqStage[data-qs="1"] .qs-opt small { font-size: 12.5px; color: var(--qs-ink-3); }
+#bqStage[data-qs="1"] .qs-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 12px 10px; }
+#bqStage[data-qs="1"] .qs-chips[hidden] { display: none; }
+#bqStage[data-qs="1"] .qs-chips button { border: 0; border-radius: 999px; padding: 5px 12px; font-size: 13px; background: var(--qs-surface-2); color: var(--qs-ink-2); cursor: pointer; }
+#bqStage[data-qs="1"] .qs-chips button:hover { background: var(--qs-green-soft); color: var(--qs-green); }
+#bqStage[data-qs="1"] .qs-pop-foot { display: flex; padding: 4px 6px 2px; margin-top: 4px; border-top: 1px solid var(--qs-line); }
+
+/* ── 크게 보기 — 얼굴 구역 오른쪽 끝부터 레일 끝까지 (left · width · top 은 js 가 잰다) ── */
+#bqStage[data-qs="1"] .qs-zoom {
+  position: absolute; z-index: 5; border-radius: 18px; background: rgb(30 33 30 / .97); box-shadow: 0 0 0 1px var(--qs-line-2), 0 30px 80px -30px #000;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px; animation: qsPop .22s var(--qs-ease);
+}
+#bqStage[data-qs="1"] .qs-zoom[hidden] { display: none; }
+#bqStage[data-qs="1"] .qs-zoom-pic { border-radius: 10px; overflow: hidden; background: #fff; }
+#bqStage[data-qs="1"] .qs-zoom-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--qs-ink-2); }
+#bqStage[data-qs="1"] .qs-zoom-bar b { font-variant-numeric: tabular-nums; color: var(--qs-ink); }
+#bqStage[data-qs="1"] .qs-zoom-bar .qs-second { height: 34px; padding: 0 12px; }
+#bqStage[data-qs="1"] .qs-grow { flex: 1; }
+#bqStage[data-qs="1"] .qs-rec { font-size: 12px; color: var(--qs-ink-3); }
+
+/* ── 기록 서랍 — 원래 대화 기둥을 왼쪽에 (사용자가 열 때만) ── */
+#bqStage[data-qs="1"][data-qs-hist="open"] .bc-talk {
+  display: flex; position: absolute; z-index: 6; left: var(--qs-pad); top: var(--qs-pad); bottom: calc(var(--qs-pad) + var(--qs-strip) + 10px);
+  width: min(440px, calc(100% - 2 * var(--qs-pad))); padding: 14px; border-radius: 18px; pointer-events: auto;
+  background: rgb(30 33 30 / .98); box-shadow: 0 0 0 1px var(--qs-line-2), 0 24px 60px -20px #000; animation: qsPop .22s var(--qs-ease);
+}
+#bqStage[data-qs="1"] .bc-talk .bc-stream .msg-bubble { -webkit-backdrop-filter: none; backdrop-filter: none; text-shadow: none; color: var(--qs-ink); }
+#bqStage[data-qs="1"] .bc-talk .bc-stream :is(.qa-note-line, .qa-flag) { color: var(--qs-ink-2); background: var(--qs-surface); border-color: var(--qs-line); }
+#bqStage[data-qs="1"] .bc-talk .bc-stream > * { opacity: 1; }
+
+/* ── 좁은 화면(아이패드 세로 · 폰) — 같은 세 층을 세로로 ── */
+@media (max-width: 760px) {
+  #bqStage[data-qs="1"] { --qs-band: 176px; --qs-pad: 12px; --qs-gap: 10px; }
+  #bqStage[data-qs="1"] .bc-call { grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--qs-band) minmax(0, 1fr) auto auto; grid-template-areas: "band" "frame" "rail" "strip"; }
+  #bqStage[data-qs="1"] .qs-band { grid-template-columns: 52px minmax(0, 1fr); gap: 10px; }
+  #bqStage[data-qs="1"] .qs-pres .bc-host-bird { width: 46px; }
+  #bqStage[data-qs="1"] :is(.qs-pres-state, .qs-pres .bc-voice) { display: none; }
+  #bqStage[data-qs="1"] .qs-sys { position: absolute; top: 8px; right: 8px; }
+  #bqStage[data-qs="1"] .qs-sys #bqCamToggle { display: none; }
+  #bqStage[data-qs="1"] .qs-meta { padding-right: 70px; }
+  #bqStage[data-qs="1"] .qs-q { font-size: 20px; }
+  #bqStage[data-qs="1"] .qs-q[data-size] { font-size: 19px; }
+  #bqStage[data-qs="1"] .qs-q[data-size="is-small"] { font-size: 16px; -webkit-line-clamp: 3; }
+  #bqStage[data-qs="1"] .qs-say { font-size: 15.5px; }
+  #bqStage[data-qs="1"] .bc-self { container-type: normal; }
+  #bqStage[data-qs="1"] .bc-self video { width: 100%; height: 100%; aspect-ratio: auto; }
+  #bqStage[data-qs="1"] .bc-self .bc-privacy { left: 10px; top: auto; bottom: 10px; }
+  #bqStage[data-qs="1"] .bc-self-off { top: 50%; }
+  #bqStage[data-qs="1"] .qs-rail { flex-direction: row; }
+  #bqStage[data-qs="1"] .qs-deck { flex: 1; flex-direction: row; align-items: center; padding: 6px; gap: 8px; }
+  #bqStage[data-qs="1"] .qs-deck-pic { width: 84px; flex: none; }
+  #bqStage[data-qs="1"] :is(.qs-deck-head, .qs-deck-cap, .qs-rail-foot) { display: none; }
+  #bqStage[data-qs="1"] .qs-deck-nav { flex: 1; }
+  #bqStage[data-qs="1"] .qs-strip { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 8px; }
+  #bqStage[data-qs="1"] .qs-aux { display: none; }
+  #bqStage[data-qs="1"] .qs-alt { justify-self: center; }
+  #bqStage[data-qs="1"] .qs-zoom { left: var(--qs-pad) !important; width: auto !important; right: var(--qs-pad); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #bqStage[data-qs="1"] *, .qs-fly { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .12s !important; }
+}

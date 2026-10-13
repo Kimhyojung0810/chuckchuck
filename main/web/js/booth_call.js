@@ -321,8 +321,8 @@ function bcSync() {
     bcStickBottom(stream);
   }
   bcAnnounceNew(stream);
-  // 리허설 Q&A 「생각 엮기」 층 — 흔적 · 내 발언 · 빛줄기 · 다른 주제로 (js/qa_weave.js, 10-13)
-  if (typeof qwSync === 'function') qwSync();
+  // 리허설 Q&A 무대 「띠 · 틀 · 레일」 — 지금 순간 하나에 맞춰 질문 · 내 말 · 행동 줄 · 자료를 그린다 (js/qa_stage.js, 10-13)
+  if (typeof qsSync === 'function') qsSync();
 }
 
 /** 위 가운데 질문 카드 — 대화 기둥의 지금 질문 말풍선을 그대로 비춘다 (기둥 쪽은 CSS 가 숨긴다) */
@@ -512,6 +512,8 @@ function bcAutoLoop() {
   const mic = bcMicOn() ? 'on' : '';
   if ((host.dataset.mic || '') !== mic) host.dataset.mic = mic;
   bcVoiceSync();
+  // 받아쓰는 글 · 자동 보내기 초읽기는 스트림을 안 바꾸므로(감시에 안 걸림) 여기서 띠 · 행동 줄을 맞춘다 (js/qa_stage.js)
+  if (typeof qsSync === 'function') qsSync();
 }
 
 /* ─── 10-13 음성 시각화 (js/voice-viz.js) ───────────────────────────────────────────

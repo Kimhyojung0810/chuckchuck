@@ -93,7 +93,7 @@ export default function App() {
   const rect = appRect(Ls[at], vp)
   const W = Ls[0].app.w, H = Ls[0].app.h
   // ② · ③ 은 앱 안의 자료 · 반응 삐약이 · 진행 삐약이를 무대로 꺼낸다 (ui/AppMirror.jsx)
-  // ④ 질의응답은 비추지 않는다 — 삐약이 · 목소리 구가 앱 안 질문 카드에 앉는다 (10-13 생각 엮기 · js/qa_weave.js)
+  // ④ 질의응답은 비추지 않는다 — 삐약이 · 질문 · 자료는 앱 안 무대(js/qa_stage.js 띠 · 틀 · 레일)가 맡는다 (10-13)
   const mirror = useAppMirror(frameApi, at === 2 ? 'wait' : vp.phone ? null : at === 1 ? 'present' : null)
   const slideNav = (d) => pressApp(frameApi, `#vrCall .vr-dock [data-slide-nav="${d}"]`)
   // 채점판은 앱이 기다림 층을 걷어도(질의응답으로 넘어가도) 마지막 결과를 붙든다 — 연출을 끝까지 보여 주려고

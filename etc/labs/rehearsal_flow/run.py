@@ -237,6 +237,11 @@ def run(args) -> Path:
         ctx = b.new_context(viewport={"width": VW, "height": VH}, device_scale_factor=args.dpr, locale="ko-KR",
                             permissions=["camera", "microphone"], is_mobile=args.mobile, has_touch=args.mobile)
         ctx.add_init_script(FAKE_SPEECH_JS)
+        if args.studio_skin:
+            # /studio 정면 창(ui/Frame.jsx)이 iframe 문서에 입히는 것과 같이 — <html class="sx-studio"> + css/studio-skin.css
+            ctx.add_init_script("""document.addEventListener('DOMContentLoaded', () => {
+              document.documentElement.classList.add('sx-studio');
+              const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/studio-skin.css?v=lab'; document.head.appendChild(l); });""")
         if args.no_chatter:
             # 객석 삐약이(실 LLM 넷)는 막는다 — 리포트 객석은 결석으로 보인다 (과금 절약)
             ctx.route("**/api/v1/chatter", lambda route: route.fulfill(
@@ -411,22 +416,26 @@ def run(args) -> Path:
             mark("rec_finish", t0, {"gate": gate, "sheet": sheet[:300], "uploaded": page.evaluate("nf.uploadedTake"), "mic": page.evaluate("nf.mic"),
                                     "cues": page.evaluate("(nf.visionCues||[]).length"), "hash": page.evaluate("location.hash")})
 
-        WEAVE_JS = """() => { const $ = (s) => document.querySelector(s); const vis = (el) => !!el && !el.hidden && !!el.offsetParent;
-          const L = qa.live; const r = (el) => el ? (({left, top, width, height}) => ({left: Math.round(left), top: Math.round(top), w: Math.round(width), h: Math.round(height)}))(el.getBoundingClientRect()) : null;
-          return { qi: L.qi, n: L.questions.length, label: (L.questions[L.qi]||{}).label || '', ask: ($('#bcAskQ')||{}).textContent || '',
-            meta: ($('.qw-ask-meta')||{}).textContent || '', whisper: vis($('#qwWhisper')) ? $('#qwWhisper').textContent : '',
-            claim: vis($('#qwClaim')) ? $('#qwClaimQ').textContent : '', beam: ($('#qwBeam')||{dataset:{}}).dataset.on === '1',
-            beam_d: (($('#qwBeam .qw-beam-path')||{getAttribute:()=>''}).getAttribute('d')||'').slice(0, 80),
-            knots: [...document.querySelectorAll('#qwKnots > li')].map((li) => li.className.replace('qw-knot ', '') + ' | ' + li.querySelector('.qw-knot-label').textContent.trim() + ' | ' + [...li.querySelectorAll('.qw-said li')].map((x) => x.textContent).join(' / ')),
-            dock_html: (($('.bc-dock')||{}).outerHTML||'').replace(/\\s+/g, ' ').slice(0, 1600), say: ($('#bqJudgeSay')||{}).textContent || '', me: ((qa.turns||[]).filter((t) => t.who === 'me').slice(-1)[0] || {}).text || '', talk_hidden: !vis($('.bc-talk')) || getComputedStyle($('.bc-talk')).display === 'none',
+        # 10-13 Q&A 무대 「띠 · 틀 · 레일」(js/qa_stage.js) — 순간 · 띠 글 · 행동 줄 · 웹캠 틀 자리, 얼굴 구역(틀 가운데 44%)에 겹친 것
+        WEAVE_JS = """() => { const $ = (s) => document.querySelector(s); const vis = (el) => !!el && !el.hidden && !!el.offsetParent && getComputedStyle(el).visibility !== 'hidden';
+          const L = qa.live; const st = $('#bqStage'); const R = (el) => el ? (({left, top, width, height}) => ({left: Math.round(left), top: Math.round(top), w: Math.round(width), h: Math.round(height)}))(el.getBoundingClientRect()) : null;
+          const video = $('#bqStage .bc-self video'); const v = video ? video.getBoundingClientRect() : null;
+          const face = v ? { l: v.left + v.width * .28, r: v.left + v.width * .72, t: v.top + v.height * .1, b: v.bottom } : null;
+          const over = face ? [...document.querySelectorAll('#bqStage .bc-call *')].filter((el) => vis(el) && !el.closest('.bc-self') && getComputedStyle(el).position !== 'static' || (vis(el) && el.matches('.qs-pop, .qs-zoom, .bc-talk, .bc-dock'))).filter((el) => {
+            const b = el.getBoundingClientRect(); return b.width > 2 && b.height > 2 && b.left < face.r && b.right > face.l && b.top < face.b && b.bottom > face.t; }).map((el) => (el.id || el.className || el.tagName).toString().slice(0, 40)) : [];
+          const txt = (s) => (($(s)||{}).textContent || '').replace(/\\s+/g, ' ').trim();
+          return { qi: L.qi, n: L.questions.length, label: (L.questions[L.qi]||{}).label || '', phase: st.dataset.qsPhase || '',
+            q: txt('#qsQ'), meta: txt('#qsMeta'), from: vis($('#qsFrom')) ? txt('#qsFromQ') : '', say: txt('#qsSay'),
+            act: txt('#qsAct'), alt: txt('#qsAlt'), deck: txt('#qsDeckNo') + ' ' + txt('#qsDeckCap'),
+            claim: vis($('#qsFrom')) ? txt('#qsFromQ') : '', beam: false, me: ((qa.turns||[]).filter((t) => t.who === 'me').slice(-1)[0] || {}).text || '',
             judgement: L.lastJudgement ? { verdict: L.lastJudgement.verdict, claim: L.lastJudgement.claim || '', followup: L.lastJudgement.followup || '', coach: L.lastJudgement.coach_stage || '' } : null,
             results: (L.results||[]).map((x) => ({ id: x.id, setAside: x.setAside || '', to: x.switchedTo || '', verdict: x.verdict, trail: x.trail })),
-            rect: { cam: r($('.bc-self')), ask: r($('#bcAsk')), claim: r($('#qwClaim')), thread: r($('.qw-thread')), dock: r($('.bc-dock')), sw: r($('#qwSwitch')), state: r($('#qwState')) } }; }"""
+            face_overlap: over, rect: { video: R(video), band: R($('.qs-band')), rail: R($('.qs-rail')), strip: R($('.qs-strip')) } }; }"""
 
         def wv(tag: str) -> dict:
             st = page.evaluate(WEAVE_JS)
             R.setdefault("weave", {})[tag] = st
-            print(f"  weave {tag:16s} qi={st['qi']}/{st['n']} claim={st['claim'][:40]!r} beam={st['beam']} meta={st['meta'][:50]!r}", flush=True)
+            print(f"  weave {tag:16s} qi={st['qi']}/{st['n']} phase={st['phase']} from={st['from'][:30]!r} video={st['rect']['video']} over={st['face_overlap']} meta={st['meta'][:40]!r} act={st['act'][:24]!r}", flush=True)
             return st
 
         def weak_answer() -> None:
@@ -434,30 +443,37 @@ def run(args) -> Path:
             text = page.evaluate("((liveWeakAnswer(qa.live.questions[qa.live.qi]) || '').split(/(?<=[.!?。])\\s+/)[0]) || '자료에 나온 내용이 핵심이라고 생각해요.'")
             if page.evaluate("typeof liveMic !== 'undefined' && !!liveMic"):
                 page.evaluate("dropLiveMic()")
-            page.fill("#liveAnswer", text)
-            page.click("#liveSend")
-            page.wait_for_timeout(400)
+            # 받아쓴 것처럼 숨은 답 칸에 글을 넣고, 행동 줄의 「다 말했어요」(원래 #liveSend 를 누른다)로 보낸다
+            page.evaluate("(t) => { const ta = document.getElementById('liveAnswer'); ta.value = t; ta.dispatchEvent(new Event('input', { bubbles: true })); }", text)
+            page.wait_for_selector("#qsAct [data-qs-act='send']", timeout=5000)
+            shot(f"stage_listening_{page.evaluate('qa.live.qi')}")
+            page.click("#qsAct [data-qs-act='send']")
+            page.wait_for_timeout(500)
+            if page.evaluate("qa.live.busy"):
+                shot(f"stage_thinking_{page.evaluate('qa.live.qi')}")
             page.wait_for_function("qa.live && !qa.live.busy", timeout=180000)
-            page.wait_for_timeout(1800)
+            page.wait_for_timeout(250); shot(f"stage_weave_a_{page.evaluate('qa.live.qi')}")
+            page.wait_for_timeout(900); shot(f"stage_weave_b_{page.evaluate('qa.live.qi')}")
+            page.wait_for_timeout(900)
 
         def menu(choice: str, chip: str = "") -> float:
-            page.click("#qwSwitch")
-            page.wait_for_selector("#qwMenu:not([hidden])", timeout=5000)
+            page.click("#qsAlt [data-qs-act='switch']")
+            page.wait_for_selector("#qsPop:not([hidden])", timeout=5000)
             page.wait_for_timeout(500)
             if choice == "perspective":
-                page.click("#qwMenu [data-qw='perspective']")
-                page.wait_for_selector("#qwPersp:not([hidden])", timeout=3000)
+                page.click("#qsPop [data-qs-sw='perspective']")
+                page.wait_for_selector("#qsPop .qs-chips:not([hidden])", timeout=3000)
                 page.wait_for_timeout(300)
                 shot("weave_menu_persp")
                 qi = page.evaluate("qa.live.qi")
                 t = time.time()
-                page.click(f"#qwPersp [data-qw-p='{chip}']")
+                page.click(f"#qsPop [data-qs-p='{chip}']")
             else:
                 if choice == "concept":
                     shot("weave_menu")
                 qi = page.evaluate("qa.live.qi")
                 t = time.time()
-                page.click(f"#qwMenu [data-qw='{choice}']")
+                page.click(f"#qsPop [data-qs-sw='{choice}']")
             page.wait_for_timeout(150)
             if page.evaluate("!!qa.live.switching"):
                 shot(f"weave_{choice}_wait")
@@ -465,7 +481,7 @@ def run(args) -> Path:
             if page.evaluate(f"qa.live.qi === {qi}"):
                 print(f"  weave {choice}: 질문이 그대로예요 —", page.evaluate("[...document.querySelectorAll('#stream .qa-note-line')].slice(-1).map(e=>e.textContent)[0]||''"), flush=True)
             sec = round(time.time() - t, 1)
-            page.wait_for_timeout(300)
+            page.wait_for_timeout(450)
             shot(f"weave_{choice}_topic")
             page.wait_for_timeout(1400)
             return sec
@@ -490,10 +506,12 @@ def run(args) -> Path:
                 wv(f"answer1_{w}x{h}"); shot(f"weave_claim_{w}x{h}")
             if sizes:
                 page.set_viewport_size({"width": VW, "height": VH}); page.wait_for_timeout(600)
-            # 마디 펼치기 · 도움 · 기록
-            page.click("#qwKnots > li:last-child .qw-knot-btn"); page.wait_for_timeout(300); shot("weave_knot_open")
-            page.click("#qwKnots > li:last-child .qw-knot-btn")
-            page.click("#qwHelp"); page.wait_for_timeout(600); shot("weave_help_open"); page.click("#qwHelp"); page.wait_for_timeout(300)
+            # 기록 서랍 · 자료 크게 보기 · 막혔어요 메뉴
+            page.click("#qsHist"); page.wait_for_timeout(600); shot("stage_hist_open"); page.click("#qsHist"); page.wait_for_timeout(300)
+            page.click("#qsZoomBtn"); page.wait_for_timeout(900); wv("zoom"); shot("stage_zoom"); page.click("#qsZoom [data-qs-z='close']"); page.wait_for_timeout(300)
+            if page.query_selector("#qsAlt [data-qs-act='stuck']"):
+                page.click("#qsAlt [data-qs-act='stuck']"); page.wait_for_timeout(400); shot("stage_stuck_menu")
+                page.keyboard.press("Escape"); page.wait_for_timeout(300)
             # 2. 같은 주제, 다른 관점 (실 /qa/reframe)
             sec_b = menu("perspective", "example")
             st = wv("perspective")
@@ -902,6 +920,7 @@ def main() -> int:
     ap.add_argument("--audio", default="", help="가짜 마이크로 흘릴 녹음 파일 (기본: main/decks/<덱>/ 의 녹음)")
     ap.add_argument("--mobile", action="store_true", help="폰처럼 — is_mobile · has_touch")
     ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
+    ap.add_argument("--studio-skin", action="store_true", help="스튜디오 정면 창처럼 sx-studio 옷을 입힌다 (--viewport 를 창 크기로, 예: 1361x757)")
     ap.add_argument("--weave", action="store_true", help="Q&A 생각 엮기(10-13) — 엉성한 답 → 내 발언 · 꼬리질문 → 관점 바꾸기 → 다른 개념 → 건너뛰기 → 리포트 기록")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
