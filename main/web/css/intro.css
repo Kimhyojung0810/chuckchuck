@@ -18,16 +18,19 @@
   font-display: swap;
 }
 :root {
-  --navy: #064E3B;
-  --brand: #0E8850;          /* 흰 글씨 4.51:1 — 이보다 밝게 올리지 않는다 */
-  --brand-strong: #007C47;   /* 초록 글자 · 눌린 버튼. 흰 5.28 · 캔버스 5.06:1 (10-12 지표 노트 §3-6, 옛 #0A8459 는 --brand 와 ΔE 2.0 이라 눌림이 안 보였다) */
-  --brand-weak: #E7FBF0;
+  /* 우리 청록 (10-14 사용자 「메인 컬러는 우리 특유의 녹색」) — CLAUDE.md §3-3 · MVP_SPEC 의 브랜드 #08B879 · 다크 면 #155C46.
+     8월 중립 팔레트(6ac51e9)가 남긴 #0E8850 은 누런 초록이라 앱 아이콘(#48A080)과 색상각이 안 맞았다(OKLCH 155.7° vs 159.8°).
+     단계는 #08B879 와 같은 색상각(163°)에서 밝기만 옮겼다. 청록 위 글자는 흰색이 아니라 --on-brand(5.94:1) — 흰 글씨는 2.58:1 */
+  --navy: #155C46;           /* 다크 면 · 흰 글씨 7.92:1 */
+  --brand: #08B879;          /* 메인 — 히어로 면 · 주 버튼 · 마무리 면 · 막대 */
+  --on-brand: #062B1D;       /* 청록 면 위 글자 5.94:1 */
+  --brand-press: #009F6D;    /* 주 버튼 눌림 */
+  --brand-strong: #127854;   /* 흰 바탕 위 초록 글자 5.47:1 */
+  --brand-weak: #E9FCF2;
   --mint: #aeefd5;
-  /* 초록 단계 — --brand(#0E8850, OKLCH 55.2% .131 155.7°)와 같은 색상각에서 밝기만 옮긴 값
-     (~/meetings/리서치/2026-10-12_랜딩_지표_색상분석.md §3-3 · 3-6). 채운 초록은 주 버튼 하나, 첫 화면 초록 넓이는 4~9% 안 */
-  --brand-ink: #066339;      /* 작은 초록 글자 · 연한 면 위 초록 글자 — 흰 7.36 · --brand-tint 위 6.43 */
-  --brand-tint: #CEFADC;     /* 「여기 보세요」 처럼 면 자체가 보여야 하는 곳. --brand-weak(#E7FBF0)는 흰 바탕과 1.03:1 이라 아이콘 바탕에만 */
-  --brand-vivid: #0CAF68;    /* 장식 전용(반짝이 · 막대) — 흰 바탕 2.86:1 이라 글자 · 테두리에는 안 쓴다 */
+  --brand-ink: #155C46;      /* 작은 초록 글자 · 연한 면 위 초록 글자 — 흰 7.92 · --brand-tint 위 6.98 */
+  --brand-tint: #D1FAE5;     /* 그림 무대 · 강조 줄 — 흰 카드가 뜨는 청록 면 */
+  --brand-vivid: #48DBA2;    /* 장식 전용(반짝이) */
   --page: #FFFFFF;           /* 랜딩 바탕은 흰색 — 회색 면(--fill)과 흰 카드가 서로 갈리게 */
   /* 판정 색 — app.css 와 같은 값. 그림 속 리포트·질문 칩에만 쓴다 */
   --ok: #0A8F68;   --ok-bg: #E9F7EF;
@@ -106,7 +109,7 @@ main {
            calc(var(--dock-h) + var(--safe-b) + 24px) max(var(--gutter), env(safe-area-inset-left, 0px));
 }
 
-/* 글자색 초록은 --brand-strong(5.28:1) — --brand(#0E8850) 는 캔버스 위 4.32:1 로 본문 크기 글자에 모자란다.
+/* 글자색 초록은 --brand-strong(흰 5.47:1) — --brand(#08B879) 는 흰 바탕 2.58:1 이라 글자에는 안 쓴다.
    15px — 14px/750 은 APCA Lc 가 권장 75 에 못 미쳤다 (지표 노트 #10) */
 .eyebrow {
   color: var(--brand-strong);
@@ -119,10 +122,25 @@ main {
 /* 예전엔 히어로가 화면 높이를 거의 채우고 글을 가운데 세워서 「바로 내 자료로 해 보기」 와 「발표 한 번이면」 사이가
    반 화면쯤 비었다(10-12 사용자 「공백이 너무 길다」). 이제 제 내용만큼만 — 다음 구역이 바로 이어진다 */
 .hero {
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: 40px 0 0;
+  padding: 40px 0 36px;
+  color: var(--on-brand);
 }
+/* 첫 화면 바탕은 청록 한 장 — 화면 끝까지(main 의 480 폭 밖으로) 깔고 아래만 둥글게. 노란 삐약이가 앱 아이콘처럼 청록 위에 앉는다 */
+.hero::before {
+  content: "";
+  position: absolute; z-index: -1;
+  top: calc(-1 * env(safe-area-inset-top, 0px)); bottom: 0; left: 50%;
+  width: 100vw; transform: translateX(-50%);
+  background: var(--brand);
+  border-radius: 0 0 var(--r-stage) var(--r-stage);
+}
+main { position: relative; z-index: 0; }
+.hero .eyebrow, .hero .text-link { color: var(--on-brand); }
+.hero .hero-lead { color: var(--on-brand); }
+.hero :focus-visible { outline-color: var(--on-brand); }
 .hero-art {
   position: relative;
   display: flex;
@@ -142,7 +160,7 @@ main {
   display: block;
   width: 88px; height: 88px;
   /* 그림 자체가 둥근 모서리(투명) — box-shadow 는 네모로 깔리니 그림 모양을 따르는 drop-shadow */
-  filter: drop-shadow(0 8px 14px rgba(6, 78, 59, .16)) drop-shadow(0 1px 1px rgba(24, 24, 27, .08));
+  filter: drop-shadow(0 8px 14px rgba(6, 43, 29, .28)) drop-shadow(0 1px 1px rgba(24, 24, 27, .08));
 }
 /* 마법봉 — 앱 아이콘의 512 칸 좌표 그대로. 손(477,341)이 돌림 · 늘림의 축이다. 넘치는 봉 · 꼬리는 그대로 보인다 */
 .wand { position: absolute; inset: 0; width: 88px; height: 88px; overflow: visible; pointer-events: none; }
@@ -299,8 +317,8 @@ html.fly-skip .spark { display: none; }
 .hero-badge {
   padding: 2px 10px;
   border-radius: var(--r-pill);
-  background: var(--fill);
-  color: var(--text-2);
+  background: rgba(255, 255, 255, .6);
+  color: var(--on-brand);
   font-size: 13px;
   font-weight: var(--w-med);
 }
@@ -369,14 +387,14 @@ html.fly-skip .spark { display: none; }
 /* ── 2) 네 단계 — 그림 한 장 + 메시지 한 줄씩 ──────────────────────────── */
 .feats { margin-top: 28px; display: grid; gap: 64px; }
 .feat { display: grid; gap: 20px; }
-/* 그림 면 — 중립 회색 무대 위에 흰 카드가 뜬다. 초록은 카드 안의 숫자 · 막대 · 표시에만 */
+/* 그림 면 — 연한 청록 무대 위에 흰 카드가 뜬다 */
 .feat-visual {
   position: relative;
   display: grid; place-items: center;
   min-height: 236px;
   padding: 28px 20px;
   border-radius: var(--r-stage);
-  background: var(--fill);
+  background: var(--brand-tint);
   overflow: hidden;
 }
 .feat-label {
@@ -389,8 +407,8 @@ html.fly-skip .spark { display: none; }
   display: inline-grid; place-items: center;
   width: 22px; height: 22px;
   border-radius: var(--r-dot);
-  background: var(--brand-tint);   /* --brand-weak 는 흰 바탕과 1.03:1 이라 동그라미가 안 보였다 */
-  color: var(--brand-ink);
+  background: var(--brand);
+  color: var(--on-brand);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -591,13 +609,13 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 }
 .btn-ghost:active, .btn-solid:active { transform: scale(.97); }
 
-/* ── 4) 마무리 — 페이지에서 단 하나의 진한 초록 면. 마지막 메시지만 크게 ─────────── */
+/* ── 4) 마무리 — 히어로와 같은 청록 면으로 닫는다. 마지막 메시지만 크게 ─────────── */
 .outro { padding-top: 96px; }
 .outro-panel {
   padding: 40px 24px 28px;
   border-radius: var(--r-stage);
-  background: var(--navy);
-  color: #fff;
+  background: var(--brand);
+  color: var(--on-brand);
   text-align: center;
 }
 .outro-title {
@@ -607,8 +625,8 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   letter-spacing: -.03em;
   text-wrap: balance;
 }
-/* 진한 초록(#064E3B) 위 글자: 흰 9.7:1 · 민트(--mint) 7.4:1 · 흰 78% 6.4:1 */
-.outro-lead { margin-top: 10px; color: rgba(255, 255, 255, .78); font-size: 16px; text-wrap: balance; }
+/* 청록(#08B879) 위 글자는 --on-brand 5.94:1 */
+.outro-lead { margin-top: 10px; color: var(--on-brand); font-size: 16px; text-wrap: balance; }
 /* 체험 순서 — 다섯 칸 한 줄(번호 점 + 아래 이름, 점 사이를 선으로). 칩을 늘어놓으면 393 에서 4 + 1 로 꺾였다 */
 .tour-path {
   position: relative;
@@ -620,12 +638,12 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 .tour-path::before {
   content: "";
   position: absolute; left: 10%; right: 10%; top: 13px;
-  height: 2px; background: rgba(174, 239, 213, .35);
+  height: 2px; background: rgba(6, 43, 29, .25);
 }
 .tour-path li {
   position: relative;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: var(--w-med); color: #fff;
+  font-size: 14px; font-weight: var(--w-med); color: var(--on-brand);
 }
 .tour-path li::before {
   counter-increment: step;
@@ -633,13 +651,13 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   display: grid; place-items: center;
   width: 28px; height: 28px;
   border-radius: var(--r-dot);
-  background: var(--mint); color: var(--navy);
-  box-shadow: 0 0 0 4px var(--navy);
+  background: var(--navy); color: #fff;
+  box-shadow: 0 0 0 4px var(--brand);
   font-size: 13px; font-weight: var(--w-bold);
   font-variant-numeric: tabular-nums;
 }
-.outro .text-link { align-self: auto; margin-top: 20px; color: var(--mint); }
-.outro .text-link:focus-visible { outline-color: var(--mint); }
+.outro .text-link { align-self: auto; margin-top: 20px; color: var(--on-brand); }
+.outro .text-link:focus-visible { outline-color: var(--on-brand); }
 
 .foot {
   margin-top: 40px;
@@ -667,16 +685,16 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   margin: 0 auto;
   border-radius: var(--r-float);
   background: var(--brand);
-  color: #fff;
+  color: var(--on-brand);
   font-size: 17px;
   font-weight: var(--w-bold);
   text-decoration: none;
-  box-shadow: 0 6px 16px rgba(14, 136, 80, .24);
+  box-shadow: 0 6px 16px rgba(8, 184, 121, .32);
   transition-property: transform, background-color;
   transition-duration: 120ms;
   transition-timing-function: ease-out;
 }
-.btn-primary:active { transform: scale(.97); background: var(--brand-strong); }
+.btn-primary:active { transform: scale(.97); background: var(--brand-press); }
 /* 낮은 창(200% 확대 · 가로 폰)에서는 고정을 풀어 본문 끝에 둔다 — 고정 띠가 화면의 41% 를 덮었다 (10-13) */
 @media (max-height: 480px) {
   .dock { position: static; padding-top: 8px; background: none; }
@@ -708,7 +726,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 .sheet-grip { display: block; width: 36px; height: 4px; margin: -10px auto 14px; border-radius: var(--r-pill); background: var(--border); }
 .sheet-tip b { font-weight: var(--w-bold); }
 .btn-ghost { padding: 0 16px; border: 0; background: var(--fill); color: var(--text); }
-.btn-solid { padding: 0 16px; border: 0; background: var(--brand); color: #fff; height: 52px; }
+.btn-solid { padding: 0 16px; border: 0; background: var(--brand); color: var(--on-brand); height: 52px; }
 /* 시트 버튼 둥글기는 아래 고정 주 버튼(--r-float)과 같게 — 같은 화면에 8 · 16 이 섞여 있었다 */
 .sheet-actions .btn-ghost, .sheet-actions .btn-solid { height: 52px; border-radius: var(--r-float); }
 .sheet-anyway {
