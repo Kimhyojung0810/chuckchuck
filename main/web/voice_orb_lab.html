@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>삐약이 목소리 구</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap">
+<style>
+/* 배치: 위 조작 막대 · 큰 무대(삐약이 + 구, 상태 전환) · 네 상태 나란히 · 검토 노트. 색은 따뜻한 차콜 · 아이보리 · 뮤트 에메랄드 */
+:root {
+  color-scheme: dark;
+  --bg: #141613; --bg-2: #1B1D1A; --surface: #232722; --surface-2: #2D322C;
+  --line: rgb(240 238 228 / .1); --line-2: rgb(240 238 228 / .18);
+  --ivory: #F0EEE4; --ivory-2: rgb(240 238 228 / .74); --ivory-3: rgb(240 238 228 / .5);
+  --em: #6FB59A; --em-deep: #3E7A63; --em-soft: rgb(111 181 154 / .16); --em-ink: #10231B;
+  --amber: #E2B04A;
+  --font: "Pretendard Variable", "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ivory); font: 500 15px/1.55 var(--font); word-break: keep-all; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--em); outline-offset: 2px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 80px; padding-inline: 20px; display: grid; gap: 28px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; }
+header.top h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+header.top p { margin: 0; color: var(--ivory-3); font-size: 13.5px; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+.seg button { border: 0; background: none; padding: 7px 14px; border-radius: 999px; font-size: 14px; color: var(--ivory-2); white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--ivory); color: var(--bg); font-weight: 700; }
+.btn { border: 0; border-radius: 999px; padding: 8px 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font-size: 13.5px; color: var(--ivory-2); white-space: nowrap; }
+.btn:hover { color: var(--ivory); background: var(--surface-2); }
+.btn[aria-pressed="true"] { background: var(--em-soft); color: var(--em); box-shadow: inset 0 0 0 1px rgb(111 181 154 / .4); }
+.btn.primary { background: var(--em); color: var(--em-ink); font-weight: 700; box-shadow: none; }
+.sep { width: 1px; height: 20px; background: var(--line-2); }
+
+/* ── 큰 무대 ── */
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 22px; border-radius: 22px;
+  background: radial-gradient(90% 90% at 30% 20%, #1F221D 0%, var(--bg-2) 60%, #151714 100%); box-shadow: inset 0 0 0 1px var(--line); }
+.hero { position: relative; min-height: 380px; display: grid; place-items: center; }
+.partner { position: relative; width: 300px; height: 300px; }
+.partner .orb { position: absolute; inset: 0; }
+.partner .bird { position: absolute; width: 112px; left: 50%; bottom: -6px; transform: translateX(-50%); transition: transform .6s var(--ease), left .6s var(--ease), bottom .6s var(--ease), width .6s var(--ease); transform-origin: 50% 90%; filter: drop-shadow(0 10px 18px rgb(0 0 0 / .35)); }
+.partner .bird svg { display: block; width: 100%; height: auto; }
+/* 나란히 — 구가 삐약이 위 오른쪽, 말풍선처럼 */
+.partner[data-compose="side"] .orb { inset: 0 0 auto auto; width: 62%; height: 62%; }
+.partner[data-compose="side"] .bird { width: 150px; left: 32%; bottom: 0; }
+.partner[data-state="listening"] .bird { transform: translateX(-50%) rotate(-5deg); }
+.partner[data-state="thinking"] .bird { transform: translateX(-50%) rotate(3deg); }
+.partner[data-state="speaking"] .bird { transform: translateX(-50%) translateY(calc(var(--bob, 0) * -4px)); }
+.hero-label { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; color: var(--ivory-2); font-size: 14px; }
+.hero-label b { color: var(--em); font-weight: 700; }
+
+.side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.panel { background: var(--surface); border-radius: 16px; padding: 14px 16px; box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 10px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 13px; color: var(--ivory-3); font-weight: 600; }
+.meter { display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 13px; color: var(--ivory-2); }
+.meter .track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.meter .fill { height: 100%; width: 0; background: var(--em); border-radius: 3px; }
+.meter .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ivory-3); }
+.meter .val.na { color: var(--amber); }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13px; }
+.kv dt { color: var(--ivory-3); } .kv dd { margin: 0; color: var(--ivory-2); font-variant-numeric: tabular-nums; }
+.note { font-size: 12.5px; color: var(--ivory-3); margin: 0; }
+.note.warn { color: var(--amber); }
+
+/* ── 네 상태 나란히 ── */
+.four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.card { background: var(--bg-2); border-radius: 18px; padding: 16px; box-shadow: inset 0 0 0 1px var(--line); display: grid; gap: 10px; justify-items: center; text-align: center; min-width: 0; }
+.card .mini { position: relative; width: 150px; height: 150px; }
+.card .mini .orb { position: absolute; inset: 0; }
+.card .mini .bird { position: absolute; width: 58px; left: 50%; bottom: -4px; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgb(0 0 0 / .35)); }
+.card .mini .bird svg { display: block; width: 100%; height: auto; }
+.card h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.card h3 small { display: block; font-size: 12px; color: var(--em); font-weight: 600; letter-spacing: .02em; }
+.card p { margin: 0; font-size: 12.5px; color: var(--ivory-3); }
+.orb canvas { display: block; width: 100%; height: 100%; }
+
+/* ── 노트 ── */
+.notes { display: grid; gap: 18px; }
+.notes h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.cols .panel p, .cols .panel li { font-size: 14px; color: var(--ivory-2); }
+.cols .panel ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.cols .panel h3 { margin: 0; font-size: 15px; font-weight: 700; }
+code { font-size: .9em; background: var(--surface-2); padding: 1px 6px; border-radius: 6px; color: var(--ivory); }
+.tbl { overflow-x: auto; border-radius: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13.5px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); color: var(--ivory-2); }
+th { color: var(--ivory-3); font-weight: 600; font-size: 12.5px; background: rgb(240 238 228 / .03); }
+td:first-child { white-space: nowrap; color: var(--ivory); font-weight: 600; }
+
+@media (max-width: 860px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .partner { width: 240px; height: 240px; }
+  .card .mini { width: 120px; height: 120px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <header class="top">
+    <h1>삐약이 목소리 구</h1>
+    <p>Q&amp;A 음성 인터랙션 단독 프로토타입 · 실제 마이크 음량과 실제 출력 음량에만 반응해요</p>
+  </header>
+
+  <div class="bar" role="toolbar" aria-label="조작">
+    <div class="seg" id="stateSeg" aria-label="상태">
+      <button type="button" data-state="idle" aria-pressed="true">Idle 쉼</button>
+      <button type="button" data-state="listening" aria-pressed="false">Listening 듣기</button>
+      <button type="button" data-state="thinking" aria-pressed="false">Thinking 생각</button>
+      <button type="button" data-state="speaking" aria-pressed="false">Speaking 말하기</button>
+    </div>
+    <button type="button" class="btn" id="cycle" aria-pressed="false">자동 순환</button>
+    <span class="sep"></span>
+    <button type="button" class="btn primary" id="micBtn">마이크 켜기</button>
+    <button type="button" class="btn" id="ttsBtn" aria-pressed="false">시험 음성 재생</button>
+    <span class="sep"></span>
+    <div class="seg" id="composeSeg" aria-label="삐약이와 구 배치">
+      <button type="button" data-compose="halo" aria-pressed="true">후광</button>
+      <button type="button" data-compose="side" aria-pressed="false">나란히</button>
+    </div>
+    <button type="button" class="btn" id="rmBtn" aria-pressed="false">움직임 줄이기</button>
+    <button type="button" class="btn" id="lowBtn" aria-pressed="false">저성능(캔버스)</button>
+    <button type="button" class="btn" id="denyBtn" aria-pressed="false">마이크 거부 흉내</button>
+  </div>
+
+  <section class="stage" aria-label="큰 무대">
+    <div class="hero">
+      <div class="partner" id="partner" data-state="idle" data-compose="halo">
+        <div class="orb" id="orbMain" role="img" aria-label="삐약이 목소리 구"></div>
+        <span class="bird" id="birdMain"><svg xmlns="http://www.w3.org/2000/svg" class="px-chick" data-preset="cute" data-mood="neutral" viewBox="-10 -18 120 120" aria-hidden="true"><style>svg.px-chick{--px-body:#FFD96A;--px-line:#356B59;--px-mint:#9ADBC0;--px-beak:#F0A93C;--px-blush:#F7B6A8;}/* ── 삐약이 (studio-app/src/piyak) — 객석 발표새와 같은 색. 몸 · 외곽선 · 얼굴 색은 캐릭터 고유색이라 무대 색이 바뀌어도 그대로 ── */
+
+
+.px-chick svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.px-chick :is(g, path, ellipse, circle, rect, text) { transform-box: fill-box; }
+.px-glow { pointer-events: none; }
+.px-shadow { fill: rgba(0, 0, 0, .38); }
+.px-breath { transform-origin: 50% 100%; animation: pxBreathe 3.6s ease-in-out infinite; }
+/* 숨 · 흔들기 — 눈에 띄게 (10-13 사용자: 「훨씬 더 적극적으로」). 들숨에 늘고, 좌우로 몸을 흔든다 */
+@keyframes pxBreathe {
+  0%, 100% { transform: scale(1, 1) rotate(0deg); }
+  25%      { transform: scale(1.01, 1.03) rotate(2.2deg); }
+  50%      { transform: scale(1.02, 1.055) rotate(0deg); }
+  75%      { transform: scale(1.01, 1.03) rotate(-2.2deg); }
+}
+/* cute(기본) — 흔들기 대신 말랑하게 숨 쉰다: 옆으로만 볼록 퍼졌다 돌아온다 (세로로 늘지 않는다 — 「길쭉하면 안 귀엽다」 10-13) */
+.px-chick[data-preset="cute"] .px-breath { animation: pxBreatheCute 2.8s ease-in-out infinite; }
+@keyframes pxBreatheCute {
+  0%, 100% { transform: scale(1, 1); }
+  40%      { transform: scale(1.032, .982); }
+  70%      { transform: scale(1.012, .996); }
+}
+.px-chick[data-preset="cute"] :is(.px-leg-l, .px-leg-r) { transform-origin: 50% 0; animation: pxTap 1.4s ease-in-out infinite; }
+.px-chick[data-preset="cute"] .px-leg-r { animation-delay: -.7s; }
+@keyframes pxTap { 0%, 60%, 100% { transform: none; } 75% { transform: translateY(-1.6px) rotate(-8deg); } }
+/* 커서가 올라오거나 기쁘면 볼이 발그레 */
+.px-blush { transition: opacity .3s; }
+.px-chick:is(:hover, [data-mood="happy"], [data-mood="excited"]) .px-blush { opacity: .95; }
+
+.px-fill { fill: var(--px-body); stroke: var(--px-line); stroke-linejoin: round; }
+.px-w24 { stroke-width: 2.4; }
+.px-w3 { stroke-width: 2.6; }
+.px-legs :is(path, ellipse) { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.4; stroke-linejoin: round; }
+.px-body { fill: var(--px-body); }
+.px-outline { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-tuft path { stroke: var(--px-line); }
+.px-tuft .px-mint { fill: var(--px-mint); stroke-width: 1.6; stroke-linejoin: round; }
+.px-blush { fill: var(--px-blush); opacity: .65; }
+.px-beak { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.3; }
+.px-prop rect { stroke: var(--px-line); stroke-width: 2; }
+.px-prop rect.px-mint { fill: var(--px-mint); stroke: none; }
+.px-prop .px-cap { fill: var(--px-beak); }
+.px-prop .px-tip { fill: #F7E9B8; stroke: var(--px-line); stroke-width: 1.5; stroke-linejoin: round; }
+.px-rosette :is(.px-ribbon, .px-medal) { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 1.6; stroke-linejoin: round; }
+.px-rosette .px-star { fill: var(--px-body); stroke: var(--px-line); stroke-width: .7; }
+.px-phones .px-band { fill: none; stroke: var(--px-line); stroke-width: 3.4; stroke-linecap: round; }
+.px-phones rect.px-cup { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 2; }
+/* 알 · 껍데기 (Egg.jsx · Shell.jsx) · 닭 */
+.px-egg { fill: var(--px-egg); stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-egg-spot { fill: var(--px-egg-spot); }
+.px-crack, .px-zig { fill: none; stroke: var(--px-line); stroke-linecap: round; stroke-linejoin: round; }
+.px-crack { stroke-width: 2; }
+.px-zig { stroke-width: 2.6; }
+.px-comb { fill: var(--px-comb); stroke: var(--px-line); stroke-width: 2.2; stroke-linejoin: round; }
+.px-hen-feet { fill: none; stroke: var(--px-beak); stroke-width: 2.4; stroke-linecap: round; }
+/* 자라는 이야기 (Hatch.jsx) — 단계가 바뀌어도 자리가 그대로이게 그림 칸 크기를 고정한다 */
+.px-hatch__art { display: grid; width: var(--px-size); aspect-ratio: 120 / 118; }
+.px-hatch__frame { grid-area: 1 / 1; display: grid; place-items: end center; }
+/* 알 — Live Orb: 껍데기 너머 캡슐 눈 · 속빛 */
+.px-egg-line { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-orb-eyes rect { fill: #2A332D; opacity: .85; }
+.px-orb-halo, .px-orb-glow { pointer-events: none; }
+/* 정거장마다 자라는 삐약이 (Companion.jsx) */
+.px-companion { display: grid; justify-items: center; gap: var(--sp-2); }
+.px-companion .px-stage { --px-size: 150px; }
+
+/* 눈 · 표정 — 평소엔 또렷한 눈동자, mood 가 표정 곡선 · 감정 표시를 켠다 (chatter.css 와 같은 규칙) */
+.px-eye-ball { fill: #2F3B33; transform-origin: center; transition: transform .25s ease, opacity .18s; }
+.px-eye-line { fill: none; stroke: #2F3B33; stroke-width: 2; stroke-linecap: round; opacity: 0; transition: opacity .18s; }
+.px-emote > * { opacity: 0; transform-origin: center; transform: scale(.6); transition: opacity .2s, transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.px-heart { fill: #FF8FA3; }
+.px-mark path { fill: none; stroke: var(--px-mint); stroke-width: 2.8; stroke-linecap: round; }
+.px-mark circle { fill: var(--px-mint); }
+.px-spark path { fill: #FFF2C4; stroke: var(--px-line); stroke-width: .9; }
+.px-chick:is([data-mood="happy"], [data-mood="grumpy"]) .px-eye-ball { opacity: 0; }
+.px-chick[data-mood="happy"] .px-eye-happy, .px-chick[data-mood="grumpy"] .px-eye-grumpy { opacity: 1; }
+.px-chick[data-mood="happy"] .px-heart, .px-chick[data-mood="curious"] .px-mark, .px-chick[data-mood="excited"] .px-spark { opacity: 1; transform: none; }
+.px-chick[data-mood="curious"] .px-eye-ball { transform: scale(1.08); }
+.px-chick[data-mood="excited"] .px-eye-ball { transform: scale(1.18); }
+
+.px-line { margin: 0; min-height: 1.65em; color: var(--ink-2); font-size: var(--fs-sm); text-wrap: balance; }
+.px-mic { display: grid; justify-items: center; gap: var(--sp-1); }
+.px-mic__note { font-size: var(--fs-label); color: var(--ink-3); }
+.px-mic__note--error { color: var(--warn); max-width: 22em; }
+
+*{animation:none!important;transition:none!important}.px-glow{display:none}</style><defs><radialGradient id="pxg_R_0_"><stop offset="0" stop-color="var(--px-body)" stop-opacity=".9"></stop><stop offset=".55" stop-color="var(--px-body)" stop-opacity=".28"></stop><stop offset="1" stop-color="var(--px-body)" stop-opacity="0"></stop></radialGradient><clipPath id="pxc_R_0_"><path d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path></clipPath></defs><circle class="px-glow" cx="50" cy="52" r="58" fill="url(#pxg_R_0_)" style="transform:scale(0.9);opacity:0.14;transform-origin:50% 50% 0;transform-box:fill-box"></circle><ellipse class="px-shadow" cx="50" cy="91.5" rx="28" ry="3" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g style="transform:none;transform-origin:50% 100% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 100% 0;transform-box:fill-box"><g class="px-breath"><g class="px-legs" style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><ellipse class="px-leg-l" cx="41" cy="88.6" rx="3.4" ry="2"></ellipse><ellipse class="px-leg-r" cx="59" cy="88.6" rx="3.4" ry="2"></ellipse></g><g style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><path class="px-body" d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path><g clip-path="url(#pxc_R_0_)"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><ellipse class="px-blush" cx="31.5" cy="62.5" rx="4.8" ry="2.8" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse><ellipse class="px-blush" cx="68.5" cy="62.5" rx="4.8" ry="2.8" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-eyes" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g class="px-eye" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><circle class="px-eye-ball" cx="37.5" cy="56" r="3.1"></circle></g><path class="px-eye-line px-eye-happy" d="M33.7 57.2q3.8 -4.8 7.6 0"></path><path class="px-eye-line px-eye-grumpy" d="M33.7 54.8q3.8 4.4 7.6 0"></path></g><g class="px-eye" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><circle class="px-eye-ball" cx="62.5" cy="56" r="3.1"></circle></g><path class="px-eye-line px-eye-happy" d="M58.7 57.2q3.8 -4.8 7.6 0"></path><path class="px-eye-line px-eye-grumpy" d="M58.7 54.8q3.8 4.4 7.6 0"></path></g></g><path class="px-beak" d="M50 58.2c1.9 0 3 .8 3 1.8 0 1.3-1.3 2.3-3 2.3s-3-1-3-2.3c0-1 1.1-1.8 3-1.8z"></path></g></g><path class="px-outline" d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path></g><path class="px-fill px-w24" d="M12.6 58.5c-5.4.4-8.4 4.4-7.6 8.6 4.4.8 8-1.2 9.2-4.4z" style="transform:none;transform-origin:100% 0% 0;transform-box:fill-box"></path><path class="px-fill px-w24" d="M87.4 58.5c5.4.4 8.4 4.4 7.6 8.6-4.4.8-8-1.2-9.2-4.4z" style="transform:none;transform-origin:0% 0% 0;transform-box:fill-box"></path><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-tuft" transform="translate(50 18) scale(1) translate(-50 -18)"><path d="M50 18V14" fill="none" stroke-width="1.8" stroke-linecap="round"></path><path class="px-mint" d="M50 14.4c-.9-2.8-3.4-3.9-5.6-3 .5 2.4 2.7 3.6 5.6 3z"></path><path class="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z"></path></g></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-prop" transform="translate(84 66) rotate(12)"><rect x="0" y="0" width="15" height="11" rx="2.2" fill="#F2FBF6"></rect><rect x="-2.6" y="2.6" width="15" height="11" rx="2.2" fill="#FFFFFF"></rect><rect x="-.4" y="4.8" width="4.8" height="2.8" rx=".9" class="px-mint" stroke="none"></rect></g></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"></g><g class="px-emote" transform="translate(3 4)"><path class="px-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z"></path><g class="px-mark"><path d="M76.5 9.6c0-2.9 2.3-4.6 4.8-4.6s4.8 1.7 4.8 4.4c0 3.3-4.4 3.5-4.4 7"></path><circle cx="81.7" cy="21" r="1.6"></circle></g><g class="px-spark"><path d="M86 24l1.1 2.9 2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z"></path><path d="M14 22l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></g></g></g></g></g></g></svg></span>
+      </div>
+      <p class="hero-label" id="heroLabel" role="status"></p>
+    </div>
+    <div class="side">
+      <div class="panel">
+        <h2>실제 신호</h2>
+        <div class="meter"><span>마이크</span><span class="track"><span class="fill" id="inFill"></span></span><span class="val" id="inVal">없음</span></div>
+        <div class="meter"><span>출력</span><span class="track"><span class="fill" id="outFill"></span></span><span class="val" id="outVal">없음</span></div>
+        <p class="note" id="sigNote">신호가 없으면 상태에 맞는 절제된 움직임만 보여요. 말하는 척하는 가짜 파형은 쓰지 않아요.</p>
+      </div>
+      <div class="panel">
+        <h2>렌더</h2>
+        <dl class="kv">
+          <dt>그리기</dt><dd id="rKind">—</dd>
+          <dt>프레임</dt><dd id="rFps">—</dd>
+          <dt>해상도</dt><dd id="rDpr">—</dd>
+          <dt>움직임</dt><dd id="rMotion">—</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="네 상태 나란히">
+    <div class="four" id="four"></div>
+  </section>
+
+  <section class="notes" aria-label="검토 노트">
+    <h2>ElevenLabs Orb 확인 결과와 제안</h2>
+    <div class="cols">
+      <div class="panel">
+        <h3>원본 확인 (elevenlabs/ui · main, 2026-09-14 커밋 기준)</h3>
+        <ul>
+          <li>라이선스 <strong>MIT</strong> (Copyright 2025 Eleven Labs Inc.). 고치고 옮겨 써도 되고, 저작권 문구만 남기면 돼요</li>
+          <li>파일 하나 <code>registry/elevenlabs-ui/ui/orb.tsx</code> (498줄). 의존성 <code>three</code> · <code>@react-three/fiber</code> · <code>@react-three/drei</code>(useTexture)</li>
+          <li>원 하나(CircleGeometry) 위 프래그먼트 셰이더: 극좌표 타원 7개 + 노이즈 고리 2개 + 회색조 → 4색 램프</li>
+          <li>노이즈 텍스처를 <strong>ElevenLabs 공개 CDN</strong>(storage.googleapis.com)에서 런타임에 받아요</li>
+          <li>입력은 <code>agentState</code>(null · listening · thinking · talking)와 음량 0~1(<code>getInputVolume</code> · <code>getOutputVolume</code>)</li>
+          <li><strong>auto 모드는 사인파로 음량을 지어내요</strong>(listening <code>0.55 + sin(t·3.2)·0.35</code> 등). 실제 신호와 상관없이 움직여요</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>판단 — 셰이더만 옮기고 신호는 우리가 낸다</h3>
+        <ul>
+          <li>그대로 쓰면 Q&amp;A 앱(바닐라 JS + 작은 React 번들)에 three · R3F · drei 가 새로 들어와요. 스튜디오는 앱을 iframe 으로 띄우니 같은 three 를 한 번 더 받아요. 지름 120px 구 하나에 비해 너무 무거워요</li>
+          <li>외부 CDN 텍스처는 오프라인 부스 · 사내망에서 끊겨요 → <strong>같은 성질의 이음매 없는 노이즈를 브라우저에서 만들어</strong> 써요</li>
+          <li>auto 모드의 지어낸 음량은 브리프가 금지한 「가짜 파형」이에요 → 쓰지 않고, 실제 음량이 없으면 상태별 고정값 + 느린 호흡만 써요</li>
+          <li>그래서 <strong>셰이더(MIT)를 맨 WebGL 로 옮겼어요</strong>. GLSL ES 1.0 이라 WebGL1 · 2 모두에서 돌고, 안 되면 Canvas 2D 로 내려가요. 이미 <code>voice-viz.js</code> 의 GradientOrb 를 같은 방식으로 옮겨 둔 길이에요</li>
+          <li>바꾼 것: 4색 램프 끝을 검정 · 흰색 → 차콜 · 아이보리로, 생각할 때 타원이 천천히 도는 <code>uSpin</code>, 숨쉬기용 <code>uScale</code>, 가장자리 안티에일리어싱</li>
+        </ul>
+      </div>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>상태</th><th>입력(링 · 타원 높이)</th><th>출력(흐름 · 속도)</th><th>움직임</th><th>삐약이</th><th>신호가 없을 때</th></tr></thead>
+        <tbody>
+          <tr><td>Idle 쉼</td><td>0</td><td>0.12</td><td>6.5초 주기로 ±2% 숨쉬기, 흐름 아주 느림</td><td>기본 표정</td><td>같음 (신호를 안 씀)</td></tr>
+          <tr><td>Listening 듣기</td><td><strong>마이크 실제 음량</strong> (오를 때 60ms · 내릴 때 250ms 로 따라감, 잡음 문턱 아래는 0)</td><td>0.25</td><td>음량만큼 최대 7% 부풂 · 바깥 고리가 밝아짐</td><td>사용자 쪽으로 5° 기울임</td><td>입력 0.12 고정 + 4초 숨쉬기. 「음량을 못 읽어요」 표시, 받아쓰기는 그대로</td></tr>
+          <tr><td>Thinking 생각</td><td>0 으로 가라앉음</td><td>0.35</td><td>타원 무리가 초당 0.22라디안으로 천천히 돎, 3초 숨쉬기</td><td>갸웃(?) 표정, 3° 기울임</td><td>같음</td></tr>
+          <tr><td>Speaking 말하기</td><td>0.1</td><td><strong>TTS 출력 실제 음량</strong> (오를 때 50ms · 내릴 때 220ms)</td><td>음량만큼 흐름이 빨라지고 5% 부풂, 삐약이가 음량만큼 살짝 들썩</td><td>기본 표정</td><td>출력 0.38 고정 + 2.6초 숨쉬기. 음절 흉내는 하지 않아요</td></tr>
+          <tr><td>전환</td><td colspan="5">모든 값이 시간 상수(0.6~0.8초)로 이어서 따라가요. 상태가 바뀌어도 형태 · 회전 · 크기가 끊기지 않고 변형돼요. 회전은 속도를 줄여서 멈춰요</td></tr>
+          <tr><td>움직임 줄이기</td><td colspan="5">시간 흐름 · 회전 · 숨쉬기 0. 실제 음량에 따른 크기 · 고리 변화만 천천히(시간 상수 2배)</td></tr>
+          <tr><td>저성능</td><td colspan="5">해상도(DPR) 2 → 1.5 → 1, 그래도 프레임이 2초 넘게 30fps 아래면 Canvas 2D 로. 화면 밖 · 탭 숨김이면 그리기를 멈춰요. WebGL 문맥을 잃어도 Canvas 2D 로</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>Q&amp;A 통합 계획 (승인 뒤)</h3>
+        <ul>
+          <li>위 띠의 삐약이 자리(<code>qa_stage.js</code> · <code>#bcHost</code>)를 「후광」 으로: 구 지름 약 120px, 삐약이 64px. 웹캠 틀 · 레일은 그대로예요</li>
+          <li>상태는 <code>qsScene</code> 순간에서 바로: 묻기 → Idle(소리 없는 질문) · 답하기/곧 보내요 → Listening · 생각 → Thinking · TTS 재생 중 → Speaking. 마이크가 실제로 꺼져 있으면 Listening 이 아니라 Idle 이에요</li>
+          <li>마이크: 녹음 경로(<code>startAnswerRecording</code>) · 발표 리허설은 이미 연 스트림을 그대로 이어요. 실시간 받아쓰기(Web Speech)는 스트림을 내주지 않아서, 같은 출처라 권한을 다시 묻지 않는 재기 전용 스트림을 열어요(지금 <code>meter.js</code> 방식, iOS 는 받아쓰기가 끊길 수 있어 열지 않아요)</li>
+          <li>TTS: 지금 Q&amp;A 에는 소리 출력이 없어요. 생기면 <code>&lt;audio&gt;</code> 를 <code>MediaElementSource → Analyser</code> 에 물려 실제 출력 음량으로 써요. <code>speechSynthesis</code> 는 음량을 읽을 수 없어 상태 모션만 써요</li>
+          <li>React: 지금 <code>voice-viz.js</code>(studio-app/src/voice) 의 GradientOrb 를 이 구로 바꾸고, 신호 어댑터의 「흉내 음량」(사인파)은 지워요</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>이 페이지에서 보는 법</h3>
+        <ul>
+          <li>「마이크 켜기」 를 누르고 말해 보세요. Listening 카드와 큰 구가 내 목소리에 반응해요</li>
+          <li>「시험 음성 재생」 은 TTS 자리에 쓰는 <strong>합성 음성</strong>(웹 오디오로 만든 모음 소리)이에요. 실제로 소리가 나고, 그 출력 음량을 재서 Speaking 이 반응해요</li>
+          <li>「마이크 거부 흉내」 · 「저성능」 · 「움직임 줄이기」 로 대응 상태를 봐요</li>
+          <li>마이크가 막힌 환경(공유 미리보기 등)에서도 신호 없는 모션은 그대로 확인할 수 있어요</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  /* ════════ 셰이더 — ElevenLabs UI Orb (MIT, Copyright 2025 Eleven Labs Inc., github.com/elevenlabs/ui registry/elevenlabs-ui/ui/orb.tsx)
+     를 three 없이 GLSL ES 1.0 으로 옮겼다. 바꾼 점: 램프 끝(검정 · 흰색 → uBase · uHigh), uSpin(타원 회전), uScale(숨쉬기),
+     가장자리 안티에일리어싱, 미리 곱한 알파, 가운데 부드러운 속, 노이즈 텍스처를 브라우저에서 만듦(원본은 CDN png). ════════ */
+  const VERT = 'attribute vec2 a_pos; varying vec2 vUv; void main(){ vUv = a_pos * 0.5 + 0.5; gl_Position = vec4(a_pos, 0.0, 1.0); }';
+  const FRAG = `
+precision highp float;
+uniform float uTime; uniform float uAnimation; uniform float uInverted; uniform float uOffsets[7];
+uniform vec3 uColor1; uniform vec3 uColor2; uniform vec3 uBase; uniform vec3 uHigh;
+uniform float uInputVolume; uniform float uOutputVolume; uniform float uOpacity; uniform float uSpin; uniform float uScale; uniform float uPx;
+uniform sampler2D uPerlinTexture;
+varying vec2 vUv;
+const float PI = 3.14159265358979;
+bool drawOval(vec2 polarUv, vec2 polarCenter, float a, float b, bool reverseGradient, float softness, out vec4 color) {
+  vec2 p = polarUv - polarCenter;
+  float oval = (p.x * p.x) / (a * a) + (p.y * p.y) / (b * b);
+  float edge = smoothstep(1.0, 1.0 - softness, oval);
+  if (edge > 0.0) {
+    float gradient = reverseGradient ? (1.0 - (p.x / a + 1.0) / 2.0) : ((p.x / a + 1.0) / 2.0);
+    gradient = mix(0.5, gradient, 0.1);
+    color = vec4(vec3(gradient), 0.85 * edge);
+    return true;
+  }
+  color = vec4(0.0);
+  return false;
+}
+vec3 colorRamp(float g, vec3 c1, vec3 c2, vec3 c3, vec3 c4) {
+  if (g < 0.33) return mix(c1, c2, g * 3.0);
+  if (g < 0.66) return mix(c2, c3, (g - 0.33) * 3.0);
+  return mix(c3, c4, (g - 0.66) * 3.0);
+}
+vec2 hash2(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+float noise2D(vec2 p) {
+  vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+  float n = mix(mix(dot(hash2(i), f), dot(hash2(i + vec2(1.0, 0.0)), f - vec2(1.0, 0.0)), u.x),
+                mix(dot(hash2(i + vec2(0.0, 1.0)), f - vec2(0.0, 1.0)), dot(hash2(i + vec2(1.0, 1.0)), f - vec2(1.0, 1.0)), u.x), u.y);
+  return 0.5 + 0.5 * n;
+}
+float sharpRing(vec3 d, float time) {
+  float n = mix(noise2D(vec2(d.x, time) * 5.0), noise2D(vec2(d.y, time) * 5.0), d.z);
+  n = (n - 0.5) * 2.5;
+  return 1.0 + n * 0.3 * 1.5;
+}
+float smoothRing(vec3 d, float time) {
+  float n = mix(noise2D(vec2(d.x, time) * 6.0), noise2D(vec2(d.y, time) * 6.0), d.z);
+  n = (n - 0.5) * 5.0;
+  return 0.9 + n * 0.2;
+}
+float flow(vec3 d, float time) {
+  return mix(texture2D(uPerlinTexture, vec2(time, d.x / 2.0)).r, texture2D(uPerlinTexture, vec2(time, d.y / 2.0)).r, d.z);
+}
+void main() {
+  vec2 uv = (vUv * 2.0 - 1.0) / uScale;
+  float radius = length(uv);
+  float rim = 1.0 - smoothstep(1.0 - uPx, 1.0, radius);
+  if (rim <= 0.0) { gl_FragColor = vec4(0.0); return; }
+  float theta = atan(uv.y, uv.x);
+  if (theta < 0.0) theta += 2.0 * PI;
+  vec3 decomposed = vec3(theta / (2.0 * PI), mod(theta / (2.0 * PI) + 0.5, 1.0) + 1.0, abs(theta / PI - 1.0));
+  float fn = flow(decomposed, radius * 0.03 - uAnimation * 0.2) - 0.5;
+  theta += fn * mix(0.08, 0.25, uOutputVolume);
+  vec4 color = vec4(1.0);
+  for (int i = 0; i < 7; i++) {
+    float base = float(i) * 0.5 * PI + 0.5 * sin(uTime / 20.0 + uOffsets[i]);
+    float c = mod(base + uSpin, 2.0 * PI);
+    float nz = texture2D(uPerlinTexture, vec2(mod(base + uTime * 0.05, 1.0), 0.5)).r;
+    float a = 0.5 + nz * 0.3;
+    float b = nz * mix(3.5, 2.5, uInputVolume);
+    bool rev = mod(float(i), 2.0) > 0.5;
+    float dt = min(abs(theta - c), min(abs(theta + 2.0 * PI - c), abs(theta - 2.0 * PI - c)));
+    vec4 oc;
+    if (drawOval(vec2(dt, radius), vec2(0.0), a, b, rev, 0.6, oc)) {
+      color.rgb = mix(color.rgb, oc.rgb, oc.a);
+      color.a = max(color.a, oc.a);
+    }
+  }
+  float r1 = sharpRing(decomposed, uTime * 0.1);
+  float r2 = smoothRing(decomposed, uTime * 0.1);
+  float in1 = radius + uInputVolume * 0.2;
+  float in2 = radius + uInputVolume * 0.15;
+  float o1 = mix(0.2, 0.6, uInputVolume);
+  float o2 = mix(0.15, 0.45, uInputVolume);
+  float ra1 = (in2 >= r1) ? o1 : 0.0;
+  float ra2 = smoothstep(r2 - 0.05, r2 + 0.05, in1) * o2;
+  float ring = max(ra1, ra2);
+  color.rgb = 1.0 - (1.0 - color.rgb) * (1.0 - vec3(ring));
+  // 우리 것: 결이 한 점으로 모이는 가운데를 부드러운 속으로 (반지름 0.3 안쪽)
+  color.rgb = mix(vec3(0.62), color.rgb, smoothstep(0.0, 0.32, radius));
+  float lum = mix(color.r, 1.0 - color.r, uInverted);
+  vec3 rgb = colorRamp(lum, uBase, uColor1, uColor2, uHigh);
+  float alpha = color.a * uOpacity * rim;
+  gl_FragColor = vec4(rgb * alpha, alpha);
+}`;
+
+  const hex = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
+  const PAL = { base: hex('#1B1D1A'), c1: hex('#3E7A63'), c2: hex('#9CCBB5'), high: hex('#F0EEE4') };
+
+  /* 이음매 없는 노이즈 텍스처 — 원본은 ElevenLabs CDN 의 perlin-noise.png 를 받는다. 오프라인에서도 돌게 브라우저에서 만든다 */
+  function noiseTexture(size = 256) {
+    const data = new Uint8Array(size * size);
+    const rnd = (() => { let a = 0x2f6b9e1d; return () => { a |= 0; a = a + 0x9e3779b9 | 0; let t = a ^ a >>> 16; t = Math.imul(t, 0x21f0aaad); t ^= t >>> 15; t = Math.imul(t, 0x735a2d97); return ((t ^ t >>> 15) >>> 0) / 4294967296; }; })();
+    const octave = (cells) => { const g = Array.from({ length: cells * cells }, rnd); return (x, y) => {
+      const fx = x * cells, fy = y * cells; const x0 = Math.floor(fx), y0 = Math.floor(fy); const tx = fx - x0, ty = fy - y0;
+      const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      const at = (i, j) => g[((j % cells + cells) % cells) * cells + ((i % cells + cells) % cells)];
+      return (at(x0, y0) * (1 - sx) + at(x0 + 1, y0) * sx) * (1 - sy) + (at(x0, y0 + 1) * (1 - sx) + at(x0 + 1, y0 + 1) * sx) * sy; }; };
+    const oct = [[16, .5], [32, .32], [64, .18]].map(([c, w]) => [octave(c), w]);
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      let v = 0; oct.forEach(([f, w]) => { v += f(x / size, y / size) * w; });
+      data[y * size + x] = Math.round(Math.min(1, Math.max(0, v)) * 255);
+    }
+    return { data, size };
+  }
+  const NOISE = noiseTexture();
+
+  /* ════════ 상태 → 목표값. 실제 신호(mic · tts)가 없으면 고정값 — 음량을 지어내지 않는다 ════════ */
+  const STATES = {
+    idle:      { in: 0,    out: 0.12, spin: 0,    breathe: 0.022, period: 6.5, flow: 0.5, inGain: 0,     outGain: 0 },
+    listening: { in: 'mic', inRest: 0.12, out: 0.25, spin: 0, breathe: 0.006, period: 4.0, flow: 0.8, inGain: 0.07, outGain: 0 },
+    thinking:  { in: 0,    out: 0.35, spin: 0.22, breathe: 0.01, period: 3.0, flow: 1.0, inGain: 0,     outGain: 0 },
+    speaking:  { in: 0.1,  out: 'tts', outRest: 0.38, spin: 0, breathe: 0.012, period: 2.6, flow: 1.0, inGain: 0, outGain: 0.05 },
+  };
+  const follow = (x, t, dt, tau) => x + (t - x) * (1 - Math.exp(-dt / Math.max(tau, 1e-3)));
+
+  function makeMotion(seed) {
+    return { in: 0, out: 0.12, spinRate: 0, spin: 0, breAmp: 0.02, phase: seed * 6.28, time: seed * 40, anim: 0.1, speed: 0.1, flow: 0.5, inGain: 0, outGain: 0, opacity: 0, period: 6.5 };
+  }
+  /** 한 프레임 — 목표를 정하고 시간 상수로 따라간다. 상태가 바뀌어도 값이 이어지므로 형태가 끊기지 않는다 */
+  function stepMotion(m, dt, state, sig, reduced) {
+    const P = STATES[state];
+    const k = reduced ? 2 : 1;
+    const tIn = P.in === 'mic' ? (sig.in == null ? P.inRest : Math.max(P.inRest * 0.5, sig.in)) : P.in;
+    const tOut = P.out === 'tts' ? (sig.out == null ? P.outRest : sig.out) : P.out;
+    m.in = follow(m.in, tIn, dt, (tIn > m.in ? 0.06 : 0.25) * k);
+    m.out = follow(m.out, tOut, dt, (tOut > m.out ? 0.05 : 0.22) * k);
+    m.spinRate = follow(m.spinRate, reduced ? 0 : P.spin, dt, 0.8);
+    m.spin = (m.spin + m.spinRate * dt) % (Math.PI * 2);
+    m.breAmp = follow(m.breAmp, reduced ? 0 : P.breathe, dt, 0.6);
+    m.period = follow(m.period, P.period, dt, 0.6);
+    m.phase += reduced ? 0 : dt * Math.PI * 2 / m.period;
+    m.flow = follow(m.flow, P.flow, dt, 0.6);
+    m.inGain = follow(m.inGain, P.inGain, dt, 0.6);
+    m.outGain = follow(m.outGain, P.outGain, dt, 0.6);
+    if (!reduced) {
+      m.time += dt * 0.5;
+      const target = 0.1 + (1 - Math.pow(m.out - 1, 2)) * 0.9;
+      m.speed = follow(m.speed, target, dt, 0.3);
+      m.anim += dt * m.speed * m.flow;
+    }
+    m.opacity = Math.min(1, m.opacity + dt * 2);
+    m.scale = 0.88 + m.breAmp * Math.sin(m.phase) + m.inGain * m.in + m.outGain * m.out;
+    return m;
+  }
+
+  /* ════════ 그리기 — WebGL(셰이더) · Canvas 2D(내려간 길) ════════ */
+  function glRenderer(canvas, seed) {
+    const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true });
+    if (!gl) return null;
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : (console.warn(gl.getShaderInfoLog(s)), null); };
+    const vs = sh(gl.VERTEX_SHADER, VERT); const fs = sh(gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) return null;
+    const pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return null;
+    gl.useProgram(pr);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, 'a_pos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, NOISE.size, NOISE.size, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, NOISE.data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    const U = (n) => gl.getUniformLocation(pr, n);
+    const u = { time: U('uTime'), anim: U('uAnimation'), inv: U('uInverted'), offs: U('uOffsets[0]') || U('uOffsets'), c1: U('uColor1'), c2: U('uColor2'), base: U('uBase'), high: U('uHigh'),
+      vin: U('uInputVolume'), vout: U('uOutputVolume'), op: U('uOpacity'), spin: U('uSpin'), scale: U('uScale'), px: U('uPx'), tex: U('uPerlinTexture') };
+    let r = seed >>> 0 || 1;
+    const rnd = () => { r ^= r << 13; r ^= r >>> 17; r ^= r << 5; return (r >>> 0) / 4294967296; };
+    gl.uniform1fv(u.offs, new Float32Array(Array.from({ length: 7 }, () => rnd() * Math.PI * 2)));
+    gl.uniform3fv(u.c1, PAL.c1); gl.uniform3fv(u.c2, PAL.c2); gl.uniform3fv(u.base, PAL.base); gl.uniform3fv(u.high, PAL.high);
+    gl.uniform1f(u.inv, 0); gl.uniform1i(u.tex, 0);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.clearColor(0, 0, 0, 0);
+    let lost = false;
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; }, false);
+    return {
+      kind: 'WebGL',
+      get lost() { return lost; },
+      draw(m) {
+        if (lost) return;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.uniform1f(u.time, m.time); gl.uniform1f(u.anim, m.anim); gl.uniform1f(u.vin, m.in); gl.uniform1f(u.vout, m.out);
+        gl.uniform1f(u.op, m.opacity); gl.uniform1f(u.spin, m.spin); gl.uniform1f(u.scale, m.scale); gl.uniform1f(u.px, 2.5 / canvas.width);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      },
+      destroy() { const ext = gl.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext(); },
+    };
+  }
+
+  /** 내려간 길 — 셰이더 없이 같은 신호를 둥근 면 · 고리 · 도는 결로 */
+  function canvasRenderer(canvas) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const css = (c, a = 1) => `rgb(${c.map((v) => Math.round(v * 255)).join(' ')} / ${a})`;
+    return {
+      kind: 'Canvas 2D',
+      lost: false,
+      draw(m) {
+        const w = canvas.width; const h = canvas.height; const cx = w / 2; const cy = h / 2;
+        const R = (Math.min(w, h) / 2) * m.scale;
+        ctx.clearRect(0, 0, w, h);
+        ctx.globalAlpha = m.opacity;
+        const g = ctx.createRadialGradient(cx - R * 0.25, cy - R * 0.3, R * 0.1, cx, cy, R);
+        g.addColorStop(0, css(PAL.high)); g.addColorStop(0.55 - m.out * 0.15, css(PAL.c2)); g.addColorStop(1, css(PAL.c1));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+        if (ctx.createConicGradient) {
+          const cg = ctx.createConicGradient(m.spin + m.anim * 0.4, cx, cy);
+          cg.addColorStop(0, css(PAL.high, 0.0)); cg.addColorStop(0.25, css(PAL.high, 0.18 + m.out * 0.15)); cg.addColorStop(0.5, css(PAL.high, 0));
+          cg.addColorStop(0.75, css(PAL.c1, 0.2)); cg.addColorStop(1, css(PAL.high, 0));
+          ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.strokeStyle = css(PAL.high, 0.2 + m.in * 0.55); ctx.lineWidth = Math.max(1, w / 150) * (1 + m.in * 2);
+        ctx.beginPath(); ctx.arc(cx, cy, R * (0.9 + m.in * 0.08), 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      },
+      destroy() {},
+    };
+  }
+
+  /* ════════ 구 하나 = 상자 + 캔버스 + 움직임. 고장 · 느림 · 문맥 잃음이면 캔버스를 갈아 Canvas 2D 로 ════════ */
+  const orbs = [];
+  function mountOrb(box, { seed = 1, state = null } = {}) {
+    const o = { box, seed, fixedState: state, motion: makeMotion(seed % 7 / 7), dpr: Math.min(2, window.devicePixelRatio || 1), visible: true, forceCanvas: false };
+    o.build = () => {
+      if (o.r) o.r.destroy();
+      box.innerHTML = '';
+      const c = document.createElement('canvas');
+      box.appendChild(c);
+      o.canvas = c;
+      o.size();
+      o.r = (!o.forceCanvas && !ui.low && glRenderer(c, seed * 2654435761)) || canvasRenderer(c);
+    };
+    o.size = () => {
+      const s = box.getBoundingClientRect();
+      const d = ui.low ? 1 : o.dpr;
+      o.canvas.width = Math.max(2, Math.round(s.width * d));
+      o.canvas.height = Math.max(2, Math.round(s.height * d));
+    };
+    o.build();
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { o.visible = es.some((e) => e.isIntersecting); kick(); }).observe(box);
+    orbs.push(o);
+    return o;
+  }
+
+  /* ════════ 실제 신호 — 마이크(AnalyserNode) · 출력(시험 음성 → AnalyserNode) ════════ */
+  const ui = { state: 'idle', reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, low: false, deny: false };
+  const sig = { in: null, out: null };
+  let ac = null;
+  const ctxAudio = () => { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state !== 'running') ac.resume().catch(() => {}); return ac; };
+  const rms = (an, buf) => { an.getFloatTimeDomainData(buf); let s = 0; for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i]; return Math.sqrt(s / buf.length); };
+  /** RMS → 0~1 — -58dB 아래는 0, -14dB 위는 1. 잡음 문턱 0.06 아래는 0 (조용한 방 소리에 출렁이지 않게) */
+  const norm = (r) => { if (!(r > 0)) return 0; const v = Math.min(1, Math.max(0, (20 * Math.log10(r) + 58) / 44)); return v < 0.06 ? 0 : v; };
+  const mic = { an: null, buf: null, stream: null, err: '' };
+  async function micOpen() {
+    if (ui.deny) { mic.err = '마이크 권한이 막혔어요'; paintSignals(); return; }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      const a = ctxAudio();
+      mic.an = a.createAnalyser(); mic.an.fftSize = 1024; mic.buf = new Float32Array(mic.an.fftSize);
+      a.createMediaStreamSource(s).connect(mic.an);
+      mic.stream = s; mic.err = '';
+      document.getElementById('micBtn').textContent = '마이크 끄기';
+    } catch (e) {
+      mic.err = (e && e.name === 'NotAllowedError') ? '마이크 권한이 막혔어요' : '이 화면에서는 마이크를 열 수 없어요';
+    }
+    paintSignals();
+  }
+  function micClose() {
+    if (mic.stream) mic.stream.getTracks().forEach((t) => t.stop());
+    mic.an = null; mic.stream = null;
+    document.getElementById('micBtn').textContent = '마이크 켜기';
+    paintSignals();
+  }
+
+  /** 시험 음성 — TTS 자리. 톱니파 성대음 → 모음 포먼트 두 개 → 음절 봉투. 실제로 소리가 나고, 그 출력을 잰다 */
+  const tts = { an: null, buf: null, nodes: null, timer: 0 };
+  function ttsStart() {
+    const a = ctxAudio();
+    const osc = a.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 150;
+    const vib = a.createOscillator(); vib.frequency.value = 5; const vibG = a.createGain(); vibG.gain.value = 4; vib.connect(vibG).connect(osc.frequency);
+    const f1 = a.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 6;
+    const f2 = a.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 8;
+    const env = a.createGain(); env.gain.value = 0;
+    const out = a.createGain(); out.gain.value = 0.5;
+    osc.connect(f1); osc.connect(f2); f1.connect(env); f2.connect(env); env.connect(out);
+    tts.an = a.createAnalyser(); tts.an.fftSize = 1024; tts.buf = new Float32Array(tts.an.fftSize);
+    out.connect(tts.an); tts.an.connect(a.destination);
+    osc.start(); vib.start();
+    const VOWELS = [[730, 1090], [270, 2290], [300, 870], [530, 1840], [570, 840]];
+    let t = a.currentTime + 0.05;
+    const plan = () => {
+      // 1.5초 앞까지 음절을 깔아 둔다 — 말 덩어리 사이엔 쉼
+      while (t < a.currentTime + 1.5) {
+        const words = 2 + Math.floor(Math.random() * 3);
+        for (let w = 0; w < words; w++) {
+          const syl = 2 + Math.floor(Math.random() * 3);
+          for (let s = 0; s < syl; s++) {
+            const d = 0.11 + Math.random() * 0.1; const v = VOWELS[Math.floor(Math.random() * VOWELS.length)];
+            f1.frequency.setValueAtTime(v[0], t); f2.frequency.setValueAtTime(v[1], t);
+            osc.frequency.setTargetAtTime(130 + Math.random() * 50, t, 0.05);
+            env.gain.setTargetAtTime(0.9, t, 0.02); env.gain.setTargetAtTime(0.15, t + d * 0.7, 0.03);
+            t += d;
+          }
+          env.gain.setTargetAtTime(0, t, 0.03); t += 0.08 + Math.random() * 0.08;
+        }
+        t += 0.35 + Math.random() * 0.3;
+      }
+    };
+    plan();
+    tts.timer = setInterval(plan, 500);
+    tts.nodes = [osc, vib, out];
+  }
+  function ttsStop() {
+    clearInterval(tts.timer);
+    if (tts.nodes) { try { tts.nodes[0].stop(); tts.nodes[1].stop(); } catch (_) {} tts.nodes[2].disconnect(); }
+    tts.nodes = null; tts.an = null;
+  }
+
+  /* ════════ 한 루프 — 신호 읽기 → 구마다 움직임 → 그리기. 안 보이면 멈춘다 ════════ */
+  let raf = 0; let last = 0; let fpsAcc = 0; let fpsN = 0; let fps = 60; let slowFor = 0;
+  function kick() { if (!raf && !document.hidden && orbs.some((o) => o.visible)) { last = performance.now(); raf = requestAnimationFrame(loop); } }
+  function loop(now) {
+    raf = 0;
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    sig.in = mic.an && !ui.deny ? norm(rms(mic.an, mic.buf)) : null;
+    sig.out = tts.an ? norm(rms(tts.an, tts.buf)) : null;
+    orbs.forEach((o) => {
+      if (!o.visible) return;
+      if (o.r && o.r.lost) { o.forceCanvas = true; o.build(); }
+      stepMotion(o.motion, dt, o.fixedState || ui.state, sig, ui.reduced);
+      o.r.draw(o.motion);
+    });
+    // 성능 — 1초 평균이 30fps 아래로 2초 넘게면 해상도를 내리고, 1까지 내려도 느리면 Canvas 2D 로
+    fpsAcc += dt; fpsN += 1;
+    if (fpsAcc >= 1) {
+      fps = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0;
+      slowFor = fps < 30 ? slowFor + 1 : 0;
+      if (slowFor >= 2) {
+        slowFor = 0;
+        orbs.forEach((o) => { if (o.dpr > 1) { o.dpr = Math.max(1, o.dpr - 0.5); o.size(); } else if (!o.forceCanvas) { o.forceCanvas = true; o.build(); } });
+      }
+      paintRender();
+    }
+    paintSignals();
+    paintBird();
+    if (!document.hidden && orbs.some((o) => o.visible)) raf = requestAnimationFrame(loop);
+  }
+  document.addEventListener('visibilitychange', kick);
+
+  /* ════════ 화면 ════════ */
+  const LABEL = {
+    idle: '<b>Idle</b> · 아주 느리게 숨쉬어요',
+    listening: () => (sig.in == null ? '<b>Listening</b> · 듣고 있어요 (음량 신호 없음 — 상태 모션만)' : '<b>Listening</b> · 내 목소리 크기만큼 움직여요'),
+    thinking: '<b>Thinking</b> · 파형이 가라앉고 안쪽 흐름이 천천히 돌아요',
+    speaking: () => (sig.out == null ? '<b>Speaking</b> · 출력 음량이 없어 절제된 호흡만 해요' : '<b>Speaking</b> · 출력 소리 크기만큼 움직여요'),
+  };
+  const MOOD = { idle: 'neutral', listening: 'neutral', thinking: 'curious', speaking: 'neutral' };
+  function setState(s) {
+    ui.state = s;
+    document.querySelectorAll('#stateSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.state === s)));
+    document.getElementById('partner').dataset.state = s;
+    const svg = document.querySelector('#birdMain svg'); if (svg) svg.setAttribute('data-mood', MOOD[s]);
+    paintLabel();
+  }
+  function paintLabel() { const l = LABEL[ui.state]; document.getElementById('heroLabel').innerHTML = typeof l === 'function' ? l() : l; }
+  let labelKey = '';
+  function paintSignals() {
+    const put = (fill, val, v, why) => {
+      document.getElementById(fill).style.width = `${Math.round((v || 0) * 100)}%`;
+      const el = document.getElementById(val); el.textContent = v == null ? why : v.toFixed(2); el.classList.toggle('na', v == null && why !== '없음');
+    };
+    put('inFill', 'inVal', sig.in, mic.err ? '막힘' : '없음');
+    put('outFill', 'outVal', sig.out, '없음');
+    const note = document.getElementById('sigNote');
+    const msg = mic.err ? `${mic.err}. Listening 은 음량 없이 상태 모션만 보여요 (받아쓰기는 따로 돌아요).` : '신호가 없으면 상태에 맞는 절제된 움직임만 보여요. 말하는 척하는 가짜 파형은 쓰지 않아요.';
+    if (note.textContent !== msg) { note.textContent = msg; note.classList.toggle('warn', !!mic.err); }
+    const key = `${ui.state}|${sig.in == null}|${sig.out == null}`;
+    if (key !== labelKey) { labelKey = key; paintLabel(); }
+  }
+  function paintBird() {
+    const p = document.getElementById('partner');
+    const m = orbs[0] && orbs[0].motion;
+    if (m) p.style.setProperty('--bob', ui.reduced || sig.out == null ? '0' : String(m.out.toFixed(3)));
+  }
+  function paintRender() {
+    const o = orbs[0]; if (!o) return;
+    document.getElementById('rKind').textContent = o.r.kind;
+    document.getElementById('rFps').textContent = `${Math.round(fps)} fps · 구 ${orbs.length}개`;
+    document.getElementById('rDpr').textContent = `${ui.low ? 1 : o.dpr}× (${o.canvas.width}px)`;
+    document.getElementById('rMotion').textContent = ui.reduced ? '줄임 — 신호 크기만' : '보통';
+  }
+
+  // 네 상태 카드
+  const CARDS = [
+    ['idle', 'Idle', '쉼', '아주 느린 호흡'],
+    ['listening', 'Listening', '듣기', '마이크 실제 음량'],
+    ['thinking', 'Thinking', '생각', '가라앉고 천천히 회전'],
+    ['speaking', 'Speaking', '말하기', 'TTS 출력 실제 음량'],
+  ];
+  const chick = document.getElementById('birdMain').innerHTML;
+  document.getElementById('four').innerHTML = CARDS.map(([k, en, ko, sub]) => `
+    <div class="card"><div class="mini"><div class="orb" data-orb="${k}"></div><span class="bird">${chick.replace('data-mood="neutral"', `data-mood="${MOOD[k]}"`)}</span></div>
+      <h3><small>${en}</small>${ko}</h3><p>${sub}</p></div>`).join('');
+
+  mountOrb(document.getElementById('orbMain'), { seed: 7 });
+  document.querySelectorAll('[data-orb]').forEach((b, i) => mountOrb(b, { seed: 11 + i * 5, state: b.dataset.orb }));
+  window.addEventListener('resize', () => orbs.forEach((o) => o.size()));
+
+  document.getElementById('stateSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-state]'); if (b) { stopCycle(); setState(b.dataset.state); } });
+  document.getElementById('composeSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-compose]'); if (!b) return;
+    document.getElementById('partner').dataset.compose = b.dataset.compose;
+    document.querySelectorAll('#composeSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    setTimeout(() => orbs[0].size(), 650);
+  });
+  let cycleT = 0;
+  const ORDER = ['idle', 'listening', 'thinking', 'speaking'];
+  function stopCycle() { clearInterval(cycleT); cycleT = 0; document.getElementById('cycle').setAttribute('aria-pressed', 'false'); }
+  document.getElementById('cycle').addEventListener('click', (e) => {
+    if (cycleT) return stopCycle();
+    e.currentTarget.setAttribute('aria-pressed', 'true');
+    cycleT = setInterval(() => setState(ORDER[(ORDER.indexOf(ui.state) + 1) % ORDER.length]), 3200);
+  });
+  document.getElementById('micBtn').addEventListener('click', () => (mic.an ? micClose() : micOpen()));
+  document.getElementById('ttsBtn').addEventListener('click', (e) => {
+    const on = !tts.an;
+    if (on) { ttsStart(); setState('speaking'); } else ttsStop();
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+    e.currentTarget.textContent = on ? '시험 음성 멈추기' : '시험 음성 재생';
+  });
+  const toggle = (id, key, after) => document.getElementById(id).addEventListener('click', (e) => {
+    ui[key] = !ui[key]; e.currentTarget.setAttribute('aria-pressed', String(ui[key])); if (after) after(); paintRender();
+  });
+  document.getElementById('rmBtn').setAttribute('aria-pressed', String(ui.reduced));
+  toggle('rmBtn', 'reduced');
+  toggle('lowBtn', 'low', () => orbs.forEach((o) => { o.forceCanvas = ui.low; o.build(); }));
+  toggle('denyBtn', 'deny', () => { if (ui.deny) { micClose(); mic.err = '마이크 권한이 막혔어요'; } else { mic.err = ''; } paintSignals(); });
+
+  setState('idle');
+  kick();
+  setTimeout(paintRender, 1200);
+})();
+</script>
+</body></html>
