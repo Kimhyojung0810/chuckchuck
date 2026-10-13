@@ -16,7 +16,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.
 const SRC = readFileSync(path.join(ROOT, 'main/web/js/qa_weave.js'), 'utf8');
 
 const ctx = vm.createContext({ window: { addEventListener() {} }, console, liveBucket: (r) => (r && r.mastered ? 'self' : 'skipped') });
-vm.runInContext(`${SRC}\n;globalThis.__w = { qwModel, qwTopicText, qwAskMeta };`, ctx);
+vm.runInContext(`${SRC}\n;globalThis.__w = { qwModel, qwTopicText, qwAskMeta, qwClaimLinked };`, ctx);
 const W = ctx.__w;
 
 let failed = 0;
@@ -45,6 +45,11 @@ check('꼬리질문 출처 = 마지막 채점 답의 발언', m.claim && m.claim
 check('이름표 — 개념 · 관점 · 꼬리질문', W.qwAskMeta(m, L) === '실험 설계 · 반례 관점 · 꼬리질문 1');
 check('관점 바꾼 질문의 주제 이름', W.qwTopicText(L) === '같은 주제 · 반례 관점');
 
+// 10-13 실측 — 판정기의 고정 문구 꼬리질문은 발언을 붙잡지 않는다. 그때는 「내 말에서」 를 달지 않는다
+const canned = '「2C 충전은 500 사이클에서 용량의 4분의 1을 깎았다」에 대한 질문이에요. 자료 3장을 다시 보고, 그 장이 하는 말을 한 문장으로 말해 볼래요?';
+check('발언을 안 붙잡은 꼬리질문엔 잇지 않는다', W.qwModel({ ...L, turns: [{ ...L.turns[0], claim: '온도를 25도로 맞췄을 때' }], lastJudgement: { followup: canned } }).claim === null);
+check('발언 낱말을 쓴 꼬리질문은 잇는다', W.qwClaimLinked('온도를 25도로 맞췄을 때', '25도라는 조건을 바꾸면 결과가 그대로일까요?') === true);
+check('어미만 겹치면 이어진 게 아니다', W.qwClaimLinked('상황마다 다를 것 같아요', '자료 3장은 무엇을 말하나요? 같아요') === false);
 check('발언이 비면 칩이 없다', W.qwModel({ ...L, turns: [{ ...L.turns[0], claim: '' }] }).claim === null);
 check('코칭 되물음은 발언에서 나온 꼬리질문이 아니다', W.qwModel({ ...L, lastJudgement: { followup: 'x', coach_stage: 'narrow' } }).claim === null);
 check('다시 말하기 중이면 잇지 않는다', W.qwModel({ ...L, retell: { model: 'm' } }).claim === null);

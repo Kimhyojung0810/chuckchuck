@@ -19,6 +19,16 @@ function qwState(r) {
   return typeof liveBucket === 'function' ? liveBucket(r) : 'skipped';
 }
 
+/** 꼬리질문이 그 발언을 실제로 붙잡았나 — 발언의 내용 낱말(두 글자 이상, 어미 · 군말 빼고) 중 하나라도 앞 두 글자가 꼬리질문에 있어야 한다.
+ *  판정기는 claim 과 followup 을 따로 만든다 — 실측(10-13 dialogue_probe): 일부만 맞은 답 · 흐린 답 · 틀린 전제 답이 모두 같은 고정 문구
+ *  꼬리질문을 받았는데, 화면은 그 위에 「내 말에서 「…」」 를 달아 이어진 것처럼 보였다. 이어지지 않았으면 잇지 않는다 */
+const QW_CLAIM_STOP = /^(그래서|그리고|그런데|이에요|예요|거예요|같아요|있어요|없어요|했어요|합니다|입니다|에서|으로|라서|해서|때문)$/;
+function qwClaimLinked(claim, followup) {
+  const f = String(followup || '');
+  const words = String(claim || '').match(/[가-힣A-Za-z0-9°%]{2,}/g) || [];
+  return words.some((w) => !QW_CLAIM_STOP.test(w) && f.includes(w.slice(0, 2)));
+}
+
 /**
  * 흔적 모형 — 지난 질문은 마디(그때 내 발언 몇 개), 지금 질문은 큰 마디(이번 질문에서 한 발언).
  * joined: 앞 마디와 같은 개념이면 실이 이어진다(같은 주제 다른 관점). claim: 지금 꼬리질문이 나온 내 발언(없으면 null).
@@ -48,7 +58,7 @@ function qwModel(L) {
   knots.forEach((k, j) => { k.joined = j > 0 && !!k.node && k.node === knots[j - 1].node; });
   const last = scored[scored.length - 1];
   const j = L.lastJudgement;
-  const followed = !!(last && last.claim && j && j.followup && !j.coach_stage && !L.retell);
+  const followed = !!(last && last.claim && j && j.followup && !j.coach_stage && !L.retell && qwClaimLinked(last.claim, j.followup));
   return {
     knots,
     claim: followed ? { text: last.claim, round: scored.length } : null,
