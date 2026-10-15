@@ -18,6 +18,7 @@ import json
 import random
 import re
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -31,7 +32,7 @@ from pipeline._json_text import extract_json_object  # noqa: E402
 from pipeline.contracts import SlideDoc, Transcript  # noqa: E402
 from pipeline.providers.llm_impl import get_llm  # noqa: E402
 
-from qa_eval import Corpus, RUBRIC_SLIDE_MAX, RUBRIC_SPEECH_MAX, load_artifacts  # noqa: E402
+from qa_eval import Corpus, RUBRIC_SLIDE_MAX, RUBRIC_SPEECH_MAX, RecordingLLM, load_artifacts  # noqa: E402
 
 SYSTEM = """당신은 발표 Q&A 코치 심사관이다. 같은 발표에 대해 만든 예상 질문 묶음 A 와 B 를 비교한다.
 기준(중요한 순서): ① 자료·발화에 근거했는가(자료에 없는 사실을 전제하지 않는다) ② 이 발표의 핵심 주장·약점을 찌르는가
@@ -86,9 +87,11 @@ def main() -> int:
     ap.add_argument("--base", default="solar/solar")
     ap.add_argument("--challengers", default="ax/ax,exaone/exaone,solar/ax,solar/exaone")
     ap.add_argument("--judge", default="solar")
+    ap.add_argument("--gap", type=float, default=2.0, help="호출 사이 쉬는 초 (Upstage 429 방지)")
     args = ap.parse_args()
 
-    llm = get_llm(args.judge)
+    # 429(요청 한도)는 물러났다 다시 — RecordingLLM 의 측정 도구용 backoff. 10-16 첫 실행이 3쌍 만에 429 로 죽었다.
+    llm = RecordingLLM(get_llm(args.judge), "pairwise")
     base = _results(args.run, args.base)
     rng = random.Random(16)
     table, detail = [], []
@@ -106,6 +109,7 @@ def main() -> int:
             for challenger_is_a in (first_challenger_a, not first_challenger_a):
                 a, b = (c_qs, b_qs) if challenger_is_a else (b_qs, c_qs)
                 w = ask(llm, deck, a, b)
+                time.sleep(args.gap)          # 서비스와 같은 키 — 몰아 부르지 않는다
                 votes.append("err" if w == "error" else "tie" if w == "tie" else
                              ("ch" if (w == "A") == challenger_is_a else "base"))
             if "err" in votes:
