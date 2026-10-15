@@ -52,7 +52,7 @@ for (const ch of css) {
     if (kf.length && kf[kf.length - 1] === depth) kf.pop();
   } else buf += ch;
 }
-const loose = selectors.flatMap((s) => s.split(',').map((x) => x.trim())).filter((x) => x && !/^(\.rv2\b|body\.rv2-page\b|#app\.rv2-host\b)/.test(x));
+const loose = selectors.flatMap((s) => s.split(',').map((x) => x.trim())).filter((x) => x && !/^(\.rv2\b|body\.rv2-page\b|(html\.sx-studio )?#app\.rv2-host\b)/.test(x));
 check(`스타일 규칙이 모두 .rv2 범위 안 (${selectors.length}개)`, selectors.length > 50 && loose.length === 0);
 if (loose.length) console.log('    범위 밖:', loose.slice(0, 5));
 check('토큰을 :root 에 두지 않는다', !/:root\b/.test(css));

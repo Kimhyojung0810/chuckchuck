@@ -5284,7 +5284,7 @@ function reportVerdict() {
    같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
-const RV2_FILES = { css: 'css/report_v2.css?v=rv3', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv3'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv7', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv6'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';

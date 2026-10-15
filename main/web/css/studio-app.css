@@ -43,6 +43,8 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
   background: rgb(255 255 255 / .6); color: var(--ink-2); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; transition: color .15s, border-color .15s; }
 .hud__exit:hover { color: var(--ink); border-color: rgba(29, 29, 31, .2); }
 .hud__note { position: fixed; left: 24px; bottom: 16px; z-index: 40; margin: 0; pointer-events: none; color: var(--ink-3); font-size: 11px; }
+/* 키보드 안내(Enter · ←)는 키보드가 없는 기기엔 소용이 없다 — 폰 · 태블릿에선 감춘다 */
+@media (hover: none) and (pointer: coarse) { .hud__note { display: none; } }
 
 @media (max-width: 720px) {
   .hud { padding: 0 12px; gap: 8px; }

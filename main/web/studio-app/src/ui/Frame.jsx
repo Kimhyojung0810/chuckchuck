@@ -16,7 +16,7 @@ const FRAME_CSS = `
 `
 const PRIMARY = '.bq-cta, .btn-primary'
 // 스튜디오 안에서만 앱에 입히는 옷 (css/studio-skin.css — 바탕 투명 · 초록 5% · 중성 면)
-const SKIN_HREF = '/css/studio-skin.css?v=sk11'
+const SKIN_HREF = '/css/studio-skin.css?v=sk12'
 const FIT_PAD = 72   // 업로드 장면 창 = 내용(.bq-pick) 높이 + 위아래 여백(studio-skin .bq-body 36px ×2)
 
 function visible(el) {
