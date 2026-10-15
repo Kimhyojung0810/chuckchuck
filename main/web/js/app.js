@@ -5288,7 +5288,9 @@ const RV2_FILES = { css: 'css/report_v2.css?v=rv7', js: ['js/report_graph.js?v=r
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
+let rv2Failed = false;
 function reportV2On() {
+  if (rv2Failed) { rv2Failed = false; return false; }
   try { if (sessionStorage.getItem('cheokcheok:report-v1') === '1') return false; } catch (_) { /* 저장소 막힘 — 아래로 */ }
   if (typeof rhShowcase === 'function' && rhShowcase()) return true;
   try { return localStorage.getItem('cheokcheok:report-v2') === '1'; } catch (_) { return false; }
@@ -5319,8 +5321,9 @@ async function renderReportV2(restoredAt) {
   try {
     await loadRv2Files();
   } catch (err) {
+    // 받지 못하면 이번만 옛 리포트 — 탭 전체를 옛 화면에 묶지 않는다(sessionStorage 에 남기면 새로고침해도 계속 옛 화면이었다)
     console.warn('[chuckchuck] report v2', err);
-    try { sessionStorage.setItem('cheokcheok:report-v1', '1'); } catch (_) { /* 이번만 옛 화면 */ }
+    rv2Failed = true;
     renderReport();
     return;
   }
@@ -5355,7 +5358,8 @@ async function renderReportV2(restoredAt) {
     mode: 'app',
     slideImage: (n) => (uploadedPdf && uploadedPdf.pdf ? slideThumb(n) : null),
     onLegacy: () => {
-      try { sessionStorage.setItem('cheokcheok:report-v1', '1'); } catch (_) { /* 이번만 */ }
+      // 「이전 리포트」 — 이번 한 번만 옛 화면(새로고침하면 다시 리포트 2.0). 탭에 묶어 두면 돌아올 길이 없었다
+      rv2Failed = true;
       if (rv2Handle) { rv2Handle.destroy(); rv2Handle = null; }
       renderReport();
     },

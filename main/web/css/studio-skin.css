@@ -154,7 +154,7 @@ html.sx-studio #vrCall.vr-call[data-flow="rehearsal"] { background: var(--sx-bg)
 html.sx-studio #vrCall.vr-call[data-flow="rehearsal"] .vr-self { background: var(--sx-bg); }
 
 /* ── 리포트 — 읽기 우선. 머리 띠의 짙은 초록 면을 따뜻한 차콜로(글자 · 판정 색은 그대로) ── */
-html.sx-studio main#app.wide > section.verdict { background: #FFFFFF; }
+html.sx-studio main#app.wide > section.verdict { background: #1D1D1F; }   /* 옛 리포트(「이전 리포트」) 판정 판은 밝은 글자용 — 밝은 스튜디오에서도 어두운 판을 지킨다(10-16 흰 판에 흰 글자로 사라졌다) */
 
 /* 폰 — 덱 카드는 한 줄에 하나, 표지는 왼쪽 작게 (세 칸이 너무 좁았다) */
 @media (max-width: 720px) {
