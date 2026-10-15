@@ -70,7 +70,7 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
 #:   받아 둔 서버에서만 있고, 없으면 404 라 워커가 jsDelivr · Google 모델 저장소로 간다. 공개 오픈소스 파일이라 공개로 둔다.
 #: 팀 샘플 데모만 쓰는 파일 — /auth 를 거친 팀 브라우저(또는 DEV_ROUTES 브리지)에만 연다. 공개 방문자에게는 404.
 #: booth_scan.html 은 부스 「사람 그래프」 스캔 화면 본체 (브리지가 /booth/scan 에서 팀일 때만 준다 — bridge.team_page_for, 2026-10-12).
-_TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf|booth_scan\.html|design_kit\.html|voice_orb_lab\.html)$")
+_TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf|booth_scan\.html|report_v2\.html|design_kit\.html|voice_orb_lab\.html)$")
 
 
 #: 화면 JS 가 `?v=` 없이 받는 공개 파일 — 부스 /hi · #/tour 의 팀 카드 · 녹화 투어 · 팀 사진 · 덱 그림 (2026-10-11).

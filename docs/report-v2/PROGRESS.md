@@ -1,0 +1,64 @@
+# Report 2.0 — 진행 기록
+
+> 새 세션은 `README.md` → 이 파일 순서로 읽으면 이어갈 수 있다. 체크박스는 실제로 한 것만 친다.
+> 작업 명세: `/home/yehschuck/project/chuckchuck/chuckchuck_report_v2_claude_code_prompt.md` (사용자 제공, 저장소 밖 · git 미추적)
+
+## 지금 단계 — Phase 1(조사) + Phase 2(그래프 설계 · UX 프로토타입) · 2026-10-15 시작
+
+**목표:** 기존 리포트 코드 · 데이터를 실제로 조사해 기록하고, Evidence Graph 최소 스키마와 `/report-v2` 클릭 가능한 프로토타입을 실제 데이터로 만든 뒤 사용자 승인을 받는다. 승인 전 기존 리포트 교체 · 대규모 구현 금지.
+
+### Phase 1 — 조사
+- [x] 리포트 화면 코드 조사 (renderReport · 탭 · 데이터 필드)
+- [x] 평가위원(삐약이 청중석) · Q&A · 개념 그래프 조사
+- [x] 분석 파이프라인 데이터 흐름 · 저장 위치 · 리플레이 가능성 조사
+- [x] 실제 리포트 데이터 표본 확보 (실 API 결과, 샘플과 구분)
+- [x] `AUDIT.md` · `DATA_MAPPING.md` 초안
+
+### Phase 2 — 설계 · 프로토타입
+- [x] Evidence Graph 최소 스키마 (`EVIDENCE_GRAPH.md`)
+- [x] 그래프 빌더 · 검증기 (순수 JS, 기존 데이터 → 그래프) + 스모크
+- [x] 실제 데이터로 `Insight → Evidence → Replay → Coaching` 경로 1~2개 검증
+- [x] 5개 화면 IA · 와이어프레임 · 레이아웃 대안 (`PRODUCT_SPEC.md` · `UX_PROTOTYPES.md`)
+- [x] `/report-v2` 클릭 가능한 프로토타입 (구버전 그대로)
+- [x] `DECISIONS.md` OPEN 항목 정리 → 사용자 승인 요청
+
+## 2026-10-16 — 승인 · Phase 3 구현 (/VRShow 반영)
+- 사용자: 「네 가지 다 승인, 구현 시작해. 원래 그 /VRShow 에 반영」 → D-004 · 005 · 006 · 009 DECIDED
+- [x] P3-1 앱 진입점 — /VRShow 정면 창은 자동, 그 밖엔 팀 플래그 `localStorage cheokcheok:report-v2=1`, 「이전 리포트」 로 옛 화면
+- [x] P3-2 같은 탭 실데이터 (nf.pipelineOut · qa.live · 청중석 · 덱 그림 · 녹음)
+- [x] P3-3 저장 확장 (단어 · 장 구간 · Q&A 흐름 · 덱 녹음 키)
+- [x] P3-4 Q&A 기록 개념 · 장 빈 값 버그
+- [~] P3-5 사용자 녹음 재생 — 코드 있음, 실제 마이크 확인 안 함
+- [ ] P3-6 옛 극장에도 근거 검사 · [ ] P3-8 재연습 이력 · [ ] P3-9 F-19 자유 글(D-006 으로 안 함)
+- 검증: QA.md 2026-10-16 (앱 · /VRShow 연결)
+- 배포: main 합치기는 사용자 `!` (자동 모드가 운영 배포를 막음)
+
+## 2026-10-16 — 디자인 다시 잡음
+- 사용자 「디자인 개병신 같은데」 → Apple 자료 수집(`etc/design-ref/apple/README.md`) → 「그 방향으로 다시 디자인해」 → `css/report_v2.css` · `js/report_v2.js` 마크업 재작성(D-010). 그래프 · 데이터 로직은 그대로
+
+## (지난) 승인 대기 상태 (2026-10-15)
+승인받을 것: `DECISIONS.md` 의 OPEN — D-004(청중 = 청중, 점수 안 만듦) · D-005(저장 늘리기) · D-006(F-19 자유 글) · D-009(안 A 구조).
+승인 뒤 `IMPLEMENTATION_PLAN.md` P3-1 부터. **승인 전 기존 리포트 교체 · 대규모 구현 금지.**
+
+## 다음 세션이 할 일
+1. 사용자 답 확인 → DECISIONS 의 OPEN 을 DECIDED/REVISED 로
+2. P3-1(앱 안 진입점, 플래그) → P3-2(같은 탭 실데이터) 순
+
+## 막힌 점
+- 청중 넷 중 믿:음(키 401) · 엑사원(응답 깨짐) 결석 — 운영 키 문제, 리포트 v2 는 결석을 그대로 보인다
+- `#/report/last` 저장본엔 단어 시각 · Q&A claim · 꼬리질문이 없다 → 다시 연 리포트에선 리플레이 · 성찰이 약해진다 (D-005 OPEN)
+
+## 검증 결과
+- 2026-10-15 `node etc/tests/js/report_graph.smoke.mjs` — 23개 통과 (실측 불변식 6개 포함)
+- 실측 그래프(rec_v2): 노드 161 · 엣지 280 · 인사이트 8 · 근거 길 비율 0.75 · 끊긴 엣지 0 · 원문에 없는 인용 0
+- 실제 경로 2개 확인: `I:concept:gaseol-a → V:said → U8/U9(46–51초)` · `I:pace:short → V:pace:1~3 → S1~S3 · U*` (EVIDENCE_GRAPH §8)
+
+## 이번에 만든 것 (파일)
+- `docs/report-v2/` README · PROGRESS · DECISIONS · AUDIT · DATA_MAPPING · EVIDENCE_GRAPH
+- `main/web/js/report_graph.js` — Evidence Graph 빌더 · 검증기 · 뷰모델 (화면 없음)
+- `etc/tests/js/report_graph.smoke.mjs`
+- `etc/labs/report_v2/make_fixture.py` → `main/web/data/report_v2_rec.json` (실측 묶음, 팀 전용 정적 경로)
+- `main/web/report_v2.html` · `js/report_v2.js` · `css/report_v2.css` — `/report-v2` 시제품 (팀 전용, bridge `_TEAM_PAGES`)
+- `docs/report-v2/` PRODUCT_SPEC · UX_PROTOTYPES · IMPLEMENTATION_PLAN · QA
+- `etc/labs/rehearsal_flow/run.py` — 리포트 단계에서 브라우저 상태를 `state.json` 으로 남김(`dump_state`)
+- 실측 추가 호출: `/api/v1/chatter` 1회(청중), rehearsal_flow `--weave` 실 판정 1회(Q&A)

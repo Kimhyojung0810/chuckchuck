@@ -38,3 +38,11 @@ def test_스튜디오_파일과_참조_자산은_공개다():
 def test_팀_주소_studio_는_그대로_팀_전용이다():
     assert bridge.team_page_for("/studio") == "/studio.html"
     assert bridge.standalone_page_for("/studio") is None
+
+
+def test_report_v2_는_팀_전용_시제품이다():
+    """Report 2.0 시제품(docs/report-v2/) — 승인 전 팀 전용. 실측 묶음(data/*.json)도 팀 전용."""
+    assert bridge.team_page_for("/report-v2") == "/report_v2.html"
+    assert static_access("/report_v2.html") == "team"
+    assert static_access("/data/report_v2_rec.json") == "team"
+    assert static_access("/js/report_graph.js") == "public"

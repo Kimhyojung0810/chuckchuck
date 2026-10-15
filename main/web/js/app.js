@@ -52,6 +52,7 @@ const saveSession = (key, value) => {
             duration_sec: po.transcript.duration_sec || 0,
             provider: po.transcript.provider || '',
             error: po.transcript.error || null,
+            ...rv2TranscriptExtras(po.transcript),
           } : null,
           conceptsError: po.conceptsError || null,
           failedStage: po.failedStage || null,
@@ -5061,7 +5062,7 @@ function stampText(ms) {
 function saveLastReport() {
   try {
     const out = nf.pipelineOut || {};
-    localStorage.setItem(LAST_REPORT_KEY, JSON.stringify({
+    const snap = {
       at: Date.now(),
       fileName: nf.fileName || '',
       occ: nf.occ || '', ctx: nf.ctx || '',
@@ -5088,10 +5089,45 @@ function saveLastReport() {
           // 판정 없이 점수만 남으면 그 점수가 허수라는 사실이 사라진다
           marks_match: out.transcript.marks_match || '',
           marks_reason: out.transcript.marks_reason || '',
+          ...rv2TranscriptExtras(out.transcript),
         } : null,
       },
-    }));
+      // 리포트 2.0 (D-005, 10-16 승인) — 다시 연 리포트에서도 Q&A 전환점 · 녹음 다시 듣기(부스 덱)가 되게
+      qa: rv2QaSnapshot(),
+      // 부스 덱 녹음으로 한 발표면 그 덱 이름 — 저장은 리포트 2.0 갈래보다 먼저라 take 에서 바로 읽는다
+      deckAudio: nf.deckAudio || (ccLastTake && ccLastTake._blob && ccLastTake._blob.deckAudio ? String(ccLastTake._blob.deckAudio) : ''),
+    };
+    try {
+      localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snap));
+    } catch (_) {
+      // 넘치면 단어 · Q&A 를 빼고 한 번 더 — 리포트 자체를 잃지 않는 게 먼저다
+      if (snap.pipelineOut.transcript) { delete snap.pipelineOut.transcript.words; delete snap.pipelineOut.transcript.marks; }
+      delete snap.qa;
+      localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snap));
+    }
   } catch (_) { /* quota·프라이빗 모드: 편의 기능이라 실패해도 화면은 그대로 */ }
+}
+
+/** 단어 시각 · 장 구간 — 저장본용으로 줄여서 (소수 둘째 자리, 최대 RV2_WORDS_MAX 개). 리포트 2.0 리플레이 · 인용 위치가 쓴다 */
+const RV2_WORDS_MAX = 4000;
+function rv2TranscriptExtras(t) {
+  if (!t) return {};
+  const r2 = (x) => Math.round((Number(x) || 0) * 100) / 100;
+  const words = Array.isArray(t.words) ? t.words.slice(0, RV2_WORDS_MAX).map((w) => ({ text: w.text, start_sec: r2(w.start_sec), end_sec: r2(w.end_sec) })) : null;
+  const marks = Array.isArray(t.marks) ? t.marks.map((m) => ({ slide_no: m.slide_no, start_sec: r2(m.start_sec), end_sec: r2(m.end_sec), visit: m.visit || 1 })) : null;
+  return { ...(words && words.length ? { words } : {}), ...(marks && marks.length ? { marks } : {}), ...(t.marks_estimated ? { marks_estimated: true } : {}) };
+}
+
+/** Q&A 흐름 — 질문(기대 답 포함)과 결과(claim · 꼬리질문 trail). 리포트 2.0 05 화면 「전환점」 재료 */
+function rv2QaSnapshot() {
+  const L = typeof qa !== 'undefined' && qa && qa.live;
+  if (!L || !Array.isArray(L.results) || !L.results.length) return null;
+  return {
+    questions: (L.questions || []).map((q) => ({ id: q.id, node_id: q.node_id, label: q.label, question: q.question,
+      answer_gist: q.answer_gist || '', evidence_slide_no: q.evidence_slide_no || null, slide_nos: q.slide_nos || [] })),
+    results: L.results.map((r) => ({ id: r.id, label: r.label, question: r.question, answer: r.answer || '', verdict: r.verdict,
+      setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0, trail: r.trail || [] })),
+  };
 }
 
 /** 저장본을 nf 에 얹는다. 성공하면 저장 시각(ms), 없으면 0. */
@@ -5108,6 +5144,7 @@ function restoreLastReport() {
     // 저장본은 실측이다. 남아 있던 샘플 플래그·옛 오류를 같이 걷지 않으면
     // 복원해 놓고 「샘플이에요」나 지난 오류 배너가 뜬다
     useSample: false, pipelineError: null, pipelineDetail: '',
+    rv2Qa: snap.qa || null, deckAudio: snap.deckAudio || '',
   });
   return snap.at || 0;
 }
@@ -5243,6 +5280,99 @@ function reportVerdict() {
    「의미 없는 묘사, 파티클, 과한 그라데이션 같은 요소는 화면을 복잡하게 만들고
    정보 전달을 방해해요」. 기둥은 조용한 초록 면 한 장이면 된다. */
 
+/* ── 리포트 2.0 (docs/report-v2/ · js/report_graph.js · js/report_v2.js) ─────────────────────────────
+   같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
+   켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
+   「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
+const RV2_FILES = { css: 'css/report_v2.css?v=rv3', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv3'] };
+let rv2Loading = null;
+let rv2Handle = null;
+let rv2AudioUrl = '';
+function reportV2On() {
+  try { if (sessionStorage.getItem('cheokcheok:report-v1') === '1') return false; } catch (_) { /* 저장소 막힘 — 아래로 */ }
+  if (typeof rhShowcase === 'function' && rhShowcase()) return true;
+  try { return localStorage.getItem('cheokcheok:report-v2') === '1'; } catch (_) { return false; }
+}
+function loadRv2Files() {
+  if (window.ReportV2 && window.ReportGraph) return Promise.resolve();
+  if (rv2Loading) return rv2Loading;
+  const add = (tag, attrs) => new Promise((ok, fail) => {
+    const el = document.createElement(tag);
+    Object.assign(el, attrs);
+    el.onload = ok; el.onerror = () => fail(new Error(`${attrs.src || attrs.href} 를 받지 못했어요`));
+    document.head.appendChild(el);
+  });
+  rv2Loading = (async () => {
+    if (!document.querySelector('link[data-rv2]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet'; link.href = RV2_FILES.css; link.dataset.rv2 = '1';
+      document.head.appendChild(link);
+    }
+    for (const src of RV2_FILES.js) await add('script', { src });
+  })();
+  rv2Loading.catch(() => { rv2Loading = null; });
+  return rv2Loading;
+}
+async function renderReportV2(restoredAt) {
+  app.className = 'rv2-host';
+  app.innerHTML = '<p class="note" role="status" style="padding:56px 24px">리포트를 준비하고 있어요…</p>';
+  try {
+    await loadRv2Files();
+  } catch (err) {
+    console.warn('[chuckchuck] report v2', err);
+    try { sessionStorage.setItem('cheokcheok:report-v1', '1'); } catch (_) { /* 이번만 옛 화면 */ }
+    renderReport();
+    return;
+  }
+  if (!/report/.test(location.hash)) return;   // 받는 사이 다른 화면으로 갔다
+  const out = nf.pipelineOut || {};
+  const take = ccLastTake && ccLastTake._blob;
+  if (take && take.deckAudio) nf.deckAudio = String(take.deckAudio);
+  // 녹음 — 부스 덱 녹음이면 서버 파일(공개는 부스 덱만), 아니면 이 탭 메모리의 녹음. 저장 안 된 녹음은 새로고침하면 없다
+  let audioUrl = nf.deckAudio ? `/api/v1/dev/decks/file?deck=${encodeURIComponent(nf.deckAudio)}&kind=audio` : '';
+  if (!audioUrl && take && !restoredAt) {
+    if (rv2AudioUrl) URL.revokeObjectURL(rv2AudioUrl);
+    rv2AudioUrl = URL.createObjectURL(take);
+    audioUrl = rv2AudioUrl;
+  }
+  const total = deckTotalSlides();
+  const imgs = (nf && nf.slideImages) || [];
+  const input = window.ReportV2.inputFromApp({
+    pipelineOut: out,
+    marks: nf.marks || null,
+    deck: {
+      title: (out.graph && out.graph.file_name) || nf.fileName || '',
+      slides: Array.from({ length: total }, (_, i) => ({ slide_no: i + 1, title: deckTitle(i + 1, true) })),
+      slide_images: Array.from({ length: total }, (_, i) => (typeof imgs[i] === 'string' && !/^data:image\/svg/.test(imgs[i]) ? imgs[i] : '')),
+      audio_url: audioUrl,
+    },
+    qa: (qa.live && Array.isArray(qa.live.results) && qa.live.results.length) ? { questions: qa.live.questions || [], results: qa.live.results } : (nf.rv2Qa || null),
+    chatter: chatterCache || null,
+    saved: restoredAt ? ` (${stampText(restoredAt)})` : '',
+  });
+  if (rv2Handle) rv2Handle.destroy();
+  rv2Handle = window.ReportV2.mount(app, input, {
+    mode: 'app',
+    slideImage: (n) => (uploadedPdf && uploadedPdf.pdf ? slideThumb(n) : null),
+    onLegacy: () => {
+      try { sessionStorage.setItem('cheokcheok:report-v1', '1'); } catch (_) { /* 이번만 */ }
+      if (rv2Handle) { rv2Handle.destroy(); rv2Handle = null; }
+      renderReport();
+    },
+  });
+  // 청중석은 늦게 온다(실 LLM 넷) — 오면 얹는다. 화면 · 고른 진단은 그대로
+  if (!chatterCache && chatterPending) {
+    chatterPending.then((doc) => {
+      if (doc && !chatterCache) chatterCache = doc;
+      if (rv2Handle && app.classList.contains('rv2-host')) rv2Handle.update({ chatter: doc });
+    }).catch(() => { /* 청중석은 「기록이 없어요」 로 남는다 */ });
+  }
+}
+// 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게
+window.addEventListener('hashchange', () => {
+  if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; }
+});
+
 async function renderReport() {
   await ensureVoicePipelineOut();
   /* id 없는 #/report 는 실측이다 — 질문 코칭 끝의 「상세 리포트 보기」를 비롯해
@@ -5339,6 +5469,8 @@ async function renderReport() {
      저장본을 다시 열었을 때(restoredAt) 또 저장하면 시각만 계속 갱신돼서
      "언제 한 발표인지" 가 거짓말이 된다 — 그때는 저장하지 않는다. */
   if (!rSampleMode && !restoredAt && s.live && v.hasAnalysis && !v.isSample) saveLastReport();
+  // 리포트 2.0 (docs/report-v2/, 10-16 승인) — /VRShow 정면 창이거나 팀이 켠 플래그면 새 리포트. 실측 분석이 있을 때만
+  if (!rSampleMode && s.live && v.hasAnalysis && !v.isSample && reportV2On()) { renderReportV2(restoredAt); return; }
   /* 순서가 곧 우선순위다. 예전 2번은 「채점표」였다 — 39개 항목의 점수표는
      어느 발표 도구에나 있는 것이고, 우리만 하는 일이 아니다. 우리만 하는 일은
      «자료가 약속한 개념을 실제로 설명했는가» 를 발화 증거와 함께 대조하는
@@ -9666,9 +9798,11 @@ function recordQaHistory() {
       const src = (L.questions && L.questions[i]) || {};
       const bucket = bucketOf(r);
       return {
-        concept: src.concept || src.node || '',
+        // 실제 질문엔 node_id · slide_nos · evidence_slide_no 만 있다 — 예전엔 concept · node · slide_no 만 봐서 늘 빈 값이었다 (10-15 리포트 2.0 조사)
+        concept: src.concept || src.node || src.node_id || '',
         label: src.label || src.conceptLabel || src.concept || `질문 ${i + 1}`,
-        slide: src.slide || (src.slide_no ? `S${String(src.slide_no).padStart(2, '0')}` : ''),
+        slide: src.slide || (() => { const n = src.slide_no || src.evidence_slide_no || (src.slide_nos || [])[0]; return n ? `S${String(n).padStart(2, '0')}` : ''; })(),
+        trail: (r.trail || []).slice(-4),
         q: r.question || src.question || src.q || '',
         // a 는 「내 답변」 칸이다. summary 는 코치의 총평이라 사용자 발화가 아니다 —
         // 실제로 한 답(다시 말한 답·멈추기 전 마지막 답 포함)을 싣고, 총평은 note 줄로 따로 남긴다.

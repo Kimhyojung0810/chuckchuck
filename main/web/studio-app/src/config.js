@@ -18,11 +18,11 @@ export const STATIONS = [
 /* 정거장별 조명 (SPACE §3 · DESIGN_SYSTEM v3-3) — 따뜻한 중성 빛만(10-13 리뉴얼: 초록 빛 없음, 조용한 스튜디오).
    spot: 정면 스포트(cd) · 각(rad), cove: 빛 띠 밝기, amb: 방 전체, fog: 안개 끝(m) */
 export const LIGHT = [
-  { color: '#EEE9DF', spot: 220, angle: .7, cove: .8, amb: 1.4, fog: 22 },
-  { color: '#E9E4D8', spot: 260, angle: .55, cove: .35, amb: .9, fog: 16 },
-  { color: '#EDE8DD', spot: 200, angle: .75, cove: .7, amb: 1.2, fog: 20 },
-  { color: '#ECE6DA', spot: 240, angle: .6, cove: .5, amb: 1.1, fog: 18 },
-  { color: '#F2EFE8', spot: 240, angle: .8, cove: .9, amb: 1.7, fog: 26 },
+  { color: '#FFFFFF', spot: 160, angle: .7, cove: .8, amb: 2.6, fog: 30 },
+  { color: '#FFFFFF', spot: 180, angle: .55, cove: .35, amb: 2.3, fog: 28 },
+  { color: '#FFFFFF', spot: 150, angle: .75, cove: .7, amb: 2.5, fog: 30 },
+  { color: '#FFFFFF', spot: 170, angle: .6, cove: .5, amb: 2.4, fog: 28 },
+  { color: '#FFFFFF', spot: 170, angle: .8, cove: .9, amb: 2.8, fog: 32 },
 ]
 
 /* SPACE v3 — 시점은 고정, 창이 곡선 위를 미끄러진다 (Horizon OS 방식) */

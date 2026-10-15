@@ -104,3 +104,9 @@ etc/labs/intro_metrics/out/
 main/web/js/team-contacts.js
 # 가상 발표 스튜디오 React 앱 — 의존성은 npm install 로 (빌드 결과 main/web/js/studio-app.js 만 올린다)
 main/web/studio-app/node_modules/
+
+# Apple HIG 원문 · apple.com 캡처 — 저작물이라 공개 저장소에 올리지 않는다(로컬 참고용). 요약은 etc/design-ref/apple/README.md
+etc/design-ref/apple/hig/
+etc/design-ref/apple/shots/
+etc/design-ref/output/apple-kr.png
+etc/design-ref/output/apple.com/*.json

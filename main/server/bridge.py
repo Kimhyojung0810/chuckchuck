@@ -282,7 +282,7 @@ TEAM_TOOLS = (
 _NEXT_ROUTE = re.compile(r"^#/(?:|new|qa|report|report/last|report/sample-[a-z0-9-]{1,40}|graph|about"
                          r"|vision|temp|test/qa|replay|booth/qa|booth/call)$")
 #: /auth?next= 로 돌려보낼 수 있는 팀 전용 독립 페이지 — 해시 앱이 아니라 주소 그대로 간다 (_TEAM_PAGES 와 같은 주소만)
-_NEXT_PAGES = frozenset({"/booth/scan", "/studio"})
+_NEXT_PAGES = frozenset({"/booth/scan", "/studio", "/report-v2"})
 
 
 def _safe_next(raw: str) -> str:
@@ -1615,7 +1615,9 @@ _STANDALONE_PAGES = (
 #: ~/meetings/2026-10-12_부스_사람그래프_스캔화면.md). 파일은 static_assets._TEAM_PATH 라 /booth_scan.html 로 바로 와도 팀이 아니면 404.
 #: 팀이 아닌 브라우저는 /auth?next=/booth/scan 으로 보낸다(팀 코드가 없는 브리지면 404 — 있다는 것도 알리지 않는다).
 #: /studio 는 디자인 개편 1차 시제품 「가상 발표 스튜디오」 (main/web/design/SPACE.md, 2026-10-12) — 기존 앱 · 카메라와 떨어진 독립 페이지
-_TEAM_PAGES = ((re.compile(r"^/booth/scan/?$", re.I), "/booth_scan.html"), (re.compile(r"^/studio/?$", re.I), "/studio.html"))
+#: /report-v2 는 Report 2.0 시제품 (docs/report-v2/, 2026-10-15) — 기존 리포트를 덮지 않는 별도 주소, 승인 전 팀 전용
+_TEAM_PAGES = ((re.compile(r"^/booth/scan/?$", re.I), "/booth_scan.html"), (re.compile(r"^/studio/?$", re.I), "/studio.html"),
+               (re.compile(r"^/report-v2/?$", re.I), "/report_v2.html"))
 
 
 def team_page_for(url_path: str) -> str | None:

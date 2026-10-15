@@ -58,8 +58,8 @@ function Workshop({ W, H, world }) {
     return (
       <group key={side} position={[x, y, -1.1]}>
         <mesh><planeGeometry args={[w, h]} /><meshBasicMaterial color="#F2EEE4" transparent opacity={0.22} toneMapped={false} /></mesh>
-        <Box at={[0, 0, 0.01]} size={[6 * u, h, 0.02]} color="#1a221e" />
-        <Box at={[0, h * 0.12, 0.01]} size={[w, 6 * u, 0.02]} color="#1a221e" />
+        <Box at={[0, 0, 0.01]} size={[6 * u, h, 0.02]} color="#C9CDCB" />
+        <Box at={[0, h * 0.12, 0.01]} size={[w, 6 * u, 0.02]} color="#C9CDCB" />
         {/* 바닥으로 떨어지는 빛 — 옅은 사다리꼴 */}
         <mesh position={[side * -40 * u, -h / 2 - 90 * u, 0.4]} rotation={[-1.2, 0, 0]}>
           <planeGeometry args={[w * 1.3, 260 * u]} />
@@ -89,13 +89,13 @@ function StageWide({ L, world }) {
     <group>
       {[-1, 1].map((side) => (
         <mesh key={side} geometry={geo} position={[side * (half + 90) * u, -((top + floor) / 2) * u, -0.35]}>
-          <meshStandardMaterial color="#2B3A33" roughness={0.78} side={THREE.DoubleSide} />
+          <meshStandardMaterial color="#DCE4DF" roughness={0.78} side={THREE.DoubleSide} />
         </mesh>
       ))}
       <mesh geometry={val} position={[0, -(top - 40) * u, -0.3]}>
-        <meshStandardMaterial color="#26332D" roughness={0.8} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#D2DAD5" roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
-      <Box at={[0, -(floor + 10) * u, 0.05]} size={[(L.total + 160) * u, 2 * u, 0.02]} color="#2A2E2B" emissive="#EEE9DF" emissiveIntensity={0.06} />
+      <Box at={[0, -(floor + 10) * u, 0.05]} size={[(L.total + 160) * u, 2 * u, 0.02]} color="#DEDEE3" emissive="#EEE9DF" emissiveIntensity={0.06} />
       {seats.map((x, i) => (
         <Chick key={i} name={who[i][0]} mood={who[i][1]} at={[x, -feet, 0.12]} h={h - (i % 2) * 10} world={u} flip={i === 2} tilt={(i - 1) * 0.04} />
       ))}
@@ -112,14 +112,14 @@ function Stage({ W, H, world }) {
     <group>
       {[-1, 1].map((side) => (
         <mesh key={side} geometry={geo} position={[side * (W / 2 + 120) * u, 40 * u, -0.35]}>
-          <meshStandardMaterial color="#2B3A33" roughness={0.78} side={THREE.DoubleSide} />
+          <meshStandardMaterial color="#DCE4DF" roughness={0.78} side={THREE.DoubleSide} />
         </mesh>
       ))}
       <mesh geometry={val} position={[0, (H / 2 + 90) * u, -0.3]}>
-        <meshStandardMaterial color="#26332D" roughness={0.8} side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#D2DAD5" roughness={0.8} side={THREE.DoubleSide} />
       </mesh>
       {/* 무대 바닥 끝선 */}
-      <Box at={[0, -(H / 2 + 30) * u, 0.05]} size={[(W + 420) * u, 2 * u, 0.02]} color="#2A2E2B" emissive="#EEE9DF" emissiveIntensity={0.06} />
+      <Box at={[0, -(H / 2 + 30) * u, 0.05]} size={[(W + 420) * u, 2 * u, 0.02]} color="#DEDEE3" emissive="#EEE9DF" emissiveIntensity={0.06} />
       {/* 객석 — 창 아래 양쪽 */}
       <Chick name="ax" mood="neutral" at={[-(W / 2 + 62), -(H / 2 + 20), 0.12]} h={104} world={u} />
       <Chick name="midm" mood="excited" at={[-(W / 2 + 152), -(H / 2 + 34), 0.14]} h={92} world={u} tilt={0.05} />
@@ -135,8 +135,8 @@ function JudgesWide({ L, world }) {
   const top = L.app.y + L.app.h / 2 + 10
   return (
     <group>
-      <Box at={[L.app.x * u, -(top + 36) * u, 0.2]} size={[(L.app.w + 120) * u, 72 * u, 0.12]} color="#0c1210" rough={0.7} />
-      <Box at={[L.app.x * u, -top * u, 0.2]} size={[(L.app.w + 130) * u, 3 * u, 0.06]} color="#0e1512" rough={0.8} />
+      <Box at={[L.app.x * u, -(top + 36) * u, 0.2]} size={[(L.app.w + 120) * u, 72 * u, 0.12]} color="#CFCFD5" rough={0.7} />
+      <Box at={[L.app.x * u, -top * u, 0.2]} size={[(L.app.w + 130) * u, 3 * u, 0.06]} color="#C6C6CC" rough={0.8} />
     </group>
   )
 }
@@ -147,8 +147,8 @@ function JudgesDesk({ W, H, world }) {
   const top = -(H / 2 + 10)
   return (
     <group>
-      <Box at={[0, (top - 36) * u, 0.2]} size={[(W + 420) * u, 72 * u, 0.12]} color="#0c1210" rough={0.7} />
-      <Box at={[0, top * u, 0.2]} size={[(W + 430) * u, 3 * u, 0.14]} color="#1d211e" rough={0.6} />
+      <Box at={[0, (top - 36) * u, 0.2]} size={[(W + 420) * u, 72 * u, 0.12]} color="#CFCFD5" rough={0.7} />
+      <Box at={[0, top * u, 0.2]} size={[(W + 430) * u, 3 * u, 0.14]} color="#D5D5DA" rough={0.6} />
       <Chick name="solar" mood="curious" at={[-(W / 2 + 62), top - 6, 0.1]} h={100} world={u} />
       <Chick name="midm" mood="curious" at={[-(W / 2 + 150), top - 6, 0.1]} h={92} world={u} />
       <Chick name="ax" mood="curious" at={[W / 2 + 62, top - 6, 0.1]} h={100} world={u} flip />
@@ -163,8 +163,8 @@ function Shelf({ side, W, H, world }) {
   const w = 190 * u, h = 220 * u, x = side * (W / 2 + 130) * u, y = -(H / 2 - 60) * u
   return (
     <group position={[x, 0, -0.4]}>
-      <Box at={[0, y, -0.05]} size={[w, h, 0.02]} color="#161A17" rough={0.95} />
-      {[0, 1, 2].map((r) => <Box key={r} at={[0, y - h / 2 + r * (h / 2), 0.02]} size={[w, 4 * u, 0.12]} color="#2A2E2B" rough={0.9} />)}
+      <Box at={[0, y, -0.05]} size={[w, h, 0.02]} color="#E4E4E9" rough={0.95} />
+      {[0, 1, 2].map((r) => <Box key={r} at={[0, y - h / 2 + r * (h / 2), 0.02]} size={[w, 4 * u, 0.12]} color="#DEDEE3" rough={0.9} />)}
     </group>
   )
 }

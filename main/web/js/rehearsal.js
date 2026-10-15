@@ -169,8 +169,8 @@ function rehearsalFlowOnRoute(key, hash = location.hash) {
     return;
   }
   // 자리 비움 되돌리기는 부스(팀 브라우저 · 오프라인 부스)만 — 공개 방문객은 자기 리포트를 읽다가 1분 손을 안 대면
-  // 올리기 화면으로 밀려나고 기록에서도 리포트가 빠졌다 (10-08)
-  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); if (rehearsalDemoOn()) rhReportIdleArm(); else rhReportIdleDisarm(); return; }
+  // 올리기 화면으로 밀려나고 기록에서도 리포트가 빠졌다 (10-08). /VRShow 도 방문객이 자기 리포트를 읽으니 되돌리지 않는다
+  if (key === 'report') { rehearsalTeardown({ keepFlow: true }); if (rehearsalDemoOn() && !rhShowcase()) rhReportIdleArm(); else rhReportIdleDisarm(); return; }
   if (key === 'qa') rhHandCamera();
 }
 
@@ -484,7 +484,19 @@ function rhFreshPractice() {
 /** 부스 시연 장치(시연 덱 고르기 · 덱 녹음으로 대신하기 · 정답 보기 · 대충 답해 보기)를 여는가 — 팀 브라우저 · 오프라인 부스만 */
 function rehearsalDemoOn() {
   if (typeof rhOffline === 'function' && rhOffline()) return true;
+  if (rhShowcase()) return true;
   return typeof ccTeam !== 'undefined' && !!ccTeam;
+}
+
+/** /VRShow(가상 발표 스튜디오 공개 주소) 정면 창 안인가 — 거기선 공개 방문자도 시연 덱 · 녹음으로 대신하기 · 정답 보기를 쓴다
+ *  (10-15 사용자 「VRShow 샘플 자료로 돌아가게」). 서버는 이미 부스 덱 셋과 그 녹음만 공개로 준다(bridge._public_deck).
+ *  스튜디오는 앱을 같은 출처 iframe 으로 띄우므로 부모 주소로 가른다 — 앱 단독 주소(/ · #/rehearsal)는 그대로 내 자료 올리기만 */
+function rhShowcase() {
+  try {
+    return window.parent !== window && /^\/vrshow\/?$/i.test(window.parent.location.pathname);
+  } catch (_) {
+    return false;
+  }
 }
 
 /** 다른 자료로 — 공개는 「다른 자료 올리기」, 팀은 「다른 발표 고르기」 */
