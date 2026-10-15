@@ -36,4 +36,6 @@ node etc/tests/js/report_graph.smoke.mjs        # 그래프 정합 · 실측 불
 # 실측 묶음 다시 만들기 (실험실 응답 → 한 파일)
 .venv/bin/python etc/labs/report_v2/make_fixture.py --rec etc/labs/rehearsal_flow/out/rec_v2 --state etc/labs/rehearsal_flow/out/rec_v2/state.json
 ```
+미리보기 링크(데이터 · 장 그림 · 녹음을 한 파일로 묶은 사본, 비공개): https://claude.ai/artifact/U4uV9mwcJGjRZtUUQ5KghJ — 묶는 스크립트는 저장소 밖 세션 임시 폴더였다(재현: report_v2.js 의 그림 주소를 data: 로 바꾸고 `__RV2_DATA` · `__RV2_EMBED` 를 넣는다).
+
 브라우저 콘솔 `__RV2.validate()` 로 그래프 지표 · 문제 목록을 볼 수 있다.
