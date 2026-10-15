@@ -245,6 +245,10 @@ def run(args) -> Path:
         ctx = b.new_context(viewport={"width": VW, "height": VH}, device_scale_factor=args.dpr, locale="ko-KR",
                             permissions=["camera", "microphone"], is_mobile=args.mobile, has_touch=args.mobile)
         ctx.add_init_script(FAKE_SPEECH_JS)
+        if args.report_v2:   # 리포트 2.0 (docs/report-v2/) — 팀 플래그로 켠다. /VRShow 갈래는 리포트 단계 끝에서 따로 본다
+            # /VRShow 안(정면 창 iframe 포함)에선 켜지 않는다 — 그 갈래는 플래그 없이 rhShowcase 로 켜져야 한다
+            ctx.add_init_script("""try { const vr = /\\/vrshow/i.test(location.pathname) || (window.parent !== window && /\\/vrshow/i.test(window.parent.location.pathname));
+              if (!vr) localStorage.setItem('cheokcheok:report-v2', '1'); } catch (_) {}""")
         if args.studio_skin:
             # /studio 정면 창(ui/Frame.jsx)이 iframe 문서에 입히는 것과 같이 — <html class="sx-studio"> + css/studio-skin.css
             ctx.add_init_script("""document.addEventListener('DOMContentLoaded', () => {
@@ -687,7 +691,8 @@ def run(args) -> Path:
             t0 = time.time()
             page.wait_for_timeout(13000)   # 부스라면 12초 뒤 마무리 화면으로 넘어간다 — 리허설은 그대로 있어야 한다
             stayed = page.evaluate("location.hash === '#/rehearsal/qa' && !!document.querySelector('#bqStage[data-screen=qa]')")
-            page.click("#liveSeeResult")
+            # Q&A 무대(qa_stage.js, 10-13)는 원래 단추를 숨기고 자기 단추로 누른다 — 숨은 원래 단추를 직접 누른다
+            page.evaluate("document.getElementById('liveSeeResult').click()")
             page.wait_for_function("location.hash.startsWith('#/rehearsal/report')", timeout=20000)
             page.wait_for_timeout(3000)
             sweep("report")
@@ -696,6 +701,27 @@ def run(args) -> Path:
                                 "layer_gone": page.evaluate("!document.getElementById('bqStage')"), "cam_off": page.evaluate("!bq.cam.stream"),
                                 "listening": page.evaluate("window.__fakeListening()"), "history": page.evaluate("(JSON.parse(localStorage.getItem('cheokcheok:qa-history')||'[]')).length"),
                                 "title": page.evaluate("(document.querySelector('#app h1, #app .page-title')||{}).textContent||''")[:80]})
+            if args.report_v2:
+                R["report_v2"] = page.evaluate("""() => ({ on: !!document.querySelector('#app.rv2'), screen: (document.querySelector('.rv2 .rv-nav [aria-current]')||{}).textContent || '',
+                  issues: document.querySelectorAll('.rv2 .rr-item').length, title: (document.querySelector('.rv2 .rr-title')||{}).textContent || '' })""")
+                print("  report_v2   ", R["report_v2"], flush=True)
+                for scr in ("audience", "replay", "coach", "practice"):
+                    page.click(f".rv2 .rv-nav [data-go='{scr}']"); page.wait_for_timeout(700); shot(f"rv2_{scr}")
+                # /VRShow 갈래 — 플래그 없이도 정면 창 안에선 리포트 2.0 인가 (마지막 리포트로 연다)
+                vr = page.context.new_page()
+                vr.set_viewport_size({"width": 1512, "height": 860})
+                vr.goto(f"{args.base}/VRShow", wait_until="load")
+                vr.evaluate("localStorage.removeItem('cheokcheok:report-v2')")
+                vr.wait_for_timeout(4000)
+                fr = next((f for f in vr.frames if 'index.html' in f.url), None)
+                if fr:
+                    fr.evaluate("location.hash = '#/rehearsal/report/last'")
+                    vr.wait_for_timeout(5000)
+                    R["vrshow_v2"] = fr.evaluate("() => ({ on: !!document.querySelector('#app.rv2'), qa: document.querySelectorAll('.rv2 .rr-item').length, legacy: !!document.querySelector('.rv2 [data-legacy]') })")
+                    vr.screenshot(path=str(out / "vrshow_report_v2.png"))
+                print("  vrshow_v2   ", R.get("vrshow_v2"), flush=True)
+                vr.close()
+                page.evaluate("try { localStorage.setItem('cheokcheok:report-v2', '1'); } catch (_) {}")
             # 리허설을 마친 뒤 일반 #/new · #/qa · 부스가 리허설에 끌려가지 않는지
             page.evaluate("location.hash = '#/qa'")
             page.wait_for_timeout(1500)
@@ -934,6 +960,7 @@ def main() -> int:
     ap.add_argument("--mobile", action="store_true", help="폰처럼 — is_mobile · has_touch")
     ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
     ap.add_argument("--studio-skin", action="store_true", help="스튜디오 정면 창처럼 sx-studio 옷을 입힌다 (--viewport 를 창 크기로, 예: 1361x757)")
+    ap.add_argument("--report-v2", dest="report_v2", action="store_true", help="리포트 2.0 으로 리포트를 그리고(팀 플래그) /VRShow 정면 창 갈래도 본다 (docs/report-v2/)")
     ap.add_argument("--weave", action="store_true", help="Q&A 생각 엮기(10-13) — 엉성한 답 → 내 발언 · 꼬리질문 → 관점 바꾸기 → 다른 개념 → 건너뛰기 → 리포트 기록")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
