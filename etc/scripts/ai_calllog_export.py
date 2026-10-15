@@ -7,7 +7,8 @@
     python etc/scripts/ai_calllog_export.py --run F-08=f-08-20261015T234102-7a1c   # 그 실행을 고른다 (여러 번 줄 수 있다)
     python etc/scripts/ai_calllog_export.py --pin <run_id> ...             # 14일 청소에서 빼 둔다 (pinned/)
 
-1. 기능마다 끝까지 성공(마지막 레코드 ok)한 실행(run_id) 하나 — 기본은 가장 최근. 그 실행의 레코드를 전부 담는다.
+1. 기능마다 끝까지 성공(부른 곳마다 마지막 시도 ok)한 실행(run_id) 하나 — 기본은 가장 최근, 없으면 일부 성공한 실행(△).
+   그 실행의 레코드를 전부 담는다(실패 · 재시도 레코드도 — 가이드 「기능 끝날 때까지 누적」).
 2. 마스킹은 구조를 그대로 두고 값 안의 전화번호 · 이메일 · 주민번호 · Bearer/키 모양 · 실제 키 값만 *** 로. 경로는 레코드 masked 에.
 3. 「기능명.json」 = {feature, feature_code, run_id, models, providers, record_count, exported_at, records} — 모아서 zip 하나.
 4. 점검표를 찍는다: 표에 있는데 로그가 없는 기능 · --since 이전이라 뺀 레코드 · 국내 AI 목록 밖 호스트 · 마스킹 건수 · zip 안 키 흔적.
@@ -112,15 +113,26 @@ def runs_by_feature(records: list[dict]) -> dict[str, dict[str, list[dict]]]:
     return out
 
 
+def run_state(rs: list[dict]) -> str:
+    """실행 하나의 결과 — ok(부른 곳마다 마지막 시도가 성공) · partial(성공한 호출이 있지만 끝내 실패한 곳도 있음, 예: 객석 병아리 넷 중 하나) · fail."""
+    last: dict = {}
+    for r in rs:
+        last[(r["request"].get("method"), r["request"].get("endpoint"), r["request"].get("model"))] = bool(r.get("ok"))
+    if last and all(last.values()):
+        return "ok"
+    return "partial" if any(r.get("ok") for r in rs) else "fail"
+
+
 def pick(runs: dict[str, list[dict]], want: str | None = None) -> tuple[str, list[dict]] | None:
-    """--run 으로 고른 것, 아니면 마지막 레코드가 ok 인 실행 중 가장 최근."""
+    """--run 으로 고른 것, 아니면 끝까지 성공한 실행 중 가장 최근, 그게 없으면 일부 성공한 실행 중 가장 최근."""
     if want:
         return (want, runs[want]) if want in runs else None
-    good = [(rs[-1]["request"]["time_kst"], rid, rs) for rid, rs in runs.items() if rs and rs[-1].get("ok")]
-    if not good:
-        return None
-    _, rid, rs = max(good)
-    return rid, rs
+    for need in ("ok", "partial"):
+        good = [(rs[-1]["request"]["time_kst"], rid, rs) for rid, rs in runs.items() if rs and run_state(rs) == need]
+        if good:
+            _, rid, rs = max(good)
+            return rid, rs
+    return None
 
 
 def pin(root: Path, run_ids: list[str]) -> list[Path]:
@@ -163,6 +175,8 @@ def export(*, root: Path, since: str, out: Path, runs: dict[str, str] | None = N
             report["no_success"].append(code)
             continue
         rid, rs = got
+        if run_state(rs) != "ok":
+            report.setdefault("partial", []).append(code)
         masked_rs = []
         for r in rs:
             m, paths = mask(r, keys)
@@ -180,7 +194,8 @@ def export(*, root: Path, since: str, out: Path, runs: dict[str, str] | None = N
         }
         fname = f"{name}.json"
         files[fname] = json.dumps(doc, ensure_ascii=False, indent=2).encode("utf-8")
-        report["files"].append({"file": fname, "code": code, "run_id": rid, "records": len(rs), "models": doc["models"]})
+        report["files"].append({"file": fname, "code": code, "run_id": rid, "records": len(rs), "models": doc["models"],
+                                "state": run_state(rs)})
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(out.suffix + ".part")
     with zipfile.ZipFile(tmp, "w", compression=zipfile.ZIP_DEFLATED) as z:
@@ -200,7 +215,7 @@ def list_runs(root: Path, since: str) -> None:
     for code in sorted(grouped):
         print(f"{code} {feats.get(code, '(표에 없음)')}")
         for rid, rs in sorted(grouped[code].items(), key=lambda kv: kv[1][-1]["request"]["time_kst"]):
-            ok = "ok" if rs[-1].get("ok") else "실패"
+            ok = run_state(rs)
             print(f"   {rid}  {len(rs)}건  {rs[0]['request']['time_kst']}  {ok}  "
                   f"{sorted({r['request'].get('model') for r in rs if r['request'].get('model')})}")
 
@@ -225,10 +240,12 @@ def main(argv=None) -> int:
     rep = export(root=a.root, since=a.since, out=a.out.expanduser(), runs=runs)
     print(f"zip: {a.out}  ({datetime.now():%Y-%m-%d %H:%M})")
     for f in rep["files"]:
-        print(f"  ✓ {f['file']:<24} {f['code']:<10} {f['records']:>3}건  {', '.join(f['models'])}  ({f['run_id']})")
+        mark = "✓" if f["state"] == "ok" else "△"
+        print(f"  {mark} {f['file']:<24} {f['code']:<10} {f['records']:>3}건  {', '.join(f['models'])}  ({f['run_id']})")
     print("점검표")
     print(f"  - 기능 표에 있는데 로그가 없는 기능: {rep['missing'] or '없음'}")
-    print(f"  - 로그는 있는데 끝까지 성공한 실행이 없는 기능: {rep['no_success'] or '없음'}")
+    print(f"  - 로그는 있는데 성공한 호출이 하나도 없는 기능: {rep['no_success'] or '없음'}")
+    print(f"  - 일부만 성공한 실행을 담은 기능(실패 레코드도 그대로 들어감): {rep.get('partial') or '없음'}")
     print(f"  - {a.since} 이전이라 뺀 레코드: {rep['before_since']}건")
     print(f"  - 국내 AI 목록 밖 호스트: {rep['outside_hosts'] or '없음'}")
     print(f"  - 미분류 실행: {rep['unclassified']}개 (0 이어야 해요)")

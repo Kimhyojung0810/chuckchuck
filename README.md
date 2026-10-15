@@ -57,6 +57,25 @@ python -c "from pipeline.config import settings; print(settings.masked())"
 
 전문용어 인식률을 위해 `keywords=`(발표자료 키워드) 를 넘길 수 있다.
 
+### 실시간 받아쓰기 (2026-10-15 — 크롬 Web Speech 대체)
+
+Q&A 답 · 발표 중 받아쓰기는 브라우저 → 브리지 `/api/v1/stt/live`(WebSocket) → A.X `wss://…/v1/stt/realtime`
+(`A.X_STT_note_streaming`) 으로 간다 (`main/server/live_stt.py`, `main/web/js/live_stt.js`). 키는 브리지에만 있다.
+글은 **문장 단위**로 확정되고(확정 전 조각 없음), 말하는 동안은 「듣고 있어요…」 를 보인다. 실패하면 예전처럼 녹음 → batch 로 받아쓴다.
+상한 환경변수: `DEMO_LIVE_STT_MAX`(동시 16) · `DEMO_LIVE_STT_TEAM_RESERVED`(3) · `DEMO_LIVE_STT_IP`(IP 당 4) ·
+`DEMO_LIVE_STT_MAX_SEC`(답 300초) · `DEMO_LIVE_STT_PRESENT_SEC`(발표 1200초) · `DEMO_LIVE_STT_IDLE_SEC`(20초). 지금 칸은 `/api/v1/ops/shield` 의 `live_stt`.
+
+### 국내 AI API 호출 로그 (대회 제출용)
+
+브리지가 `requests` 로 보내는 국내 AI 호출(Upstage · A.X · Mi:dm · Friendli)과 실시간 받아쓰기 세션을 한 건씩
+`~/.local/state/chuckchuck/ai_calllog/<날짜>/<기능 코드>.jsonl` 에 남긴다 (`main/pipeline/_ai_calllog.py`, 헤더 · 키는 안 남김, 14일 보관).
+`AI_CALLLOG=team`(기본 — 팀 쿠키 · `DEMO_DEV_ROUTES` 요청만) · `all` · `off`. 기능명(=제출 파일명)은 `main/pipeline/ai_calllog_features.json`.
+
+```bash
+python etc/scripts/ai_calllog_export.py --list                       # 기능마다 실행 목록
+python etc/scripts/ai_calllog_export.py --since 2026-10-14 --out ~/meetings/제출/국내AI_API_호출로그_척척발표.zip
+```
+
 ## 빠른 시작
 
 ```bash
