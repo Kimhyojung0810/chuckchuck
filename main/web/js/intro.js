@@ -361,24 +361,6 @@
     else if (days > -FINAL_DAYS) box.textContent = '결선 중';
   }
 
-  // ── 아래 고정 버튼 띠 색 ─────────────────────────────────────────────────
-  // 버튼 아래로 밝은 종이 구역이 지나가면 띠도 종이색으로 — 초록 띠가 흰 카드를 가로질러 탁하게 보였다
-  function dockZone() {
-    const paper = $('paper');
-    if (!paper) return;
-    let queued = false;
-    const check = () => {
-      queued = false;
-      const on = paper.getBoundingClientRect().top < innerHeight - 40;
-      document.documentElement.toggleAttribute('data-dock', on);
-      if (on) document.documentElement.dataset.dock = 'paper';
-    };
-    const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(check); } };
-    addEventListener('scroll', onScroll, { passive: true });
-    addEventListener('resize', onScroll, { passive: true });
-    check();
-  }
-
   // ── 투어 첫 화면 미리 받기 ───────────────────────────────────────────────
   // 「척척발표 살펴보기」 를 누르면 index.html 이 app.css · app.js · 투어 묶음을 처음부터 받았다. /hi 를 다 그린 뒤 한가할 때 미리 받아 둔다.
   // 주소는 intro.html <template id="tour-prefetch"> 에서 읽는다 — HTML 안이라 브리지가 ?v= 를 index.html 과 같은 내용 해시로 바꿔 준다
@@ -401,7 +383,6 @@
   // ── 시작 ────────────────────────────────────────────────────────────────
   reveal();
   contestCountdown();
-  dockZone();
   funnel('hi');
   whenSeen($('what'), () => funnel('intro'));
   const explore = $('explore-btn');
