@@ -34,12 +34,16 @@ from .llm_impl import REGISTRY, get_llm
 STAGE_ENV = {"triage": "QA_TRIAGE_MODEL", "phrase": "QA_PHRASE_MODEL", "check": "QA_CHECK_MODEL"}
 
 #: 환경변수가 없을 때의 기본값. ""(빈 값) = 서비스 기본 체인.
-#: phrase 기본은 10-16 벤치(etc/bench/results/ledgers/MODEL_LEDGER.md)로 정한다.
-DEFAULT_STAGE_MODELS: dict[str, str] = {"triage": "", "phrase": "", "check": ""}
+#: 10-16 벤치(etc/bench/results/ledgers/MODEL_LEDGER.md §2, 고정 번들 5개 × 2회 × 2실행, 판정·심사관 solar 고정):
+#: 질문 문장을 EXAONE 에 맡기면(1차 심사는 Solar) 특이도 1.27→1.54 · 근거 인용률 0.69→0.69 · 환각 0 · 나란히 비교 8승 2패 10무.
+#: 대가는 문장 호출 p50 7.3→11.2초와 가끔(5/43) 되풀이 고리 — 마감(20초)에서 Solar 가 받는다. A.X 는 질이 같고 느리다.
+#: 1차 심사·논문 대조는 Solar 그대로 — EXAONE 1차 심사는 인용률이 0.63 으로 내려갔다.
+DEFAULT_STAGE_MODELS: dict[str, str] = {"triage": "", "phrase": "exaone", "check": ""}
 
 #: 주 모델을 기다리는 상한(초). 질문은 분석이 끝나는 순간 미리 만들어 두지만(app.js prefetchLiveQuestions),
 #: 부스 사진 경로(booth.js)는 바로 기다린다 — 그래서 마감이 있다. 넘기면 예비가 처음부터 다시 만든다.
-DEFAULT_DEADLINE_SEC: dict[str, float] = {"triage": 30.0, "phrase": 30.0, "check": 20.0}
+#: phrase 20초: EXAONE 문장 호출 41회 중 20초 넘은 것 2회(되풀이 고리 제외) — 고리는 4096 토큰까지 ~40~50초를 태운다.
+DEFAULT_DEADLINE_SEC: dict[str, float] = {"triage": 30.0, "phrase": 20.0, "check": 20.0}
 
 #: 마감을 넘긴 주 모델 호출은 뒤에서 마저 끝나고 버려진다. 그 스레드가 오래 붙잡지 않게 HTTP 제한도 마감 근처로 줄인다.
 _HTTP_SLACK_SEC = 5

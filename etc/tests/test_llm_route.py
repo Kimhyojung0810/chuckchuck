@@ -165,6 +165,13 @@ def test_bridge_question_key_changes_when_stage_model_changes(monkeypatch):
 
     monkeypatch.setenv("REASONING_FALLBACK", "ax")
     before = bridge._qa_llm_identity(None)
-    monkeypatch.setenv("QA_PHRASE_MODEL", "exaone")
+    monkeypatch.setenv("QA_PHRASE_MODEL", "ax")
     assert bridge._qa_llm_identity(None) != before
     assert bridge._qa_llm_identity("mock") == "mock"   # 개발 경로·mock 은 본문이 고른 이름 그대로
+
+
+def test_default_phrase_model_is_the_benched_winner(monkeypatch):
+    # 10-16 벤치: 질문 문장 = EXAONE (1차 심사·논문 대조는 서비스 기본 체인). 바꾸면 MODEL_LEDGER §3 도 고친다.
+    assert route.stage_model("phrase") == "exaone"
+    assert route.stage_model("triage") == "" and route.stage_model("check") == ""
+    assert route.stage_deadline("phrase") == 20.0
