@@ -175,9 +175,12 @@ def call_structure(engine: LLMProvider, doc: ConceptDoc, ctx: Context, max_token
     n = skeleton_votes(engine)
     if n <= 1:
         return _call_structure_once(engine, doc, ctx, max_tokens)
+    import contextvars
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=n) as pool:
-        got = [d for d in pool.map(lambda _: _call_structure_once(engine, doc, ctx, max_tokens), range(n)) if d]
+        # 맥락 복사 — 호출 로그(_ai_calllog)의 요청 범위가 일꾼 스레드로 따라간다
+        futs = [pool.submit(contextvars.copy_context().run, _call_structure_once, engine, doc, ctx, max_tokens) for _ in range(n)]
+        got = [d for d in (f.result() for f in futs) if d]
     return vote_structure(got) if got else None
 
 
@@ -233,8 +236,10 @@ def call_same(engine: LLMProvider, doc: ConceptDoc) -> list[tuple[str, str]]:
         except Exception as e:  # noqa: BLE001 — 보조 판단, 깨지면 그 표만 빠진다
             sys.stderr.write(f"[f07] 같은 개념 판단 실패: {type(e).__name__}: {str(e)[:120]}\n")
             return None
+    import contextvars
     with ThreadPoolExecutor(max_workers=n_votes) as ex:
-        runs = [r for r in ex.map(once, range(n_votes)) if isinstance(r, dict)]
+        futs = [ex.submit(contextvars.copy_context().run, once, i) for i in range(n_votes)]  # 호출 로그 범위를 일꾼에게
+        runs = [r for r in (f.result() for f in futs) if isinstance(r, dict)]
     out = []
     for n, (i, j, _) in enumerate(pairs):
         yes = sum(1 for r in runs for x in (r.get("pairs") or []) if isinstance(x, dict) and x.get("id") == n and x.get("same") is True)

@@ -5,6 +5,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 
 from __future__ import annotations
 
+import contextvars
 import functools
 import hashlib
 import hmac
@@ -34,6 +35,7 @@ SDK_DIR = ROOT / "main" / "pipeline" / "sdk"
 sys.path[:0] = [str(ROOT / "main"), str(ROOT / "etc"), str(ROOT)]
 
 from pipeline.config import settings  # noqa: E402
+from pipeline import _ai_calllog as ai_calllog  # noqa: E402 — 국내 AI API 호출 로그 (main() 이 install, _gate 가 요청 범위)
 
 from pipeline import (  # noqa: E402
     Context,
@@ -1304,8 +1306,10 @@ class _Flights:
                     if self._jobs.get(key) is fut:
                         self._jobs.pop(key, None)
 
-        # 데몬 스레드 — 기다리는 요청이 제한 시간에 먼저 떠나도 일은 끝까지 해서 캐시를 채운다
-        threading.Thread(target=work, name=f"flight:{key[:40]}", daemon=True).start()
+        # 데몬 스레드 — 기다리는 요청이 제한 시간에 먼저 떠나도 일은 끝까지 해서 캐시를 채운다.
+        # 맥락을 복사해 넘긴다 — 호출 로그(_ai_calllog)의 요청 범위(팀인지 · run_id)가 뒤 스레드로 따라간다
+        ctx = contextvars.copy_context()
+        threading.Thread(target=ctx.run, args=(work,), name=f"flight:{key[:40]}", daemon=True).start()
         return fut
 
     def busy(self) -> list[str]:
@@ -1771,6 +1775,8 @@ class Handler(SimpleHTTPRequestHandler):
         _REQ.team = self._team_ok()
         self._local = shield.is_local_direct(self._peer(), self.headers)
         _REQ.trusted = _REQ.team or self._local
+        # 호출 로그의 요청 범위 — AI_CALLLOG=team 이면 팀(쿠키 · DEMO_DEV_ROUTES) 요청만 적는다 (pipeline/_ai_calllog.py)
+        ai_calllog.begin_request(team=_dev_open(), route=urlparse(self.path).path)
         try:
             return self._shield_gate()
         except OSError:
@@ -4640,6 +4646,9 @@ def main():
         # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
         print("  ⚠ ffmpeg 이 없어요. 10MB 미만 녹음(질문 코칭 답변)의 WAF 우회가 꺼져 받아쓰기가 실패할 수 있어요 — "
               "`sudo apt-get install ffmpeg` (docs/DEPLOYMENT.md §STT)", flush=True)
+    ai_calllog.install(settings)
+    print(f"  AI 호출 로그: AI_CALLLOG={ai_calllog.mode()} · {ai_calllog.root()} · 대상 호스트 {sorted(ai_calllog.korean_hosts(settings))}",
+          flush=True)
     # 소켓을 먼저 묶는다 — 청소 스레드의 시연 덱 미리 파싱(_warm_decks_once)이 이 서버에 요청을 보낸다
     server = ReusableThreadingHTTPServer((host, port), Handler)
     _start_prune_loop()

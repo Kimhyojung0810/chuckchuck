@@ -5,6 +5,7 @@ SlideDoc(+Context) → ConceptDoc. 개념 트리(위계)는 F-07 몫입니다.
 
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import re
@@ -716,8 +717,9 @@ def _extract_once(engine: LLMProvider, doc: SlideDoc, ctx: Context, transcript: 
     else:
         with ThreadPoolExecutor(max_workers=min(_max_workers(), len(chunks))) as pool:
             futures = [
+                # 호출 로그(_ai_calllog)의 요청 범위가 일꾼 스레드로 따라가게 — 맥락을 여기서 복사해 넘긴다
                 pool.submit(
-                    _call_batch, engine, chunk, doc, ctx, transcript,
+                    contextvars.copy_context().run, _call_batch, engine, chunk, doc, ctx, transcript,
                     batch_i=i, batch_n=len(chunks),
                 )
                 for i, chunk in enumerate(chunks, start=1)
@@ -795,7 +797,8 @@ def extract_concepts(
         # 같은 자료를 n 번 따로 읽고 다수결 (10-02 재현성: temperature 0 에서도 Solar 는 개념 단위·상하 관계를 실행마다 다르게 냈다 —
         # 노드 일치 0.49~0.77). 병렬이라 걸리는 시간은 한 번과 비슷하다
         with ThreadPoolExecutor(max_workers=n) as pool:
-            futs = [pool.submit(_extract_once, engine, doc, ctx, transcript, batch_size) for _ in range(n)]
+            futs = [pool.submit(contextvars.copy_context().run, _extract_once, engine, doc, ctx, transcript, batch_size)
+                    for _ in range(n)]
             for fut in futs:
                 try:
                     runs.append(fut.result())
