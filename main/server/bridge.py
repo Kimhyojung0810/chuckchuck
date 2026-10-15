@@ -3012,6 +3012,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
         from pipeline import align_speech
         from pipeline.contracts import ConceptGraph, Transcript
+        from pipeline.f11_align import judge_identity as align_judge_identity
 
         body = json.loads(raw or b"{}")
         if not body.get("graph") or not body.get("transcript"):
@@ -3040,8 +3041,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         _fake_delay("/api/v1/alignment")
         # 입력이 같으면 결과도 같다 — 부스의 같은 덱 · 같은 녹음은 두 번째부터 LLM 을 안 부른다 (계약 모양으로 센다, 세션 id 는 안 넣는다)
         al_key = None if _mock() else _stage_key(
-            "f11", _stage_version("alignment"), _llm_identity(llm), graph.to_dict(), transcript.to_dict(), ctx.to_dict(),
-            slidedoc, speech_match)
+            "f11", _stage_version("alignment"), _llm_identity(llm), align_judge_identity(), graph.to_dict(),
+            transcript.to_dict(), ctx.to_dict(), slidedoc, speech_match)
         cached_al = _stage_cache_get("alignment", al_key) if al_key else None
         if cached_al is not None:
             sys.stderr.write(f"[bridge] F-11 alignment 캐시 적중 {al_key}\n")

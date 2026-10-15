@@ -66,7 +66,7 @@ MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_ALIGN_MAX_TOKENS", "8192"))
 #: lora+solar — LoRA 먼저, 확신이 ALIGN_LORA_ESCALATE_BELOW 아래거나 근거 문장이 안 맞는 개념만 Solar 로 올린다.
 #: 누가 판정했는지는 items[].decided_by 에 남는다(lora · llm=Solar · code · fallback).
 ALIGN_JUDGES = ("solar", "lora", "lora+solar")
-LORA_ESCALATE_BELOW = float(os.environ.get("ALIGN_LORA_ESCALATE_BELOW", "0.8"))
+LORA_ESCALATE_BELOW = float(os.environ.get("ALIGN_LORA_ESCALATE_BELOW", "0.7"))   # r1 dev 보정: 13% 올림 · 남긴 것 정확도 0.957
 
 # speech_weight 배합. 합 1.0. F-07 weight 와 같은 철학 — 최댓값 정규화(상대 서열).
 _S_TIME = 0.45          # 근거 장 발화 시간 / 전체 발화 시간
@@ -842,6 +842,14 @@ def _judge_mode(judge: str | None) -> str:
     if mode not in ALIGN_JUDGES:
         raise AlignError(f"모르는 판정기: {mode}. 가능한 값: {', '.join(ALIGN_JUDGES)}")
     return mode
+
+
+def judge_identity(judge: str | None = None) -> str:
+    """판정기 지문 — 브리지 단계 캐시 열쇠에 넣는다(판정기를 바꿨는데 옛 Solar 판정이 캐시에서 나오지 않게)."""
+    mode = _judge_mode(judge)
+    if mode == "solar":
+        return "solar"
+    return f"{mode}:{lora.adapter_path()}:{LORA_ESCALATE_BELOW if mode == 'lora+solar' else ''}"
 
 
 def _solar_raw(engine: LLMProvider, graph: ConceptGraph, transcript: Transcript, ctx: Context) -> tuple[dict, list[dict]]:

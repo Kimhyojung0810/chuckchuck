@@ -63,7 +63,8 @@ def main() -> None:
     t0 = time.time()
     judge.load()
     load_s = time.time() - t0
-    full = {"adapter": args.adapter, "load_s": round(load_s, 1)}
+    from common import jload
+    full = {**(jload(out / "items_report.json") or {}), "adapter": args.adapter, "load_s": round(load_s, 1)}
     for name in [s for s in args.sets.split(",") if s]:
         from pathlib import Path
         rows = read_jsonl(Path(args.sets_dir) / f"{name}.jsonl")
@@ -97,6 +98,8 @@ def main() -> None:
                 rep[f"variant:{var}"] = {k: v for k, v in report([r for r, _ in sub], [p for _, p in sub]).items()
                                          if k in ("macro_f1", "acc", "n")} | {"n": len(sub)}
         full[name] = rep
+        full["peak_vram_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 1)
+        jdump(out / "items_report.json", full)            # 세트마다 — 중간에 끊겨도 앞 세트 결과는 남는다
         print(f"[eval:{name}] n={len(rows)} macroF1={rep['macro_f1']} acc={rep['acc']} ev_valid={rep['evidence_valid']} "
               f"{rep['sec_per_item']}s/item", flush=True)
     full["peak_vram_gb"] = round(torch.cuda.max_memory_allocated() / 2**30, 1)

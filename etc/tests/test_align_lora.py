@@ -193,3 +193,13 @@ def test_default_judge_is_solar(monkeypatch):
     doc = align_speech(_graph(), _transcript(), llm=solar, lora_judge=fake)
     assert solar.calls >= 1 and fake.seen == []
     assert doc.model == "solar-fake"
+
+
+def test_judge_identity_separates_bridge_cache_by_judge(monkeypatch):
+    from pipeline.f11_align import judge_identity
+
+    monkeypatch.delenv("ALIGN_JUDGE", raising=False)
+    monkeypatch.setenv("CHUCKCHUCK_ALIGN_LORA_PATH", "/x/r1/final")
+    assert judge_identity() == "solar"
+    assert judge_identity("lora") != judge_identity("solar")
+    assert "/x/r1/final" in judge_identity("lora+solar")

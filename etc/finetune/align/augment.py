@@ -21,6 +21,9 @@ from common import DATA, read_jsonl, write_jsonl
 
 from pipeline._align_lora import _toks
 
+#: 바꿀 수·방향 낱말이 그 개념 자신의 글에 있을 때만 (r2 부터)
+NODE_ONLY = True
+
 NUM_RE = re.compile(r"(\d+(?:[.,]\d+)?)(\s?)(%p|%|퍼센트|배|명|원|만 원|억 원|점|분|시간|일|개|건|곳|회|kWh|ppm|mg|kg|km|도|°C|percent|times|participants|users|ms|s\b)")
 DIRS_KO = [("늘었", "줄었"), ("늘어", "줄어"), ("높았", "낮았"), ("높아", "낮아"), ("높습", "낮습"), ("높은", "낮은"),
            ("증가", "감소"), ("상승", "하락"), ("많았", "적었"), ("많아", "적어"), ("빨랐", "느렸"), ("빨라", "느려"),
@@ -61,10 +64,16 @@ def slide_text(item: dict) -> str:
     return " ".join([item.get("summary", ""), *item.get("evidence", []), *(s["text"] for s in item.get("slides", []))])
 
 
+def node_text(item: dict) -> str:
+    """개념 자신의 글(이름·요약·근거) — 장 글 전체가 아니다. r1 은 장 글 아무 수나 바꿔서, 표의 다른 칸 수를 말한 정상 문장까지
+    모순으로 보는 버릇을 배웠다(10/16 test_ko_real 오탐 7건: 「6분」 vs 근거의 「32분」)."""
+    return " ".join([item.get("label", ""), item.get("summary", ""), *item.get("evidence", [])])
+
+
 def num_flip(row: dict, rng: random.Random) -> dict | None:
     it, sid = row["item"], row["sid"]
     sent = next((r["text"] for p in ("own", "prev", "next") for r in it.get(p, []) if r.get("sid") == sid), "")
-    deck = slide_text(it)
+    deck = node_text(it) if NODE_ONLY else slide_text(it)
     for m in NUM_RE.finditer(sent):
         val = m.group(1)
         if val in deck:
@@ -86,7 +95,7 @@ def dir_flip(row: dict, rng: random.Random) -> dict | None:
     if not got:
         return None
     text, orig = got
-    if orig not in slide_text(it):
+    if orig not in (node_text(it) if NODE_ONLY else slide_text(it)):
         return None
     return {**row, "uid": row["uid"] + ":dir", "item": _replace_sentence(it, sid, text), "verdict": "contradiction",
             "note": "발표에서 말한 방향이 자료와 반대예요", "basis": "aug_dir"}
@@ -132,7 +141,7 @@ def main() -> None:
             if got:
                 out.append(got)
                 break
-    write_jsonl(DATA / "sets" / "train_aug.jsonl", out)
+    write_jsonl(DATA / "sets" / ("train_aug.jsonl" if NODE_ONLY else "train_aug_slide.jsonl"), out)
     print(len(out), Counter(r["basis"] for r in out), Counter((r["lang"], r["verdict"]) for r in out))
 
 
