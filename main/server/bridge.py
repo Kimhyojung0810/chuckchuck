@@ -3341,7 +3341,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         habits = extract_habits(transcript, provider=provider, spans=spans)
         sys.stderr.write(
             f"[bridge] F-18 habits done REP={habits.repeat_cnt} FIL={habits.filler_cnt} "
-            f"PAUSE={habits.pause_cnt} provider={habits.provider}\n"
+            f"PAUSE={habits.pause_cnt} provider={habits.provider} detectors={habits.detectors}\n"
         )
         payload = habits.to_dict()
         self._archive(body, "habit_doc", payload)
@@ -4701,6 +4701,20 @@ def bind_refusal(host: str, mock: bool) -> str:
     )
 
 
+def _preload_habit_lora() -> None:
+    """HABIT_PROVIDER=lora 면 Mi:dm LoRA(REP·FIL) 를 뒤에서 미리 올린다 — 첫 분석이 22GB 로드를 기다리지 않게.
+    올리는 동안 들어온 습관 분석은 규칙으로 돌고 provider 가 heuristic(lora-loading) 으로 남는다."""
+    if _mock():
+        return
+    try:
+        from pipeline.f18_habits import preload_lora
+
+        if preload_lora():
+            print("  F-18 습관: Mi:dm LoRA 를 뒤에서 올리는 중 — 끝나기 전 요청은 규칙으로 대신해요", flush=True)
+    except Exception as e:  # noqa: BLE001 — 미리 올리기는 덤이다. 실패해도 서버는 뜬다
+        print(f"  ⚠ F-18 LoRA 미리 올리기 실패: {type(e).__name__}: {e}", flush=True)
+
+
 def main():
     host = settings.demo_host
     port = settings.demo_port
@@ -4741,6 +4755,7 @@ def main():
     # 소켓을 먼저 묶는다 — 청소 스레드의 시연 덱 미리 파싱(_warm_decks_once)이 이 서버에 요청을 보낸다
     server = ReusableThreadingHTTPServer((host, port), Handler)
     _start_prune_loop()
+    _preload_habit_lora()
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
