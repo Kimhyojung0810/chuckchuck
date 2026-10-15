@@ -104,18 +104,52 @@ FALLBACK_GIST_RE = re.compile(r"\(\d+(, \d+)*장 근거\)$")
 class RecordingLLM(LLMProvider):
     """실제 제공자를 감싸고 호출마다 프롬프트·응답·지연을 남긴다. 판정은 바꾸지 않는다."""
 
-    def __init__(self, inner: LLMProvider):
+    def __init__(self, inner: LLMProvider, role: str = "", calls: list[dict] | None = None):
         self.inner = inner
-        self.name = inner.name
-        self.calls: list[dict] = []
+        self.role = role
+        # 역할(triage·phrase·judge·rubric)마다 감싸도 호출 기록은 한 줄로 모은다 — 요약이 한 표로 나온다
+        self.calls: list[dict] = calls if calls is not None else []
+
+    @property
+    def name(self) -> str:  # type: ignore[override]
+        return self.inner.name        # FallbackLLM·RoutedLLM 은 마지막으로 실제 답한 제공자를 가리킨다
+
+    #: 요청 한도(429)에 걸리면 물러났다 다시 — **측정 도구에서만**. 제공자는 2초 뒤 한 번만 다시 부르고(서비스 규율) 그래도
+    #: 429 면 올린다. 10-16 모델 벤치가 Upstage 429 로 번들 도중 죽었다. 지연(sec)에는 기다린 시간이 들어가니 원문을 본다.
+    BACKOFF_429_SEC = (20, 40, 60)
+
+    def _complete_with_backoff(self, **kw) -> str:
+        for wait in (*self.BACKOFF_429_SEC, None):
+            self._attempt_t0 = time.time()        # 지연은 마지막 시도만 잰다 — 429 로 기다린 시간은 모델 탓이 아니다
+            try:
+                return self.inner.complete(**kw)
+            except Exception as e:
+                if wait is None or " 429" not in str(e):
+                    raise
+                print(f"    (429 — {wait}초 쉬고 다시: {self.inner.name})", flush=True)
+                time.sleep(wait)
+        raise RuntimeError("unreachable")
 
     def complete(self, *, system: str, user: str, temperature: float = 0.2,
                  max_tokens: int = 4096, json_mode: bool = False) -> str:
         t0 = time.time()
-        out = self.inner.complete(system=system, user=user, temperature=temperature,
-                                  max_tokens=max_tokens, json_mode=json_mode)
         task = user.split("\n", 1)[0].replace("[TASK] ", "")
+        try:
+            out = self._complete_with_backoff(system=system, user=user, temperature=temperature,
+                                              max_tokens=max_tokens, json_mode=json_mode)
+        except Exception as e:
+            # 실패도 데이터다 — 지연·오류를 남기고 그대로 올린다 (모듈의 재시도·폴백 규율은 건드리지 않는다)
+            self.calls.append({"task": task, "role": self.role, "model": self.inner.name, "sec": round(time.time() - t0, 1),
+                               "error": f"{type(e).__name__}: {str(e)[:160]}", "json_ok": False if json_mode else None,
+                               "system_chars": len(system), "user_chars": len(user), "noise_ratio": 0.0,
+                               "system": system, "user": user, "response": ""})
+            raise
+        usage = _usage_of(self.inner)
+        t0 = getattr(self, "_attempt_t0", t0)
         self.calls.append({
+            "role": self.role, "model": self.inner.name,
+            "json_ok": _json_ok(out) if json_mode else None,
+            "prompt_tokens": usage.get("prompt_tokens"), "completion_tokens": usage.get("completion_tokens"),
             "task": task, "sec": round(time.time() - t0, 1),
             "system_chars": len(system), "user_chars": len(user),
             # 잡음 = 정제하면 사라지는 글자. 프롬프트에 캡션·태그가 얼마나 실렸나.
@@ -123,6 +157,38 @@ class RecordingLLM(LLMProvider):
             "system": system, "user": user, "response": out,
         })
         return out
+
+
+def _usage_of(llm) -> dict:
+    """제공자가 남긴 마지막 토큰 사용량. 감싼 것(Fallback·Routed)이면 실제 답한 쪽을 찾아 내려간다."""
+    for attr in ("last_usage",):
+        u = getattr(llm, attr, None)
+        if isinstance(u, dict):
+            return u
+    for inner in ("answered", "primary", "inner"):
+        sub = getattr(llm, inner, None)
+        if sub is not None and sub is not llm:
+            u = _usage_of(sub)
+            if u:
+                return u
+    return {}
+
+
+def _json_ok(text: str) -> bool:
+    try:
+        extract_json_object(text)
+        return True
+    except ValueError:
+        return False
+
+
+def _pct(xs: list[float], q: float) -> float | None:
+    """백분위 (가까운 순위). 표본이 적으면 p95 는 사실상 최댓값이다 — n 을 같이 적는다."""
+    xs = sorted(x for x in xs if x is not None)
+    if not xs:
+        return None
+    k = max(0, min(len(xs) - 1, int(round(q * (len(xs) - 1)))))
+    return round(xs[k], 2)
 
 
 # ---------------------------------------------------------------------------
@@ -364,17 +430,23 @@ def rubric_summary(rrows: list[dict]) -> dict:
 # 실행
 # ---------------------------------------------------------------------------
 
-def make_questions(art: dict, track: str, llm: LLMProvider, fresh_triage: bool, papers=None) -> QuestionDoc:
+def make_questions(art: dict, track: str, llm: LLMProvider, fresh_triage: bool, papers=None,
+                   triage_llm: LLMProvider | None = None) -> QuestionDoc:
+    """1차 심사(triage)와 질문 문장(phrase)을 **다른 모델**로 돌릴 수 있다 (`--triage-llm` · 10-16 모델 나눠 맡기기 벤치).
+    번들에 주장(F-26 `claims`)이 있으면 서비스 브리지처럼 둘 다에 넘긴다 — 없으면 예전과 같다."""
     graph = ConceptGraph.from_dict(art["concept_graph"])
     ctx = Context.from_dict(art.get("context") or {})
+    claims_kw = {"claims": art["claims"]} if art.get("claims") else {}
     if fresh_triage or not art.get("qa_triage"):
         triage = triage_questions(graph, art.get("alignment_doc"), art.get("flow_diff"), ctx,
-                                  transcript=art.get("transcript"), llm=llm)
+                                  transcript=art.get("transcript"), slidedoc=art.get("slide_doc"),
+                                  llm=triage_llm or llm, **claims_kw)
     else:
         triage = QaTriage.from_dict(art["qa_triage"])
     return build_questions(
         graph, triage, track=track, alignment=art.get("alignment_doc"), flow=art.get("flow_diff"),
         transcript=art.get("transcript"), slidedoc=art.get("slide_doc"), context=ctx, papers=papers, llm=llm,
+        **claims_kw,
     )
 
 
@@ -515,6 +587,24 @@ def summarize(qrows: list[dict], jrows: list[dict], calls: list[dict], crows: li
     }
 
 
+def role_summary(calls: list[dict]) -> dict:
+    """역할(triage·phrase·judge·rubric)별 호출 수 · 지연 p50/p95 · JSON 첫 응답 실패 · 오류 · 토큰. 모델 나눠 맡기기 비교용."""
+    out: dict[str, dict] = {}
+    for role in sorted({c.get("role") or "" for c in calls}):
+        cs = [c for c in calls if (c.get("role") or "") == role]
+        secs = [c["sec"] for c in cs]
+        js = [c["json_ok"] for c in cs if c.get("json_ok") is not None]
+        out[role or "-"] = {
+            "n": len(cs), "models": sorted({c.get("model") or "" for c in cs}),
+            "sec_p50": _pct(secs, 0.5), "sec_p95": _pct(secs, 0.95), "sec_sum": round(sum(secs), 1),
+            "json_fail": sum(1 for x in js if not x), "json_n": len(js),
+            "errors": sum(1 for c in cs if c.get("error")),
+            "prompt_tokens": sum(c.get("prompt_tokens") or 0 for c in cs),
+            "completion_tokens": sum(c.get("completion_tokens") or 0 for c in cs),
+        }
+    return out
+
+
 def print_summary(s: dict, model: str) -> None:
     j, p = s["judge"], s["prompts"]
     print(f"\n{'=' * 72}\n요약  (model={model})\n{'-' * 72}")
@@ -532,6 +622,9 @@ def print_summary(s: dict, model: str) -> None:
         cells = " · ".join(f"{k[:5]} {r.get(f'{k}_mean')}" for k in RUBRIC_ITEMS)
         print(f"rubric(1~5): 종합 {r['overall_mean']} · 환각 {r['hallucination']} · {cells}"
               + (f" · 누락 {r['missing']}" if r.get("missing") else ""))
+    for role, v in (s.get("roles") or {}).items():
+        print(f"역할 {role:<7} {','.join(v['models'])} {v['n']}회 · p50 {v['sec_p50']}s p95 {v['sec_p95']}s · "
+              f"JSON 실패 {v['json_fail']}/{v['json_n']} · 오류 {v['errors']} · 토큰 {v['prompt_tokens']}+{v['completion_tokens']}")
     c = s.get("coach") or {}
     if c.get("stages"):
         seqs = " · ".join("→".join(v) for v in c["stages"].values())
@@ -545,9 +638,13 @@ def run_bundle(bundle: Path, args) -> dict:
     art = with_context(load_artifacts(bundle), args.situation, args.audience)
     corpus = Corpus(SlideDoc.from_dict(art["slide_doc"]),
                     Transcript.from_dict(art["transcript"]) if art.get("transcript") else None)
-    llm = RecordingLLM(get_llm(args.llm))
-    # 모델끼리 비교할 때는 심사관을 한 모델로 고정한다 — 아니면 각 모델이 자기 답을 채점한다.
-    rubric_llm = RecordingLLM(get_llm(args.rubric_llm)) if args.rubric_llm else llm
+    calls: list[dict] = []
+    # 질문 문장(phrase)은 --llm, 1차 심사는 --triage-llm(비우면 --llm), 판정(F-09)은 --judge-llm(비우면 --llm).
+    # 모델 비교 때는 판정·심사관을 한 모델로 고정한다 — 아니면 각 모델이 자기 답을 채점한다.
+    llm = RecordingLLM(get_llm(args.llm), "phrase", calls)
+    triage_llm = RecordingLLM(get_llm(args.triage_llm), "triage", calls) if args.triage_llm else None
+    judge_llm = RecordingLLM(get_llm(args.judge_llm), "judge", calls) if args.judge_llm else llm
+    rubric_llm = RecordingLLM(get_llm(args.rubric_llm), "rubric", calls) if args.rubric_llm else llm
     print(f"자료: {art['concept_graph']['file_name']} · 장 {len(corpus.slide_text)} · 본문(정제) "
           f"{sum(len(t) for t in corpus.slide_text.values())}자 · 발화 {sum(len(t) for t in corpus.speech_text.values())}자")
 
@@ -561,8 +658,9 @@ def run_bundle(bundle: Path, args) -> dict:
             print(f"  - {r.id} {r.cite_key:<28} {r.title[:60]}{' · 초록' if r.abstract else ''}")
 
     t0 = time.time()
-    doc = make_questions(art, args.track, llm, args.fresh_triage, papers=papers)
-    print(f"\nF-08 track={doc.track} 질문 {len(doc.questions)}개 ({time.time() - t0:.1f}s, model={doc.model})")
+    doc = make_questions(art, args.track, llm, args.fresh_triage, papers=papers, triage_llm=triage_llm)
+    f08_sec = round(time.time() - t0, 1)
+    print(f"\nF-08 track={doc.track} 질문 {len(doc.questions)}개 ({f08_sec}s, model={doc.model})")
     qrows = [question_row(q, corpus, papers) for q in doc.questions]
     for r in qrows:
         flag = (" [폴백]" if r["fallback"] else "") + (" [반말]" if r["impolite"] else "")
@@ -573,12 +671,14 @@ def run_bundle(bundle: Path, args) -> dict:
     jrows = []
     if not args.no_judge:
         print("\nF-09 판정")
-        jrows = run_judges(doc.questions, art, llm, args.limit)
+        # 함정 질문은 앞 limit 개 밖에 있어도 판정에 넣는다 — 「함정에 동의→wrong · 바로잡음→통과」 를 매번 잰다
+        judged = doc.questions[:args.limit] + [q for q in doc.questions[args.limit:] if q.trap]
+        jrows = run_judges(judged, art, judge_llm, len(judged))
 
     crows = []
     if not args.no_judge and not args.no_coach:
         print("\n막힘 코칭 (「모르겠어요」 연타)")
-        crows = run_coaching(doc.questions, art, llm, corpus, args.limit)
+        crows = run_coaching(doc.questions, art, judge_llm, corpus, args.limit)
 
     rrows = []
     if args.rubric:
@@ -586,25 +686,31 @@ def run_bundle(bundle: Path, args) -> dict:
         print(f"  심사관: {rubric_llm.name}")
         rrows = run_rubric(doc.questions, corpus, rubric_llm, runs=args.rubric_runs)
 
-    summary = summarize(qrows, jrows, llm.calls, crows, rrows)
+    summary = summarize(qrows, jrows, calls, crows, rrows)
+    summary["f08_sec"] = f08_sec
+    summary["roles"] = role_summary(calls)
+    summary["phrase_model"] = doc.model
     print_summary(summary, llm.name)
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir = getattr(args, "out_dir", None) or OUT_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out = OUT_DIR / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
+    out = out_dir / f"{stamp}{'_' + args.tag if args.tag else ''}_{bundle.stem}.json" if getattr(args, "out_dir", None) \
+        else out_dir / f"{stamp}{'_' + args.tag if args.tag else ''}.json"
     out.write_text(json.dumps({
         "bundle": str(bundle), "track": args.track, "model": llm.name, "rubric_model": rubric_llm.name, "context": art.get("context"),
+        "triage_model": (triage_llm or llm).name, "judge_model": judge_llm.name,
         "summary": summary, "questions": qrows, "judgements": jrows, "coaching": crows, "rubric": rrows,
-        "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in llm.calls],
+        "calls": [{k: v for k, v in c.items() if k not in ("system", "user", "response")} for c in calls],
     }, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"\n요약 저장: {out.relative_to(ROOT)}")
+    print(f"\n요약 저장: {_rel(out)}")
     odd = anomalies(summary)
     if odd:
         raw = out.with_suffix(".raw.json")
-        raw.write_text(json.dumps({"anomalies": odd, "calls": llm.calls}, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"⚠ 이상 {', '.join(odd)} — 프롬프트·응답 원문을 남겼어요: {raw.relative_to(ROOT)}")
+        raw.write_text(json.dumps({"anomalies": odd, "calls": calls}, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"⚠ 이상 {', '.join(odd)} — 프롬프트·응답 원문을 남겼어요: {_rel(raw)}")
     if args.dump:
-        args.dump.write_text(json.dumps(llm.calls, ensure_ascii=False, indent=1), encoding="utf-8")
+        args.dump.write_text(json.dumps(calls, ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"원문 덤프: {args.dump}")
     return summary
 
@@ -658,10 +764,15 @@ def aggregate_summaries(summaries: list[dict]) -> dict:
     return _agg(list(summaries)) or {}
 
 
-def write_corpus(summaries: list[dict], bundles: list[Path], tag: str) -> Path:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+def _rel(p: Path) -> str:
+    return str(p.relative_to(ROOT)) if p.is_relative_to(ROOT) else str(p)
+
+
+def write_corpus(summaries: list[dict], bundles: list[Path], tag: str, out_dir: Path | None = None) -> Path:
+    out_dir = out_dir or OUT_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out = OUT_DIR / f"{stamp}{'_' + tag if tag else ''}.corpus.json"
+    out = out_dir / f"{stamp}{'_' + tag if tag else ''}.corpus.json"
     out.write_text(json.dumps({"bundles": [b.stem for b in bundles], "n": len(summaries),
                                "summary": aggregate_summaries(summaries)}, ensure_ascii=False, indent=1),
                    encoding="utf-8")
@@ -700,7 +811,9 @@ def main() -> int:
     ap.add_argument("--situation", default=None,
                     help="발표 상황 덮어쓰기 (school_project | product_launch | work_report | casual_peer)")
     ap.add_argument("--audience", default=None, help="청중 자유 입력 덮어쓰기")
-    ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드")
+    ap.add_argument("--llm", default=None, help="REASONING_BACKEND 대신 쓸 백엔드 (질문 문장 · 판정 기본)")
+    ap.add_argument("--triage-llm", default=None, help="1차 심사 백엔드. 비우면 --llm (모델 나눠 맡기기 비교)")
+    ap.add_argument("--judge-llm", default=None, help="F-09 판정·코칭 백엔드. 비우면 --llm (모델 비교 때는 solar 로 고정)")
     ap.add_argument("--tag", default="", help="결과 파일 꼬리표 (예: baseline)")
     ap.add_argument("--limit", type=int, default=3, help="판정에 넣을 질문 수 (기본 3)")
     ap.add_argument("--no-judge", action="store_true", help="F-09 를 부르지 않는다")
@@ -714,6 +827,8 @@ def main() -> int:
     ap.add_argument("--papers", action="store_true", help="F-24 문헌(자료 인용 + 학술 검색)을 만들어 F-08 에 넘긴다")
     ap.add_argument("--scholar", default=None, help="--papers 의 검색 provider (openalex | none, 기본 SCHOLAR_PROVIDER)")
     ap.add_argument("--dump", type=Path, default=None, help="프롬프트·응답 원문을 이 파일에 남긴다")
+    ap.add_argument("--out-dir", type=Path, default=None,
+                    help="결과 폴더 (기본 etc/bench/results/qa_eval). 자료 본문이 든 번들의 질문은 저장소 밖에 둔다")
     args = ap.parse_args()
 
     if args.bundle_dir:
@@ -725,8 +840,8 @@ def main() -> int:
             print(f"\n### [{i}/{len(bundles)}] {b.stem}")
             summaries.append(run_bundle(b, args))
         print_corpus(summaries)
-        out = write_corpus(summaries, bundles, args.tag)
-        print(f"\n코퍼스 요약 저장: {out.relative_to(ROOT)}  ← 비교는 이 파일로")
+        out = write_corpus(summaries, bundles, args.tag, args.out_dir)
+        print(f"\n코퍼스 요약 저장: {_rel(out)}  ← 비교는 이 파일로")
         return 0
     run_bundle(args.bundle, args)
     return 0

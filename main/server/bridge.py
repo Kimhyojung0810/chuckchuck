@@ -1053,6 +1053,16 @@ def _llm_identity(llm) -> str:
     return f"env:{primary}+{(os.environ.get('REASONING_FALLBACK') or '').strip().lower()}"
 
 
+def _qa_llm_identity(llm) -> str:
+    """질문(F-08) 키에 넣을 LLM — 기본 경로면 일마다 맡긴 모델(QA_TRIAGE_MODEL·QA_PHRASE_MODEL·QA_CHECK_MODEL)까지.
+    10-16 모델 나눠 맡기기: 환경변수로 질문 모델을 바꿔 다시 띄웠는데 옛 모델이 만든 질문(디스크 캐시)을 돌려주지 않게."""
+    if llm:
+        return str(llm)
+    from pipeline.providers.llm_route import route_identity
+
+    return f"{_llm_identity(llm)}|{route_identity()}"
+
+
 def _canon(cls, raw):
     """계약 모양(cls.from_dict → to_dict). 단계가 실제로 읽는 것만 남긴다 — 세션 표시·프론트가 붙인 키는 빠진다. 못 읽으면 날 것."""
     if raw is None:
@@ -3782,7 +3792,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         # 4편 vs 3편), 문헌을 지문에 넣었더니 미리 만들기와 실제 요청이 서로를 못 알아보고 둘 다 LLM 을 불렀다.
         # 문헌·기억은 이 입력(그래프·본문·세션)에서 나오므로 세션 id 와 문헌 끄기 여부로 대신한다.
         q_key = "questions:" + fingerprint(
-            found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, str(llm),
+            found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, _qa_llm_identity(llm),
             str(_session_id_of(body) or ""), bool(slidedoc), pace, body.get("papers") is False, body.get("memory") is False,
             # 코드 판 — F-08 과 재료(주장 F-26·문헌 F-24·기억 F-25)의 import 닫힘 전체. 주장·문헌의 **결과**는 넣지 않는다
             # (위 주석 — 넣으면 미리 만들기와 실제 요청이 서로를 못 알아본다). 대신 폴백으로 만든 묶음은 짧게만 든다.
@@ -3828,7 +3838,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # 옛 상황으로 고른 후보를 그대로 썼다 (triage 프롬프트는 둘 다 싣는다).
             # 본문도 1차 심사의 입력이다 (09-30 WP-J2 — WP-Q 요청: 탐침을 덱 전체로 검증하고 다른 발표 녹음을 거른다). 지문에 넣는다.
             cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(),
-                                    str(llm), memory.to_dict() if memory else None, pace,
+                                    _qa_llm_identity(llm), memory.to_dict() if memory else None, pace,
                                     claims.to_dict() if claims else None, _stage_version("triage"),
                                     fingerprint(slidedoc) if slidedoc else None)
             return self._build_questions_payload(

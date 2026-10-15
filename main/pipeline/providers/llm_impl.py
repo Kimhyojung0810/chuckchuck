@@ -501,6 +501,59 @@ class MockLLM(LLMProvider):
         )
 
 
+#: 추론 모델이 content 안에 사고 과정을 태그로 감싸 내는 꼴 (엑사원 4 `<think>`, 일부 모델 `<thought>`).
+_THINK_BLOCK_RE = re.compile(r"<(think|thought|thinking|reasoning)>.*?</\1>", re.S | re.I)
+_THINK_CLOSE_RE = re.compile(r"</(think|thought|thinking|reasoning)>", re.I)
+_THINK_OPEN_RE = re.compile(r"<(think|thought|thinking|reasoning)>", re.I)
+
+
+def strip_thinking(text: str) -> str:
+    """content 에서 사고 과정 태그를 걷는다. 닫는 태그만 있으면 그 뒤만, 여는 태그만 있으면(사고가 잘림) 빈 문자열."""
+    text = _THINK_BLOCK_RE.sub("", text or "")
+    closes = list(_THINK_CLOSE_RE.finditer(text))
+    if closes:
+        text = text[closes[-1].end():]
+    opened = _THINK_OPEN_RE.search(text)
+    if opened:
+        text = text[: opened.start()]
+    return text.strip()
+
+
+def last_json_object(text: str) -> str:
+    """글 안의 **마지막** 완전한 JSON 객체 문자열. 사고 과정 끝에 답을 붙이는 모델용 — 없으면 빈 문자열."""
+    decoder = json.JSONDecoder()
+    text = text or ""
+    found, pos = "", text.find("{")
+    while pos >= 0:
+        try:
+            obj, end = decoder.raw_decode(text, pos)
+        except ValueError:
+            pos = text.find("{", pos + 1)
+            continue
+        if isinstance(obj, dict):
+            found = text[pos:end]     # 바깥 객체 하나를 통째로 건너뛴다 — 안쪽 객체를 답으로 잡지 않는다
+        pos = text.find("{", end)
+    return found
+
+
+def answer_from_reasoning(reasoning: str, *, json_mode: bool, finish: str | None) -> str:
+    """content 가 비었을 때 reasoning 칸에서 답을 건진다.
+
+    - 닫는 사고 태그 뒤에 글이 있으면 그것이 답이다.
+    - json_mode 면 마지막 완전한 JSON 객체만 답으로 친다 (사고 과정 산문은 버린다).
+    - json_mode 가 아니고 잘리지(finish=length) 않았으면 예전처럼 reasoning 을 답으로 쓴다 (사고 칸만 쓰는 모델 호환).
+    """
+    reasoning = reasoning or ""
+    closes = list(_THINK_CLOSE_RE.finditer(reasoning))
+    if closes and reasoning[closes[-1].end():].strip():
+        return reasoning[closes[-1].end():].strip()
+    if json_mode:
+        return last_json_object(reasoning)
+    if finish == "length":
+        return ""
+    return strip_thinking(reasoning)
+
+
 #: 한 번의 LLM 호출을 기다리는 최대 시간(초).
 #: 실측에서 12장짜리 발표자료의 F-07 그래프 호출이 180초를 넘긴 적이 있다 —
 #: 자료가 크거나 모델이 붐빌 때 늘릴 수 있게 환경변수로 뺐다.
@@ -521,6 +574,7 @@ class OpenAICompatLLM(LLMProvider):
         name: str | None = None,
         timeout: int | None = None,
         extra_headers: dict[str, str] | None = None,
+        extra_body: dict[str, Any] | None = None,
     ):
         if not api_key:
             raise ConceptError(f"[{name or self.name}] API 키가 없습니다.")
@@ -529,6 +583,11 @@ class OpenAICompatLLM(LLMProvider):
         self.model = model
         self.timeout = DEFAULT_TIMEOUT_SEC if timeout is None else timeout
         self.extra_headers = extra_headers or {}
+        # 제공자별 요청 필드 (엑사원 chat_template_kwargs 등). payload 에 그대로 얹는다.
+        self.extra_body = dict(extra_body or {})
+        # 마지막 응답의 토큰 사용량·끝난 까닭 — 벤치(qa_eval RecordingLLM)가 읽는다. 동작은 바꾸지 않는다.
+        self.last_usage: dict | None = None
+        self.last_finish: str | None = None
         if name:
             self.name = name
 
@@ -575,6 +634,7 @@ class OpenAICompatLLM(LLMProvider):
             ],
             "temperature": temperature,
             "max_tokens": max_tokens,
+            **self.extra_body,
         }
         if json_mode:
             # 프롬프트 지시만으로는 모델이 한 줄 JSON 안에 이스케이프 안 된 따옴표를
@@ -592,16 +652,24 @@ class OpenAICompatLLM(LLMProvider):
             )
         body = res.json()
         try:
-            msg = body["choices"][0]["message"]
-            content = msg.get("content")
-            if not content:
-                # 일부 모델은 reasoning 만 채우거나 content=null
-                content = msg.get("reasoning_content") or msg.get("reasoning") or ""
-            if not content:
-                raise KeyError("empty content")
-            return content
+            choice = body["choices"][0]
+            msg = choice["message"]
         except (KeyError, IndexError, TypeError) as e:
-            raise ConceptError(f"[{self.name}] 응답 형식 오류: {body}") from e
+            raise ConceptError(f"[{self.name}] 응답 형식 오류: {str(body)[:300]}") from e
+        self.last_usage = body.get("usage") if isinstance(body, dict) else None
+        self.last_finish = choice.get("finish_reason") if isinstance(choice, dict) else None
+        content = strip_thinking(msg.get("content") or "")
+        if not content.strip():
+            # 추론 모델은 content 를 비우고 reasoning(_content) 에만 쓰기도 한다. 사고 과정을 답으로 돌려주지 않는다 —
+            # 2026-10-16 실측(엑사원): max_tokens 가 사고에서 다 차면 content="" · finish=length 이고, 예전 코드는 그 사고 과정을
+            # 답으로 넘겨 JSON 파싱이 깨졌다(09-16 벤치 「첫 응답 3/3 JSON 실패」).
+            reasoning = msg.get("reasoning_content") or msg.get("reasoning") or ""
+            content = answer_from_reasoning(reasoning, json_mode=json_mode, finish=self.last_finish)
+        if not content.strip():
+            raise ConceptError(
+                f"[{self.name}] 답 없이 사고 과정만 왔어요 (finish={self.last_finish}) — max_tokens 를 늘리거나 사고를 끄세요"
+            )
+        return content
 
 
 class SolarLLM(OpenAICompatLLM):
@@ -646,17 +714,34 @@ class MidmLLM(OpenAICompatLLM):
         )
 
 
-class ExaoneLLM(OpenAICompatLLM):
-    """LG 엑사원 (Friendli dedicated)."""
+def _env_on(key: str, default: bool = False) -> bool:
+    raw = os.environ.get(key)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
 
-    def __init__(self, api_key: str | None = None, endpoint_id: str | None = None):
+
+class ExaoneLLM(OpenAICompatLLM):
+    """LG 엑사원 (Friendli dedicated) — **사고(thinking)는 기본으로 끈다.**
+
+    엑사원은 추론 모델이라 켜 두면 영어 사고 과정을 먼저 쓴다. 2026-10-16 실측(Friendli dedicated):
+    - 사고 켬: 「대한민국의 수도」 한 줄 JSON 에 2.8초 · 297 토큰, 답이 영어("Seoul"). max_tokens 가 사고에서 차면
+      content="" · finish=length — 09-16 벤치의 「첫 응답 3/3 JSON 실패」 와 f12_chatter 의 max_tokens 3000 고육책이 이것이었다.
+    - 사고 끔(`chat_template_kwargs.enable_thinking=false`): 0.1초 · 7 토큰, 한국어, content 에 JSON 만.
+    질문 문장처럼 짧은 생성은 사고 없이 충분하다. 켜야 하면 EXAONE_THINKING=1.
+    """
+
+    def __init__(self, api_key: str | None = None, endpoint_id: str | None = None, thinking: bool | None = None):
         eid = endpoint_id or os.environ.get("EXAONE_ENDPOINT_ID", "")
+        think = _env_on("EXAONE_THINKING") if thinking is None else bool(thinking)
         super().__init__(
             api_key=api_key or os.environ.get("EXAONE_API_KEY", ""),
             base_url=os.environ.get("EXAONE_BASE_URL", "https://api.friendli.ai/dedicated/v1"),
             model=eid,
             name="exaone",
+            extra_body={"chat_template_kwargs": {"enable_thinking": think}},
         )
+        self.thinking = think
 
 
 class FallbackLLM(LLMProvider):
@@ -737,18 +822,35 @@ def get_llm(name: str | None = None, **kwargs) -> LLMProvider:
     return FallbackLLM(primary, REGISTRY[secondary](**kwargs))
 
 
+def health_rows(keys: tuple[str, ...] = ("solar", "ax", "midm", "exaone")) -> list[dict]:
+    """모델마다 아주 작은 JSON 호출 한 번 — 살았는지 · 몇 초인지 · JSON 을 지키는지. 모델 장부(MODEL_LEDGER)가 쓴다."""
+    rows = []
+    for key in keys:
+        t0 = time.time()
+        row: dict[str, Any] = {"model": key}
+        try:
+            llm = get_llm(key)
+            row["id"] = getattr(llm, "model", "")
+            out = llm.complete(
+                system="JSON 객체 하나로만 답한다.",
+                user='대한민국의 수도를 {"answer": "..."} 꼴로.',
+                temperature=0.0, max_tokens=200, json_mode=True,
+            ).strip()
+            row.update(status="live", out=out[:60], json_ok=bool(last_json_object(out)),
+                       usage=getattr(llm, "last_usage", None))
+        except Exception as exc:  # noqa: BLE001 — 점검은 실패도 결과다
+            row.update(status="broken", error=str(exc)[:160])
+        row["sec"] = round(time.time() - t0, 2)
+        rows.append(row)
+    return rows
+
+
 def health_check() -> str:
     """네 모델이 다 살아 있는지 한 번에 확인."""
     lines = ["LLM 연결 확인", "-" * 52]
-    for key in ("solar", "ax", "midm", "exaone"):
-        try:
-            llm = get_llm(key)
-            out = llm.complete(
-                system="한 단어로만.",
-                user="OK 라고만 답하세요.",
-                max_tokens=10,
-            ).strip()
-            lines.append(f"  {key:<8} 응답: {out[:40]}")
-        except Exception as exc:  # noqa: BLE001
-            lines.append(f"  {key:<8} 실패: {str(exc)[:70]}")
+    for r in health_rows():
+        if r["status"] == "live":
+            lines.append(f"  {r['model']:<8} 응답 {r['sec']:>5.2f}s JSON {'O' if r['json_ok'] else 'X'}: {r['out'][:40]}")
+        else:
+            lines.append(f"  {r['model']:<8} 실패: {r['error'][:70]}")
     return "\n".join(lines)
