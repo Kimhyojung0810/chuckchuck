@@ -25,8 +25,11 @@
       "required": ["id", "name", "role", "headline", "did", "quote", "photo", "links", "draft"],
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9-]{1,24}$", "description": "주소 조각(#/hi/<id>)·사진 파일 이름에 쓴다. 바꾸지 않는다." },
-        "name": { "type": "string", "minLength": 1, "maxLength": 10, "description": "성(姓)이 확실하지 않으면 이름만." },
+        "name": { "type": "string", "minLength": 1, "maxLength": 10, "description": "성(姓)이 확실하지 않으면 이름만. 10-15 팀 포스터로 다섯 명 모두 성까지 확인했다." },
         "role": { "type": "string", "minLength": 1, "maxLength": 16, "description": "짧은 역할명." },
+        "school": { "type": "string", "minLength": 1, "maxLength": 30, "description": "학교 · 학과 (10-15 팀 포스터). 없으면 카드에서 그 줄을 뺀다." },
+        "yehs": { "type": "string", "minLength": 1, "maxLength": 30, "description": "한국공학한림원 차세대공학리더(YEHS) 직함 (10-15 팀 포스터)." },
+        "chick": { "type": "string", "pattern": "^assets/chick-team-[a-z0-9-]+\\.svg$", "description": "팀원 삐약이 그림 (10-15, ~/meetings/삐약이_팀원캐릭터). 사진(photo)이 없을 때 아바타로 쓴다." },
         "headline": { "type": "string", "minLength": 1, "maxLength": 40, "description": "한 줄 소개, 해요체." },
         "did": {
           "type": "array", "minItems": 2, "maxItems": 3,

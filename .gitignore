@@ -99,3 +99,6 @@ etc/labs/intro_flow/out/
 main/web/js/vendor/mediapipe/
 etc/labs/booth_scan/out/
 etc/labs/intro_metrics/out/
+
+# 팀원 연락처 — 공개 저장소에 올리지 않는다 (10-15, /hi 팀 카드가 있으면 읽는다)
+main/web/js/team-contacts.js

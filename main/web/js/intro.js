@@ -4,6 +4,7 @@
  * (2) 인앱 브라우저에서 카메라가 필요한 실제 흐름으로 갈 때만 「Safari/Chrome 으로 열기」 를 안내한다.
  * 줄 수는 members 길이로 정해진다 — 사람이 바뀌면 json 만 고친다. draft 는 화면에 표시하지 않는다(운영자만 json 에서 본다).
  * 10-12 사용자: 카드 넘기기 대신 다섯 줄 간단 소개면 충분하다 — did · quote · links 는 json 에 남지만 화면엔 안 쓴다.
+ * 10-15 팀 포스터 기조: 한 사람 한 장(삐약이 · 이름 · 역할 · 학과 · YEHS 직함 · 연락처). 연락처는 git 밖 파일(js/team-contacts.js)에만 있다.
  * 데이터는 textContent 로만 넣는다(innerHTML 없음).
  */
 (() => {
@@ -27,8 +28,14 @@
   const FETCH_TIMEOUT_MS = 8000;
   const ID_RE = /^[a-z0-9-]{1,24}$/;
   const PHOTO_RE = /^assets\/team\/[a-z0-9-]+\.(webp|png|jpg)$/;
-  // 무대 위 동그라미 — 민트 · 노랑 · 흰 빛을 옅게 (흰 글자 첫 글자가 어느 칸에서도 7:1 넘게, 10-14)
-  const AVATAR_TINTS = ['rgba(63, 213, 153, .18)', 'rgba(240, 180, 41, .18)', 'rgba(255, 255, 255, .10)', 'rgba(63, 213, 153, .10)'];
+  const CHICK_RE = /^assets\/chick-team-[a-z0-9-]+\.svg$/;
+  // 연락처 — 서버 폴더에만 두는 파일(.gitignore). 없으면 404 이고 연락처 줄만 안 나온다
+  const CONTACTS_URL = '/js/team-contacts.js';
+  const TEL_RE = /^0\d{1,2}-\d{3,4}-\d{4}$/;
+  const EMAIL_RE = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,120}\.[A-Za-z]{2,24}$/;
+  // 결선 첫날(KINTEX 11.3–11.5) — 배지의 D-day. 날짜는 한국 시간 기준
+  const FINAL_START = Date.UTC(2026, 10, 3);
+  const FINAL_DAYS = 3;
 
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => {
@@ -49,7 +56,10 @@
         name: str(m.name),
         role: str(m.role),
         headline: str(m.headline),
+        school: str(m.school),
+        yehs: str(m.yehs),
         photo: PHOTO_RE.test(m.photo || '') ? '/' + m.photo : '',
+        chick: CHICK_RE.test(m.chick || '') ? '/' + m.chick : '',
       }));
     if (!members.length) return null;
     return { contest: str(raw.contest), members };
@@ -69,49 +79,85 @@
     }
   }
 
-  // ── 팀원 줄 ─────────────────────────────────────────────────────────────
-  // 병아리 배지는 사진이 있든 없든 같은 자리에 — 줄마다 모양이 같게
-  function chickBadge() {
-    const svgNs = 'http://www.w3.org/2000/svg';
-    const chick = document.createElementNS(svgNs, 'svg');
-    chick.setAttribute('class', 'chick');
-    chick.setAttribute('viewBox', '0 0 100 100');
-    const use = document.createElementNS(svgNs, 'use');
-    use.setAttribute('href', '#chick');
-    chick.appendChild(use);
-    return chick;
-  }
-
-  function avatar(m, i) {
+  // ── 팀원 카드 ───────────────────────────────────────────────────────────
+  // 아바타는 사진 → 그 사람의 삐약이(10-15) → 이름 첫 글자 순서로
+  function avatar(m) {
     const box = el('div', 'avatar');
-    box.style.setProperty('--av', AVATAR_TINTS[i % AVATAR_TINTS.length]);
     box.setAttribute('aria-hidden', 'true');
-    const initial = () => document.createTextNode(Array.from(m.name)[0] || '');
-    const badge = chickBadge();
-    if (!m.photo) { box.append(initial(), badge); return box; }
-    const img = el('img');
-    Object.assign(img, { src: m.photo, alt: '', width: 44, height: 44, loading: 'lazy', decoding: 'async' });
+    const initial = () => document.createTextNode(Array.from(m.name).slice(-2).join('') || '');
+    const src = m.photo || m.chick;
+    if (!src) { box.append(initial()); return box; }
+    const img = el('img', m.photo ? 'photo' : '');
+    Object.assign(img, { src, alt: '', width: 56, height: 56, loading: 'lazy', decoding: 'async' });
     img.addEventListener('error', () => img.replaceWith(initial()), { once: true });
-    box.append(img, badge);
+    box.append(img);
     return box;
   }
 
-  function row(m, i) {
+  const ICONS = {
+    tel: 'M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z',
+    email: 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.4l8 5 8-5V7zm16 2.75-7.47 4.67a1 1 0 0 1-1.06 0L4 9.75V17h16z',
+  };
+  function contactLink(kind, value, name) {
+    const a = el('a', 'ct');
+    a.href = kind === 'tel' ? 'tel:' + value.replace(/-/g, '') : 'mailto:' + value;
+    a.setAttribute('aria-label', `${name}에게 ${kind === 'tel' ? '전화하기' : '메일 보내기'} ${value}`);
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNs, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(svgNs, 'path');
+    path.setAttribute('d', ICONS[kind]);
+    path.setAttribute('fill', 'currentColor');
+    svg.appendChild(path);
+    a.append(svg, document.createTextNode(value));
+    return a;
+  }
+  /** 카드마다 연락처 줄 — 형식이 맞는 값만, textContent 로 */
+  function renderContacts(rows, members) {
+    const book = window.CC_TEAM_CONTACTS;
+    if (!book || typeof book !== 'object') return;
+    rows.forEach((li, i) => {
+      const m = members[i];
+      const c = book[m.id];
+      if (!c || li.querySelector('.contacts')) return;
+      const box = el('div', 'contacts');
+      if (TEL_RE.test(str(c.tel))) box.append(contactLink('tel', str(c.tel), m.name));
+      if (EMAIL_RE.test(str(c.email))) box.append(contactLink('email', str(c.email), m.name));
+      if (box.childNodes.length) li.append(box);
+    });
+  }
+  function loadContacts(onReady) {
+    if (window.CC_TEAM_CONTACTS) { onReady(); return; }
+    const sc = document.createElement('script');
+    sc.src = CONTACTS_URL;
+    sc.async = true;
+    sc.onload = onReady;
+    sc.onerror = () => sc.remove();   // 파일이 없는 서버 — 연락처 없이 그대로
+    document.head.appendChild(sc);
+  }
+
+  function row(m) {
     const li = el('li', 'team-row');
     li.id = 'member-' + m.id;
     li.dataset.id = m.id;
     const who = el('div', 'who');
     const top = el('p', 'who-top');
     top.append(el('span', 'name', m.name), el('span', 'role', m.role));
-    who.append(top, el('p', 'headline', m.headline));
-    li.append(avatar(m, i), who);
+    who.append(top);
+    if (m.school) who.append(el('p', 'school', m.school));
+    if (m.yehs) who.append(el('p', 'yehs', m.yehs));
+    if (!m.school && !m.yehs) who.append(el('p', 'headline', m.headline));
+    li.append(avatar(m), who);
     return li;
   }
 
   function teamList(team) {
     const list = $('team-list');
     const rows = team.members.map(row);
-    list.replaceChildren(...rows);
+    const yehs = $('team-yehs');   // 마지막 칸(NAEK YEHS)은 HTML 에 고정 — 사람 카드 뒤에 다시 붙인다
+    list.replaceChildren(...rows, ...(yehs ? [yehs] : []));
+    loadContacts(() => renderContacts(rows, team.members));
     list.setAttribute('aria-busy', 'false');
     document.querySelector('.team-box').dataset.state = 'ready';
     whenSeen(list, () => funnel('team'));
@@ -141,8 +187,10 @@
     $('team-error').hidden = true;
     try {
       const team = await fetchTeam();
-      if (team.contest) { ['team-contest', 'foot-contest', 'hero-contest'].forEach((id) => { $(id).textContent = team.contest; }); }
-      $('team-lead').textContent = `${team.members.length}명이 함께 만들었어요.`;
+      if (team.contest) { ['team-contest', 'foot-contest', 'hero-contest'].forEach((id) => { if ($(id)) $(id).textContent = team.contest; }); }
+      // /hi/stage 는 아직 옛 머리말(「함께 만든 사람들을…」) — 사람 수로 바꿔 준다. /hi 는 포스터 문구 그대로
+      const lead = $('team-lead');
+      if (lead && !lead.querySelector('b')) lead.textContent = `${team.members.length}명이 함께 만들었어요.`;
       const c = teamList(team);
       const id = wantedId();
       const r = id && c.goTo(id);
@@ -301,6 +349,36 @@
     addEventListener('resize', onScroll, { passive: true });
   }
 
+  // ── 결선 D-day (배지) ───────────────────────────────────────────────────
+  // 한국 날짜로 결선 첫날까지 며칠인지. 결선 사흘 동안은 「결선 중」, 끝나면 비운다(빈칸이면 CSS 가 숨긴다)
+  function contestCountdown() {
+    const box = $('contest-dday');
+    if (!box) return;
+    const kst = new Date(Date.now() + 9 * 3600 * 1000);
+    const today = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate());
+    const days = Math.round((FINAL_START - today) / 86400000);
+    if (days > 0) box.textContent = 'D-' + days;
+    else if (days > -FINAL_DAYS) box.textContent = '결선 중';
+  }
+
+  // ── 아래 고정 버튼 띠 색 ─────────────────────────────────────────────────
+  // 버튼 아래로 밝은 종이 구역이 지나가면 띠도 종이색으로 — 초록 띠가 흰 카드를 가로질러 탁하게 보였다
+  function dockZone() {
+    const paper = $('paper');
+    if (!paper) return;
+    let queued = false;
+    const check = () => {
+      queued = false;
+      const on = paper.getBoundingClientRect().top < innerHeight - 40;
+      document.documentElement.toggleAttribute('data-dock', on);
+      if (on) document.documentElement.dataset.dock = 'paper';
+    };
+    const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(check); } };
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('resize', onScroll, { passive: true });
+    check();
+  }
+
   // ── 투어 첫 화면 미리 받기 ───────────────────────────────────────────────
   // 「척척발표 살펴보기」 를 누르면 index.html 이 app.css · app.js · 투어 묶음을 처음부터 받았다. /hi 를 다 그린 뒤 한가할 때 미리 받아 둔다.
   // 주소는 intro.html <template id="tour-prefetch"> 에서 읽는다 — HTML 안이라 브리지가 ?v= 를 index.html 과 같은 내용 해시로 바꿔 준다
@@ -322,6 +400,8 @@
 
   // ── 시작 ────────────────────────────────────────────────────────────────
   reveal();
+  contestCountdown();
+  dockZone();
   funnel('hi');
   whenSeen($('what'), () => funnel('intro'));
   const explore = $('explore-btn');

@@ -1,0 +1,25 @@
+<!-- 한국공학한림원 차세대공학리더(NAEK YEHS) 로고 — 10-15 팀 포스터의 로고를 따라 그린 SVG. 공식 원본 파일을 받으면 이 파일만 바꾼다 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 166 37" role="img" aria-labelledby="naekyehs-t" font-family="Apple SD Gothic Neo, Pretendard, Noto Sans KR, sans-serif">
+  <title id="naekyehs-t">한국공학한림원 차세대공학리더 NAEK YEHS</title>
+  <g transform="translate(0 -720)">
+    <g fill="#004098">
+      <path d="M1 721.6h4.6v25.4H1zM15.2 721.6h4.4v25.4h-4.4zM1 721.6h5.2l13.4 22.6v2.8h-4.4L1 724.4z"/>
+      <path d="M31.4 721.6h4.2L27.2 747h-4.6zM31.4 721.6h4.2l10 23.2h-4.6zM33 743.4h11.4v3.6H33z"/>
+      <path d="M46 721.6h17v3.8H46zM46 731.6h17v3.8H46zM46 731.6h4.2v15.2H46zM46 742.2h17v4.6H46z"/>
+      <path d="M73 721.6h6l-8.4 12 8.4 13h-6l-8.4-13z"/>
+    </g>
+    <text x="41.5" y="755.4" text-anchor="middle" fill="#7D8784" font-size="5" font-weight="600" letter-spacing="6.6">한국공학한림원</text>
+    <text x="127.5" y="727" text-anchor="middle" fill="#7D8784" font-size="5" font-weight="600" letter-spacing="7">차세대공학리더</text>
+    <g fill="#575354">
+      <path d="M84.6 731.6h6l6.6 12.4V755h-4.4v-10z"/>
+      <path d="M108 731.6h16.4v3.8H108z"/>
+      <path d="M132 741.6h8.2a4 4 0 0 1 4 4V755h-4.4v-9.4H132z"/>
+      <path d="M163.4 731.6H153a5 5 0 0 0-5 5v2.2a5 5 0 0 0 5 5h5.6a1 1 0 0 1 1 1v2.4a1 1 0 0 1-1 1v0H146.2V755h12.6a5 5 0 0 0 5-5v-3.4a5 5 0 0 0-5-5H153a1 1 0 0 1-1-1v-1.6a1 1 0 0 1 1-1h10.4z"/>
+    </g>
+    <g fill="#004098">
+      <path d="M99.4 731.6h5.4l-4.6 11.4h-2.2l-1.2-2z"/>
+      <path d="M108 739.6h16.4v4.6H108zM108 739.6h4.6V755H108zM108 750.8h16.4v4.2H108z"/>
+      <path d="M127.4 731.6h4.6V755h-4.6z"/>
+    </g>
+  </g>
+</svg>
