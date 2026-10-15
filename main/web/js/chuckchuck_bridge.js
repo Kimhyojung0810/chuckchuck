@@ -974,6 +974,20 @@ async function judgeOnce(sessionId, { questionId, answer, history, question, giv
   }
 }
 
+/**
+ * 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13 Q&A 생각 엮기) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다.
+ * perspective: example(실제 사례) · evidence(근거) · counter(반례) · cause(원인) · effect(결과).
+ * 서버가 새 질문을 이 세션의 질문 색인에 올리므로 그대로 judgeQaAnswer 로 채점된다. 실패하면 던진다(err.code: reframe_failed 등).
+ */
+export async function reframeQaQuestion(sessionId, { questionId, question, perspective }) {
+  const sid = sessionId || 'flat';
+  return qaApi(`/api/v1/sessions/${sid}/qa/reframe`, {
+    method: 'POST',
+    json: { session_id: sid, question_id: questionId, question: question || null, perspective },
+    timeoutMs: JUDGE_TIMEOUT_MS,
+  });
+}
+
 /** 실시간 받아쓰기 언어. 발표는 한국어라 고정한다. */
 const DICTATION_LANG = 'ko-KR';
 
@@ -1208,6 +1222,7 @@ window.ChuckchuckBridge = {
   setQaApiBase,
   buildQuestions,
   judgeQaAnswer,
+  reframeQaQuestion,
   registerSessionArtifacts,
   RehearsalRecorder,
   PresentationRecorder,

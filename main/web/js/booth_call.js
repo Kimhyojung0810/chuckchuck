@@ -73,6 +73,12 @@ function bcMcLine() {
     const role = bcRole();
     return `반가워요! 오늘은 제가 ${role}${josa(role, '이에요', '예요')}. 질문 ${n}개, 말로 편하게 답해요`;
   }
+  // 「다른 주제로」 로 넘어왔으면 어떻게 넘어왔는지를 말한다 (qa_live.js liveSwitchTo, 10-13)
+  const prev = (L.results || [])[L.qi - 1];
+  const q = L.questions[L.qi] || {};
+  if (prev && prev.setAside === 'perspective') return `좋아요, 같은 주제를 ${q.perspectiveName || '다른'} 관점으로 물어볼게요`;
+  if (prev && prev.setAside === 'concept') return '좋아요, 아직 안 다룬 개념으로 가 볼게요';
+  if (prev && prev.setAside === 'skip') return '알겠어요, 그 질문은 건너뛸게요';
   if (L.qi === n - 1) return '좋아요, 마지막 질문이에요. 이것만 답하면 끝나요';
   return `좋아요, ${L.qi + 1}번째 질문으로 넘어갈게요`;
 }
@@ -98,6 +104,8 @@ function bcMcSync() {
 
 /** 삐약이 이름표 아래 한 줄 — 지금 무슨 일이 일어나는지. 판정 중 · 기다림 · 실패 · 마이크를 따로 말한다 */
 function bcSayText(stream, thinking) {
+  // 「다른 주제로」 새 질문을 기다리는 중 — 판정이 아니다 (qa_live.js liveSwitchWait, 10-13)
+  if (qa.live && qa.live.switching) return qa.live.switching;
   if (thinking) {
     const wait = (document.querySelector('#coachThinking .thinking-text') || {}).textContent || '';
     if (/요청이 몰려|AI 서버가|한 번 더 보내/.test(wait)) return wait;      // 기다렸다 다시 보내는 중 — 남은 초를 그대로
@@ -147,6 +155,7 @@ function renderQaLiveBoothCall() {
 
       <div class="bc-host bc-glass" id="bcHost">
         <span class="bc-host-bird">${bqBird(BC_HOST_BIRD)}</span>
+        <span class="bc-voice" id="bcVoice" aria-hidden="true"></span>
         <span class="bc-host-text">
           <b>${escapeHtml(role)}</b>
           <small>역할을 맡은 삐약이</small>
@@ -175,6 +184,7 @@ function renderQaLiveBoothCall() {
   bc.autoTimer = setInterval(bcAutoLoop, BC_AUTO_TICK_MS);
   $('#bqCamToggle').addEventListener('click', bqCamToggle);
   if (window.BoothCV && !BoothCV.readGaze()) BoothCV.startGaze();
+  bcVoiceMount();
   bcSync();
   const stream = $('#stream');
   if (stream) {
@@ -303,6 +313,7 @@ function bcSync() {
     if (bird && (bird.dataset.mood || '') !== mood) bird.dataset.mood = mood;
   }
   bqSet(document.getElementById('bqJudgeSay'), 'textContent', bcSayText(stream, !!thinking));
+  bcVoiceSync();
 
   const rows = stream.children.length;
   if (rows !== bc.rowCount) {
@@ -310,6 +321,8 @@ function bcSync() {
     bcStickBottom(stream);
   }
   bcAnnounceNew(stream);
+  // 리허설 Q&A 무대 「띠 · 틀 · 레일」 — 지금 순간 하나에 맞춰 질문 · 내 말 · 행동 줄 · 자료를 그린다 (js/qa_stage.js, 10-13)
+  if (typeof qsSync === 'function') qsSync();
 }
 
 /** 위 가운데 질문 카드 — 대화 기둥의 지금 질문 말풍선을 그대로 비춘다 (기둥 쪽은 CSS 가 숨긴다) */
@@ -374,7 +387,7 @@ function bcThinking(el) {
   if (span && span.textContent === '듣고 있어요') span.textContent = '답을 자료와 맞춰 보고 있어요';
   if (!bc.thinkSince) {
     bc.thinkSince = Date.now();
-    bcAnnounce('답을 자료와 맞춰 보고 있어요');
+    bcAnnounce((qa.live && qa.live.switching) || '답을 자료와 맞춰 보고 있어요');
     clearTimeout(bc.slowTimer);
     bc.slowTimer = setTimeout(() => { if (document.getElementById('coachThinking')) bcSync(); }, BC_SLOW_JUDGE_MS + 50);
   }
@@ -463,11 +476,13 @@ function bcAnnounceNew(stream) {
   }
   if (said.length) bcAnnounce(said.map(bcRowSpeech).join(' '));
   if (lost.length) bcAnnounce(lost.map((el) => el.textContent.trim()).join(' '), { alert: true });
-  if (fresh.some((el) => el.matches('.msg.ai'))) bcSpeak();
+  const aiSaid = fresh.filter((el) => el.matches('.msg.ai'));
+  if (aiSaid.length) bcSpeak(aiSaid.map((el) => el.textContent).join(' '));
 }
 
 /** 삐약이 쪽 새 말 — 소리가 나는 것처럼 들썩이지 않고, 테두리만 잠깐 빛난다 */
-function bcSpeak() {
+function bcSpeak(text) {
+  if (bc.voice && text) bc.voice.update({ speakText: text });
   const host = document.getElementById('bcHost');
   if (!host) return;
   host.dataset.speaking = '1';
@@ -496,6 +511,30 @@ function bcAutoLoop() {
   if (stream) bqSet(document.getElementById('bqJudgeSay'), 'textContent', bcSayText(stream, !!document.getElementById('coachThinking')));
   const mic = bcMicOn() ? 'on' : '';
   if ((host.dataset.mic || '') !== mic) host.dataset.mic = mic;
+  bcVoiceSync();
+  // 받아쓰는 글 · 자동 보내기 초읽기는 스트림을 안 바꾸므로(감시에 안 걸림) 여기서 띠 · 행동 줄을 맞춘다 (js/qa_stage.js)
+  if (typeof qsSync === 'function') qsSync();
+}
+
+/* ─── 10-13 음성 시각화 (js/voice-viz.js) ───────────────────────────────────────────
+   삐약이 자리: 질문을 만들거나 답을 맞춰 보는 동안 · 새 말을 하는 동안은 그라디언트 구(GradientOrb),
+   내가 답하는 동안(받아쓰기 켜짐)은 Bars — 마이크 음량. 그 밖에는 아무것도 그리지 않는다(WebGL 쉼).
+   카메라 · 받아쓰기 · 보내기는 건드리지 않고 상태만 읽는다. voice-viz 를 못 받았으면 조용히 빠진다 */
+function bcVoiceMount() {
+  if (bc.voice) { bc.voice.destroy(); bc.voice = null; }
+  const el = document.getElementById('bcVoice');
+  if (!el || !window.ChuckVoice) return;
+  bc.voice = window.ChuckVoice.mount(el, { kind: 'qa', barsSize: 44, orbSize: 64, label: '삐약이와 말 주고받기' });
+  bcVoiceSync();
+}
+
+function bcVoiceSync() {
+  if (!bc.voice) return;
+  const L = qa.live;
+  bc.voice.update({
+    thinking: !!document.getElementById('coachThinking') || !!(L && L.busy),
+    micOn: bcMicOn(),
+  });
 }
 
 function bcAskKey() {

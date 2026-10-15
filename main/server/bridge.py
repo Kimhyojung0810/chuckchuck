@@ -279,7 +279,7 @@ TEAM_TOOLS = (
 _NEXT_ROUTE = re.compile(r"^#/(?:|new|qa|report|report/last|report/sample-[a-z0-9-]{1,40}|graph|about"
                          r"|vision|temp|test/qa|replay|booth/qa|booth/call)$")
 #: /auth?next= 로 돌려보낼 수 있는 팀 전용 독립 페이지 — 해시 앱이 아니라 주소 그대로 간다 (_TEAM_PAGES 와 같은 주소만)
-_NEXT_PAGES = frozenset({"/booth/scan"})
+_NEXT_PAGES = frozenset({"/booth/scan", "/studio"})
 
 
 def _safe_next(raw: str) -> str:
@@ -362,8 +362,8 @@ EDGE_SAMPLES: deque = deque(maxlen=20)
 
 
 def _paid_path(path: str) -> bool:
-    """과금 경로인가 — PAID_PATHS + 세션 경로의 판정(/api/v1/sessions/{id}/qa/judge)."""
-    return path in PAID_PATHS or (path.endswith("/qa/judge") and "/api/v1/sessions/" in path)
+    """과금 경로인가 — PAID_PATHS + 세션 경로의 판정(/api/v1/sessions/{id}/qa/judge) · 관점 바꾸기(…/qa/reframe, LLM 1콜)."""
+    return path in PAID_PATHS or ((path.endswith("/qa/judge") or path.endswith("/qa/reframe")) and "/api/v1/sessions/" in path)
 
 
 def _dev_open() -> bool:
@@ -1585,16 +1585,20 @@ _SCREEN_PATH = re.compile(r"^(/[A-Za-z0-9_-]+)+$")
 #: 해시 앱이 아니라 따로 선 정적 페이지로 주는 주소 — /hi(·/hi/<팀원 id>) 는 결선 부스 QR 랜딩 intro.html 이다 (2026-10-11,
 #: docs/booth-mobile/). index.html 을 거치면 app.js·app.css 를 다 받아야 첫 화면이 그려져서, 폰 첫 방문이 무거워진다.
 #: /hi/stage 는 새 시안 A 「들어오자마자 채점당한다」(intro_stage.html, 2026-10-13) — /hi/<팀원 id> 보다 먼저 본다(id 가 stage 인 팀원은 없다).
+#: /VRShow 는 가상 발표 스튜디오 studio.html 의 공개 주소 (2026-10-15 사용자 「우리가 작업한 거 도메인에 합치자 — /VRShow」, 공개로 결정).
+#: 안의 정면 창은 같은 앱(index.html#/rehearsal)이라 공개 첫 화면과 같은 규칙(내 자료 올리기만)으로 돈다. 팀 주소 /studio 는 그대로 둔다.
 _STANDALONE_PAGES = (
     (re.compile(r"^/hi/stage/?$", re.I), "/intro_stage.html"),
     (re.compile(r"^/hi(?:/[a-z0-9-]{1,24})?/?$", re.I), "/intro.html"),
+    (re.compile(r"^/vrshow/?$", re.I), "/studio.html"),
 )
 
 
 #: 팀 모드에서만 여는 독립 페이지 — /booth/scan 은 결선 부스에 띄워 두는 「사람 그래프」 스캔 화면 booth_scan.html (2026-10-12,
 #: ~/meetings/2026-10-12_부스_사람그래프_스캔화면.md). 파일은 static_assets._TEAM_PATH 라 /booth_scan.html 로 바로 와도 팀이 아니면 404.
 #: 팀이 아닌 브라우저는 /auth?next=/booth/scan 으로 보낸다(팀 코드가 없는 브리지면 404 — 있다는 것도 알리지 않는다).
-_TEAM_PAGES = ((re.compile(r"^/booth/scan/?$", re.I), "/booth_scan.html"),)
+#: /studio 는 디자인 개편 1차 시제품 「가상 발표 스튜디오」 (main/web/design/SPACE.md, 2026-10-12) — 기존 앱 · 카메라와 떨어진 독립 페이지
+_TEAM_PAGES = ((re.compile(r"^/booth/scan/?$", re.I), "/booth_scan.html"), (re.compile(r"^/studio/?$", re.I), "/studio.html"))
 
 
 def team_page_for(url_path: str) -> str | None:
@@ -2330,6 +2334,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         if parsed.path == "/api/v1/qa/judge":
             return self._handle_qa_judge(raw)
+        # 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다
+        if parsed.path.endswith("/qa/reframe") and "/api/v1/sessions/" in parsed.path:
+            return self._handle_qa_reframe(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         return self._json(404, {"error": "not found"})
 
     def _handle_tour_event(self, raw: bytes):
@@ -3712,6 +3719,16 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 self._index_questions(body, track, ready)
                 return self._json(200, client_questions(ready))
             mine = _claim_questions(q_key)
+            if mine is not None:
+                # 「없다」 를 본 뒤 차례를 잡기 전 그 틈에 앞사람이 다 만들고 자리를 비웠을 수 있다 — 잡은 뒤 한 번 더 본다.
+                # 안 보면 같은 질문을 LLM 으로 두 번 만든다 (10-13 test_bridge_questions_prefetch 가 5번에 1번 잡았다)
+                ready = _questions_ready(q_key)
+                if ready is not None:
+                    _release_questions(q_key, mine)
+                    mine = None
+                    sys.stderr.write(f"[bridge] F-08 questions track={track} 방금 만들어진 질문을 씀 ({label})\n")
+                    self._index_questions(body, track, ready)
+                    return self._json(200, client_questions(ready))
             if mine is None:
                 # 누가 같은 질문을 만드는 중이다 — 끝나길 기다렸다가 그 결과를 쓴다. 실패했으면 아래에서 직접 만든다.
                 t0 = time.time()
@@ -4254,6 +4271,47 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         elif not on_server and _session_id_of(body):
             sys.stderr.write(f"[bridge] F-09 판정 기록 안 함 — 서버가 만든 질문이 아님 (q={question.id})\n")
         return self._json(200, payload)
+
+    def _handle_qa_reframe(self, raw: bytes, path_sid: str = ""):
+        """
+        {session_id?, question_id, question?, perspective} → {question} — 같은 개념을 관점만 바꾼 질문 (pipeline.f09_reframe).
+
+        원래 질문은 **서버 색인의 것**만 쓴다(본문 질문으로는 만들지 않는다 — 채점 기준을 본문이 정하게 두지 않는 R4 와 같은 까닭).
+        새 질문은 이 세션의 질문 색인에 트랙 `reframe:{id}` 로 올린다 — 그래야 `/qa/judge` 가 이 질문(새 기대 답 요지)으로 채점한다.
+        화면에는 `client_questions` 사본을 준다(함정은 관점을 안 바꾸므로 보통 그대로다).
+        """
+        from pipeline.contracts import Question  # noqa: F401  (형 힌트 · from_dict 는 _resolve_question 이)
+        from pipeline.f09_reframe import PERSPECTIVES, ReframeError, reframe_question
+
+        body = json.loads(raw or b"{}")
+        raw_sid = body.get("session_id") if body.get("session_id") is not None else (path_sid or None)
+        store_sid = _store_sid(raw_sid)
+        if not store_sid or store_sid == FLAT_SESSION_ID:
+            return self._json(400, {"error": "bad_request", "message": "세션이 있어야 관점을 바꿀 수 있어요."})
+        perspective = str(body.get("perspective") or "")
+        if perspective not in PERSPECTIVES:
+            return self._json(400, {"error": "bad_request", "message": "관점은 " + " · ".join(PERSPECTIVES) + " 중 하나예요."})
+        body = {**body, "session_id": store_sid}
+        qraw = body.get("question") if isinstance(body.get("question"), dict) else None
+        qid = str(body.get("question_id") or (qraw or {}).get("id") or "")
+        try:
+            question, qsrc = self._resolve_question(store_sid, _session_id_of(body), qid, qraw)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return self._json(400, {"error": "bad_request", "message": "질문 형식이 맞지 않아요."})
+        if question is None or qsrc not in ("server", "archive", "mismatch"):
+            return self._json(409, {"error": "question_unverified", "message": "서버가 만든 질문만 관점을 바꿀 수 있어요."})
+        try:
+            fresh = reframe_question(question, perspective, slidedoc=ARCHIVE.read_artifact(_session_id_of(body), "slide_doc"),
+                                     llm=_pick_llm(body))
+        except ReframeError as e:
+            sys.stderr.write(f"[bridge] F-09 reframe 실패 q={question.id} 관점={perspective}: {e}\n")
+            return self._json(422, {"error": "reframe_failed", "message": "이 관점으로는 자료에서 물을 거리를 못 찾았어요. 다른 관점을 골라 주세요."})
+        payload = {"questions": [fresh.to_dict()]}
+        STORE.remember_questions(store_sid, f"reframe:{fresh.id}", payload)
+        STORE.put_questions(store_sid, f"reframe:{fresh.id}", payload)
+        sys.stderr.write(f"[bridge] F-09 reframe q={question.id} → {fresh.id}\n")
+        return self._json(200, {"question": client_questions(payload)["questions"][0], "perspective": perspective,
+                                "perspective_name": PERSPECTIVES[perspective][0]})
 
     def _resolve_question(self, store_sid: str, archive_sid: str, qid: str, qraw: dict | None):
         """

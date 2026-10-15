@@ -43,12 +43,14 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <!-- 녹음 SDK 모듈 사슬(chuckchuck_bridge → /sdk/index.js → recorder·slide_marks·rehearsal → rehearsal-recorder)을
      처음부터 나란히 받는다. 안 그러면 한 단을 받아야 다음 단을 알아서 공개 경로의 왕복(~0.2초)이 세 번 줄을 선다.
      브리지가 ?v= 를 내용 해시로 바꿔 넣어 모듈 안의 import 주소와 같아진다 (main/server/static_assets.py) -->
-<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkxbc14">
+<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkxbc15">
 <link rel="modulepreload" href="/sdk/index.js?v=s1">
 <link rel="modulepreload" href="/sdk/recorder.js?v=s1">
 <link rel="modulepreload" href="/sdk/slide_marks.js?v=s1">
 <link rel="modulepreload" href="/sdk/rehearsal.js?v=s1">
 <link rel="modulepreload" href="/sdk/rehearsal-recorder.js?v=s1">
+<!-- 마이크는 컴퓨터 것으로 — Mac 연속성이 iPhone 마이크를 잡는 것을 막는다 (10-13 사용자). 다른 스크립트보다 먼저 -->
+<script src="js/mic_pref.js?v=mp2"></script>
 <script>
   /* 1336×1024 내부 레이아웃은 유지하고, 실제 창에 들어가는 배율만 계산한다. */
   (() => {
@@ -154,19 +156,25 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
      tour    : 부스 모바일 체험 투어 #/tour/* (공개) — 팀 번들(beta)과 따로 받아 폰 첫 방문이 가볍다 -->
 <template id="lazyAssets">
   <link rel="stylesheet" href="css/call_flow.css?v=cf6" data-bundle="beta">
-  <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr13" data-bundle="beta">
+  <link rel="stylesheet" href="css/vision_rehearsal.css?v=vr15" data-bundle="beta">
   <link rel="stylesheet" href="css/booth_qa.css?v=bq12" data-bundle="beta">
-  <link rel="stylesheet" href="css/booth_call.css?v=bc23" data-bundle="beta">
+  <link rel="stylesheet" href="css/booth_call.css?v=bc24" data-bundle="beta">
   <link rel="stylesheet" href="css/rehearsal.css?v=rh24" data-bundle="beta">
+  <!-- Q&A 무대 「띠 · 틀 · 레일」 — 리허설 Q&A · 스튜디오 ④ (js/qa_stage.js, 10-13) -->
+  <link rel="stylesheet" href="css/qa_stage.css?v=qs1" data-bundle="beta">
   <!-- 통화 배치 흐름 #/temp (발표: 자료 정면 + 내 모습 작은 창 · Q&A: 내 모습 가운데). app.js 의 전역을 호출 시점에 찾는다 -->
   <script src="js/call_flow.js?v=cf7" data-bundle="beta"></script>
+  <!-- 음성 시각화 window.ChuckVoice — 발표 하단 Bars(orb-ui) · Q&A 삐약이 구(GradientOrb)/Bars. 원본 studio-app/src/voice, npm run build (10-13) -->
+  <script src="js/voice-viz.js?v=vv3" data-bundle="beta"></script>
   <script src="js/vision_cue.js?v=vr4" data-bundle="beta"></script>
   <script src="js/vision_rehearsal.js?v=vr33" data-bundle="beta"></script>
   <!-- 부스 Q&A 무대 #/booth/qa — 카메라 판단(OpenCV.js 는 이 화면에서만 받는다) · 화면 흐름 -->
   <script src="js/booth_cv.js?v=bq4" data-bundle="beta"></script>
   <script src="js/booth_ops.js?v=bo10" data-bundle="beta"></script>
   <script src="js/booth_qa.js?v=bq17" data-bundle="beta"></script>
-  <script src="js/booth_call.js?v=bc18" data-bundle="beta"></script>
+  <script src="js/booth_call.js?v=bc21" data-bundle="beta"></script>
+  <script src="js/qa_weave.js?v=qw3" data-bundle="beta"></script>
+  <script src="js/qa_stage.js?v=qs1" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
   <script src="js/rehearsal.js?v=rh52" data-bundle="beta"></script>
   <!-- 부스 모바일 체험 투어 #/tour/* — 녹화 응답 재생(API · 카메라 0). 순수 판단 → 셸 · 시작/자료/끝 → 발표 · 분석 · 질문 · 리포트 순서 -->
@@ -190,11 +198,11 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/report-strategy.js?v=qlst"></script>
 <!-- 실전 QA(F-08·F-09) — app.js 에서 떼어냈다. 전역을 공유하므로 app.js 앞에 둔다 -->
 <script src="js/conn_watch.js?v=cw2"></script>
-<script src="js/qa_live.js?v=qlbc35"></script>
+<script src="js/qa_live.js?v=qlbc37"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv4"></script>
-<script src="js/app.js?v=qlbc73"></script>
+<script src="js/app.js?v=qlbc76"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
-<script type="module" src="js/chuckchuck_bridge.js?v=qkxbc14"></script>
+<script type="module" src="js/chuckchuck_bridge.js?v=qkxbc15"></script>
 </body>
 </html>

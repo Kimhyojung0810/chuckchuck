@@ -479,3 +479,11 @@
 .bq[data-variant="call"] .bc-dock .qa-try-btn:hover { background: rgba(255, 255, 255, .2); }
 .bq[data-variant="call"] .bc-dock .qa-try-panel { background: var(--lg-tint-field); border: 1px solid rgba(255, 255, 255, .26); }
 .bq[data-variant="call"] .bc-dock .qa-try-model { color: #fff; }
+
+/* 10-13 음성 시각화 (js/voice-viz.js · bcVoiceMount) — 삐약이 옆: 생각 · 말 = 그라디언트 구, 내 답 = Bars. 쉴 때는 자리를 접는다 */
+.bc-voice { flex: none; display: none; width: 64px; height: 64px; align-items: center; justify-content: center; }
+.bc-voice[data-voice="orb"], .bc-voice[data-voice="bars"] { display: inline-flex; animation: bcVoiceIn 320ms ease-out both; }
+.bc-voice .cv-orb--gradient canvas { display: block; }
+@keyframes bcVoiceIn { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: none; } }
+@media (max-width: 900px) { .bc-voice { width: 40px; height: 40px; } .bc-voice .cv-orb { transform: scale(.62); } }
+@media (prefers-reduced-motion: reduce) { .bc-voice[data-voice] { animation: none; } }

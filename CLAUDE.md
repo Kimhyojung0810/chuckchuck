@@ -123,6 +123,7 @@ grep -n 'f11_reveal.html?embed' main/web/js/app.js      # 리빌 값 — 위와 
 
 - **앱 화면**(`#/`, `#/new`, `#/qa`, `#/report`) → [`MVP_SPEC.md`](main/web/MVP_SPEC.md) §3 절제 규율.
   히어로·마케팅 카피·장식 이모지·glassmorphism·스크롤 하이재킹 금지. 한 화면의 주인공은 하나.
+  **예외 (2026-10-12 사용자, 디자인 개편):** 가상 발표 스튜디오(`/studio`)의 떠 있는 창은 liquid-glass 유리를 쓴다 — 글자 뒤에는 대비를 지키는 색 막(tint)을 깐다 (`main/web/design/DESIGN_SYSTEM.md` §4-2).
 - **객석·극장 화면**(`theater.css`, `chatter.js`, 병아리 연출) → 척척극장 연출 규율 (옛 `docs/UI_REDESIGN.md`, git 기록).
   단 §14 「토스의 규율」이 위에 있다: 숫자는 신성하고, 판정 색은 안 건드리고, 모든 연출은 스킵 가능하고,
   진행률·오류 원인·샘플 표시는 정직하게 남기고, 소리는 기본 무음이다.
@@ -176,5 +177,6 @@ grep -n 'f11_reveal.html?embed' main/web/js/app.js      # 리빌 값 — 위와 
 | 문서 | 내용 |
 |---|---|
 | [`README.md`](README.md) | 설치·실행·손으로 눌러보는 체크리스트 |
+| [`main/web/design/`](main/web/design/README.md) | **디자인 개편 문서 묶음 (2026-10-12)** — 기획(BRIEF) · 3D 공간(SPACE) · 디자인 시스템 · 작업 계획/기록(PLAN). 개편 중엔 §3-3 토큰보다 이 문서들이 먼저 |
 | [`main/web/MVP_SPEC.md`](main/web/MVP_SPEC.md) | 화면 스펙·정보 구조·디자인 토큰 |
 | `etc/scripts/chk --help` | 개발 도구 — `gate`(문지기) · `bump`(`?v=`) · `doctor`(이 머신 점검) · `warmup`(브리지 예열) · `brief`(세션 브리핑, `/continue`) · `ledger-chart`(결선 그래프). README §개발 도구 |

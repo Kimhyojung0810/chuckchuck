@@ -1,0 +1,27 @@
+{
+  "name": "chuckchuck-studio",
+  "private": true,
+  "description": "가상 발표 스튜디오 — React Three Fiber (main/web/design/SPACE.md). 빌드 결과는 ../js/studio-app.js",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "sprites": "node sprites.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.1",
+    "@shadergradient/react": "2.4.20",
+    "camera-controls": "3.1.2",
+    "maath": "0.10.8",
+    "motion": "13.4.6",
+    "orb-ui": "0.10.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1",
+    "three-stdlib": "2.36.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

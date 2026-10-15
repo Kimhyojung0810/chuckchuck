@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>척척발표 — 디자인 시스템 견본</title>
+<!-- 디자인 시스템 v2 견본 (design/DESIGN_SYSTEM.md). 팀 전용 /design_kit.html — 부품을 무대 창 · 종이 창 양쪽에 놓아 본다 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Courier+Prime&family=Cormorant+Garamond:wght@500&display=swap">
+<link rel="stylesheet" href="css/ds.css?v=ds5">
+<style>
+  /* 견본 페이지만의 배치 — 방 대신 옅은 빛 바탕 */
+  body { margin: 0; min-height: 100vh; background: radial-gradient(70% 50% at 50% 0%, #2a2722, var(--room-void) 70%) fixed; }
+  .kit { max-width: 1180px; margin: 0 auto; padding: 48px 24px 96px; display: grid; gap: 40px; }
+  .kit-head { display: grid; gap: 6px; }
+  .kit-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
+  .kit-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .kit-sw { border-radius: var(--r-ctl); overflow: hidden; border: 1px solid var(--win-line); }
+  .kit-sw i { display: block; height: 56px; }
+  .kit-sw span { display: grid; gap: 2px; padding: 8px 10px; background: var(--stage-1); font-size: 12px; }
+  .kit-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .kit-types { display: grid; gap: 10px; }
+  .kit-sheet-demo { position: relative; display: grid; place-items: center; padding: 28px; border-radius: var(--r-window); background: rgba(5, 5, 4, .8); }
+  @media (max-width: 900px) { .kit-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body class="ds-root">
+<main class="kit">
+  <header class="kit-head">
+    <span class="ds-mono">DESIGN SYSTEM v2 · 가상 발표 스튜디오</span>
+    <h1 class="ds-title">디자인 시스템 견본</h1>
+    <p class="ds-lede">토큰과 창 안 부품을 무대 창과 종이 창에 놓아 봤어요. 값과 규칙은 design/DESIGN_SYSTEM.md 에 있어요.</p>
+  </header>
+
+  <!-- 색 -->
+  <section class="ds-window">
+    <div class="ds-window__head"><span class="ds-window__no">01</span><span class="ds-window__name">색</span></div>
+    <div class="ds-window__body">
+      <div class="kit-swatches">
+        <div class="kit-sw"><i style="background:var(--stage)"></i><span><b>--stage</b><span class="ds-mono">#0B0B0A</span></span></div>
+        <div class="kit-sw"><i style="background:var(--stage-2)"></i><span><b>--stage-2</b><span class="ds-mono">#1A1916</span></span></div>
+        <div class="kit-sw"><i style="background:var(--ink)"></i><span><b>--ink</b><span class="ds-mono">15:1</span></span></div>
+        <div class="kit-sw"><i style="background:var(--ink-2)"></i><span><b>--ink-2</b><span class="ds-mono">8.2:1</span></span></div>
+        <div class="kit-sw"><i style="background:var(--ink-3)"></i><span><b>--ink-3</b><span class="ds-mono">5.3:1</span></span></div>
+        <div class="kit-sw"><i style="background:var(--brand)"></i><span><b>--brand</b><span class="ds-mono">#0E8850 · 흰 글자 4.51:1</span></span></div>
+        <div class="kit-sw"><i style="background:var(--accent)"></i><span><b>--accent</b><span class="ds-mono">#3fd599</span></span></div>
+        <div class="kit-sw"><i style="background:var(--paper)"></i><span><b>--paper</b><span class="ds-mono">#F4F0E8</span></span></div>
+        <div class="kit-sw"><i style="background:var(--paper-accent)"></i><span><b>--paper-accent</b><span class="ds-mono">#064E3B · 8.5:1</span></span></div>
+        <div class="kit-sw"><i style="background:var(--live)"></i><span><b>--live</b><span class="ds-mono">상태 점</span></span></div>
+        <div class="kit-sw"><i style="background:var(--rec)"></i><span><b>--rec</b><span class="ds-mono">녹음 중</span></span></div>
+        <div class="kit-sw"><i style="background:var(--warn)"></i><span><b>--warn</b><span class="ds-mono">주의</span></span></div>
+        <div class="kit-sw"><i style="background:var(--room-plaster)"></i><span><b>--room-plaster</b><span class="ds-mono">벽</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="kit-grid">
+    <!-- 무대 창 -->
+    <section class="ds-window">
+      <div class="ds-window__head">
+        <span class="ds-window__no">02</span><span class="ds-window__name">무대 창</span>
+        <span class="ds-window__end"><span class="ds-status ds-status--rec">녹음하고 있어요</span><span class="ds-mono">02:41</span></span>
+      </div>
+      <div class="ds-window__body">
+        <div class="kit-types">
+          <h2 class="ds-title">창 제목 30</h2>
+          <p class="ds-h2">카드 제목 24</p>
+          <p class="ds-lede">리드 문장 16 — 이 창에서 무엇을 하는지 한두 줄로 말해요.</p>
+          <span class="ds-label">이름표 12 · 자간</span>
+          <span class="ds-mono">p.07 · 02:41 · 타자기 메타</span>
+        </div>
+        <div class="kit-row">
+          <button class="ds-btn ds-btn--primary" type="button">발표하러 가기 <span class="ds-btn__arrow">→</span></button>
+          <button class="ds-btn" type="button">발표 자료 고르기</button>
+          <button class="ds-btn ds-btn--quiet" type="button">힌트 보기</button>
+          <button class="ds-btn ds-btn--sm" type="button">나가기</button>
+        </div>
+        <div class="ds-field">
+          <button class="ds-btn ds-btn--primary" type="button" disabled>발표하러 가기 <span class="ds-btn__arrow">→</span></button>
+          <p class="ds-btn-why">자료를 올리면 시작할 수 있어요</p>
+        </div>
+        <div class="ds-drop">
+          <button class="ds-btn" type="button">발표 자료 고르기</button>
+          <div class="ds-file"><span class="ds-file__name">수면발표.pdf</span><span class="ds-mono">PDF · 12장 · 4.2MB</span></div>
+        </div>
+        <div class="ds-field">
+          <label class="ds-label" for="k-name">발표 제목</label>
+          <input class="ds-input" id="k-name" placeholder="예: 수면과 판단력">
+          <p class="ds-field__help">리포트 맨 위에 보여요</p>
+        </div>
+        <label class="ds-check"><input type="checkbox" checked> <span>이 자료와 발표 기록을 척척발표가 나아지는 데 써도 좋아요</span></label>
+        <dl class="ds-meta">
+          <dt>발표 시간</dt><dd>5분 <span class="ds-mono">/ 장당 약 25초</span></dd>
+          <dt>질문</dt><dd>3개 <span class="ds-mono">/ 답까지 마치면 리포트</span></dd>
+        </dl>
+        <div class="ds-card">
+          <span class="ds-label">심사위원 · 자료 7장</span>
+          <p class="ds-card__text">이 수치는 어떤 연구에서 나왔나요?</p>
+        </div>
+        <textarea class="ds-textarea" aria-label="내 답" placeholder="말로 답하거나 여기에 적어요"></textarea>
+        <div class="kit-row">
+          <span class="ds-status">준비됐어요</span>
+          <span class="ds-status ds-status--warn">마이크를 확인해요</span>
+          <span class="ds-status ds-status--off">카메라가 꺼져 있어요</span>
+        </div>
+        <div class="kit-row">
+          <span class="ds-dots" role="img" aria-label="질문 2 / 3"><span class="is-done"></span><span class="is-now"></span><span></span></span>
+          <span class="ds-pager"><button type="button" aria-label="이전 장">‹</button><span class="ds-mono">3 / 12</span><button type="button" aria-label="다음 장">›</button></span>
+          <span class="ds-tag">5분 트랙</span><span class="ds-tag">PDF</span>
+        </div>
+        <div class="ds-progress">
+          <div class="ds-progress__bar" style="--value:40%"><i></i></div>
+          <div class="ds-progress__meta"><span class="ds-mono">분석하고 있어요 · 2 / 5</span><span class="ds-mono">약 40초</span></div>
+        </div>
+        <div class="kit-row">
+          <span class="ds-step" aria-current="step"><span class="ds-mono">02</span>발표</span>
+          <span class="ds-step"><span class="ds-mono">03</span>질의응답</span>
+        </div>
+      </div>
+      <div class="ds-window__foot">
+        <span class="ds-mono">창 발 — 상태 메타</span>
+        <span class="ds-window__end"><button class="ds-btn ds-btn--primary" type="button">주 버튼은 하나 <span class="ds-btn__arrow">→</span></button></span>
+      </div>
+    </section>
+
+    <!-- 종이 창 -->
+    <section class="ds-window ds-window--paper">
+      <div class="ds-window__head"><span class="ds-window__no">04</span><span class="ds-window__name">종이 창</span><span class="ds-window__end"><span class="ds-mono">수면발표.pdf · 4분 52초</span></span></div>
+      <div class="ds-window__body">
+        <div class="ds-score">
+          <span class="ds-label">발표 준비도</span>
+          <span class="ds-score__num">78</span>
+          <span class="ds-mono">100점 만점</span>
+        </div>
+        <h2 class="ds-h2">자료는 잘 따라갔고, 근거 두 군데를 말로 빠뜨렸어요</h2>
+        <div class="kit-row">
+          <span class="ds-verdict ds-verdict--ok">맞아요</span>
+          <span class="ds-verdict ds-verdict--mid">일부만</span>
+          <span class="ds-verdict ds-verdict--no">틀렸어요</span>
+          <span class="ds-verdict ds-verdict--ct">자료와 어긋나요</span>
+          <span class="ds-verdict ds-verdict--om">빠뜨렸어요</span>
+        </div>
+        <div class="ds-rows">
+          <div class="ds-row"><span class="ds-mono">p.03</span><span>수면 부족과 판단력</span><span class="ds-verdict ds-verdict--ok">맞아요</span></div>
+          <div class="ds-row"><span class="ds-mono">p.07</span><span>6시간 기준의 출처</span><span class="ds-verdict ds-verdict--om">빠뜨렸어요</span></div>
+          <div class="ds-row"><span class="ds-mono">p.09</span><span>실험 설계의 한계</span><span class="ds-verdict ds-verdict--mid">일부만</span></div>
+        </div>
+        <div class="ds-card">
+          <span class="ds-label">모범 답변</span>
+          <p class="ds-card__text" style="font-size:16px;font-weight:500">자료 7장의 수치는 2019년 수면 박탈 실험에서 나왔어요. 표본은 …</p>
+        </div>
+        <p class="ds-lede">종이 위 링크는 <a href="#" style="color:var(--paper-accent)">짙은 초록</a>이에요.</p>
+        <div class="kit-row">
+          <button class="ds-btn ds-btn--primary" type="button">새 리허설 시작하기 <span class="ds-btn__arrow">→</span></button>
+          <button class="ds-btn" type="button">PDF 로 받기</button>
+          <button class="ds-btn ds-btn--quiet" type="button">닫기</button>
+        </div>
+      </div>
+      <div class="ds-window__foot">
+        <span class="ds-mono">질문 3개 중 2개 답함</span>
+      </div>
+    </section>
+  </div>
+
+  <!-- 알림 · 시트 -->
+  <section class="ds-window">
+    <div class="ds-window__head"><span class="ds-window__no">05</span><span class="ds-window__name">알림 · 시트 (HUD 층)</span></div>
+    <div class="ds-window__body">
+      <div class="kit-row"><span class="ds-toast">녹음을 저장했어요 <button class="ds-btn ds-btn--sm" type="button">다시 듣기</button></span></div>
+      <div class="kit-sheet-demo">
+        <div class="ds-sheet" role="dialog" aria-labelledby="k-sheet">
+          <h2 class="ds-h2" id="k-sheet">녹음을 멈추고 나갈까요?</h2>
+          <p class="ds-lede">지금까지 말한 2분 41초는 저장하지 않아요.</p>
+          <div class="ds-sheet__actions">
+            <button class="ds-btn" type="button">닫기</button>
+            <button class="ds-btn ds-btn--primary" type="button">멈추고 나가기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

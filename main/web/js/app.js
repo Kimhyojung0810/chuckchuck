@@ -2812,6 +2812,22 @@ function bindRecUpload() {
   });
 }
 
+/* 발표 중 하단 마이크 표시 — 음성 시각화(js/voice-viz.js · 흐르는 파형)가 받아져 있으면 진짜 마이크 음량으로 (10-13 사용자).
+   비전 리허설은 이미 재고 있는 음량(visionReadLevel)을 그대로 쓴다 — 마이크를 더 열지 않는다. 없으면 예전 CSS 물결 */
+let recVoice = null;
+function recVoiceMount(p) {
+  if (recVoice) { recVoice.destroy(); recVoice = null; }
+  const el = p && p.querySelector('.meter');
+  if (!el || !window.ChuckVoice) return;
+  el.classList.add('meter-voice');
+  el.textContent = '';
+  recVoice = window.ChuckVoice.mount(el, {
+    kind: 'wave', height: 28, label: '마이크 파형',   // 10-13 사용자: Bars 대신 오른쪽에서 왼쪽으로 흐르는 파형 — 녹음하는 느낌
+    tone: el.closest('#vrCall[data-flow="rehearsal"]') ? 'light' : 'dark',   // 리허설 흐름의 하단 독은 밝은 유리
+    read: typeof visionReadLevel === 'function' ? visionReadLevel : null,
+  });
+}
+
 function renderRecPanel() {
   // 발표하는 동안 화면이 꺼지지 않게 — 비전 리허설에서만 (vision_rehearsal.js visionWakeSync)
   if (typeof visionWakeSync === 'function') visionWakeSync(nf.mic === 'on');
@@ -2865,6 +2881,7 @@ function renderRecPanel() {
       if (typeof rhGuardShortTake === 'function' && rhGuardShortTake(finishRecAndPrepare)) return;
       finishRecAndPrepare();
     });
+    recVoiceMount(p);
     audienceMount();   // 무대에 올랐으면 객석에도 넷이 앉아 있어야 한다
   }
 }
@@ -6567,7 +6584,7 @@ function qaHistoryPanelHtml({ open = false } = {}) {
 
   /* 주고받은 질문 수 — 넘기거나 안 물은 것은 뺀다 (M-12: 「3개 질문」 에 넘긴 질문이 섞였다) */
   const exchanged = rec.beats.filter(b => !b.unasked && !(b.skipped && !b.a)).length;
-  const weakCount = rec.beats.filter(b => (b.bucket ? b.bucket !== 'self' && !b.unasked : b.verdict === 'none')).length;
+  const weakCount = rec.beats.filter(b => (b.bucket ? b.bucket !== 'self' && !b.unasked && !b.setAside : b.verdict === 'none')).length;
   // 청중 이름 — 실전 기록은 발표 정보에서 찾은 말(qaAudienceWord), 옛 실전 기록의 기본값 「교수님」 은 중립 말로
   const aud = !isDemo && rec.live && !rec.docKey && rec.aud === '교수님' ? '질문자' : (rec.aud || '질문자');
 
@@ -6580,7 +6597,7 @@ function qaHistoryPanelHtml({ open = false } = {}) {
       const row = typeof liveResultRow === 'function' ? liveResultRow(b, b.bucket) : null;
       const chip = row || { chip: (QA_LOG_CHIP[b.bucket] || QA_LOG_CHIP.skipped).label, cls: (QA_LOG_CHIP[b.bucket] || QA_LOG_CHIP.skipped).cls, meta: '' };
       const answer = b.unasked ? '<i class="ql-empty">묻기 전에 마쳤어요</i>'
-        : b.a ? escapeHtml(b.a) : '<i class="ql-empty">답하지 않고 넘겼어요</i>';
+        : b.a ? escapeHtml(b.a) : b.setAside ? '<i class="ql-empty">답하기 전에 다른 주제로 갔어요</i>' : '<i class="ql-empty">답하지 않고 넘겼어요</i>';
       return { chipHtml: `<span class="chip chip-sm ${chip.cls}">${escapeHtml(chip.chip)}</span>`, answer, meta: chip.meta };
     }
     // 옛 기록 — 판정 3단계. 넘긴 질문에는 「N번 만에 방어」 를 달지 않는다 (한 줄 모순 방지)
@@ -9084,6 +9101,8 @@ function streamRow(it) {
   }
   /* 안내 한 줄 — 「자료 본문 없이 판정했어요」·「요청이 몰려서 판정을 아직 못 받았어요」 같은 것. 판정 표식(✓·✕)이 아니다 (09-30 WP-B·H-15) */
   if (it.who === 'sys' && it.kind === 'note') return `<p class="qa-note-line" role="status">${it.text}</p>`;
+  /* 「다른 주제로」·「건너뛰기」 (10-13 qa_live liveSwitchTo) — 판정 표식이 아니라 내가 고른 길이라 ✓·✕ 없이 한 줄 */
+  if (it.who === 'sys' && it.kind === 'switch') return `<p class="qa-note-line qa-switch-line" data-how="${it.how || ''}">${it.text}</p>`;
   if (it.who === 'sys') return `<div class="qa-flag ${it.kind}"><i>${it.kind === 'won' ? '✓' : it.kind === 'lost' ? '✕' : '🔥'}</i>${it.text}</div>`;
   if (it.who === 'me') {
     const tag = it.kind === 'choice' ? '<span class="mb-tag">내 선택</span>' : '';
@@ -9150,7 +9169,8 @@ function streamRow(it) {
     const d = (it.before > 0 && typeof it.score === 'number') ? it.score - it.before : 0;
     const delta = d ? `<em class="msg-delta ${d > 0 ? 'up' : 'dn'}">${d > 0 ? '+' : ''}${d}</em>` : '';
     const meter = it.score ? `<b class="msg-score num">${it.score}</b><small>완성도</small>${delta}` : '';
-    return `<div class="msg ai react">${av}<div class="msg-bubble">
+    const claim = it.claim ? `<span class="msg-claim">내 발언 「${it.claim}」</span>` : '';
+    return `<div class="msg ai react">${av}<div class="msg-bubble">${claim}
       <span class="react-head"><span class="chip chip-sm ${cls}">${lab}</span>${meter}</span>
       <p>${it.text}</p>${grounds}${it.fb || ''}</div></div>`;
   }
@@ -9664,6 +9684,8 @@ function recordQaHistory() {
         closeReason: r.closeReason || '',
         viaCoach: !!r.viaCoach,
         retold: !!r.retold, revealed: !!r.revealed, unasked: !!r.unasked, stopped: !!r.stopped,
+        // 내가 고른 「다른 주제로」·「건너뛰기」 — 기록엔 남고 약한 개념 · 분모로 세지 않는다 (10-13)
+        setAside: r.setAside || '', switchedTo: r.switchedTo || '',
         // 옛 읽는 쪽 호환 — 답이 아예 없는 것만
         skipped: bucket === 'skipped' && !r.stopped && !r.retold,
       };
@@ -9673,7 +9695,7 @@ function recordQaHistory() {
        total 은 실제로 띄운 질문(안 물은 것 제외). */
     const selfBeats = beats.filter(b => b.bucket === 'self');
     const firstTry = selfBeats.filter(b => !b.hintUsed && (!b.turns || b.turns <= 1));
-    const asked = beats.filter(b => !b.unasked);
+    const asked = beats.filter(b => !b.unasked && !b.setAside);
     return window.QaHistory.save(L.sessionId || 'live', {
       live: true,
       // 어느 자료의 코칭인가 — 리포트가 다른 발표의 기록을 이 발표 것처럼 보이지 않게 (qaHistoryPanelHtml)

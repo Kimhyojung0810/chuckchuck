@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="px-chick" data-preset="cute" data-mood="happy" viewBox="-10 -18 120 120" width="1024" height="1024" role="img" aria-label="쏠라 병아리"><style>svg.px-chick{--px-body:#FFD96A;--px-line:#356B59;--px-mint:#9ADBC0;--px-beak:#F0A93C;--px-blush:#F7B6A8;}/* ── 삐약이 (studio-app/src/piyak) — 객석 발표새와 같은 색. 몸 · 외곽선 · 얼굴 색은 캐릭터 고유색이라 무대 색이 바뀌어도 그대로 ── */
+
+
+.px-chick svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.px-chick :is(g, path, ellipse, circle, rect, text) { transform-box: fill-box; }
+.px-glow { pointer-events: none; }
+.px-shadow { fill: rgba(0, 0, 0, .38); }
+.px-breath { transform-origin: 50% 100%; animation: pxBreathe 3.6s ease-in-out infinite; }
+/* 숨 · 흔들기 — 눈에 띄게 (10-13 사용자: 「훨씬 더 적극적으로」). 들숨에 늘고, 좌우로 몸을 흔든다 */
+@keyframes pxBreathe {
+  0%, 100% { transform: scale(1, 1) rotate(0deg); }
+  25%      { transform: scale(1.01, 1.03) rotate(2.2deg); }
+  50%      { transform: scale(1.02, 1.055) rotate(0deg); }
+  75%      { transform: scale(1.01, 1.03) rotate(-2.2deg); }
+}
+/* cute(기본) — 흔들기 대신 말랑하게 숨 쉰다: 옆으로만 볼록 퍼졌다 돌아온다 (세로로 늘지 않는다 — 「길쭉하면 안 귀엽다」 10-13) */
+.px-chick[data-preset="cute"] .px-breath { animation: pxBreatheCute 2.8s ease-in-out infinite; }
+@keyframes pxBreatheCute {
+  0%, 100% { transform: scale(1, 1); }
+  40%      { transform: scale(1.032, .982); }
+  70%      { transform: scale(1.012, .996); }
+}
+.px-chick[data-preset="cute"] :is(.px-leg-l, .px-leg-r) { transform-origin: 50% 0; animation: pxTap 1.4s ease-in-out infinite; }
+.px-chick[data-preset="cute"] .px-leg-r { animation-delay: -.7s; }
+@keyframes pxTap { 0%, 60%, 100% { transform: none; } 75% { transform: translateY(-1.6px) rotate(-8deg); } }
+/* 커서가 올라오거나 기쁘면 볼이 발그레 */
+.px-blush { transition: opacity .3s; }
+.px-chick:is(:hover, [data-mood="happy"], [data-mood="excited"]) .px-blush { opacity: .95; }
+
+.px-fill { fill: var(--px-body); stroke: var(--px-line); stroke-linejoin: round; }
+.px-w24 { stroke-width: 2.4; }
+.px-w3 { stroke-width: 2.6; }
+.px-legs :is(path, ellipse) { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.4; stroke-linejoin: round; }
+.px-body { fill: var(--px-body); }
+.px-outline { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-tuft path { stroke: var(--px-line); }
+.px-tuft .px-mint { fill: var(--px-mint); stroke-width: 1.6; stroke-linejoin: round; }
+.px-blush { fill: var(--px-blush); opacity: .65; }
+.px-beak { fill: var(--px-beak); stroke: var(--px-line); stroke-width: 1.3; }
+.px-prop rect { stroke: var(--px-line); stroke-width: 2; }
+.px-prop rect.px-mint { fill: var(--px-mint); stroke: none; }
+.px-prop .px-cap { fill: var(--px-beak); }
+.px-prop .px-tip { fill: #F7E9B8; stroke: var(--px-line); stroke-width: 1.5; stroke-linejoin: round; }
+.px-rosette :is(.px-ribbon, .px-medal) { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 1.6; stroke-linejoin: round; }
+.px-rosette .px-star { fill: var(--px-body); stroke: var(--px-line); stroke-width: .7; }
+.px-phones .px-band { fill: none; stroke: var(--px-line); stroke-width: 3.4; stroke-linecap: round; }
+.px-phones rect.px-cup { fill: var(--px-mint); stroke: var(--px-line); stroke-width: 2; }
+/* 알 · 껍데기 (Egg.jsx · Shell.jsx) · 닭 */
+.px-egg { fill: var(--px-egg); stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-egg-spot { fill: var(--px-egg-spot); }
+.px-crack, .px-zig { fill: none; stroke: var(--px-line); stroke-linecap: round; stroke-linejoin: round; }
+.px-crack { stroke-width: 2; }
+.px-zig { stroke-width: 2.6; }
+.px-comb { fill: var(--px-comb); stroke: var(--px-line); stroke-width: 2.2; stroke-linejoin: round; }
+.px-hen-feet { fill: none; stroke: var(--px-beak); stroke-width: 2.4; stroke-linecap: round; }
+/* 자라는 이야기 (Hatch.jsx) — 단계가 바뀌어도 자리가 그대로이게 그림 칸 크기를 고정한다 */
+.px-hatch__art { display: grid; width: var(--px-size); aspect-ratio: 120 / 118; }
+.px-hatch__frame { grid-area: 1 / 1; display: grid; place-items: end center; }
+/* 알 — Live Orb: 껍데기 너머 캡슐 눈 · 속빛 */
+.px-egg-line { fill: none; stroke: var(--px-line); stroke-width: 2.6; stroke-linejoin: round; }
+.px-orb-eyes rect { fill: #2A332D; opacity: .85; }
+.px-orb-halo, .px-orb-glow { pointer-events: none; }
+/* 정거장마다 자라는 삐약이 (Companion.jsx) */
+.px-companion { display: grid; justify-items: center; gap: var(--sp-2); }
+.px-companion .px-stage { --px-size: 150px; }
+
+/* 눈 · 표정 — 평소엔 또렷한 눈동자, mood 가 표정 곡선 · 감정 표시를 켠다 (chatter.css 와 같은 규칙) */
+.px-eye-ball { fill: #2F3B33; transform-origin: center; transition: transform .25s ease, opacity .18s; }
+.px-eye-line { fill: none; stroke: #2F3B33; stroke-width: 2; stroke-linecap: round; opacity: 0; transition: opacity .18s; }
+.px-emote > * { opacity: 0; transform-origin: center; transform: scale(.6); transition: opacity .2s, transform .35s cubic-bezier(.3, 1.4, .5, 1); }
+.px-heart { fill: #FF8FA3; }
+.px-mark path { fill: none; stroke: var(--px-mint); stroke-width: 2.8; stroke-linecap: round; }
+.px-mark circle { fill: var(--px-mint); }
+.px-spark path { fill: #FFF2C4; stroke: var(--px-line); stroke-width: .9; }
+.px-chick:is([data-mood="happy"], [data-mood="grumpy"]) .px-eye-ball { opacity: 0; }
+.px-chick[data-mood="happy"] .px-eye-happy, .px-chick[data-mood="grumpy"] .px-eye-grumpy { opacity: 1; }
+.px-chick[data-mood="happy"] .px-heart, .px-chick[data-mood="curious"] .px-mark, .px-chick[data-mood="excited"] .px-spark { opacity: 1; transform: none; }
+.px-chick[data-mood="curious"] .px-eye-ball { transform: scale(1.08); }
+.px-chick[data-mood="excited"] .px-eye-ball { transform: scale(1.18); }
+
+.px-line { margin: 0; min-height: 1.65em; color: var(--ink-2); font-size: var(--fs-sm); text-wrap: balance; }
+.px-mic { display: grid; justify-items: center; gap: var(--sp-1); }
+.px-mic__note { font-size: var(--fs-label); color: var(--ink-3); }
+.px-mic__note--error { color: var(--warn); max-width: 22em; }
+
+*{animation:none!important;transition:none!important}.px-glow{display:none}</style><defs><radialGradient id="pxg_R_0_"><stop offset="0" stop-color="var(--px-body)" stop-opacity=".9"></stop><stop offset=".55" stop-color="var(--px-body)" stop-opacity=".28"></stop><stop offset="1" stop-color="var(--px-body)" stop-opacity="0"></stop></radialGradient><clipPath id="pxc_R_0_"><path d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path></clipPath></defs><circle class="px-glow" cx="50" cy="52" r="58" fill="url(#pxg_R_0_)" style="transform:scale(0.9);opacity:0.14;transform-origin:50% 50% 0;transform-box:fill-box"></circle><ellipse class="px-shadow" cx="50" cy="91.5" rx="28" ry="3" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g style="transform:none;transform-origin:50% 100% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 100% 0;transform-box:fill-box"><g class="px-breath"><g class="px-legs" style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><ellipse class="px-leg-l" cx="41" cy="88.6" rx="3.4" ry="2"></ellipse><ellipse class="px-leg-r" cx="59" cy="88.6" rx="3.4" ry="2"></ellipse></g><g style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><path class="px-body" d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path><g clip-path="url(#pxc_R_0_)"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><ellipse class="px-blush" cx="31.5" cy="62.5" rx="4.8" ry="2.8" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse><ellipse class="px-blush" cx="68.5" cy="62.5" rx="4.8" ry="2.8" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"></ellipse></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-eyes" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g class="px-eye" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><circle class="px-eye-ball" cx="37.5" cy="56" r="3.1"></circle></g><path class="px-eye-line px-eye-happy" d="M33.7 57.2q3.8 -4.8 7.6 0"></path><path class="px-eye-line px-eye-grumpy" d="M33.7 54.8q3.8 4.4 7.6 0"></path></g><g class="px-eye" style="transform:none;transform-origin:50% 50% 0;transform-box:fill-box"><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><circle class="px-eye-ball" cx="62.5" cy="56" r="3.1"></circle></g><path class="px-eye-line px-eye-happy" d="M58.7 57.2q3.8 -4.8 7.6 0"></path><path class="px-eye-line px-eye-grumpy" d="M58.7 54.8q3.8 4.4 7.6 0"></path></g></g><path class="px-beak" d="M50 58.2c1.9 0 3 .8 3 1.8 0 1.3-1.3 2.3-3 2.3s-3-1-3-2.3c0-1 1.1-1.8 3-1.8z"></path></g></g><path class="px-outline" d="M50 18C27 18 11 34 11 56c0 19 13 30 39 30s39-11 39-30C89 34 73 18 50 18z"></path></g><path class="px-fill px-w24" d="M12.6 58.5c-5.4.4-8.4 4.4-7.6 8.6 4.4.8 8-1.2 9.2-4.4z" style="transform:none;transform-origin:100% 0% 0;transform-box:fill-box"></path><path class="px-fill px-w24" d="M87.4 58.5c5.4.4 8.4 4.4 7.6 8.6-4.4.8-8-1.2-9.2-4.4z" style="transform:none;transform-origin:0% 0% 0;transform-box:fill-box"></path><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-tuft" transform="translate(50 18) scale(1) translate(-50 -18)"><path d="M50 18V14" fill="none" stroke-width="1.8" stroke-linecap="round"></path><path class="px-mint" d="M50 14.4c-.9-2.8-3.4-3.9-5.6-3 .5 2.4 2.7 3.6 5.6 3z"></path><path class="px-mint" d="M50 14.4c.9-2.8 3.4-3.9 5.6-3-.5 2.4-2.7 3.6-5.6 3z"></path></g></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"><g class="px-prop" transform="translate(84 66) rotate(12)"><rect x="0" y="0" width="15" height="11" rx="2.2" fill="#F2FBF6"></rect><rect x="-2.6" y="2.6" width="15" height="11" rx="2.2" fill="#FFFFFF"></rect><rect x="-.4" y="4.8" width="4.8" height="2.8" rx=".9" class="px-mint" stroke="none"></rect></g></g><g style="transform:none;transform-origin:50% 50%;transform-box:fill-box"></g><g class="px-emote" transform="translate(3 4)"><path class="px-heart" d="M78 13c2-3 6-1 6 2 0 3-4 5-6 7-2-2-6-4-6-7 0-3 4-5 6-2z"></path><g class="px-mark"><path d="M76.5 9.6c0-2.9 2.3-4.6 4.8-4.6s4.8 1.7 4.8 4.4c0 3.3-4.4 3.5-4.4 7"></path><circle cx="81.7" cy="21" r="1.6"></circle></g><g class="px-spark"><path d="M86 24l1.1 2.9 2.9 1.1-2.9 1.1-1.1 2.9-1.1-2.9-2.9-1.1 2.9-1.1z"></path><path d="M14 22l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></g></g></g></g></g></g></svg>
