@@ -19,7 +19,7 @@ export function Lights({ coveRef }) {
     o.position.set(x, 1.5, z)
     return o
   }), [])
-  if (!scene.fog) scene.fog = new THREE.Fog('#0B0D0C', 9, LIGHT[0].fog)
+  if (!scene.fog) scene.fog = new THREE.Fog('#F3F3F6', 9, LIGHT[0].fog)
 
   useFrame((_, dt) => {
     const L = LIGHT[rig.at]
@@ -39,14 +39,15 @@ export function Lights({ coveRef }) {
       s.angle = THREE.MathUtils.lerp(0.6, L.angle, cur.k[k])
     })
     const cv = cur.cove * (0.6 + 0.4 * rig.motion)
-    coveRef.current.forEach((m) => m && m.color.setRGB(0.5 * cv + 0.04, 0.48 * cv + 0.04, 0.44 * cv + 0.035))
+    // 밝은 방(10-16 사용자 「화면 밝게」) — 빛 띠는 바탕보다 조금 짙은 회색 선으로 지평선만 남긴다
+    coveRef.current.forEach((m) => m && m.color.setRGB(0.80 - 0.06 * cv, 0.80 - 0.06 * cv, 0.82 - 0.06 * cv))
     scene.fog.far = cur.fog
   })
 
   return (
     <>
       <ambientLight ref={amb} intensity={0.5} />
-      <hemisphereLight args={['#7a776f', '#141614', 1.1]} />
+      <hemisphereLight args={['#FFFFFF', '#D8D8DE', 1.4]} />
       {[0, 1, 2, 3].map((k) => {
         const [x, z] = toward(stationAngle(k), 2.4)
         return (

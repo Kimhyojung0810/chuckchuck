@@ -7,45 +7,45 @@
 
 :root {
   /* ── 바탕 · 면 (v3 — 따뜻한 차콜, DESIGN_SYSTEM v3-1) ── */
-  --bg: #111512;
-  --surface: #222724;
-  --sage: #344A40;
-  --border: #3A403B;
-  --stage: #111512;
-  --stage-1: #181D19;
-  --stage-2: #222724;
-  --win-bg: rgb(34 39 36 / .72);
-  --win-line: rgba(240, 240, 233, .10);
-  --line: rgba(240, 240, 233, .09);
-  --line-strong: rgba(240, 240, 233, .20);
-  --card-line: rgba(240, 240, 233, .07);
+  --bg: #F5F5F7;
+  --surface: #FFFFFF;
+  --sage: #E4EEE9;
+  --border: #D2D2D7;
+  --stage: #F5F5F7;
+  --stage-1: #EDEDF0;
+  --stage-2: #FFFFFF;
+  --win-bg: rgb(255 255 255 / .78);
+  --win-line: rgba(29, 29, 31, .10);
+  --line: rgba(29, 29, 31, .09);
+  --line-strong: rgba(29, 29, 31, .20);
+  --card-line: rgba(29, 29, 31, .07);
 
   /* ── 글자 · 초록 · 상태 — 초록은 서명색(면적 5%): 주 버튼 면 · 지금 단계 · 진행 · 마이크 · AI 상태에만 ── */
-  --ink: #F0F0E9;
-  --ink-2: #A4ADA6;
-  --ink-3: #8A938C;
-  --ink-off: rgba(240, 240, 233, .32);
-  --brand: #6FB59A;          /* 주 버튼 면 — 위 글자 --on-brand 7.7:1 */
-  --brand-hi: #82C2A9;
-  --on-brand: #111512;
-  --accent: #6FB59A;         /* 어두운 면 위 표시 — 배경 7.7:1 */
-  --accent-wash: rgba(111, 181, 154, .10);
-  --live: #7FB37A;
+  --ink: #1D1D1F;
+  --ink-2: #6E6E73;
+  --ink-3: #86868B;
+  --ink-off: rgba(29, 29, 31, .32);
+  --brand: #0B7A57;          /* 주 버튼 면 — 위 글자 --on-brand 7.7:1 */
+  --brand-hi: #0E8F67;
+  --on-brand: #FFFFFF;
+  --accent: #0B7A57;         /* 어두운 면 위 표시 — 배경 7.7:1 */
+  --accent-wash: rgba(11, 122, 87, .08);
+  --live: #1F8A4C;
   --rec: #E5484D;
-  --warn: #E2B04A;
+  --warn: #B45309;
 
   /* ── 소재 — 스모크 유리 세 단계 (DESIGN_SYSTEM v3-2) ── */
-  --glass-main: rgb(34 39 36 / .72);
-  --glass-sub: rgb(34 39 36 / .62);
-  --glass-chip: rgb(17 21 18 / .55);
-  --glass-edge: rgba(240, 240, 233, .10);
-  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, 0) 38%);
-  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .08);
+  --glass-main: rgb(255 255 255 / .74);
+  --glass-sub: rgb(255 255 255 / .64);
+  --glass-chip: rgb(255 255 255 / .7);
+  --glass-edge: rgba(29, 29, 31, .10);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 38%);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, .9);
   --blur-main: blur(24px) saturate(1.2);
   --blur-sub: blur(18px) saturate(1.15);
   --blur-chip: blur(12px);
-  --shadow-main: 0 40px 80px -40px rgba(0, 0, 0, .65), 0 2px 6px rgba(0, 0, 0, .18);
-  --shadow-sub: 0 20px 40px -20px rgba(0, 0, 0, .6);
+  --shadow-main: 0 30px 60px -30px rgba(0, 0, 0, .18), 0 1px 3px rgba(0, 0, 0, .06);
+  --shadow-sub: 0 16px 32px -18px rgba(0, 0, 0, .16);
 
   /* ── 종이 ── */
   --paper: #F3F7F4;
@@ -63,9 +63,9 @@
   --om: #8A6A15;   --om-bg: #F7F1DE;
 
   /* ── 방 재질 (v3: 조용한 따뜻한 어둠, 초록 빛 없음 — 3D 는 studio-app/src/scene 이 같은 값을 쓴다) ── */
-  --room-void: #0B0D0C;
-  --room-wall: #171B18;
-  --room-floor: #0E110F;
+  --room-void: #F3F3F6;
+  --room-wall: #E9E9EE;
+  --room-floor: #E2E2E7;
   --room-light: #EEE9DF;
 
   /* ── 글 ── */

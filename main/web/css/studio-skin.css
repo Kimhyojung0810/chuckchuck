@@ -6,20 +6,22 @@
    ════════════════════════════════════════════════════════════════════════ */
 
 html.sx-studio {
-  --sx-bg: #111512; --sx-surface: #222724; --sx-sage: #344A40; --sx-border: #3A403B;
-  --sx-ink: #F0F0E9; --sx-ink-2: #A4ADA6; --sx-ink-3: #8A938C; --sx-accent: #6FB59A; --sx-accent-hi: #82C2A9;
-  --sx-line: rgba(240, 240, 233, .09); --sx-edge: rgba(240, 240, 233, .12);
-  --sx-chip: rgb(17 21 18 / .55); --sx-sub: rgb(34 39 36 / .72);
+  --sx-bg: #F5F5F7; --sx-surface: #FFFFFF; --sx-sage: #E4EEE9; --sx-border: #D2D2D7;
+  --sx-ink: #1D1D1F; --sx-ink-2: #6E6E73; --sx-ink-3: #86868B; --sx-accent: #0B7A57; --sx-accent-hi: #0E8F67;
+  --sx-line: rgba(29, 29, 31, .09); --sx-edge: rgba(29, 29, 31, .12);
+  --sx-chip: rgb(255 255 255 / .7); --sx-sub: rgb(255 255 255 / .78);
   background: transparent;
 }
 /* 리허설 층이 떠 있는 동안만 문서 바탕을 비운다 — 리포트는 밝은 종이 판(읽기 우선)을 그대로 쓴다 */
 html.sx-studio body:is(.bq-open, .vr-open) { background: transparent; }
+/* 리허설 층 밑의 앱 문서(옛 화면)가 투명한 층 사이로 비쳤다 — 분석 기다림 창 아래 흰 띠 (10-16). 층이 떠 있는 동안은 감춘다 */
+html.sx-studio body:is(.bq-open, .vr-open) > #app { opacity: 0; pointer-events: none; }   /* visibility 는 자식이 되살려서(visible) 글이 비쳤다 — 투명도는 자식이 못 되살린다 */
 /* 팀 모드 알약은 스튜디오 HUD 와 겹친다 — 스튜디오 안에서는 감춘다(팀 모드는 그대로 켜져 있다) */
 html.sx-studio .team-pill-wrap { display: none; }
 
 /* ── 공통: 리허설 층 — 바탕 투명, 글자 아이보리, 초점 고리 에메랄드 ── */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] {
-  --bq-line: var(--sx-line); --bq-soft: var(--sx-ink-2); --bq-dim: var(--sx-ink-3); --bq-glass: rgba(240, 240, 233, .04);
+  --bq-line: var(--sx-line); --bq-soft: var(--sx-ink-2); --bq-dim: var(--sx-ink-3); --bq-glass: rgba(29, 29, 31, .04);
   background: transparent; color: var(--sx-ink);
 }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] :focus-visible { outline: 2px solid var(--sx-accent); outline-offset: 2px; box-shadow: none; }
@@ -27,18 +29,18 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-top { border-bottom: 0; }
 
 /* 주 버튼 — 화면에 초록 면은 이것 하나 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta {
-  background: var(--sx-accent); color: var(--sx-bg); box-shadow: none; border: 0; font-weight: 650; letter-spacing: -.01em;
+  background: var(--sx-accent); color: #FFFFFF; box-shadow: none; border: 0; font-weight: 650; letter-spacing: -.01em;
   transition: background-color .15s, transform .15s;
 }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta:hover:not(:disabled) { background: var(--sx-accent-hi); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta:active:not(:disabled) { transform: translateY(1px); }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta:disabled { background: rgba(240, 240, 233, .1); color: var(--sx-ink-3); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta:disabled { background: rgba(29, 29, 31, .1); color: var(--sx-ink-3); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta.pulse { animation: none; box-shadow: none; }
 /* 보조 버튼 — 중성 면 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-ghost {
-  background: rgba(240, 240, 233, .05); border: 1px solid var(--sx-border); color: var(--sx-ink-2); transition: background-color .15s, color .15s;
+  background: rgba(29, 29, 31, .05); border: 1px solid var(--sx-border); color: var(--sx-ink-2); transition: background-color .15s, color .15s;
 }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-ghost:hover { background: rgba(240, 240, 233, .1); color: var(--sx-ink); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-ghost:hover { background: rgba(29, 29, 31, .1); color: var(--sx-ink); }
 
 /* ── ① 고르기 · 발표 상황 · 내 자료 올리기 (업로드 장면) — 창은 스튜디오가 내용 크기로 맞춘다(.bq-pick 높이) ── */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"]:is([data-screen="pick"], [data-screen="occ"]) .bq-top { display: none; }
@@ -53,10 +55,10 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-foot { color: var(--sx-ink
 /* 발표 고르기 — 덱 카드: 한 줄 셋(창이 내용 크기라 짧게) · 중성 면 · 얇은 선, 고르면 에메랄드 테두리 하나 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-pick .bq-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck {
-  background: rgba(240, 240, 233, .035); border: 1px solid var(--sx-line); border-radius: 18px; padding: 10px 10px 14px; box-shadow: none;
+  background: rgba(29, 29, 31, .035); border: 1px solid var(--sx-line); border-radius: 18px; padding: 10px 10px 14px; box-shadow: none;
   transition: border-color .18s, background-color .18s, transform .18s;
 }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck:hover:not(:disabled) { border-color: rgba(111, 181, 154, .45); background: rgba(240, 240, 233, .06); transform: translateY(-2px); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck:hover:not(:disabled) { border-color: rgba(111, 181, 154, .45); background: rgba(29, 29, 31, .06); transform: translateY(-2px); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cover { border-radius: 10px; box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .7); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck-title { color: var(--sx-ink); font-size: 15px; font-weight: 600; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck-go { color: var(--sx-accent); font-size: 13px; font-weight: 600; }
@@ -65,9 +67,9 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck-kind { color: var(--s
 /* 발표 상황 — 고르기 칸: 중성, 고른 칸만 세이지 면 + 에메랄드 선 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-roles legend { color: var(--sx-ink); font-size: 14px; font-weight: 600; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-role {
-  background: rgba(240, 240, 233, .035); border: 1px solid var(--sx-line); border-radius: 14px; box-shadow: none; transition: border-color .15s, background-color .15s;
+  background: rgba(29, 29, 31, .035); border: 1px solid var(--sx-line); border-radius: 14px; box-shadow: none; transition: border-color .15s, background-color .15s;
 }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-role:hover { background: rgba(240, 240, 233, .06); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-role:hover { background: rgba(29, 29, 31, .06); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-role b { color: var(--sx-ink); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-role small { color: var(--sx-ink-3); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-role:has(input:checked) { background: var(--sx-sage); border-color: rgba(111, 181, 154, .7); box-shadow: none; }
@@ -82,12 +84,12 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-ctx input:focus { border-c
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-perm-note { color: var(--sx-ink-3); }
 
 /* 내 자료 올리기 — 점선 칸은 중성, 진행은 가는 에메랄드 줄 */
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-pick { border-color: rgba(240, 240, 233, .2); background: rgba(240, 240, 233, .03); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-pick { border-color: rgba(29, 29, 31, .2); background: rgba(29, 29, 31, .03); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-pick:hover, html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-pick.is-over { border-color: rgba(111, 181, 154, .6); background: rgba(111, 181, 154, .06); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-pick b { color: var(--sx-ink); }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-bar { background: rgba(240, 240, 233, .1); height: 3px; }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-bar { background: rgba(29, 29, 31, .1); height: 3px; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-bar i { background: var(--sx-accent); }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-how b { background: rgba(240, 240, 233, .08); color: var(--sx-ink-2); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .rh-up-how b { background: rgba(29, 29, 31, .08); color: var(--sx-ink-2); }
 
 /* ── 분석 기다림 (독립 장면 — 스튜디오가 정거장 「분석」 으로 띄운다) — 실제 파이프라인 단계만 ── */
 /* 스튜디오에서는 이 창이 「실제 진행 단계」 작은 판이다 — 채점판(개념 그래프)은 스튜디오가 옆에 크게 그린다. 카메라는 감추고 카드가 창을 채운다 */
@@ -101,9 +103,11 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-c
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-head .bc-host-bird { display: none; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-head h1 { font-size: 18px; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-steps li { font-size: 15px; }
+/* 창 테두리는 스튜디오 유리가 이미 그린다 — 카드를 한 겹 더 두르면 창 안에 창이 겹쳐 보였다(10-16 사용자 「화면이 겹쳐 있는 거 같네」). 면 · 선 없이 창을 채운다 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 40%), var(--sx-sub);
-  border: 1px solid var(--sx-edge); color: var(--sx-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 30px 60px -30px rgba(0, 0, 0, .7);
+  left: 0; right: 0; bottom: 0; top: 56px; border-radius: 0; padding: 8px 22px 22px;
+  /* 면은 불투명한 흰 면 — 비치게 두니 뒤의 스튜디오 표지(단계 · 걸린 시간)와 흐린 장면이 겹쳐 보였다. 테 · 그림자 · 둥근 모서리는 없다(창이 이미 그린다) */
+  background: #FBFBFD; -webkit-backdrop-filter: none; backdrop-filter: none; border: 0; color: var(--sx-ink); box-shadow: none;
 }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card :is(h1, h2, b, strong) { color: var(--sx-ink); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card :is(p, span, small) { color: var(--sx-ink-2); }
@@ -111,30 +115,30 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-s
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-steps li[data-state="run"] span:not(.bq-sr) { color: var(--sx-ink); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-steps li[data-state="run"] i { border-color: rgba(111, 181, 154, .25); border-top-color: var(--sx-accent); background: none; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-steps li[data-state="done"] i { background: var(--sx-sage); color: var(--sx-accent); }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card .bq-ghost { background: rgba(240, 240, 233, .06); color: var(--sx-ink-2); border-color: var(--sx-border); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] .rh-wait-card .bq-ghost { background: rgba(29, 29, 31, .06); color: var(--sx-ink-2); border-color: var(--sx-border); }
 
 /* ── 리허설 유리 변수 — 앱의 밝은 유리(흰 34%)를 v3 따뜻한 스모크 유리로 (rehearsal.css 의 --rl-* · --lg-* 를 같은 이름으로 덮는다) ── */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] {
   --rl-ink: var(--sx-ink); --rl-soft: var(--sx-ink-2); --rl-green: var(--sx-accent); --rl-amber: #E2B04A;
   --lg-blur: blur(18px) saturate(1.15);
-  --lg-sheen: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, 0) 40%);
-  --lg-tint: rgb(17 21 18 / .6);
-  --lg-tint-text: rgb(34 39 36 / .74);
-  --lg-tint-now: rgb(34 39 36 / .82);
-  --lg-tint-past: rgb(34 39 36 / .6);
-  --lg-tint-field: rgb(17 21 18 / .6);
+  --lg-sheen: linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 40%);
+  --lg-tint: rgb(255 255 255 / .62);
+  --lg-tint-text: rgb(255 255 255 / .8);
+  --lg-tint-now: rgb(255 255 255 / .88);
+  --lg-tint-past: rgb(255 255 255 / .6);
+  --lg-tint-field: rgb(255 255 255 / .7);
   --lg-tint-me: rgb(52 74 64 / .86);
-  --lg-edge: rgba(240, 240, 233, .12);
-  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 20px 40px -20px rgba(0, 0, 0, .6);
+  --lg-edge: rgba(29, 29, 31, .12);
+  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 20px 40px -20px rgba(0, 0, 0, .16);
 }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] :is(textarea, input[type="text"]) { color: var(--sx-ink); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] :is(textarea, input[type="text"])::placeholder { color: var(--sx-ink-3); }
 /* 답 칸 단추 — 주인공 하나만 에메랄드 면(아직 안 썼으면 「말해서 답하기」, 썼으면 「확인하기」 — 앱의 규칙 그대로), 나머지는 중성 */
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock .btn { background: rgba(240, 240, 233, .06); color: var(--sx-ink-2); border: 1px solid var(--sx-border); box-shadow: none; text-shadow: none; }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock .btn:hover:not(:disabled) { background: rgba(240, 240, 233, .1); color: var(--sx-ink); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock .btn { background: rgba(29, 29, 31, .06); color: var(--sx-ink-2); border: 1px solid var(--sx-border); box-shadow: none; text-shadow: none; }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock .btn:hover:not(:disabled) { background: rgba(29, 29, 31, .1); color: var(--sx-ink); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock .btn-primary,
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveMic:not(:disabled):not(.is-rec) { background: var(--sx-accent); color: var(--sx-bg); border-color: var(--sx-accent); }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveSend { background: rgba(240, 240, 233, .06); color: var(--sx-ink-2); border-color: var(--sx-border); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveMic:not(:disabled):not(.is-rec) { background: var(--sx-accent); color: #FFFFFF; border-color: var(--sx-accent); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock:has(#liveAnswer:placeholder-shown) #liveSend { background: rgba(29, 29, 31, .06); color: var(--sx-ink-2); border-color: var(--sx-border); }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock textarea { text-shadow: none; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bc-dock textarea:focus-visible { border-color: rgba(111, 181, 154, .7); }
 
@@ -148,7 +152,7 @@ html.sx-studio #vrCall.vr-call[data-flow="rehearsal"] { background: var(--sx-bg)
 html.sx-studio #vrCall.vr-call[data-flow="rehearsal"] .vr-self { background: var(--sx-bg); }
 
 /* ── 리포트 — 읽기 우선. 머리 띠의 짙은 초록 면을 따뜻한 차콜로(글자 · 판정 색은 그대로) ── */
-html.sx-studio main#app.wide > section.verdict { background: #222724; }
+html.sx-studio main#app.wide > section.verdict { background: #FFFFFF; }
 
 /* 폰 — 덱 카드는 한 줄에 하나, 표지는 왼쪽 작게 (세 칸이 너무 좁았다) */
 @media (max-width: 720px) {
@@ -162,3 +166,23 @@ html.sx-studio main#app.wide > section.verdict { background: #222724; }
 @media (prefers-reduced-motion: reduce) {
   html.sx-studio #bqStage.bq[data-flow="rehearsal"] :is(.bq-deck, .bq-cta, .bq-role) { transition: none; transform: none !important; }
 }
+
+/* ── 밝은 스튜디오 (10-16 사용자 「VRShow 전체적으로 화면 밝게」) — Q&A 무대(qa_stage.css)의 어두운 토큰을 스튜디오 안에서만 밝게.
+   공개 앱 단독 #/rehearsal 의 Q&A 무대는 그대로 어둡다(이 파일은 스튜디오 iframe 에만 붙는다) ── */
+html.sx-studio #bqStage[data-qs="1"] {
+  --qs-ink: #1D1D1F; --qs-ink-2: rgb(29 29 31 / .72); --qs-ink-3: rgb(29 29 31 / .52); --qs-ink-4: rgb(29 29 31 / .32);
+  --qs-green: #0B7A57; --qs-green-soft: rgb(11 122 87 / .1); --qs-green-ink: #FFFFFF;
+  --qs-bg: #F5F5F7; --qs-surface: #FFFFFF; --qs-surface-2: #F0F0F3; --qs-line: rgb(29 29 31 / .08); --qs-line-2: rgb(29 29 31 / .16);
+  --rl-ink: var(--qs-ink); --rl-soft: #6E6E73;
+  --lg-tint: rgb(255 255 255 / .78); --lg-tint-text: rgb(255 255 255 / .9); --lg-tint-now: rgb(255 255 255 / .94); --lg-tint-past: rgb(255 255 255 / .8);
+  --lg-tint-field: rgb(255 255 255 / .85); --lg-tint-me: rgb(228 238 233 / .95); --lg-edge: rgba(29, 29, 31, .1);
+  --lg-sheen: linear-gradient(180deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, 0) 40%);
+  --lg-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 20px 40px -20px rgba(0, 0, 0, .14);
+  background: transparent;
+}
+html.sx-studio #bqStage[data-qs="1"] .qs-say.is-caught .qs-tx { color: rgb(29 29 31 / .3); }
+html.sx-studio #bqStage[data-qs="1"] .qs-sys :is(button, a) { background: rgb(29 29 31 / .04); }
+html.sx-studio #bqStage[data-qs="1"] .qs-sys :is(button, a):hover { background: rgb(29 29 31 / .08); }
+html.sx-studio .qs-fly { color: #1D1D1F; background-image: linear-gradient(#0B7A57, #0B7A57); }
+/* 분석 기다림 — 카메라 흐린 배경이 투명해진 창 사이로 비쳤다. 기다림 창엔 카메라가 필요 없다 */
+html.sx-studio #bqStage.bq[data-flow="rehearsal"][data-screen="wait"] :is(video, .bc-video, .bq-cam, .bc-cam) { display: none; }
