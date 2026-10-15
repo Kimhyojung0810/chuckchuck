@@ -69,6 +69,14 @@ RECORD_PATHS = {
     "/api/v1/questions": "questions.json", "/api/v1/chatter": "chatter.json",
 }
 
+# Report 2.0 재료 — 리포트가 읽는 브라우저 상태 그대로(nf · qa · 마지막 리포트 · Q&A 기록). docs/report-v2/DATA_MAPPING.md
+STATE_JS = """() => {
+  const j = (s, k) => { try { return JSON.parse(s.getItem(k) || 'null'); } catch (_) { return null; } };
+  return { newFlow: j(sessionStorage, 'cheokcheok:new-flow'), qaFlow: j(sessionStorage, 'cheokcheok:qa-flow'),
+           lastReport: j(localStorage, 'cheokcheok:last-report'), qaHistory: j(localStorage, 'cheokcheok:qa-history'),
+           liveQa: (typeof qa !== 'undefined' && qa.live) ? qa.live : null };
+}"""
+
 FAKE_SPEECH_JS = """
 (() => {
   const live = new Set();
@@ -277,6 +285,9 @@ def run(args) -> Path:
                 R["hash_trail"].append(h)
         page.on("framenavigated", on_nav)
         install(page, args, state)
+
+        def dump_state() -> None:
+            (out / "state.json").write_text(json.dumps(page.evaluate(STATE_JS), ensure_ascii=False, indent=1))
 
         def shot(name: str) -> Path:
             n["i"] += 1
@@ -538,6 +549,7 @@ def run(args) -> Path:
             beats = rec.get("beats") or []
             print("  history weak:", rec.get("weak"), "| total:", rec.get("total"), "| beats:", [(b.get("label"), b.get("bucket"), b.get("setAside")) for b in beats], flush=True)
             shot("weave_report")
+            dump_state()
 
         def wait_and_qa() -> None:
             # ── 3. 분석 기다림 ───────────────────────────────────────────
@@ -679,6 +691,7 @@ def run(args) -> Path:
             page.wait_for_function("location.hash.startsWith('#/rehearsal/report')", timeout=20000)
             page.wait_for_timeout(3000)
             sweep("report")
+            dump_state()
             mark("report", t0, {"stayed_on_end_card_13s": stayed, "hash": page.evaluate("location.hash"), "flags": page.evaluate(FLAGS_JS),
                                 "layer_gone": page.evaluate("!document.getElementById('bqStage')"), "cam_off": page.evaluate("!bq.cam.stream"),
                                 "listening": page.evaluate("window.__fakeListening()"), "history": page.evaluate("(JSON.parse(localStorage.getItem('cheokcheok:qa-history')||'[]')).length"),
