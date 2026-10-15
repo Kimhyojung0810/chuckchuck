@@ -3,57 +3,15 @@
   "version": 1,
   "team_name": "척척발표",
   "project_line": "발표 자료와 실제로 말한 것을 맞춰 보는 AI 리허설 코치",
-  "contest": "AI 루키 2026 결선",
+  "contest": "AI Rookie 2026 결선",
   "members": [
     {
-      "id": "hyojung",
-      "name": "효정",
-      "role": "발표·질문 화면 개발",
-      "headline": "척척발표의 첫 뼈대와 화면을 세웠어요",
-      "did": [
-        "자료를 읽고 핵심 개념을 뽑는 첫 기능 공개",
-        "홈·리포트·질문 코칭 화면을 읽기 쉽게 다시 짜기",
-        "분석 결과 저장으로 부스 두 번째 체험 대기 줄이기"
-      ],
-      "quote": null,
-      "photo": null,
-      "links": [],
-      "draft": true
-    },
-    {
-      "id": "hyeonseok",
-      "name": "현석",
-      "role": "발표·질문 화면 개발",
-      "headline": "발표 내용을 개념 그래프로 읽는 길을 만들었어요",
-      "did": [
-        "자료를 개념 그래프로 바꾸는 기능",
-        "말한 것과 자료를 맞춰 보는 판정과 분석 연출",
-        "병아리 객석이 반응하는 척척극장 화면"
-      ],
-      "quote": null,
-      "photo": null,
-      "links": [],
-      "draft": true
-    },
-    {
-      "id": "seokhoon",
-      "name": "석훈",
-      "role": "기능·UX 보완",
-      "headline": "예상 질문과 답 판정, 질문 코칭을 만들었어요",
-      "did": [
-        "예상 질문 만들기와 답변 판정",
-        "분석 단계를 잇는 서버 연결과 질문 시간 고르기",
-        "딥그린 디자인 시스템 옮겨 오기"
-      ],
-      "quote": null,
-      "photo": null,
-      "links": [],
-      "draft": true
-    },
-    {
       "id": "seonho",
-      "name": "선호",
-      "role": "부스·운영 기획",
+      "name": "이선호",
+      "role": "Team Lead · PM",
+      "school": "KAIST 항공우주공학과",
+      "yehs": "YEHS 카이스트 학교대표",
+      "chick": "assets/chick-team-seonho.svg",
       "headline": "AI Festa 부스 운영과 화면 다듬기를 맡았어요",
       "did": [
         "척척발표 앱 아이콘 적용",
@@ -66,13 +24,70 @@
       "draft": true
     },
     {
+      "id": "hyojung",
+      "name": "김효정",
+      "role": "Voice AI",
+      "school": "성균관대 인공지능융합전공",
+      "yehs": "YEHS 홍보부 부회장",
+      "chick": "assets/chick-team-hyojung.svg",
+      "headline": "척척발표의 첫 뼈대와 화면을 세웠어요",
+      "did": [
+        "자료를 읽고 핵심 개념을 뽑는 첫 기능 공개",
+        "홈·리포트·질문 코칭 화면을 읽기 쉽게 다시 짜기",
+        "분석 결과 저장으로 부스 두 번째 체험 대기 줄이기"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
+      "id": "seokhoon",
+      "name": "최석훈",
+      "role": "Full-stack",
+      "school": "홍익대 컴퓨터공학과",
+      "yehs": "YEHS 홍익대 학교대표",
+      "chick": "assets/chick-team-seokhoon.svg",
+      "headline": "예상 질문과 답 판정, 질문 코칭을 만들었어요",
+      "did": [
+        "예상 질문 만들기와 답변 판정",
+        "분석 단계를 잇는 서버 연결과 질문 시간 고르기",
+        "딥그린 디자인 시스템 옮겨 오기"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
       "id": "jongwon",
-      "name": "종원",
-      "role": "발표 데이터 수집",
+      "name": "이종원",
+      "role": "Business",
+      "school": "서강대 화공생명공학과",
+      "yehs": "YEHS 차세대공학리더 회장",
+      "chick": "assets/chick-team-jongwon.svg",
       "headline": "발표 데이터 수집을 맡았어요",
       "did": [
         "발표 데이터 모으기",
         "모은 발표 자료와 녹음 정리하기"
+      ],
+      "quote": null,
+      "photo": null,
+      "links": [],
+      "draft": true
+    },
+    {
+      "id": "hyeonseok",
+      "name": "정현석",
+      "role": "Multimodal AI",
+      "school": "중앙대 전자전기공학부",
+      "yehs": "YEHS 중앙대 학교대표",
+      "chick": "assets/chick-team-hyeonseok.svg",
+      "headline": "발표 내용을 개념 그래프로 읽는 길을 만들었어요",
+      "did": [
+        "자료를 개념 그래프로 바꾸는 기능",
+        "말한 것과 자료를 맞춰 보는 판정과 분석 연출",
+        "병아리 객석이 반응하는 척척극장 화면"
       ],
       "quote": null,
       "photo": null,

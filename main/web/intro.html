@@ -9,8 +9,9 @@
 <title>척척발표 — AI 발표 리허설 코치 | 팀 소개</title>
 <meta name="description" content="척척발표는 발표 자료와 실제로 말한 것을 맞춰 보고, 나올 만한 질문까지 미리 물어봐 주는 AI 발표 리허설 코치예요. 만든 사람들을 소개하고, 폰에서 바로 체험해 볼 수 있어요.">
 <link rel="canonical" href="https://chuckchuck-present.com/hi">
-<meta name="theme-color" content="#FFFFFF">
-<meta name="color-scheme" content="light">
+<!-- 무대색 — 10-15 팀 포스터의 초록(위 띠 #075640). 폰 주소창 · 상태 표시줄도 무대와 이어진다 -->
+<meta name="theme-color" content="#075640">
+<meta name="color-scheme" content="dark">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="/favicon.ico?v=i1">
 <link rel="icon" type="image/png" sizes="64x64" href="/assets/chuckchuck-app-icon-64.png?v=i1">
@@ -20,68 +21,103 @@
 <meta property="og:site_name" content="척척발표">
 <meta property="og:locale" content="ko_KR">
 <meta property="og:url" content="https://chuckchuck-present.com/hi">
-<meta property="og:title" content="척척발표 — 발표 연습, 척척발표랑 같이 해요">
-<meta property="og:description" content="말한 걸 자료와 맞춰 보고, 나올 질문까지 미리 물어봐 주는 AI 발표 리허설 코치예요.">
+<meta property="og:title" content="척척발표 — 발표, 점수로 받아본 적 있나요?">
+<meta property="og:description" content="발표를 정량적으로 채점해 주는 AI 발표 코치 · AI Rookie 2026 결선. 내 자료로 리허설하고, 질문에 답하고, 7개 영역 39개 항목으로 점수를 받아요.">
 <meta property="og:image" content="https://chuckchuck-present.com/assets/chuckchuck-app-icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
 <meta property="og:image:alt" content="척척발표 병아리 앱 아이콘">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="척척발표 — 발표 연습, 척척발표랑 같이 해요">
-<meta name="twitter:description" content="말한 걸 자료와 맞춰 보고, 나올 질문까지 미리 물어봐 주는 AI 발표 리허설 코치예요.">
+<meta name="twitter:title" content="척척발표 — 발표, 점수로 받아본 적 있나요?">
+<meta name="twitter:description" content="발표를 정량적으로 채점해 주는 AI 발표 코치 · AI Rookie 2026 결선. 내 자료로 리허설하고, 질문에 답하고, 7개 영역 39개 항목으로 점수를 받아요.">
 <meta name="twitter:image" content="https://chuckchuck-present.com/assets/chuckchuck-app-icon-512.png">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"척척발표","url":"https://chuckchuck-present.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web","inLanguage":"ko","description":"발표 자료와 실제로 말한 것을 맞춰 보고, 나올 만한 질문까지 미리 물어봐 주는 AI 발표 리허설 코치"}</script>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<!-- 서체 CSS 는 첫 그림을 막지 않게 늦게 붙인다 (그 전엔 시스템 서체). 앱(index.html)과 같은 주소라 투어로 넘어가면 캐시를 그대로 쓴다 -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
-<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"></noscript>
-<link rel="stylesheet" href="/css/intro.css?v=i12">
+<!-- 서체는 /hi 에 나오는 글자만 담은 woff2 한 장을 우리 서버에서 (10-13, etc/scripts/subset_hi_font.py). 예전 CDN 조각 14개 362KB 가 전송량의 83% 였다.
+     preload 주소는 intro.css @font-face 와 같아야 한다(?v= 도 같은 값 — 스크립트가 맞춘다). 글꼴 preload 는 crossorigin 이 있어야 그 요청을 다시 쓴다 -->
+<link rel="preload" href="/assets/fonts/cc-hi-sans.woff2?v=hdeafd04777" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/intro.css?v=i19">
 <script src="/js/funnel.js?v=fn2" defer></script>
-<script src="/js/intro.js?v=i9" defer></script>
+<script src="/js/intro.js?v=i13" defer></script>
 </head>
 <body>
-<!-- 병아리 배지 한 장을 팀원 줄마다 같이 쓴다 -->
+<!-- 그림 부품 — 병아리 배지 · 사람 얼굴 · 물결선. 한 번 그리고 <use> 로 여러 곳에 쓴다 -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <symbol id="chick" viewBox="0 0 100 100">
-    <path d="M50 9C30 9 16 24 16 45c0 13 5 22 9 28 5 7 14 13 25 13s20-6 25-13c4-6 9-15 9-28C84 24 70 9 50 9z" fill="#FFD96A" stroke="#0E8850" stroke-width="4" stroke-linejoin="round"/>
-    <ellipse cx="50" cy="72" rx="13" ry="9.5" fill="#FFF1C2"/>
-    <circle cx="38.5" cy="44" r="5.2" fill="#18181B"/><circle cx="61.5" cy="44" r="5.2" fill="#18181B"/>
+    <path d="M50 9C30 9 16 24 16 45c0 13 5 22 9 28 5 7 14 13 25 13s20-6 25-13c4-6 9-15 9-28C84 24 70 9 50 9z" fill="#FFD96A" stroke="#356B59" stroke-width="4" stroke-linejoin="round"/>
+    <ellipse cx="50" cy="72" rx="13" ry="9.5" fill="#FFF3CF"/>
+    <circle cx="38.5" cy="44" r="5.2" fill="#2F3B33"/><circle cx="61.5" cy="44" r="5.2" fill="#2F3B33"/>
     <circle cx="40" cy="42.4" r="1.7" fill="#fff"/><circle cx="63" cy="42.4" r="1.7" fill="#fff"/>
-    <path d="M50 49c2.7 0 4.3 1.3 4.3 2.8 0 1.8-1.9 3.2-4.3 3.2s-4.3-1.4-4.3-3.2c0-1.5 1.6-2.8 4.3-2.8z" fill="#F29A38"/>
+    <path d="M50 49c2.7 0 4.3 1.3 4.3 2.8 0 1.8-1.9 3.2-4.3 3.2s-4.3-1.4-4.3-3.2c0-1.5 1.6-2.8 4.3-2.8z" fill="#F0A93C"/>
   </symbol>
+  <symbol id="person" viewBox="0 0 40 40">
+    <circle cx="20" cy="15.5" r="6.5" fill="currentColor"/>
+    <path d="M8 34c1.4-6.6 6.2-10 12-10s10.6 3.4 12 10z" fill="currentColor"/>
+  </symbol>
+  <!-- 포스터의 물결 빛 — 한 주기(1200)짜리 선 8개. 두 장을 이어 붙여 왼쪽으로 흘린다(.wave i) -->
+  <symbol id="wave" viewBox="0 0 1200 160" preserveAspectRatio="none">
+    <path d="M0 80C25 85 50 100 75 103C100 106 125 103 150 97C175 90 200 72 225 63C250 55 275 47 300 46C325 45 350 49 375 59C400 69 425 95 450 106C475 117 500 131 525 127C550 123 575 93 600 80C625 67 650 49 675 47C700 45 725 61 750 68C775 74 800 83 825 86C850 90 875 87 900 87C925 86 950 84 975 82C1000 81 1025 79 1050 77C1075 75 1100 71 1125 71C1150 72 1175 75 1200 80" fill="none" stroke="url(#wave-ink)" stroke-width="1.4" opacity=".45"/>
+    <path d="M0 83C25 88 50 101 75 102C100 103 125 98 150 89C175 80 200 57 225 51C250 44 275 45 300 51C325 57 350 74 375 84C400 93 425 106 450 110C475 114 500 116 525 110C550 103 575 81 600 71C625 61 650 48 675 49C700 49 725 66 750 73C775 81 800 89 825 91C850 93 875 88 900 86C925 84 950 81 975 80C1000 78 1025 78 1050 77C1075 76 1100 73 1125 74C1150 76 1175 79 1200 83" fill="none" stroke="url(#wave-ink)" stroke-width="1.6" opacity=".6"/>
+    <path d="M0 85C25 87 50 94 75 93C100 93 125 88 150 81C175 75 200 57 225 54C250 51 275 56 300 63C325 70 350 90 375 97C400 104 425 106 450 104C475 102 500 94 525 88C550 81 575 72 600 67C625 63 650 59 675 61C700 63 725 74 750 79C775 84 800 89 825 90C850 91 875 85 900 83C925 81 950 79 975 78C1000 77 1025 77 1050 77C1075 77 1100 77 1125 79C1150 80 1175 82 1200 85" fill="none" stroke="url(#wave-ink)" stroke-width="2" opacity=".8"/>
+    <path d="M0 83C25 84 50 85 75 84C100 83 125 80 150 78C175 75 200 67 225 67C250 66 275 70 300 74C325 79 350 91 375 94C400 97 425 95 450 92C475 90 500 80 525 77C550 73 575 71 600 71C625 70 650 72 675 74C700 76 725 80 750 82C775 84 800 85 825 85C850 85 875 82 900 81C925 80 950 79 975 78C1000 78 1025 78 1050 79C1075 79 1100 80 1125 81C1150 81 1175 83 1200 83" fill="none" stroke="url(#wave-ink)" stroke-width="2.8" opacity="1"/>
+    <path d="M0 82C25 82 50 81 75 80C100 80 125 78 150 78C175 77 200 76 225 76C250 76 275 78 300 80C325 81 350 85 375 86C400 87 425 86 450 84C475 82 500 78 525 76C550 75 575 75 600 76C625 76 650 79 675 80C700 81 725 81 750 82C775 82 800 82 825 82C850 81 875 80 900 80C925 80 950 79 975 79C1000 79 1025 79 1050 80C1075 80 1100 80 1125 81C1150 81 1175 82 1200 82" fill="none" stroke="url(#wave-ink)" stroke-width="2.2" opacity=".9"/>
+    <path d="M0 82C25 81 50 80 75 79C100 78 125 77 150 77C175 76 200 77 225 78C250 79 275 80 300 82C325 83 350 86 375 86C400 86 425 84 450 83C475 81 500 76 525 75C550 74 575 74 600 76C625 77 650 80 675 81C700 82 725 83 750 82C775 82 800 81 825 81C850 80 875 80 900 80C925 79 950 79 975 79C1000 79 1025 79 1050 80C1075 80 1100 81 1125 81C1150 81 1175 82 1200 82" fill="none" stroke="url(#wave-ink)" stroke-width="1.8" opacity=".7"/>
+    <path d="M0 83C25 82 50 78 75 75C100 73 125 69 150 70C175 71 200 76 225 80C250 83 275 88 300 90C325 92 350 92 375 91C400 89 425 84 450 80C475 76 500 68 525 66C550 65 575 67 600 71C625 74 650 84 675 87C700 89 725 89 750 87C775 86 800 82 825 80C850 79 875 78 900 78C925 78 950 78 975 79C1000 79 1025 79 1050 80C1075 81 1100 82 1125 83C1150 83 1175 85 1200 83" fill="none" stroke="url(#wave-ink)" stroke-width="1.5" opacity=".55"/>
+    <path d="M0 83C25 81 50 72 75 69C100 65 125 58 150 61C175 65 200 80 225 88C250 96 275 107 300 108C325 108 350 97 375 91C400 84 425 72 450 67C475 61 500 56 525 57C550 57 575 64 600 71C625 77 650 92 675 96C700 100 725 97 750 94C775 91 800 80 825 77C850 74 875 74 900 75C925 75 950 78 975 79C1000 80 1025 81 1050 81C1075 82 1100 84 1125 84C1150 85 1175 86 1200 83" fill="none" stroke="url(#wave-ink)" stroke-width="1.3" opacity=".4"/>
+  </symbol>
+  <linearGradient id="wave-ink" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0" stop-color="#3FD599" stop-opacity=".3"/>
+    <stop offset=".3" stop-color="#5CEFB0"/>
+    <stop offset=".62" stop-color="#E2F77E"/>
+    <stop offset=".85" stop-color="#5CEFB0"/>
+    <stop offset="1" stop-color="#3FD599" stop-opacity=".35"/>
+  </linearGradient>
 </svg>
 
 <a class="skip" href="#team">팀 소개로 건너뛰기</a>
 
+<!-- 위 띠 — 이름 · 결선 이름표 · 팀 소개 -->
+<header class="bar">
+  <div class="bar-in">
+    <span class="bar-name">척척발표</span>
+    <span class="bar-chip" id="hero-contest">AI Rookie 2026 결선</span>
+    <a class="bar-btn" href="#team">팀 소개</a>
+  </div>
+</header>
+
 <main id="top">
-  <!-- 1) 히어로 — 3초 안에 읽히는 한 줄 + 문제 + 앱 아이콘. JS 없이 그려진다 -->
+  <!-- 1) 히어로 — 10-15 팀 포스터 1면: 앱 아이콘 + 큰 이름 · 결선 배지 · 「발표, 점수로 받아본 적 있나요?」 · 세 사람의 고민 · 리포트 화면 -->
   <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-art" aria-hidden="true">
-      <span class="hero-mascot">
-        <!-- 삐약이는 봉을 뺀 그림(assets/chuckchuck-mascot-nowand-256.png, etc/scripts/mascot_nowand.py) + 그 위 SVG 봉.
-             멈춰 있을 땐 앱 아이콘에 그려진 봉과 같은 자리 · 굵기 · 색이다(512 칸 좌표: 손 477,341 → 끝 400,92) — 첫 연출에서 봉이 길어져 한 바퀴 돈다 -->
-        <span class="hero-face">
-          <img class="hero-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
-          <svg class="wand" viewBox="0 0 512 512" focusable="false">
-            <g class="w-spin">
-              <g class="w-trail" fill="none" stroke="#F0B429" stroke-linecap="round">
-                <path d="M-43.6 315.4A521.3 521.3 0 0 1 323 -157" stroke-width="14" opacity=".22"/>
-                <path d="M29.3 74A521.3 521.3 0 0 1 323 -157" stroke-width="18" opacity=".4"/>
-                <path d="M162 -74.3A521.3 521.3 0 0 1 323 -157" stroke-width="22" opacity=".75"/>
+    <div class="hero-brand">
+      <div class="hero-art" aria-hidden="true">
+        <span class="hero-mascot">
+          <!-- 삐약이는 봉을 뺀 그림(assets/chuckchuck-mascot-nowand-256.png, etc/scripts/mascot_nowand.py) + 그 위 SVG 봉.
+               멈춰 있을 땐 앱 아이콘에 그려진 봉과 같은 자리 · 굵기 · 색이다(512 칸 좌표: 손 477,341 → 끝 400,92) — 첫 연출에서 봉이 길어져 한 바퀴 돈다 -->
+          <span class="hero-face">
+            <picture>
+              <source srcset="/assets/chuckchuck-mascot-nowand-256.webp?v=i1" type="image/webp">
+              <img class="hero-icon" src="/assets/chuckchuck-mascot-nowand-256.png?v=i1" width="88" height="88" alt="" fetchpriority="high" decoding="async">
+            </picture>
+            <svg class="wand" viewBox="0 0 512 512" focusable="false">
+              <g class="w-spin">
+                <g class="w-trail" fill="none" stroke="#F0B429" stroke-linecap="round">
+                  <path d="M-43.6 315.4A521.3 521.3 0 0 1 323 -157" stroke-width="14" opacity=".22"/>
+                  <path d="M29.3 74A521.3 521.3 0 0 1 323 -157" stroke-width="18" opacity=".4"/>
+                  <path d="M162 -74.3A521.3 521.3 0 0 1 323 -157" stroke-width="22" opacity=".75"/>
+                </g>
+                <line class="w-stick" x1="477" y1="341" x2="400" y2="92" stroke="#356B59" stroke-width="8" stroke-linecap="round"/>
+                <g class="w-tip">
+                  <circle cx="400" cy="92" r="27" fill="#E85C4A" opacity=".07"/>
+                  <circle cx="400" cy="92" r="19" fill="#E85C4A" opacity=".18"/>
+                  <circle cx="400" cy="92" r="11" fill="#E85C4A"/>
+                  <circle cx="396" cy="87" r="4" fill="#F18171"/>
+                </g>
               </g>
-              <line class="w-stick" x1="477" y1="341" x2="400" y2="92" stroke="#356B59" stroke-width="8" stroke-linecap="round"/>
-              <g class="w-tip">
-                <circle cx="400" cy="92" r="27" fill="#E85C4A" opacity=".07"/>
-                <circle cx="400" cy="92" r="19" fill="#E85C4A" opacity=".18"/>
-                <circle cx="400" cy="92" r="11" fill="#E85C4A"/>
-                <circle cx="396" cy="87" r="4" fill="#F18171"/>
-              </g>
-            </g>
-          </svg>
+            </svg>
+          </span>
+          <i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i>
         </span>
-        <i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i><i class="spark"></i>
-      </span>
-      <p class="hero-bubble">이 숫자, 근거가 뭐예요?</p>
+      </div>
+      <p class="hero-word">척척발표</p>
     </div>
     <p class="fly-caption" aria-hidden="true">척척, 발표 채점~!</p>
     <!-- 첫 그림 전에 삐약이가 지금 자리에서 화면 가운데까지 얼마나 떨어져 있는지 재 둔다 — css .fly 연출이 거기서 출발해 제자리로 날아온다.
@@ -92,8 +128,10 @@
       (function () {
         try {
           var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0] || {}).type;
+          // 「봤음」 은 연출을 실제로 틀 때만 적는다 — /hi/<id> · #팀 으로 바로 내려가 건너뛴 방문에도 적었더니
+          // 같은 탭에서 맨 위 /hi 를 열어도 연출이 안 나왔다 (10-13). 연출 도중 넘긴 것도 본 것으로 친다
           var seen = false;
-          try { seen = sessionStorage.getItem('cheokcheok:hi-intro') === '1'; sessionStorage.setItem('cheokcheok:hi-intro', '1'); } catch (_) { /* 사생활 모드 */ }
+          try { seen = sessionStorage.getItem('cheokcheok:hi-intro') === '1'; } catch (_) { /* 사생활 모드 */ }
           if (seen || nav === 'back_forward' || matchMedia('(prefers-reduced-motion: reduce)').matches || scrollY > 0
               || /^\/hi\/./.test(location.pathname) || location.hash) return;
           var m = document.querySelector('.hero-mascot');
@@ -106,57 +144,110 @@
           d.style.setProperty('--hand', Math.round(hand) + 'px');
           d.style.setProperty('--fy', Math.round(innerHeight * 0.42 - (r.top + r.height / 2)) + 'px');
           d.classList.add('fly');
+          try { sessionStorage.setItem('cheokcheok:hi-intro', '1'); } catch (_) { /* 사생활 모드 — 매번 튼다 */ }
+          // 연출 도중 스크롤 · 탭 · 키를 누르면 바로 끝 그림으로 — 그대로 두면 삐약이는 문서와 같이 위로 밀려 나가고
+          // 캡션(position: fixed)만 1초 가까이 빈 화면(글은 아직 투명)에 떠 있었다 (10-13 점검). 모든 연출은 건너뛸 수 있다(CLAUDE.md §3-4)
+          var evs = ['wheel', 'touchmove', 'pointerdown', 'keydown', 'scroll'];
+          var off = function () { evs.forEach(function (t) { removeEventListener(t, skip, true); }); };
+          var skip = function () { off(); d.classList.remove('fly'); d.classList.add('fly-skip'); };
+          evs.forEach(function (t) { addEventListener(t, skip, { capture: true, passive: true }); });
+          setTimeout(off, 1700);
         } catch (_) { /* 연출은 덤 */ }
       })();
     </script>
-    <!-- 첫 화면의 신뢰 신호 하나 — 사실(team.json contest)만, 작게 (지표 노트 #15) -->
-    <p class="eyebrow">AI 발표 리허설 코치<span class="sr-only"> · </span><span class="hero-badge" id="hero-contest">AI 루키 2026 결선</span></p>
-    <h1 id="hero-title" class="hero-title">발표 연습,<br>척척발표랑 같이 해요</h1>
-    <p class="hero-lead">말한 걸 자료와 맞춰 보고, 나올 질문까지 미리 물어봐 줘요.</p>
-    <a class="text-link" id="own-link-1" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
+    <p class="hero-lead">발표를 <b>정량적으로 채점</b>해 주는 AI 발표 코치</p>
+
+    <!-- 결선 배지 — 10-15 사용자 「AI ROOKIE 2026 결선 문구를 중점적으로」. 날짜 · 장소는 포스터 그대로, D-day 는 intro.js contestCountdown 이 채운다(스크립트 없으면 빈칸) -->
+    <a class="contest" href="#journey" aria-describedby="contest-dday">
+      <span class="contest-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false"><path d="M7 3h10v2h3v3a5 5 0 0 1-4.6 5A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.6 13 5 5 0 0 1 4 8V5h3zm0 4H6v1a3 3 0 0 0 1.4 2.5A7 7 0 0 1 7 8zm10 0v1c0 .9-.1 1.7-.4 2.5A3 3 0 0 0 18 8V7z" fill="currentColor"/></svg>
+      </span>
+      <span class="contest-body">
+        <span class="contest-name">AI Rookie 2026 <em>결선</em></span>
+        <span class="contest-meta">KINTEX · 11.3–11.5 · 부스 심사</span>
+      </span>
+      <span class="contest-dday" id="contest-dday"></span>
+    </a>
+
+    <h1 id="hero-title" class="hero-title">발표, <span class="hl">점수로</span><br>받아본 적 있나요?</h1>
+
+    <ul class="pains" aria-label="발표 연습할 때 자주 듣는 고민">
+      <li class="pain"><span class="pain-face pf-1" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#person"/></svg></span><p><small>대학원생</small> 다 아는 내용인데, 말하면 꼭 <b>하나씩 빼먹어요</b></p></li>
+      <li class="pain"><span class="pain-face pf-2" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#person"/></svg></span><p><small>대학생</small> 예상 못 한 질문 하나에 <b>머리가 하얘져요</b></p></li>
+      <li class="pain"><span class="pain-face pf-3" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#person"/></svg></span><p><small>사회초년생</small> 혼자 연습하면 뭘 놓쳤는지 <b>아무도 안 알려 줘요</b></p></li>
+    </ul>
+
+    <!-- 리포트 화면 한 장 — 포스터에 실은 실제 리포트 캡처의 값 그대로(B+ · 시간 관리 14 · 내용 충실도 67 · 논리 구조 90). 이미지가 아니라 글자로 그려 선명하다 -->
+    <figure class="phone" role="img" aria-label="리포트 화면. 「A_급속충전_배터리열화」 발표의 완성도는 B+, 핵심은 전했고 다듬을 곳이 보인다는 평가. 여기부터 보세요: 시간 관리 100점 중 14점, 핵심 장이 계획보다 84% 모자랐어요. 내용 충실도 67점, 논리 구조 90점">
+      <div class="phone-in">
+        <p class="ph-meta">수업에서 발표해요 · 슬라이드 4개 · 2분 35초</p>
+        <p class="ph-file">녹음 파일 「A-1 녹음.m4a」로 분석했어요</p>
+        <p class="ph-title">A_급속충전_배터리열화</p>
+        <p class="ph-k">발표 완성도</p>
+        <p class="ph-grade">B+<svg viewBox="0 0 100 100"><use href="#chick"/></svg></p>
+        <p class="ph-sum">핵심은 전했고, 다듬을 곳이 보여요</p>
+        <div class="ph-focus">
+          <span class="ph-tag">여기부터 보세요</span>
+          <p class="ph-area">시간 관리</p>
+          <p class="ph-score"><b>14</b>/100</p>
+          <span class="ph-bar"><i></i></span>
+          <p class="ph-why">핵심 장이 계획보다 84% 모자랐어요.</p>
+        </div>
+        <ul class="ph-rows">
+          <li><span>내용 충실도</span><span><b>67</b>/100</span></li>
+          <li><span>논리 구조</span><span><b>90</b>/100</span></li>
+        </ul>
+      </div>
+      <figcaption class="phone-cap">실제 리포트 화면<br><b>7개 영역 · 39개 항목 채점</b></figcaption>
+    </figure>
   </section>
 
-  <!-- 2) 무엇을 해 주나 — 한 단계에 한 메시지 · 한 그림. 그림 속 글과 숫자는 녹화 투어(data/tour/delivery-rating.json)에 실제로 나온 값만 쓴다 -->
-  <section id="what" class="block" aria-labelledby="what-title">
+  <div class="wave" aria-hidden="true"><i><svg><use href="#wave"/></svg><svg><use href="#wave"/></svg></i></div>
+
+  <!-- 바로 해 보기 — 포스터 1면 아래 노란 판. 폰에서는 버튼, 넓은 화면에서는 폰으로 여는 QR 도 -->
+  <section class="try rv" aria-labelledby="try-title">
+    <div class="try-text">
+      <p class="try-k">회원가입 없이 · 내 자료로 바로 시작</p>
+      <h2 id="try-title" class="try-title">30초 만에 내 발표 점수 받기</h2>
+      <a class="try-btn" id="own-link-1" href="/index.html#/rehearsal" data-needs-camera>내 자료로 해 보기</a>
+    </div>
+    <div class="try-art" aria-hidden="true">
+      <p class="try-bubble">제가 먼저 들어 볼게요!</p>
+      <img src="/assets/chick-team-seonho.svg?v=c1" width="96" height="96" alt="" loading="lazy" decoding="async" class="try-chick">
+    </div>
+    <figure class="try-qr">
+      <img src="/assets/booth-qr-hi.svg?v=q1" width="96" height="96" alt="이 페이지를 폰으로 여는 QR 코드" loading="lazy" decoding="async">
+      <figcaption>폰으로 열기</figcaption>
+    </figure>
+  </section>
+
+  <!-- 2) 이렇게 도와요 — 포스터 2면. 카드 셋: 리허설 · 질문 · 리포트. 그림 속 글과 숫자는 녹화 투어(data/tour/delivery-rating.json)에 실제로 나온 값만 쓴다 -->
+  <section id="what" class="block what" aria-labelledby="what-title">
     <div class="block-head rv">
-      <p class="eyebrow">발표 한 번이면</p>
-      <h2 id="what-title" class="block-title">네 단계로 도와줘요</h2>
+      <p class="eyebrow">How it works</p>
+      <h2 id="what-title" class="block-title">척척발표는 <span class="hl">이렇게</span> 도와요</h2>
+      <p class="block-lead">자료에는 있는데 <b>말로는 안 한 것</b>까지 잡아내요</p>
     </div>
     <ol class="feats">
       <li class="feat rv">
-        <div class="feat-visual" role="img" aria-label="발표 자료 아래 객석에서 병아리 청중이 듣고 있는 화면">
-          <div class="mock-stage">
-            <img class="mock-slide" src="/assets/deck-covers/delivery-rating.webp" width="800" height="450" alt="" loading="lazy" decoding="async">
-            <span class="mock-pill mock-live"><i></i>발표 중</span>
-            <span class="mock-pill mock-page">1 / 3장</span>
+        <div class="feat-visual" role="img" aria-label="AI 코치가 「발표를 듣고 있어요」 라고 알려 주고, 그 아래 객석에서 병아리 청중이 듣고 있는 화면">
+          <div class="mock-coach">
+            <svg class="mock-coach-chick" viewBox="0 0 100 100"><use href="#chick"/></svg>
+            <div class="mock-coach-text">
+              <p class="mock-coach-k">지금 여기서 AI가 이렇게 봐요</p>
+              <p class="mock-coach-t">발표를 듣고 있어요</p>
+              <p class="mock-coach-s">말 속도 · 군더더기 말 · 장마다 쓴 시간을 봐요</p>
+            </div>
+            <span class="mock-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
           </div>
           <div class="mock-seats">
-            <svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg><svg class="seat" viewBox="0 0 100 100"><use href="#chick"/></svg>
+            <img class="seat" src="/assets/chick-team-hyojung.svg?v=c1" width="40" height="40" alt="" loading="lazy" decoding="async"><img class="seat" src="/assets/chick-team-seokhoon.svg?v=c1" width="40" height="40" alt="" loading="lazy" decoding="async"><img class="seat" src="/assets/chick-team-seonho.svg?v=c1" width="40" height="40" alt="" loading="lazy" decoding="async"><img class="seat" src="/assets/chick-team-hyeonseok.svg?v=c1" width="40" height="40" alt="" loading="lazy" decoding="async"><img class="seat" src="/assets/chick-team-jongwon.svg?v=c1" width="40" height="40" alt="" loading="lazy" decoding="async">
           </div>
         </div>
         <div class="feat-body">
-          <p class="feat-label"><span class="feat-no">1</span>발표 리허설</p>
-          <h3 class="feat-title">자료를 넘기며 말하면<br>병아리 청중이 들어요</h3>
-          <p class="feat-text">말하는 빠르기에 맞춰 객석의 병아리가 반응해요.</p>
-        </div>
-      </li>
-      <li class="feat rv">
-        <div class="feat-visual" role="img" aria-label="자료의 중요한 개념 12개 가운데 11개를 말했고, 3장의 핵심 주장 하나를 말하지 않았다고 알려 주는 화면">
-          <div class="mock-card">
-            <p class="mock-k">자료와 맞춰 봤어요</p>
-            <p class="mock-big"><b>11</b><span>/ 12</span> 개념을 말했어요</p>
-            <span class="mock-bar"><i></i></span>
-            <ul class="mock-tags"><li>리뷰 이벤트</li><li>재주문율</li><li>행동 지표</li></ul>
-            <div class="mock-miss">
-              <span class="chip st-om">말하지 않았어요 · 3장</span>
-              <p>4.7은 품질이 아니라 리뷰 수집 방식의 결과다</p>
-            </div>
-          </div>
-        </div>
-        <div class="feat-body">
-          <p class="feat-label"><span class="feat-no">2</span>자료와 맞춰 보기</p>
-          <h3 class="feat-title">빠뜨린 말을<br>장마다 짚어 줘요</h3>
-          <p class="feat-text">자료에 있는데 말하지 않은 내용, 자료와 다르게 말한 곳을 찾아요.</p>
+          <p class="feat-label"><span class="feat-no">01</span><span class="feat-pill">발표 리허설</span></p>
+          <h3 class="feat-title">내 PPT로 카메라 앞에서<br><span class="hl-g">리허설</span>해요</h3>
+          <p class="feat-text">PPT·PDF를 올리고 평소처럼 말해 보세요. 삐약이가 <b>말 빠르기·목소리 크기</b>에 바로 반응해요.</p>
         </div>
       </li>
       <li class="feat rv">
@@ -171,13 +262,13 @@
           </div>
         </div>
         <div class="feat-body">
-          <p class="feat-label"><span class="feat-no">3</span>예상 질문 연습</p>
-          <h3 class="feat-title">나올 만한 질문을<br>미리 물어봐요</h3>
-          <p class="feat-text">내 답이 자료의 어느 줄에 기대는지 근거와 함께 보여 줘요.</p>
+          <p class="feat-label"><span class="feat-no">02</span><span class="feat-pill">질문 답하기</span></p>
+          <h3 class="feat-title">교수님이<br><span class="hl-g">질문</span>해요</h3>
+          <p class="feat-text">자료와 내 말을 맞춰 보고 <b>빠뜨린 근거</b>를 바로 물어요. 부족하면 꼬리질문까지 이어져요.</p>
         </div>
       </li>
       <li class="feat rv">
-        <div class="feat-visual" role="img" aria-label="자료와 맞게 말했나 좋아요, 말이 또렷한가 보통, 목소리와 빠르기 더 연습으로 정리한 리포트 화면">
+        <div class="feat-visual" role="img" aria-label="자료와 맞게 말했나 좋아요, 말이 또렷한가 보통, 목소리와 빠르기 더 연습, 3장 핵심 주장은 말하지 않았다고 정리한 리포트 화면">
           <div class="mock-card mock-report">
             <p class="mock-k">리포트</p>
             <ul class="mock-rows">
@@ -185,64 +276,235 @@
               <li><span>말이 또렷한가</span><span class="chip st-mid">보통</span></li>
               <li><span>목소리와 빠르기</span><span class="chip st-no">더 연습</span><small>1분에 253자예요 · 권장 300~350자</small></li>
             </ul>
+            <div class="mock-miss">
+              <span class="chip st-om">말하지 않았어요 · 3장</span>
+              <p>4.7은 품질이 아니라 리뷰 수집 방식의 결과다</p>
+            </div>
           </div>
         </div>
         <div class="feat-body">
-          <p class="feat-label"><span class="feat-no">4</span>리포트</p>
-          <h3 class="feat-title">고칠 곳을<br>한 장에 모아 줘요</h3>
-          <p class="feat-text">「좋아요 · 보통 · 더 연습」 세 단계 말로 보여 주고, 다음에 할 일도 적어 줘요.</p>
+          <p class="feat-label"><span class="feat-no">03</span><span class="feat-pill">리포트</span></p>
+          <h3 class="feat-title">근거 있는<br><span class="hl-g">점수</span>를 받아요</h3>
+          <p class="feat-text">7개 영역 39개 항목으로 채점하고, 슬라이드마다 <b>내가 한 말과 놓친 개념</b>을 짚어 줘요.</p>
         </div>
       </li>
     </ol>
-    <p class="feats-note rv">그림 속 내용은 미리 녹화한 체험 「별점은 왜 4.7에 몰리는가」 발표에서 실제로 나온 결과예요.</p>
+    <p class="feats-note rv">그림 속 질문 · 판정은 미리 녹화한 체험 「별점은 왜 4.7에 몰리는가」 발표에서 실제로 나온 결과예요.</p>
   </section>
 
-  <!-- 3) 팀 소개 — data/team.json 을 읽어 한 사람 한 줄로 그린다. 줄 수 = members 길이 -->
-  <section id="team" class="block team" aria-labelledby="team-title">
+  <!-- 3) 우리 이야기 — 포스터 3면 위. 사진 대신 팀원 다섯 명의 삐약이(~/meetings/삐약이_팀원캐릭터, 10-15) -->
+  <section id="story" class="block story" aria-labelledby="story-title">
     <div class="block-head rv">
-      <p class="eyebrow" id="team-contest">AI 루키 2026 결선</p>
-      <h2 id="team-title" class="block-title">척척발표를 만든 사람들</h2>
-      <p class="block-lead" id="team-lead">함께 만든 사람들을 소개할게요.</p>
+      <p class="eyebrow">Our Story</p>
+      <h2 id="story-title" class="block-title">발표 앞에서 떨던 우리가,<br><span class="hl">발표 코치</span>를 만들었어요</h2>
     </div>
-
-    <div class="team-box" data-state="loading">
-      <ul class="team-list" id="team-list" aria-label="팀원">
-        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
-        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
-        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
-        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
-        <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
-      </ul>
-      <div class="team-error" id="team-error" hidden>
-        <p>팀 소개를 불러오지 못했어요. 연결을 확인하고 다시 불러와 주세요.</p>
-        <button type="button" class="btn-ghost" id="team-retry">다시 불러오기</button>
-      </div>
-      <noscript><p class="team-error">팀 소개는 자바스크립트를 켜면 볼 수 있어요.</p></noscript>
+    <div class="story-body rv">
+      <p class="story-lead">수백 번의 발표에서 직접 겪은 문제를<br>이제 우리 손으로 풀고 있어요.</p>
+      <p>우리는 <b>YEHS 차세대공학리더</b>에서 만나 하나로 뭉쳤어요. 전공은 달라도, 매주 발표하고 질문받는 건 같았어요.</p>
+      <p>슬라이드는 AI가 만들어 주는데 <b>말하는 연습은 늘 혼자였죠.</b> 그래서 <b>내 자료를 읽고, 듣고, 질문하는 코치</b>를 만들었어요.</p>
     </div>
+    <ul class="flock rv" aria-label="팀원 다섯 명의 삐약이">
+      <li><img src="/assets/chick-team-seonho.svg?v=c1" width="88" height="88" alt="" loading="lazy" decoding="async"><span>선호</span></li>
+      <li><img src="/assets/chick-team-hyojung.svg?v=c1" width="88" height="88" alt="" loading="lazy" decoding="async"><span>효정</span></li>
+      <li><img src="/assets/chick-team-seokhoon.svg?v=c1" width="88" height="88" alt="" loading="lazy" decoding="async"><span>석훈</span></li>
+      <li><img src="/assets/chick-team-jongwon.svg?v=c1" width="88" height="88" alt="" loading="lazy" decoding="async"><span>종원</span></li>
+      <li><img src="/assets/chick-team-hyeonseok.svg?v=c1" width="88" height="88" alt="" loading="lazy" decoding="async"><span>현석</span></li>
+    </ul>
   </section>
-
-  <!-- 4) 마무리 — 투어로 넘기는 이유를 한 번 더. 페이지에서 브랜드 초록 면은 여기 한 곳만 -->
-  <section class="block outro" aria-labelledby="outro-title">
-    <div class="outro-panel rv">
-      <h2 id="outro-title" class="outro-title">직접 눌러 보면<br>더 잘 보여요</h2>
-      <p class="outro-lead">미리 녹화한 체험이라 <span class="nowrap">카메라·마이크</span> 없이 볼 수 있어요.</p>
-      <ol class="tour-path" aria-label="체험 순서">
-        <li>자료</li><li>발표</li><li>분석</li><li>질문</li><li>리포트</li>
-      </ol>
-      <a class="text-link" id="own-link-2" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
-    </div>
-  </section>
-
-  <footer class="foot">
-    <p>척척발표 · <span id="foot-contest">AI 루키 2026 결선</span></p>
-    <a href="/">서비스 홈으로 가기</a>
-  </footer>
 </main>
 
-<!-- 아래 고정 주 버튼 — 스크롤 위치와 상관없이 항상 엄지 닿는 곳에 있다 (safe-area 반영) -->
-<div class="dock">
-  <a class="btn-primary" id="explore-btn" href="/index.html#/tour">척척발표 살펴보기</a>
+<!-- 여기부터 밝은 종이 — 포스터 3면 아래 · 4면. 아래 고정 버튼 띠도 이 구역 위에선 밝게 바뀐다(intro.js dockZone) -->
+<div class="paper" id="paper">
+  <div class="paper-in">
+    <!-- 4) 팀 소개 — data/team.json 을 읽어 한 사람 한 장(삐약이 · 이름 · 역할 · 학과 · YEHS 직함 · 연락처). 장 수 = members 길이.
+         마지막 칸(NAEK YEHS)은 고정 — intro.js 가 사람 카드 뒤에 다시 붙인다 -->
+    <section id="team" class="block team" aria-labelledby="team-title">
+      <div class="block-head rv">
+        <p class="eyebrow" id="team-contest">AI Rookie 2026 결선</p>
+        <h2 id="team-title" class="block-title">함께 <span class="hl-g">세상을 바꾸는</span> 사람들</h2>
+        <p class="block-lead" id="team-lead">항공우주·AI·컴퓨터·화생공·전자, 전공은 다섯 갈래지만 <b>‘발표’라는 같은 문제</b>를 함께 풀고 있어요.</p>
+      </div>
+
+      <div class="team-box" data-state="loading">
+        <ul class="team-list" id="team-list" aria-label="팀원" aria-busy="true">
+          <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+          <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+          <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+          <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+          <li class="team-row sk-row" aria-hidden="true"><span class="sk-avatar"></span><span class="who"><span class="sk w40"></span><span class="sk w80"></span></span></li>
+          <li class="team-yehs" id="team-yehs">
+            <img src="/assets/naek-yehs.svg?v=y2" width="184" height="42" alt="한국공학한림원 차세대공학리더 NAEK YEHS" decoding="async">
+            <p><b>한국공학한림원 <span>차세대공학리더</span></b><br>회장 · 부회장 · 학교대표 5인</p>
+          </li>
+        </ul>
+        <div class="team-error" id="team-error" role="alert" hidden>
+          <p>팀 소개를 불러오지 못했어요. 연결을 확인하고 다시 불러와 주세요.</p>
+          <button type="button" class="btn-ghost" id="team-retry">다시 불러오기</button>
+        </div>
+        <noscript><p class="team-error">팀 소개는 자바스크립트를 켜면 볼 수 있어요.</p></noscript>
+      </div>
+    </section>
+
+    <!-- 5) 여기까지 · 여기로 — 포스터 4면. 날짜 · 숫자는 포스터 그대로. 지금 단계(다음 결선)는 노란 점 -->
+    <section id="journey" class="block journey" aria-labelledby="journey-title">
+      <div class="block-head rv">
+        <p class="eyebrow">Our Journey</p>
+        <h2 id="journey-title" class="block-title">여기까지 왔고, 여기로 가요</h2>
+      </div>
+      <ol class="road rv">
+        <li class="done"><time>2026.07</time><p><b>AI Rookie 본선 진출</b><span>721팀 중 본선 100팀</span></p></li>
+        <li class="done"><time>2026.09</time><p><b>1차 결선 진출</b><span>본선 중 결선 40팀</span></p></li>
+        <li class="done"><time>2026.10</time><p><b>AI FESTA 부스 운영</b><span>코엑스 AI 특별관 · 3일</span></p></li>
+        <li class="next"><time>2026.11.3–5</time><p><b>AI Rookie 1차 결선</b><span>킨텍스 · 부스 심사</span></p></li>
+        <li><time>2026.11.18</time><p><b>최종 결선 도전</b><span>과학기술회관 · 10팀</span></p></li>
+      </ol>
+      <div class="made rv">
+        <p class="made-k">국내 AI 기술로 만들었어요 <a class="made-more" href="#ai">어디에 썼는지 보기</a></p>
+        <ul><li>Upstage Document Parse</li><li>Solar</li><li>SKT A.X</li><li>KT Mi:dm</li><li>LG EXAONE</li></ul>
+      </div>
+    </section>
+
+    <!-- 6) 채점 기준 — 7개 영역 이름은 main/pipeline/rubric_v3.py AREA 이름 그대로 -->
+    <section id="scoring" class="block scoring" aria-labelledby="scoring-title">
+      <div class="block-head rv">
+        <p class="eyebrow">“어떤 기준으로 채점하나요?”</p>
+        <h2 id="scoring-title" class="block-title">이렇게 <span class="hl-g">채점</span>해요</h2>
+      </div>
+      <ol class="areas rv">
+        <li><b>01</b>내용 충실도</li><li><b>02</b>논리 구조</li><li><b>03</b>목적·청중 적합성</li><li><b>04</b>언어적 명료성</li>
+        <li><b>05</b>음성적 전달</li><li><b>06</b>시각자료 활용</li><li><b>07</b>시간 관리</li><li class="areas-all"><b>39</b>세부 채점 항목</li>
+      </ol>
+    </section>
+
+    <!-- 6-1) AI 모델마다 맡은 일 (10-15) — 사실은 저장소 코드 기준: main/pipeline/config.py · providers/llm_impl.py · f06 · f09 · f12 · f18 · _lora_tagger.py.
+         숫자는 측정 기록 그대로 — 재현성 docs/review/2026-10-02_개념그래프_재현성(251ba8f), 질문 생성 시간 QA_BENCH_LEDGER(2026-09-16), LoRA DATA_PIPELINE §3 -->
+    <section id="ai" class="block ai" aria-labelledby="ai-title">
+      <div class="block-head rv">
+        <p class="eyebrow">Which AI, where</p>
+        <h2 id="ai-title" class="block-title">AI 모델마다<br><span class="hl">맡은 일</span>이 달라요</h2>
+        <p class="block-lead">국내 AI 모델 다섯 개를 <b>가장 잘하는 일</b>에 나눠 맡겼어요. AI가 답하면 <b>근거는 코드가 자료 원문과 맞춰 봐요.</b></p>
+      </div>
+      <ol class="ai-list">
+        <li class="ai-card ai-main rv">
+          <p class="ai-top"><span class="ai-maker">Upstage</span><span class="ai-stage">분석 · 질문 · 판정 · 리포트</span></p>
+          <h3 class="ai-name">Solar <small>주 추론 모델</small></h3>
+          <p class="ai-job">자료의 핵심 주장과 개념 지도를 만들고, 교수님 질문을 만들고, 내 답을 판정해요.</p>
+          <ul class="ai-how">
+            <li><b>세 번 읽고 다수결</b><span>같은 자료를 세 번 읽어 두 번 이상 나온 개념만 남겨요. 같은 자료로 10번 돌려도 핵심 주장이 덱 11개 모두에서 같았어요.</span></li>
+            <li><b>같은 답엔 같은 판정</b><span>판정은 무작위성을 0으로 두고 같은 질문·답은 다시 계산하지 않아요.</span></li>
+            <li><b>근거는 줄 번호로만</b><span>AI는 「3장 2번째 줄」 같은 번호만 돌려주고, 코드가 그 번호로 원문을 찾아 맞는지 확인해요.</span></li>
+          </ul>
+        </li>
+        <li class="ai-card rv">
+          <p class="ai-top"><span class="ai-maker">Upstage</span><span class="ai-stage">자료 읽기</span></p>
+          <h3 class="ai-name">Document Parse</h3>
+          <p class="ai-job">PPT·PDF를 장마다 읽어 글·표·차트를 구조로 바꿔요.</p>
+          <ul class="ai-how">
+            <li><b>장마다 읽는 방식을 골라요</b><span>글만 있는 장과 그림이 많은 장을 다르게 읽고, 차트도 읽어요.</span></li>
+          </ul>
+        </li>
+        <li class="ai-card rv">
+          <p class="ai-top"><span class="ai-maker">SKT</span><span class="ai-stage">받아쓰기 · 예비 두뇌</span></p>
+          <h3 class="ai-name">A.X</h3>
+          <p class="ai-job">발표 녹음을 받아써요. 낱말마다 몇 초에 말했는지까지 받아 장마다 말 빠르기를 재요.</p>
+          <ul class="ai-how">
+            <li><b>Solar가 막히면 이어받아요</b><span>주 모델이 답하지 못하면 A.X가 한 번 대신 답해서 흐름이 끊기지 않아요.</span></li>
+          </ul>
+        </li>
+        <li class="ai-card ai-tuned rv">
+          <p class="ai-top"><span class="ai-maker">KT</span><span class="ai-stage">말버릇 찾기</span></p>
+          <h3 class="ai-name">Mi:dm <small>직접 파인튜닝</small></h3>
+          <p class="ai-job">발표에서 같은 말을 되풀이한 구간을 찾아요.</p>
+          <ul class="ai-how">
+            <li><b>공적 말하기 데이터로 학습</b><span>AI Hub 「공적말하기 실습 및 평가」 640건으로 Mi:dm 2.0에 LoRA를 학습했어요.</span></li>
+          </ul>
+          <p class="ai-metric"><span>되풀이 찾기 정확도(F1)</span><b>0.01 → 0.69</b></p>
+        </li>
+        <li class="ai-card rv">
+          <p class="ai-top"><span class="ai-maker">LG</span><span class="ai-stage">청중 삐약이</span></p>
+          <h3 class="ai-name">EXAONE</h3>
+          <p class="ai-job">발표가 끝나면 청중석 삐약이가 되어 잘한 점을 짚어 줘요.</p>
+          <ul class="ai-how">
+            <li><b>삐약이 넷, 모델 넷</b><span>Mi:dm은 빠뜨린 말, Solar는 순서, EXAONE은 칭찬, A.X는 들은 말을 맡아요. 무엇을 말할지는 코드가 정하고 AI는 말투만 입혀요.</span></li>
+          </ul>
+        </li>
+      </ol>
+      <div class="ai-bench rv">
+        <p class="ai-bench-k">왜 Solar가 주 모델인가요?</p>
+        <p class="ai-bench-lead">같은 자료로 교수님 질문을 만든 시간이에요. 셋 다 지어낸 내용은 없었지만, 빠르고 형식이 안 깨진 Solar를 주 모델로 골랐어요.</p>
+        <ul class="ai-bars" aria-label="질문 만드는 시간">
+          <li><span class="ai-bar-name">Solar</span><span class="ai-bar"><i style="width:10%"></i></span><b>5.4초</b></li>
+          <li><span class="ai-bar-name">A.X</span><span class="ai-bar"><i style="width:48%"></i></span><b>26.5초</b></li>
+          <li><span class="ai-bar-name">EXAONE</span><span class="ai-bar"><i style="width:100%"></i></span><b>55초</b></li>
+        </ul>
+        <p class="ai-bench-note">2026년 9월 팀 실측 · 판정은 Solar로 고정</p>
+      </div>
+      <p class="ai-cam rv"><b>카메라는 브라우저 안에서만</b> OpenCV로 정면을 본 시간만 재고, 화면은 서버로 보내지 않아요. 표정으로 감정을 짐작하지 않아요.</p>
+    </section>
+
+    <!-- 7) 부스에서 들은 이야기 — AI FESTA 2026 부스에서 실제로 들은 말 (포스터 4면) -->
+    <section id="voices" class="block voices" aria-labelledby="voices-title">
+      <div class="block-head rv">
+        <h2 id="voices-title" class="block-title">부스에서 들은 이야기</h2>
+        <p class="voices-where">AI FESTA 2026 · 코엑스</p>
+      </div>
+      <ul class="pains pains-light rv">
+        <li class="pain"><span class="pain-face pf-1" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#person"/></svg></span><p><small>대학(원)생</small> 곧 있을 프로젝트 발표 전에 <b>바로 써보고 싶어요</b></p></li>
+        <li class="pain"><span class="pain-face pf-2" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#person"/></svg></span><p><small>학부모</small> 아이 <b>발표대회 준비</b>에 도움이 될 것 같아요</p></li>
+        <li class="pain"><span class="pain-face pf-3" aria-hidden="true"><svg viewBox="0 0 40 40"><use href="#person"/></svg></span><p><small>교육·기업 관계자</small> <b>수업이나 신입 교육</b>에도 쓸 수 있을까요?</p></li>
+      </ul>
+    </section>
+
+    <!-- 8) 마무리 — 투어로 넘기는 이유를 한 번 더 -->
+    <section class="block outro" aria-labelledby="outro-title">
+      <div class="outro-panel rv">
+        <h2 id="outro-title" class="outro-title">직접 눌러 보면<br><span class="hl">더 잘 보여요</span></h2>
+        <p class="outro-lead">미리 녹화한 체험이라 <span class="nowrap">카메라·마이크</span> 없이 볼 수 있어요.</p>
+        <ol class="tour-path" aria-label="체험 순서">
+          <li>자료</li><li>발표</li><li>분석</li><li>질문</li><li>리포트</li>
+        </ol>
+        <a class="text-link" id="own-link-2" href="/index.html#/rehearsal" data-needs-camera>바로 내 자료로 해 보기</a>
+      </div>
+    </section>
+
+    <!-- 9) 이야기해요 — 포스터 4면 맨 아래 판 -->
+    <section class="block talk" aria-labelledby="talk-title">
+      <div class="talk-panel rv">
+        <h2 id="talk-title" class="talk-title">척척발표와 이야기해요</h2>
+        <p class="talk-lead">대학·교육기관·기업 교육팀<br>파일럿 파트너를 찾고 있어요.</p>
+        <dl class="talk-list">
+          <div><dt>Website</dt><dd><a href="https://chuckchuck-present.com/">chuckchuck-present.com</a></dd></div>
+          <div><dt>E-mail</dt><dd><a href="mailto:yehschuck@gmail.com">yehschuck@gmail.com</a></dd></div>
+          <div><dt>Instagram</dt><dd><a href="https://www.instagram.com/chuckchuck.present/" rel="noopener">@chuckchuck.present</a></dd></div>
+          <div><dt>YouTube</dt><dd>척척발표</dd></div>
+        </dl>
+        <div class="wave wave-sm" aria-hidden="true"><i><svg><use href="#wave"/></svg><svg><use href="#wave"/></svg></i></div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <img class="foot-logo" src="/assets/naek-yehs.svg?v=y2" width="108" height="25" alt="한국공학한림원 차세대공학리더 NAEK YEHS" loading="lazy" decoding="async">
+      <p>척척발표 · <span id="foot-contest">AI Rookie 2026 결선</span></p>
+      <a href="/">서비스 홈으로 가기</a>
+    </footer>
+  </div>
 </div>
+
+<!-- 아래 고정 주 버튼 — 스크롤 위치와 상관없이 항상 엄지 닿는 곳에 있다 (safe-area 반영) -->
+<nav class="dock" aria-label="체험 시작">
+  <a class="btn-primary" id="explore-btn" href="/index.html#/tour">척척발표 살펴보기</a>
+</nav>
+
+<!-- 투어 첫 화면 자산 — js/intro.js prefetchTour() 가 /hi 를 다 그린 뒤 한가할 때 rel=prefetch 로 미리 받는다. template 이라 여기선 아무것도 안 받는다.
+     ?v= 는 index.html 과 같은 값으로 둔다(브리지는 둘 다 내용 해시로 바꿔 넣어 저절로 맞는다 · etc/tests/test_intro_prefetch.py 가 대조한다) -->
+<template id="tour-prefetch">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link href="/css/app.css?v=ql17"><link href="/css/graph3d.css?v=qku3"><link href="/css/chatter.css?v=qkh"><link href="/css/theater.css?v=qkh2">
+  <link href="/css/design-system.css?v=qlst3"><link href="/css/tablet.css?v=qkl3"><link href="/css/tour.css?v=tr13">
+  <script src="/js/lazy.js?v=lz1"></script><script src="/js/config.js?v=qkh"></script><script src="/js/data.js?v=qkn3"></script>
+  <script src="/js/app.js?v=qlbc78"></script><script src="/js/tour_logic.js?v=tr5"></script><script src="/js/tour.js?v=tr18"></script>
+  <script src="/js/tour_play.js?v=tr10"></script>
+</template>
 
 <!-- 인앱 브라우저(카카오톡·네이버·인스타)에서 카메라가 필요한 실제 흐름으로 갈 때만 뜬다. 진입 즉시 뜨지 않는다 -->
 <div class="sheet-scrim" id="inapp" hidden>
@@ -252,7 +514,7 @@
     <h2 id="inapp-title" class="sheet-title">Safari나 Chrome에서 열면 돼요</h2>
     <p id="inapp-desc" class="sheet-text">내 자료로 해 보려면 카메라와 마이크가 필요해요. 둘은 Safari나 Chrome에서 켤 수 있어요. 살펴보기는 <span id="inapp-app">이 앱</span>에서도 끝까지 할 수 있어요.</p>
     <p class="sheet-hint sheet-tip" id="inapp-tip" hidden>앱 메뉴(<b>···</b>)에서 <b>Safari로 열기</b>를 고르거나, 주소를 복사해 Safari에 붙여 넣어요.</p>
-    <p class="sheet-hint" id="inapp-hint" role="status" hidden></p>
+    <p class="sheet-hint" id="inapp-hint" role="status"></p>
     <div class="sheet-actions">
       <button type="button" class="btn-solid" id="inapp-open">주소 복사하기</button>
       <button type="button" class="btn-ghost" id="inapp-copy" hidden>주소 복사하기</button>

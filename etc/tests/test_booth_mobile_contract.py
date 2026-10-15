@@ -367,10 +367,11 @@ def test_공개_방문자가_hi_에서_랜딩을_받는다(monkeypatch, url):
     status, _, body = h.response()
     assert status == 200, url
     html = body.decode("utf-8")
-    assert "척척발표를 만든 사람들" in html and 'href="/index.html#/tour"' in html
+    # 팀 소개 자리(문구는 10-15 포스터 「함께 세상을 바꾸는 사람들」 로 바뀌었다 — 문구 대신 목록 자리를 본다)
+    assert 'id="team-list"' in html and 'href="/index.html#/tour"' in html
     # 주소가 /hi/<id> 이기도 해서 로컬 참조는 / 로 시작해야 한다 (상대 경로면 /hi/css/… 로 샌다)
     for ref in re.findall(r'(?:href|src)="([^"#]+)"', html):
-        if not re.match(r"^(?:https?:)?//", ref):
+        if not re.match(r"^(?:(?:https?:)?//|mailto:|tel:)", ref):   # 바깥 주소 · 메일 · 전화는 로컬 참조가 아니다
             assert ref.startswith("/"), ref
 
 

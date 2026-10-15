@@ -139,6 +139,19 @@
     if (!on && viewportBefore != null) { m.setAttribute('content', viewportBefore); viewportBefore = null; }
   }
 
+  /* 투어 층이 떠 있는 동안 뒤 앱 화면(body 의 다른 형제)은 inert — 눈에는 가려져도 Tab · 화면 읽기가 뒤 화면으로 들어갔다 (10-13 접근성 점검).
+     원래 inert 였던 것은 건드리지 않고, 우리가 켠 것만 걷을 때 끈다 */
+  let bodyInert = [];
+  function inertBehind(el, on) {
+    if (on) {
+      bodyInert = Array.from(document.body.children).filter((n) => n !== el && !n.inert && n.tagName !== 'SCRIPT');
+      bodyInert.forEach((n) => { n.inert = true; });
+    } else {
+      bodyInert.forEach((n) => { n.inert = false; });
+      bodyInert = [];
+    }
+  }
+
   function layer() {
     let el = document.getElementById('tourStage');
     if (el) return el;
@@ -156,6 +169,7 @@
       <footer class="tour-foot" data-tour-foot></footer>
       <p class="tour-live" aria-live="polite" data-tour-live></p>`;
     document.body.appendChild(el);
+    inertBehind(el, true);
     el.addEventListener('error', imgFailed, true);   // 그림 error 는 거품이 안 올라온다 — 잡기 단계에서 받는다
     el.querySelector('[data-tour-back]').addEventListener('click', goBack);
     // 「팀 소개로 돌아가기」(끝 화면 · 오류 화면) · 위 띠 X — 페이지가 /hi 로 바뀌기 직전이라 신호는 keepalive 로 간다.
@@ -257,6 +271,7 @@
     closeZoom(false);
     const el = document.getElementById('tourStage');
     if (el) el.remove();
+    inertBehind(null, false);
     viewportCover(false);
     document.body.classList.remove('tour-open');
     lastScreen = null;

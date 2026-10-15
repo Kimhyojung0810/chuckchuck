@@ -1,11 +1,15 @@
 /* 모바일 체험 투어 #/tour/* (js/tour.js · js/tour_play.js) — 2026-10-11, docs/booth-mobile/.
    폰 세로(360·375·393·412) 기준. 한 화면 = 위 띠(뒤로 · 단계 막대 · 닫기) + 스크롤 본문 + 엄지가 닿는 아래 고정 주 버튼.
    색 · 반지름 · 굵기는 app.css :root 토큰만 쓴다. 판정 색 5종(.st-*)은 app.css 그대로.
-   밝은 화면(시작 · 자료 · 분석 · 리포트 · 끝)은 앱 규율(MVP_SPEC §3), 어두운 화면(발표 · 질문)은 리허설 · 화상판의 유리판 언어.
+   10-14 재디자인(~/meetings/2026-10-14_랜딩_리허설색_재디자인.md): 모든 화면이 /rehearsal 과 같은 짙은 숲 초록 무대(booth_qa.css .bq 그라데이션)다.
+   예전엔 밝은 화면(시작 · 자료 · 분석 · 리포트 · 끝)과 어두운 화면(발표 · 질문)이 섞여 화면마다 다른 앱 같았다.
+   무대 위 글은 흰색 3단 · 강조는 민트(--cyan), 고르는 것(자료 카드)은 리허설 발표 고르기(.bq-deck)처럼 어두운 유리,
+   읽을 거리가 많은 결과(분석 · 리포트 · 질문 판정)는 리허설 발표 중 창처럼 밝은 유리 판 · 먹색 글자 — 판정 색 칩은 그 판 안에서 그대로.
+   data-tone(light · dark)은 js 가 그대로 붙이지만 바탕은 같다 — light 는 「밝은 판을 쓰는 화면」 이라는 뜻만 남았다.
    transition: all 금지 — 바뀌는 속성만 적는다. 움직임은 prefers-reduced-motion 에서 끈다(맨 아래). */
 
 /* ── 층 ─────────────────────────────────────────────────────── */
-body.tour-open { overflow: hidden; background: #0b1512; }
+body.tour-open { overflow: hidden; background: #021A15; }
 /* 데스크톱 아트보드(tablet.css)는 body 를 transform 으로 줄여 fixed 가 판에 붙는다 — 투어 동안 판을 푼다(booth_qa.css 와 같다) */
 @media (min-width: 900px) {
   body.tour-open { position: static; width: auto; height: auto; min-height: 0; transform: none; padding-left: 0; box-shadow: none; }
@@ -14,15 +18,24 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 
 .tour {
   --tour-pad: 20px;
-  --tour-ink: var(--text);
-  --tour-ink-2: var(--text-2);
-  --tour-ink-3: var(--text-3);
-  --tour-bg: var(--canvas);
-  --tour-rail: rgba(24, 24, 27, .10);
+  /* 무대 위 글자 — 무대 가장 밝은 곳(위 오른쪽 빛, 약 #0F4636)에서도 60% 가 4.9:1 */
+  --tour-ink: #fff;
+  --tour-ink-2: rgba(255, 255, 255, .8);
+  --tour-ink-3: rgba(255, 255, 255, .62);
+  --tour-bg: #021A15;
+  --tour-rail: rgba(255, 255, 255, .16);
+  --tour-glass: rgba(255, 255, 255, .05);
+  --tour-line: rgba(255, 255, 255, .12);
+  --tour-light: rgba(255, 255, 255, .96);   /* 밝은 유리 판 — 리허설 발표 중 창과 같은 값 */
   position: fixed; inset: 0; z-index: 60;
   display: flex; flex-direction: column;
   height: 100vh; height: 100dvh;
-  background: var(--tour-bg); color: var(--tour-ink);
+  color: var(--tour-ink);
+  /* 리허설 무대(booth_qa.css .bq)와 같은 빛 두 개 + 위에서 아래로 짙어지는 초록 */
+  background:
+    radial-gradient(ellipse 70% 55% at 78% -8%, rgba(63, 213, 153, .20), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 0% 110%, rgba(14, 136, 80, .22), transparent 70%),
+    linear-gradient(180deg, #043027 0%, #021A15 100%);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
@@ -34,15 +47,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
   .tour { left: max(0px, calc(50% - 220px)); right: max(0px, calc(50% - 220px)); box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 24px 64px rgba(0, 0, 0, .4); }
 }
 .tour[data-tone="dark"] {
-  --tour-ink: #fff;
   --tour-ink-2: rgba(255, 255, 255, .86);
   --tour-ink-3: rgba(255, 255, 255, .7);
-  --tour-bg: #0b1512;
-  --tour-rail: rgba(255, 255, 255, .2);
-  background:
-    radial-gradient(ellipse 80% 45% at 85% -5%, rgba(63, 213, 153, .16), transparent 70%),
-    radial-gradient(ellipse 70% 40% at 0% 105%, rgba(14, 136, 80, .2), transparent 70%),
-    linear-gradient(180deg, #0d1a16 0%, #0b1512 100%);
 }
 .tour .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .tour-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0; }
@@ -60,16 +66,14 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .tour-icon:active { background: var(--tour-rail); transform: scale(.94); }
 .tour-icon:focus-visible, .tour-cta:focus-visible, .tp-nav:focus-visible, .tour-deck:has(input:focus-visible), .tour-strip:focus-visible {
-  outline: 2.5px solid var(--brand); outline-offset: 2px;
+  outline: 2.5px solid var(--cyan); outline-offset: 2px;
 }
-.tour[data-tone="dark"] :is(.tour-icon, .tour-cta, .tp-nav):focus-visible { outline-color: var(--cyan); }
+.tour-sheet :focus-visible { outline-color: var(--brand); }
 .tour-progress { min-width: 0; }
 .tour-bar { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .tour-bar li { flex: 1; height: 4px; border-radius: var(--r-pill); background: var(--tour-rail); overflow: hidden; }
-.tour-bar li.is-done { background: var(--brand); }
-.tour-bar li.is-now { background: linear-gradient(90deg, var(--brand) 50%, var(--tour-rail) 50%); }
-.tour[data-tone="dark"] .tour-bar li.is-done { background: var(--cyan); }
-.tour[data-tone="dark"] .tour-bar li.is-now { background: linear-gradient(90deg, var(--cyan) 50%, var(--tour-rail) 50%); }
+.tour-bar li.is-done { background: var(--cyan); }
+.tour-bar li.is-now { background: linear-gradient(90deg, var(--cyan) 50%, var(--tour-rail) 50%); }
 .tour-count { display: block; margin-top: 6px; text-align: center; font-size: 12px; color: var(--tour-ink-3); font-variant-numeric: tabular-nums; }
 .tour-count b { color: var(--tour-ink); font-weight: var(--w-bold); }
 
@@ -90,9 +94,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-foot {
   flex: none; display: flex; flex-direction: column; gap: 8px;
   padding: 10px var(--tour-pad) calc(12px + env(safe-area-inset-bottom));
-  background: var(--tour-bg); box-shadow: 0 -1px 0 var(--tour-rail);
+  background: rgba(2, 26, 21, .92); box-shadow: 0 -1px 0 var(--tour-line);
 }
-.tour[data-tone="dark"] .tour-foot { background: rgba(11, 21, 18, .92); }
 .tour-foot[hidden] { display: none; }
 /* 화면이 막 바뀐 동안(js/tour.js settleFoot) — inert 를 모르는 옛 브라우저도 두 번째 누름을 흘려보낸다. 모양은 그대로 */
 .tour-foot.is-settling { pointer-events: none; }
@@ -110,27 +113,35 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
   text-align: center; text-decoration: none; cursor: pointer; touch-action: manipulation;
   transition-property: transform, background-color; transition-duration: 140ms; transition-timing-function: ease-out;
 }
+.tour-cta { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 10px 28px rgba(14, 136, 80, .3); }
 .tour-cta:active { transform: scale(.97); background: var(--brand-strong); }
-.tour-cta.is-sub { background: var(--fill); color: var(--text); }
-.tour-cta.is-sub:active { background: var(--border); }
+/* 보조 버튼 — 리허설 「나가기」(.bq-ghost)와 같은 흰 유리 + 흰 선 */
+.tour-cta.is-sub { background: var(--tour-glass); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.tour-cta.is-sub:active { background: rgba(255, 255, 255, .12); }
+.tour-cta.is-text { box-shadow: none; }
 .tour-cta.is-text { min-height: 44px; background: transparent; color: var(--tour-ink-2); font-size: 15px; font-weight: var(--w-med); }
 .tour-cta.is-text:active { background: var(--tour-rail); }
-.tour[data-tone="dark"] .tour-cta.is-sub { background: rgba(255, 255, 255, .12); color: #fff; }
-.tour[data-tone="dark"] .tour-cta.is-sub:active { background: rgba(255, 255, 255, .2); }
-.tour-cta.is-choice { background: rgba(255, 255, 255, .1); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .32); }
+.tour-cta.is-choice { background: rgba(255, 255, 255, .08); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28); }
 .tour-cta.is-choice:active { background: rgba(63, 213, 153, .2); }
 
 /* ── 글자 ───────────────────────────────────────────────────── */
-/* 작은 초록 글자는 --brand-strong(캔버스 4.51:1) — --brand 는 4.32:1 로 모자란다(/hi intro.css 와 같은 규칙, 10-12 점검) */
-.tour-eyebrow { margin: 12px 0 0; font-size: 13px; font-weight: var(--w-bold); color: var(--brand-strong); }
+/* 머리말은 민트 — 리허설 .bq-eyebrow 와 같은 색 */
+.tour-eyebrow { margin: 12px 0 0; font-size: 14px; font-weight: var(--w-bold); color: var(--cyan); }
 .tour-h1 { margin: 6px 0 8px; font-size: 24px; line-height: 1.38; font-weight: var(--w-bold); letter-spacing: -.02em; text-wrap: balance; outline: none; }
 .tour-sub { margin: 0; font-size: 15px; line-height: 1.6; color: var(--tour-ink-2); text-wrap: pretty; }
 .tour-h2 { margin: 0; font-size: 16px; font-weight: var(--w-bold); letter-spacing: -.01em; }
 .tour-h2 small { margin-left: 6px; font-size: 13px; font-weight: var(--w-body); color: var(--tour-ink-3); }
 .tour-honest { display: flex; align-items: center; gap: 6px; margin: 18px 0 0; font-size: 12.5px; color: var(--tour-ink-3); }
 .tour-honest span { font-size: 7px; color: var(--mid); }
-.tour-cause { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-inner); background: var(--fill); font-size: 13px; color: var(--text-3); word-break: break-word; }
-.tour-card { margin-top: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--r-print); background: var(--surface); }
+.tour-cause { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--r-inner); background: var(--tour-glass); font-size: 13px; color: var(--tour-ink-2); word-break: break-word; }
+/* 결과 판 — 무대 위 밝은 유리 · 먹색 글자. 안의 글자색은 app.css 토큰(--text …)을 그대로 쓴다 */
+.tour-card {
+  margin-top: 12px; padding: 16px; border-radius: var(--r-print);
+  background: var(--tour-light); color: var(--text);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .32), 0 2px 6px rgba(0, 0, 0, .16);
+}
+.tour-card .tour-h2 { color: var(--text); }
+.tour-card .tour-h2 small { color: var(--text-3); }
 .tour-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .tour .chip.tour-level { font-weight: var(--w-bold); }
 
@@ -146,26 +157,34 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-steps li { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: center; padding: 10px 0; }
 .tour-steps-n {
   width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: var(--r-dot); background: var(--brand-weak); color: var(--navy); font-size: 14px; font-weight: var(--w-bold);
+  border-radius: var(--r-dot); background: rgba(63, 213, 153, .18); color: var(--cyan); font-size: 14px; font-weight: var(--w-bold);
 }
 .tour-steps b { display: block; font-size: 16px; font-weight: var(--w-bold); text-wrap: balance; }
-.tour-steps small { display: block; margin-top: 2px; font-size: 13.5px; color: var(--text-3); text-wrap: pretty; }
+.tour-steps small { display: block; margin-top: 2px; font-size: 13.5px; color: var(--tour-ink-3); text-wrap: pretty; }
+/* 단계 사이 가는 세로선 — 리허설 단계 칩처럼 하나의 길로 읽히게 */
+.tour-steps li { position: relative; }
+.tour-steps li + li::before {
+  content: ""; position: absolute; left: 15px; top: -14px; height: 18px; width: 2px;
+  border-radius: 1px; background: rgba(63, 213, 153, .22);
+}
 
 /* ── 자료 고르기 ────────────────────────────────────────────── */
 .tour-decks { margin: 18px 0 0; padding: 0; border: 0; display: grid; gap: 10px; }
 .tour-deck {
   position: relative; display: grid; grid-template-columns: 104px 1fr; gap: 12px; align-items: center;
-  min-height: 76px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-print); background: var(--surface); cursor: pointer;
-  transition-property: border-color, box-shadow, transform; transition-duration: 150ms; transition-timing-function: ease-out;
+  min-height: 76px; padding: 12px; border: 1px solid var(--tour-line); border-radius: var(--r-print); background: var(--tour-glass); cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+  transition-property: border-color, box-shadow, transform, background-color; transition-duration: 150ms; transition-timing-function: ease-out;
 }
 .tour-deck:active { transform: scale(.985); }
-.tour-deck.is-on, .tour-deck:has(input:checked) { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+/* 고른 자료 — 민트 테 + 민트 빛 면 (리허설 올리기 칸에 끌어 놓았을 때 .rh-up.is-over 와 같은 값) */
+.tour-deck.is-on, .tour-deck:has(input:checked) { border-color: var(--cyan); background: rgba(63, 213, 153, .1); box-shadow: inset 0 0 0 1px var(--cyan); }
 .tour-deck input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.tour-deck-cover { width: 104px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-inner); background: var(--fill); outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px; }
+.tour-deck-cover { width: 104px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--r-inner); background: #fff; outline: 1px solid rgba(255, 255, 255, .12); outline-offset: -1px; }
 .tour-deck-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .tour-deck-text b { font-size: 16px; line-height: 1.35; font-weight: var(--w-bold); text-wrap: balance; }
-.tour-deck-text small { font-size: 13px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
-.tour-deck-text em { margin-top: 2px; font-style: normal; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.tour-deck-text small { font-size: 13px; line-height: 1.4; color: var(--tour-ink-2); text-wrap: pretty; }
+.tour-deck-text em { margin-top: 2px; font-style: normal; font-size: 12.5px; color: var(--tour-ink-3); font-variant-numeric: tabular-nums; }
 .tour-decks + .tour-h2 { margin-top: 24px; }
 .tour-strip {
   display: flex; gap: 10px; margin: 10px calc(var(--tour-pad) * -1) 0; padding: 2px var(--tour-pad) 8px;
@@ -174,9 +193,9 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 }
 .tour-strip::-webkit-scrollbar { display: none; }
 .tour-strip-item { flex: 0 0 78%; margin: 0; scroll-snap-align: start; }
-.tour-strip-item img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--r-inner); background: #fff; outline: 1px solid rgba(0, 0, 0, .1); outline-offset: -1px; }
-.tour-strip-item figcaption { display: flex; gap: 6px; margin-top: 6px; font-size: 13px; line-height: 1.4; color: var(--text-2); text-wrap: pretty; }
-.tour-strip-item figcaption b { color: var(--brand-strong); font-variant-numeric: tabular-nums; }
+.tour-strip-item img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--r-inner); background: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, .3); }
+.tour-strip-item figcaption { display: flex; gap: 6px; margin-top: 8px; font-size: 13px; line-height: 1.4; color: var(--tour-ink-2); text-wrap: pretty; }
+.tour-strip-item figcaption b { color: var(--cyan); font-variant-numeric: tabular-nums; }
 
 /* ── 발표 ───────────────────────────────────────────────────── */
 .tp-stage {
@@ -259,7 +278,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 
 /* ── 분석 ───────────────────────────────────────────────────── */
 .ta-summary { font-size: 21px; }
-.ta-overall { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
+.ta-overall { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--tour-ink-3); }
 .ta-times { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
 .ta-time { display: grid; grid-template-columns: 34px 1fr auto; gap: 4px 10px; align-items: center; }
 .ta-sno { font-size: 13px; font-weight: var(--w-med); color: var(--text-2); font-variant-numeric: tabular-nums; }
@@ -307,16 +326,16 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .ta-reveal {
   position: absolute; left: 0; right: 0; bottom: 0; top: calc(env(safe-area-inset-top) + 66px); z-index: 5;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px;
-  background: var(--canvas); transition: opacity 200ms ease-out;
+  background: linear-gradient(180deg, #043027 0%, #021A15 100%); transition: opacity 200ms ease-out;
 }
 .ta-reveal.is-out { opacity: 0; }
 .tour.is-revealing .tour-body { overflow: hidden; }
 .ta-reveal-chick { animation: taBob 900ms ease-in-out infinite alternate; }
 @keyframes taBob { from { transform: translateY(0); } to { transform: translateY(-6px); } }
 .ta-reveal-title { margin: 6px 0 0; font-size: 19px; font-weight: var(--w-bold); }
-.ta-reveal-steps { margin: 4px 0 8px; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--text-2); }
+.ta-reveal-steps { margin: 4px 0 8px; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; color: var(--tour-ink-2); }
 .ta-reveal-steps li { opacity: .35; animation: taStep 300ms ease-out forwards; }
-.ta-reveal-steps li::before { content: '✓'; margin-right: 8px; color: var(--ok); font-weight: var(--w-bold); }
+.ta-reveal-steps li::before { content: '✓'; margin-right: 8px; color: var(--cyan); font-weight: var(--w-bold); }
 .ta-reveal-steps li:nth-child(1) { animation-delay: 150ms; }
 .ta-reveal-steps li:nth-child(2) { animation-delay: 600ms; }
 .ta-reveal-steps li:nth-child(3) { animation-delay: 1050ms; }
@@ -372,8 +391,8 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 /* ── 끝 · 실패 ──────────────────────────────────────────────── */
 .tour-center { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 28px; }
 .tour-center .tour-sub { max-width: 32ch; }
-.tour-done-list { text-wrap: pretty; margin: 20px 0 0; padding: 14px 16px; list-style: none; display: grid; gap: 8px; border-radius: var(--r-print); background: var(--fill); text-align: left; font-size: 14px; color: var(--text-2); }
-.tour-done-list li::before { content: '✓'; margin-right: 8px; color: var(--ok); font-weight: var(--w-bold); }
+.tour-done-list { text-wrap: pretty; margin: 20px 0 0; padding: 14px 16px; list-style: none; display: grid; gap: 8px; border: 1px solid var(--tour-line); border-radius: var(--r-print); background: var(--tour-glass); text-align: left; font-size: 14px; color: var(--tour-ink-2); }
+.tour-done-list li::before { content: '✓'; margin-right: 8px; color: var(--cyan); font-weight: var(--w-bold); }
 
 /* ── 바텀 시트 ──────────────────────────────────────────────── */
 .tour-sheet-wrap { position: absolute; inset: 0; z-index: 10; }
@@ -395,15 +414,15 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-sheet-url b { min-width: 0; color: var(--text); font-weight: var(--w-med); word-break: break-all; }
 .tour-sheet-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .tour-sheet .tour-cta.is-text { color: var(--text-2); }
-.tour-sheet .tour-cta.is-sub { background: var(--fill); color: var(--text); }
+.tour-sheet .tour-cta.is-sub { background: var(--fill); color: var(--text); box-shadow: none; }
 
 /* ── 자료 크게 보기(js/tour.js openZoom) — 폰 폭에 줄인 표 · 그래프 글자가 3~6px 였다 ── */
 .tour .tour-cta.tp-zoom { display: flex; margin: 4px auto 0; width: auto; padding: 0 16px; color: var(--mint); }
 .tqa-slide-btn { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
-.tqa-slide figcaption { padding: 6px 0 0; background: var(--tour-bg, #0b1512); text-align: center; font-size: 12.5px; color: rgba(255, 255, 255, .66); }
+.tqa-slide figcaption { padding: 6px 0 0; background: transparent; text-align: center; font-size: 12.5px; color: rgba(255, 255, 255, .66); }
 .tqa-slide { overflow: visible; background: transparent; }
 .tqa-slide-btn img { border-radius: var(--r-print); background: #fff; }
-.tour-zoom { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: #0b1512; color: #fff; }
+.tour-zoom { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; background: #021A15; color: #fff; }
 .tour-zoom-bar {
   flex: none; display: flex; align-items: center; gap: 8px;
   padding: calc(env(safe-area-inset-top) + 6px) 8px 6px 16px;
@@ -426,7 +445,7 @@ body.tour-open .sidenav, body.tour-open .topbar, body.tour-open #app { display: 
 .tour-zoom.is-big.is-moved .tour-zoom-hint { visibility: hidden; }
 .tour-zoom::after {
   content: ''; position: absolute; top: 0; bottom: 0; right: 0; width: 32px; pointer-events: none;
-  background: linear-gradient(90deg, rgba(11, 21, 18, 0), rgba(11, 21, 18, .85));
+  background: linear-gradient(90deg, rgba(2, 26, 21, 0), rgba(2, 26, 21, .85));
   opacity: 0; transition: opacity 160ms ease-out;
 }
 .tour-zoom.is-big:not(.is-end)::after { opacity: 1; }
