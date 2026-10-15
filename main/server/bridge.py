@@ -1584,7 +1584,10 @@ _SCREEN_PATH = re.compile(r"^(/[A-Za-z0-9_-]+)+$")
 
 #: 해시 앱이 아니라 따로 선 정적 페이지로 주는 주소 — /hi(·/hi/<팀원 id>) 는 결선 부스 QR 랜딩 intro.html 이다 (2026-10-11,
 #: docs/booth-mobile/). index.html 을 거치면 app.js·app.css 를 다 받아야 첫 화면이 그려져서, 폰 첫 방문이 무거워진다.
-_STANDALONE_PAGES = ((re.compile(r"^/hi(?:/[a-z0-9-]{1,24})?/?$", re.I), "/intro.html"),)
+#: /VRShow 는 가상 발표 스튜디오 studio.html 의 공개 주소 (2026-10-15 사용자 「우리가 작업한 거 도메인에 합치자 — /VRShow」, 공개로 결정).
+#: 안의 정면 창은 같은 앱(index.html#/rehearsal)이라 공개 첫 화면과 같은 규칙(내 자료 올리기만)으로 돈다. 팀 주소 /studio 는 그대로 둔다.
+_STANDALONE_PAGES = ((re.compile(r"^/hi(?:/[a-z0-9-]{1,24})?/?$", re.I), "/intro.html"),
+                     (re.compile(r"^/vrshow/?$", re.I), "/studio.html"))
 
 
 #: 팀 모드에서만 여는 독립 페이지 — /booth/scan 은 결선 부스에 띄워 두는 「사람 그래프」 스캔 화면 booth_scan.html (2026-10-12,
