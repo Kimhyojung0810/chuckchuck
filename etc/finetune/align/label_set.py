@@ -31,12 +31,13 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--only_cons", action="store_true", help="구성 라벨이 있는 항목만(셋째 표 아끼기)")
+    ap.add_argument("--out", default="", help="다른 파일로 쓰기(돌고 있는 라벨링과 안 부딪치게)")
     args = ap.parse_args()
     path = DATA / args.items
     rows = read_jsonl(path)
     if args.limit:
         rows = rows[: args.limit]
-    out_path = path.with_suffix(".labels.jsonl")
+    out_path = DATA / args.out if args.out else path.with_suffix(".labels.jsonl")
     old = {r["uid"]: r.get("labels", {}) for r in read_jsonl(out_path)}
     for r in rows:
         h = item_hash(r["item"])

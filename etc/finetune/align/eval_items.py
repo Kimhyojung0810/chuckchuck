@@ -54,6 +54,7 @@ def main() -> None:
     ap.add_argument("--tag", required=True)
     ap.add_argument("--sets", default=",".join(SETS))
     ap.add_argument("--batch", type=int, default=8)
+    ap.add_argument("--sets_dir", default=str(DATA / "sets"))
     args = ap.parse_args()
     import torch
 
@@ -64,7 +65,8 @@ def main() -> None:
     load_s = time.time() - t0
     full = {"adapter": args.adapter, "load_s": round(load_s, 1)}
     for name in [s for s in args.sets.split(",") if s]:
-        rows = read_jsonl(DATA / "sets" / f"{name}.jsonl")
+        from pathlib import Path
+        rows = read_jsonl(Path(args.sets_dir) / f"{name}.jsonl")
         if not rows:
             continue
         # 길이 순으로 묶어 패딩을 줄인다(결과는 원래 순서로 돌린다)

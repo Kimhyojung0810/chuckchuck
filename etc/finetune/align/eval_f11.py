@@ -23,12 +23,12 @@ from common import DATA, RUN, jdump, jload, load_env, read_jsonl, write_jsonl
 from train_lora import macro_f1
 
 
-def recordings(sets: list[str]) -> dict[str, dict]:
+def recordings(sets: list[str], sets_dir: Path | None = None) -> dict[str, dict]:
     """rec → {graph, slide_doc, transcript, ctx, gold{node_id: verdict}}"""
     out: dict[str, dict] = {}
     real = {r["rec_id"]: r for r in jload(DATA / "ko_real" / "recs.json")}
     for name in sets:
-        for row in read_jsonl(DATA / "sets" / f"{name}.jsonl"):
+        for row in read_jsonl((sets_dir or DATA / "sets") / f"{name}.jsonl"):
             rec = row.get("rec")
             if not rec:
                 continue
@@ -72,6 +72,7 @@ def main() -> None:
     ap.add_argument("--judges", default="solar,lora,lora+solar")
     ap.add_argument("--sets", default="test_ko_real,test_ko_synth")
     ap.add_argument("--escalate_below", type=float, default=None)
+    ap.add_argument("--sets_dir", default=str(DATA / "sets"))
     args = ap.parse_args()
     load_env()
     import pipeline.f11_align as f11
@@ -80,7 +81,7 @@ def main() -> None:
 
     if args.escalate_below is not None:
         f11.LORA_ESCALATE_BELOW = args.escalate_below
-    recs = recordings(args.sets.split(","))
+    recs = recordings(args.sets.split(","), Path(args.sets_dir))
     judge = lora.LoraAlignJudge(args.adapter) if args.adapter else None
     out = RUN / "eval" / args.tag
     report: dict = {"recordings": len(recs), "escalate_below": f11.LORA_ESCALATE_BELOW}
@@ -109,14 +110,22 @@ def main() -> None:
         for rec, r in recs.items():
             eng = counting(get_llm("solar"))
             captured.clear()
-            t = time.time()
-            try:
-                doc = f11.align_speech(r["graph"], r["transcript"], r["ctx"], llm=eng, slide_doc=r["slide_doc"],
-                                       judge=jname, lora_judge=judge)
-            except Exception as e:  # noqa: BLE001
-                print(f"[f11:{jname}] {rec} FAIL {type(e).__name__}: {str(e)[:120]}", flush=True)
+            doc, el = None, 0.0
+            for attempt in range(5):           # 429(분당 한도)는 라벨링과 겹칠 때 난다 — 쉬었다가 같은 녹음을 다시
+                captured.clear()
+                eng.calls = 0
+                t = time.time()
+                try:
+                    doc = f11.align_speech(r["graph"], r["transcript"], r["ctx"], llm=eng, slide_doc=r["slide_doc"],
+                                           judge=jname, lora_judge=judge)
+                    el = time.time() - t
+                    break
+                except Exception as e:  # noqa: BLE001
+                    print(f"[f11:{jname}] {rec} retry {attempt + 1} {type(e).__name__}: {str(e)[:100]}", flush=True)
+                    time.sleep(30 * (attempt + 1))
+            if doc is None:
+                print(f"[f11:{jname}] {rec} FAIL", flush=True)
                 continue
-            el = time.time() - t
             raw = {str(x.get("node_id")): x for x in captured.get("raw", [])}
             esc = set(captured.get("esc", []))
             stats["sec"].append(el)

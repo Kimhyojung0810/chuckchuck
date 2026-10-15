@@ -125,7 +125,8 @@ def _engine(name: str):
 
 def llm(name: str, system: str, user: str, *, temperature: float = 0.0, max_tokens: int = 1200,
         json_mode: bool = True, tag: str = "", retries: int = 6) -> str:
-    """캐시를 거쳐 한 번 부른다. tag 는 같은 입력을 일부러 다시 부를 때(두 번째 판정) 캐시 열쇠를 가른다."""
+    """캐시를 거쳐 한 번 부른다. tag 는 같은 입력을 일부러 다시 부를 때(두 번째 판정) 캐시 열쇠를 가른다.
+    ALIGN_CACHE_ONLY=1 이면 캐시에 없는 호출은 부르지 않고 KeyError — 돌고 있는 라벨링의 중간 결과만 모을 때."""
     import requests
 
     key = hashlib.sha1(json.dumps([name, system, user, temperature, max_tokens, json_mode, tag],
@@ -134,6 +135,8 @@ def llm(name: str, system: str, user: str, *, temperature: float = 0.0, max_toke
         row = _conn().execute("select out from c where k=?", (key,)).fetchone()
     if row:
         return row[0]
+    if os.environ.get("ALIGN_CACHE_ONLY") == "1":
+        raise KeyError("캐시에 없다")
     eng = _engine(name)
     payload = {
         "model": eng.model,
