@@ -25,6 +25,7 @@ import os
 import re
 
 from . import _align_checks as chk
+from . import _align_lora as lora
 from . import _claim_rules as R
 from ._deck_claims import Deck, deck_from_slidedoc
 from ._json_text import extract_json_object
@@ -59,6 +60,13 @@ from .providers.llm_base import LLMProvider
 from .providers.llm_impl import get_llm
 
 MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_ALIGN_MAX_TOKENS", "8192"))
+
+#: 판정기 (2026-10-16). solar — 지금까지처럼 Solar 한 번에 전 개념(기본) ·
+#: lora — 로컬 Mi:dm 2.0 + F-11 LoRA 가 개념 하나씩(어댑터: CHUCKCHUCK_ALIGN_LORA_PATH) ·
+#: lora+solar — LoRA 먼저, 확신이 ALIGN_LORA_ESCALATE_BELOW 아래거나 근거 문장이 안 맞는 개념만 Solar 로 올린다.
+#: 누가 판정했는지는 items[].decided_by 에 남는다(lora · llm=Solar · code · fallback).
+ALIGN_JUDGES = ("solar", "lora", "lora+solar")
+LORA_ESCALATE_BELOW = float(os.environ.get("ALIGN_LORA_ESCALATE_BELOW", "0.8"))
 
 # speech_weight 배합. 합 1.0. F-07 weight 와 같은 철학 — 최댓값 정규화(상대 서열).
 _S_TIME = 0.45          # 근거 장 발화 시간 / 전체 발화 시간
@@ -347,7 +355,7 @@ def _normalize_items(
         note = str((raw or {}).get("note", "") or "").strip()
 
         verdict = str((raw or {}).get("verdict", "") or "")
-        decided = "llm"
+        decided = str((raw or {}).get("_by", "") or "llm")     # lora 판정기가 낸 것은 "lora"
         kind = getattr(node, "kind", "")
         if verdict not in ALIGN_VERDICTS:
             verdict, decided = _fallback_verdict(basis, kind), "fallback"
@@ -366,7 +374,7 @@ def _normalize_items(
         # "틀렸다"를 근거 없이 말하지 않는다면 "잘했다"도 마찬가지여야 한다.
         if verdict == "aligned" and not evidence:
             verdict = _fallback_verdict(basis, kind)
-            if decided == "llm":
+            if decided in ("llm", "lora"):
                 decided = "fallback"
         if (
             verdict == "justified_skip"
@@ -744,6 +752,7 @@ def _summarize(
     speech_edges: list[SpeechEdge],
     graph: ConceptGraph,
     transcript: Transcript,
+    edges_judged: bool = True,
 ) -> AlignmentSummary:
     counts = {v: 0 for v in ALIGN_VERDICTS}
     for i in items:
@@ -762,7 +771,8 @@ def _summarize(
 
     graph_pairs = _undirected_pairs(graph.edges)
     edge_cov: float | None = None
-    if graph_pairs:
+    # LoRA 판정기는 발화 간선을 보지 않는다 — 안 본 것을 0% 로 적으면 「연결을 하나도 말 안 했다」 는 거짓말이 된다
+    if graph_pairs and edges_judged:
         spoken = _undirected_pairs(speech_edges)
         edge_cov = round(len(graph_pairs & spoken) / len(graph_pairs), 3)
 
@@ -827,69 +837,15 @@ def _judge_unjudged(engine: LLMProvider, graph: ConceptGraph, transcript: Transc
     return [i for i in (data.get("items") or []) if isinstance(i, dict) and str(i.get("node_id", "")) in keep]
 
 
-# ---------------------------------------------------------------------------
-# 공개 함수
-# ---------------------------------------------------------------------------
+def _judge_mode(judge: str | None) -> str:
+    mode = (judge or os.environ.get("ALIGN_JUDGE") or "solar").strip().lower()
+    if mode not in ALIGN_JUDGES:
+        raise AlignError(f"모르는 판정기: {mode}. 가능한 값: {', '.join(ALIGN_JUDGES)}")
+    return mode
 
-def align_speech(
-    graph: ConceptGraph | dict,
-    transcript: Transcript | dict,
-    context: Context | dict | None = None,
-    *,
-    llm: str | LLMProvider | None = None,
-    llm_kwargs: dict | None = None,
-    slide_doc: SlideDoc | dict | None = None,
-    speech_match: str | None = None,
-) -> AlignmentDoc:
-    """
-    ConceptGraph + Transcript (+선택 Context·SlideDoc) → AlignmentDoc.
 
-    speech_weight 는 marks·토큰 매칭에서 결정적으로 계산하고,
-    LLM 은 4-class 판정·근거 인용·발화 간선·발화 전용 개념만 맡는다.
-    LLM 이 빠뜨린 노드는 결정적 폴백(언급 있으면 정합, 없으면 누락)으로 채운다 — decided_by "fallback".
-
-    slide_doc(자료 원문)을 주면 발화의 숫자·방향을 원문과 견줘 contradiction 을 코드가 잡고(deck_quote),
-    「아예 다른 발표」 판정도 F-04 와 같은 문턱으로 한다. 없으면 숫자 대조를 건너뛴다(개념 요약은 원문이 아니다).
-    speech_match 는 호출부가 아는 F-04 판정(transcript 의 marks_match) — "unrelated" 면 따른다.
-    """
-    if isinstance(graph, dict):
-        graph = ConceptGraph.from_dict(graph)
-    if isinstance(transcript, dict):
-        transcript = Transcript.from_dict(transcript)
-    if isinstance(slide_doc, dict):
-        slide_doc = SlideDoc.from_dict(slide_doc)
-    if not graph.nodes:
-        raise AlignError("ConceptGraph 에 노드가 없습니다. F-07 결과를 먼저 확인하세요.")
-    if not transcript.by_slide and not transcript.full_text.strip():
-        raise AlignError("Transcript 가 비어 있습니다. F-05 결과를 먼저 확인하세요.")
-
-    if context is None:
-        ctx = Context()
-    elif isinstance(context, dict):
-        ctx = Context.from_dict(context)
-    else:
-        ctx = context
-
-    engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
-    utts = utterances(transcript)
-    bases = _speech_bases(graph, transcript, utts)
-
-    # 녹음이 이 자료의 발표가 아니면 판정하지 않는다 — LLM 을 부르면 남의 발표 말을 이 자료 개념의 근거로 댄다 (09-30 C-07)
-    match, overlap = _speech_match(graph, transcript, utts, slide_doc, speech_match)
-    if match == "unrelated":
-        items = _unjudged(graph, bases, overlap)
-        _apply_speech_weights(items, graph)
-        return AlignmentDoc(
-            file_name=graph.file_name,
-            total_slides=graph.total_slides,
-            items=items,
-            summary=_summarize(items, [], graph, transcript),
-            model="code",
-            speech_match="unrelated",
-            speech_overlap=overlap,
-            basis="skipped",
-        )
-
+def _solar_raw(engine: LLMProvider, graph: ConceptGraph, transcript: Transcript, ctx: Context) -> tuple[dict, list[dict]]:
+    """Solar 한 번에 전 개념 — 깨진 JSON 한 번, 빈 판정 한 번 다시 묻고, 큰 그래프에서 빠진 개념은 모아 한 번 더."""
     try:
         data = _call(engine, graph, transcript, ctx)
     except AlignError:
@@ -909,6 +865,145 @@ def align_speech(
             pass
 
     raw_items += _judge_unjudged(engine, graph, transcript, ctx, raw_items)
+    return data, raw_items
+
+
+def _lora_raw(graph: ConceptGraph, transcript: Transcript, slide_doc: SlideDoc | None, utts: list[Utterance],
+              judge: "lora.AlignJudge | None") -> tuple[list[dict], str, list[str]]:
+    """
+    LoRA 가 개념 하나씩 판정한다. 돌려주는 것: (raw 판정 — Solar 판정과 같은 꼴 + _by "lora", 판정기 이름, Solar 로 올릴 개념 id).
+    올릴 개념: 출력 JSON 이 깨졌거나 · 판정 확신(첫 토큰 확률)이 LORA_ESCALATE_BELOW 아래거나 ·
+    aligned·contradiction 인데 근거 번호가 이 개념 발화의 문장을 가리키지 않는 것.
+    """
+    eng = judge or lora.shared_judge()
+    items = lora.build_items(graph, transcript, slide_doc, utts)
+    by_id = {it["node_id"]: it for it in items}
+    raw, escalate = [], []
+    for j in eng.judge_items(items):
+        it = by_id.get(j.node_id)
+        if it is None:
+            continue
+        needs_quote = j.verdict in ("aligned", "contradiction")
+        quote_ok = (not needs_quote) or lora.evidence_valid(it, j.sid, j.evidence)
+        if not j.ok or j.confidence < LORA_ESCALATE_BELOW or not quote_ok:
+            escalate.append(j.node_id)
+        raw.append({"node_id": j.node_id, "verdict": j.verdict, "evidence": j.evidence if needs_quote and quote_ok else "",
+                    "note": j.note, "_by": "lora"})
+    return raw, eng.name, escalate
+
+
+def _escalate(engine: LLMProvider, graph: ConceptGraph, transcript: Transcript, ctx: Context, ids: list[str]) -> dict:
+    """LoRA 가 자신 없어 한 개념만 모아 Solar 에 묻는다(전 발화는 그대로 준다). 실패하면 빈 판정 — LoRA 판정이 남는다."""
+    keep = set(ids)
+    sub = ConceptGraph(file_name=graph.file_name, total_slides=graph.total_slides,
+                       nodes=[n for n in graph.nodes if n.id in keep],
+                       edges=[e for e in graph.edges if e.from_id in keep and e.to_id in keep],
+                       sections=graph.sections, model=graph.model)
+    try:
+        return _call(engine, sub, transcript, ctx)
+    except AlignError:
+        return {}
+
+
+# ---------------------------------------------------------------------------
+# 공개 함수
+# ---------------------------------------------------------------------------
+
+def align_speech(
+    graph: ConceptGraph | dict,
+    transcript: Transcript | dict,
+    context: Context | dict | None = None,
+    *,
+    llm: str | LLMProvider | None = None,
+    llm_kwargs: dict | None = None,
+    slide_doc: SlideDoc | dict | None = None,
+    speech_match: str | None = None,
+    judge: str | None = None,
+    lora_judge: "lora.AlignJudge | None" = None,
+) -> AlignmentDoc:
+    """
+    ConceptGraph + Transcript (+선택 Context·SlideDoc) → AlignmentDoc.
+
+    speech_weight 는 marks·토큰 매칭에서 결정적으로 계산하고,
+    LLM 은 4-class 판정·근거 인용·발화 간선·발화 전용 개념만 맡는다.
+    LLM 이 빠뜨린 노드는 결정적 폴백(언급 있으면 정합, 없으면 누락)으로 채운다 — decided_by "fallback".
+
+    slide_doc(자료 원문)을 주면 발화의 숫자·방향을 원문과 견줘 contradiction 을 코드가 잡고(deck_quote),
+    「아예 다른 발표」 판정도 F-04 와 같은 문턱으로 한다. 없으면 숫자 대조를 건너뛴다(개념 요약은 원문이 아니다).
+    speech_match 는 호출부가 아는 F-04 판정(transcript 의 marks_match) — "unrelated" 면 따른다.
+    judge 는 판정기(ALIGN_JUDGES, 없으면 환경변수 ALIGN_JUDGE, 기본 solar). lora_judge 는 테스트가 꽂는 가짜 판정기.
+    LoRA 를 못 올리면(어댑터·GPU 없음) Solar 로 판정한다 — 판정을 비우지 않는다.
+    """
+    if isinstance(graph, dict):
+        graph = ConceptGraph.from_dict(graph)
+    if isinstance(transcript, dict):
+        transcript = Transcript.from_dict(transcript)
+    if isinstance(slide_doc, dict):
+        slide_doc = SlideDoc.from_dict(slide_doc)
+    if not graph.nodes:
+        raise AlignError("ConceptGraph 에 노드가 없습니다. F-07 결과를 먼저 확인하세요.")
+    if not transcript.by_slide and not transcript.full_text.strip():
+        raise AlignError("Transcript 가 비어 있습니다. F-05 결과를 먼저 확인하세요.")
+
+    if context is None:
+        ctx = Context()
+    elif isinstance(context, dict):
+        ctx = Context.from_dict(context)
+    else:
+        ctx = context
+
+    mode = _judge_mode(judge)
+    _engine: list = []
+
+    def engine() -> LLMProvider:
+        if not _engine:
+            _engine.append(llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {})))
+        return _engine[0]
+
+    if mode == "solar":
+        engine()
+    utts = utterances(transcript)
+    bases = _speech_bases(graph, transcript, utts)
+
+    # 녹음이 이 자료의 발표가 아니면 판정하지 않는다 — LLM 을 부르면 남의 발표 말을 이 자료 개념의 근거로 댄다 (09-30 C-07)
+    match, overlap = _speech_match(graph, transcript, utts, slide_doc, speech_match)
+    if match == "unrelated":
+        items = _unjudged(graph, bases, overlap)
+        _apply_speech_weights(items, graph)
+        return AlignmentDoc(
+            file_name=graph.file_name,
+            total_slides=graph.total_slides,
+            items=items,
+            summary=_summarize(items, [], graph, transcript),
+            model="code",
+            speech_match="unrelated",
+            speech_overlap=overlap,
+            basis="skipped",
+        )
+
+    data: dict = {}
+    raw_items: list[dict] = []
+    model_name = ""
+    edges_judged = True
+    if mode != "solar":
+        try:
+            raw_items, model_name, escalate = _lora_raw(graph, transcript, slide_doc, utts, lora_judge)
+            edges_judged = False
+        except Exception as e:  # noqa: BLE001 — 어댑터·GPU·torch 가 없으면 Solar 가 판정한다
+            print(f"[f11] LoRA 판정기를 못 썼어요 — Solar 로 판정해요: {type(e).__name__}: {str(e)[:160]}", flush=True)
+            mode = "solar"
+        else:
+            if mode == "lora+solar" and escalate:
+                data = _escalate(engine(), graph, transcript, ctx, escalate)
+                keep = set(escalate)
+                solar = {str(i.get("node_id")): i for i in (data.get("items") or [])
+                         if isinstance(i, dict) and str(i.get("node_id")) in keep and i.get("verdict") in ALIGN_VERDICTS}
+                raw_items = [solar.get(r["node_id"], r) for r in raw_items]
+                if solar:
+                    model_name = f"{model_name}+{engine().name}"
+    if mode == "solar":
+        data, raw_items = _solar_raw(engine(), graph, transcript, ctx)
+        model_name = engine().name
     deck = deck_from_slidedoc(slide_doc) if slide_doc is not None else Deck()
     deck_texts = _deck_slide_texts(slide_doc) if slide_doc is not None else None
     items = _normalize_items(raw_items, graph, bases, utts, deck_texts)
@@ -932,8 +1027,8 @@ def align_speech(
         items=items,
         speech_edges=speech_edges,
         extra_concepts=extras,
-        summary=_summarize(items, speech_edges, graph, transcript),
-        model=engine.name,
+        summary=_summarize(items, speech_edges, graph, transcript, edges_judged),
+        model=model_name,
         speech_match="matched",
         speech_overlap=overlap,
         # LLM 이 두 번 다 판정을 비웠으면 전 노드가 언급 횟수 짐작이다 — 누락이라 부를 근거가 없다 (레드팀 G-A22)

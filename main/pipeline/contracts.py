@@ -691,7 +691,8 @@ ALIGN_VERDICTS = ("aligned", "justified_skip", "missing", "contradiction")
 #: llm 은 LLM 판정 그대로 · code 는 코드가 까닭을 대고 바꿨다(숫자·방향 모순, 말로 건너뛴 장, 말한 문장을 찾음) ·
 #: fallback 은 **LLM 판정이 없어서** 언급 횟수로 채운 것이다. fallback 의 missing 은 「안 말했다」 는 확인이 아니라 짐작이라,
 #: 질문(F-08)·리포트가 진짜 누락으로 세면 안 된다.
-ALIGN_DECIDERS = ("llm", "code", "fallback")
+#: lora 는 로컬 Mi:dm 2.0 + F-11 LoRA 판정 그대로다(ALIGN_JUDGE=lora|lora+solar, 2026-10-16) — llm 과 같은 무게의 모델 판정이다.
+ALIGN_DECIDERS = ("llm", "code", "fallback", "lora")
 
 #: AlignmentDoc.speech_match — 녹음이 이 자료의 발표인가. unrelated 면 개념 판정을 하지 않는다(basis == "skipped").
 SPEECH_MATCHES = ("matched", "unrelated")
