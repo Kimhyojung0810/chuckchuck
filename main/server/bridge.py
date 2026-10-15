@@ -54,6 +54,7 @@ from pipeline.providers.stt_impl import media_tool  # noqa: E402
 from server.learning_jobs import refresh_learning_assets  # noqa: E402
 from server.rate_limit import RateLimiter  # noqa: E402
 from server import shield  # noqa: E402
+from server import live_stt  # noqa: E402
 from server import tour_events  # noqa: E402
 from server.session_archive import SessionArchive, git_sha  # noqa: E402
 from server.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
@@ -1318,6 +1319,8 @@ class _Flights:
 
 
 _FLIGHTS = _Flights()
+#: 실시간 받아쓰기 세션 칸 (main/server/live_stt.py — 전체 · 팀 몫 · IP 칸)
+LIVE_SLOTS = live_stt.Slots()
 
 
 # ─── 폴백은 폴백이라고 말한다 (09-30 B-03·G-A13/A19) ────────────────────────────────────────────────────
@@ -2064,6 +2067,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         return self._json(200, {
             "at": round(time.time(), 1),
             "paid": {**GATE.snapshot(), "queue_sec": PAID_QUEUE_SEC, "retry_sec": PAID_RETRY_SEC},
+            "live_stt": LIVE_SLOTS.snapshot(),
             "spend": {"per_hour_limit": PAID_PER_HOUR, "public_last_hour": SPEND.count("public"),
                       "per_ip_hour_limit": PAID_PER_HOUR_IP,
                       "exempt": sorted(SPEND_EXEMPT)},
@@ -2104,6 +2108,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 return self._json(200, {"team": _dev_open(), **({"dev": True} if DEV_ROUTES else {})})
             if parsed.path == "/api/v1/ops/shield":
                 return self._handle_ops_shield()
+            if parsed.path == "/api/v1/stt/live":
+                return self._handle_stt_live(parsed)
             if parsed.path == "/api/v1/cached-slidedoc":
                 return self._handle_cached_slidedoc(parsed)
             if parsed.path == "/api/v1/cached-transcript":
@@ -2340,6 +2346,75 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if parsed.path.endswith("/qa/reframe") and "/api/v1/sessions/" in parsed.path:
             return self._handle_qa_reframe(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         return self._json(404, {"error": "not found"})
+
+    # ── 실시간 받아쓰기 중계 (2026-10-15, main/server/live_stt.py) ─────────────────────────────────────────
+    # 크롬 Web Speech 는 음성을 구글로 보낸다(국내 AI 트랙 규정 위반) — 브라우저 ⇄ 여기 ⇄ SKT A.X realtime STT 로 바꿨다.
+    # 공개 방문자도 쓴다(Q&A 가 공개). 방패와 같은 규칙: 점검 깃발 · 분당 상한 · 시간당 천장 · 세션 칸(전체 · IP · 팀 몫).
+    # 막을 때도 WebSocket 은 열고 이유를 말한 뒤 닫는다 — 열기 전에 HTTP 로 거절하면 브라우저는 까닭을 못 읽는다.
+
+    def _handle_stt_live(self, parsed):
+        self.close_connection = True
+        problem = live_stt.handshake_problem(self.headers)
+        if problem:
+            return self._json(426, {"error": "websocket_required", "message": problem})
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if not (self._same_origin() or (origin and origin in ALLOWED_ORIGINS)):
+            return self._json(403, {"error": "forbidden_origin", "message": "이 화면에서는 받아쓰기를 열 수 없어요."})
+        key = settings.ax_stt_api_key
+        reason = ""
+        if _mock() or not key:
+            reason = "unavailable"
+        trusted = bool(getattr(_REQ, "trusted", False))
+        if not reason and not trusted and LOCKDOWN.on():
+            EVENTS.add("lockdown_503")
+            reason = "busy"
+        if not reason and self._rate_limited(parsed.path, b"") is not None:
+            EVENTS.add("paid_429")
+            reason = "busy"
+        bucket = shield.ip_bucket(self._client_key())
+        got = False
+        if not reason:
+            got = LIVE_SLOTS.acquire(bucket, trusted)
+            if not got:
+                EVENTS.add("live_stt_busy")
+                SHIELD_LOG.write("live_stt", f"실시간 받아쓰기 칸이 다 찼어요 {LIVE_SLOTS.snapshot()} {bucket}")
+                reason = "busy"
+        counted = got and not trusted and PAID_PER_HOUR > 0
+        ip_key = ("ip:" + bucket) if counted and PAID_PER_HOUR_IP > 0 and self._counted() else ""
+        if counted:   # 세션 하나 = 과금 호출 하나로 공개 시간당 천장(IP · 전체)에 센다 — _handle_paid 와 같은 순서
+            if ip_key and not SPEND_IP.allow(ip_key):
+                reason = "busy"
+            elif not SPEND.allow("public"):
+                if ip_key:
+                    SPEND_IP.refund(ip_key)
+                reason = "busy"
+            if reason:
+                EVENTS.add("budget_503")
+        try:
+            self.send_response(101, "Switching Protocols")
+            self.send_header("Upgrade", "websocket")
+            self.send_header("Connection", "Upgrade")
+            self.send_header("Sec-WebSocket-Accept", live_stt.accept_value(self.headers["Sec-WebSocket-Key"].strip()))
+            self.end_headers()
+            purpose = (parse_qs(parsed.query).get("purpose") or ["answer"])[0]
+            max_sec = live_stt.PRESENT_MAX_SEC if purpose == "present" else live_stt.ANSWER_MAX_SEC
+            url = live_stt.upstream_url(settings.ax_stt_base_url)
+            relay = live_stt.Relay(self.connection, connect=lambda u: live_stt.connect_ax(u, key), url=url,
+                                   model=settings.ax_stt_streaming_model, max_sec=max_sec,
+                                   calllog=ai_calllog.record_live_session)
+            if reason:
+                relay.fail(reason)
+                relay._close()
+                return None
+            EVENTS.add("live_stt")
+            out = relay.run()
+            sys.stderr.write(f"[live-stt] {bucket} {purpose} {out}\n")
+            return None
+        except OSError:
+            return None
+        finally:
+            if got:
+                LIVE_SLOTS.release(bucket)
 
     def _handle_tour_event(self, raw: bytes):
         """
