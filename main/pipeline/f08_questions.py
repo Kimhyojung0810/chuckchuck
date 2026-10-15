@@ -4143,6 +4143,8 @@ def _undercut_question(text: str, node: ConceptNode) -> str:
 #: 질문 한 문장 상한 — 화면 말풍선 두 줄. 09-30 held-out 감사(M-04): 120자를 넘는 한 문장 질문(도서관 t5 Q3)은 읽다가 놓친다.
 #: 골자·힌트 칸 상한(QA_TEXT_MAX 200)과 다르다 — 질문은 소리 내어 읽히는 한 호흡이다.
 QUESTION_MAX = 120
+#: 해요체 어미 없이 「?」 로만 끝나고 공백을 뺀 글자 수가 이보다 적으면 조각이다 (「세 가지 가설 중 왜?」 = 9자).
+QUESTION_MIN_CHARS = 10
 #: 물음 어미 — 이것으로 끝났는데 물음표가 없으면 단다 (09-30 held-out M-04: 한 덱 7/7 물음표 없음).
 _QUESTION_ENDING_RE = re.compile(r"(?:나요|가요|까요|죠|습니까|래요|건가요|을까요|인가요|는가요|은가요|던가요)\s*[.]?\s*$")
 #: 두 가지를 한 문장에 묻는 꼴 「A 는 무엇이며, B 는 …나요?」 — 길면 앞 물음만 남긴다.
@@ -4179,6 +4181,9 @@ def _fit_question(text: str, *, trap: bool = False, limit: int = QUESTION_MAX) -
     # 물음도 요청도 아닌 문장은 질문이 아니다 — 10-02 질문 코치 벤치: LLM 이 개념 요약(「격차는 … 만들어진다 / 실력의 문제가 아니라 …」)을
     # question 칸에 그대로 보내 화면에 서술문이 질문으로 떴다. 길이만 볼 때는 이 검사가 넘칠 때만 돌았다.
     if t and not t.endswith(("?", "？")) and not _POLITE_END_RE.search(t):
+        return ""
+    # 조각 물음 — 10-16 브리지 실측(엑사원 문장): 「세 가지 가설 중 왜?」 가 질문으로 떴다. 무엇을 묻는지 없는 물음은 템플릿이 낫다.
+    if t and not _POLITE_END_RE.search(t) and len(re.sub(r"\s+", "", t)) < QUESTION_MIN_CHARS:
         return ""
     if len(t) <= limit:
         return t

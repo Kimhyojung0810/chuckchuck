@@ -41,3 +41,9 @@ def test_questions_with_retry_accepts_label_ids_without_a_second_call():
     llm = _OnceLabelLLM('{"questions": [{"node_id": "핵심 주장", "question": "왜 그런가요?"}]}')
     raw = f08._questions_with_retry(llm, "p", [mark], label_of={"n1": "핵심 주장"})
     assert raw[0]["node_id"] == "n1" and llm.calls == 1
+
+
+def test_fragment_question_goes_to_template_but_short_real_questions_stay():
+    assert f08._fit_question("세 가지 가설 중 왜?") == ""
+    assert f08._fit_question("왜 가설 A는 기각되었나요?") == "왜 가설 A는 기각되었나요?"
+    assert f08._fit_question("혈당 지수는 어떻게 정의되나요?") == "혈당 지수는 어떻게 정의되나요?"
