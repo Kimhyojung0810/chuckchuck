@@ -86,6 +86,7 @@ flock $L python etc/habits_lora/evaluate.py --transcript etc/fixtures/focus_tran
 [Service]
 Environment=HABIT_PROVIDER=lora
 Environment=HF_HOME=/data/models/_runs/habits-lora/hf_cache
+# Environment=CHUCKCHUCK_LORA_BACKUP=gpu      # VRAM 이 넉넉하면 (요청당 ~3초 빠름)
 # FIL 프롬프트가 통합 프롬프트였으면:
 # Environment=CHUCKCHUCK_LORA_FIL_PROMPT=unified
 ```
@@ -95,6 +96,19 @@ Environment=HF_HOME=/data/models/_runs/habits-lora/hf_cache
 확인: `etc/scripts/chk doctor` (REP·FIL 어댑터 줄) · `etc/scripts/chk warmup` (provider=lora) ·
 응답의 `detectors` 가 `{"REP":"lora","FIL":"lora-ensemble×3","PAUSE":"rule"}`.
 
-**GPU** — 베이스 bf16 21.7GB + 어댑터 4개(각 241MB 파일) 상주. 같은 GPU 에서 학습을 돌리면 그만큼 빠진다.
+**GPU·속도 (2026-10-16 이 VM 실측, 학습 안 된 가짜 어댑터 4개로 배선만 확인)** — 생성 방식 `CHUCKCHUCK_LORA_MODE`:
+
+| 방식 | 토큰당 | 비고 |
+|---|---|---|
+| `swap` (기본) | 52~67ms | 어댑터마다 베이스에 합쳐(merge) 생성 → 백업으로 되돌림. 디스크 원본과 비트 단위로 같게 돌아옴 확인 |
+| `unmerged` | 117~136ms | set_adapter 로 하나씩 |
+| `mixed` | 522ms | 한 배치에 어댑터 섞기 — 출력은 다른 방식과 같았지만 이 VM(CPU 가 느려 커널 띄우기가 지배)에선 가장 느림 |
+
+- bf16 에서 unmerge(빼기)로 되돌리면 원소 1.5~14% 가 어긋난다(실측) — 그래서 빼지 않고 백업을 덮어쓴다.
+  `CHUCKCHUCK_LORA_BACKUP=cpu`(기본: VRAM 22.4GB 그대로, 고정 RAM 19.5GB, 되돌리기 0.84초) | `gpu`(VRAM 42GB, 요청당 ~3초 빠름).
+- 올리기 30~55초(페이지 캐시 따라). 가짜 어댑터 96토큰 상한으로 focus 전사문(194단어) 한 번 = swap 20~24초, 8816 브리지 왕복 23.6초.
+  학습된 태거는 출력이 훨씬 짧다(정답 줄 목록 평균 REP 152자 · FIL 76자) — 추정 REP ~4초 + FIL 3시드 ~6초 + 되돌리기 ~3초.
+  예전 REP 하나(합친 모델)는 ~4초였으니 **FIL 앙상블을 켜면 분석이 ~10초 늘어난다.** 줄이려면 `CHUCKCHUCK_LORA_BACKUP=gpu`,
+  또는 FIL 시드를 하나만(`CHUCKCHUCK_LORA_FIL_PATHS=…/fil_seed42/final` — 단일 시드 수치는 RESULTS_2ND 로 확인할 것).
 **STT 주의** — 서비스 STT(A.X) 전사문 4건(10/5 세션 3 · 리허설 픽스처 1)에 「어」「음」이 한 번도 없다.
 STT 가 간투어를 지우면 FIL 태거도 셀 것이 없다 — 일부러 「어」「음」을 섞은 녹음으로 한 번 확인할 것.

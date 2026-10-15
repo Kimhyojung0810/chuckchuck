@@ -4,14 +4,21 @@
 호출: _lora_tagger.tag_habits() → get_runner(cfg).generate_batch(requests)
      etc/habits_lora/evaluate.py 도 같은 러너를 쓴다 (평가 = 서비스 경로).
 
-· merge_and_unload 하지 않는다 — 어댑터를 합쳐 버리면 어댑터마다 베이스를 한 벌씩(22GB) 올려야 한다.
-  PEFT 다중 어댑터(load_adapter) 로 베이스는 한 벌, 어댑터는 각 수십 MB.
-· 한 generate 호출 안에서 행마다 다른 어댑터(adapter_names) 와 다른 repetition_penalty 를 쓴다
-  (REP 1.0 · FIL 1.2). HF 의 repetition_penalty 는 배치 전체에 하나라서, 행별 처리기(RowRepetitionPenalty) 로 바꿨다.
-  왼쪽 패딩 토큰은 페널티 대상에서 뺀다 — 한 줄씩 돌린 학습 평가와 같은 계산이 되게.
+베이스(22GB)는 한 벌만 올리고 어댑터(REP 1 + FIL 3)는 PEFT 다중 어댑터로 얹는다. 생성 방식은 셋
+(CHUCKCHUCK_LORA_MODE), 2026-10-16 이 VM(A100, CPU 가 느려 커널 띄우는 비용이 지배)에서 잰 토큰당 시간:
+
+  swap (기본)  어댑터마다 베이스 가중치에 더해(merge) 두고 그 어댑터의 행을 한 배치로 생성 → 백업에서 원래 값으로
+               되돌린다.  합친 모델 속도 52~67ms/토큰. merge·되돌리기 각 0.05초 안팎.
+               bf16 에서 unmerge(빼기)로 되돌리면 값이 어긋난다 — 한 번에 원소 1.5~14% (실측). 그래서 빼지 않고
+               백업을 덮어쓴다 (CHUCKCHUCK_LORA_BACKUP): cpu(기본, 고정 메모리 19.5GB · 되돌리기 0.84초) |
+               gpu(VRAM 19.5GB 더 · 수십 ms) | auto(GPU 여유가 백업+8GB 넘으면 gpu).
+  unmerged     set_adapter 로 하나씩 (LoRA 를 매 층 따로 계산) — 117~136ms/토큰. 백업이 필요 없다.
+  mixed        한 배치에 행마다 다른 어댑터(adapter_names) — 522ms/토큰. 이 머신에선 가장 느리다.
+
+· 행마다 repetition_penalty 가 다를 수 있다(REP 1.0 · FIL 1.2) — RowRepetitionPenalty. 왼쪽 패딩 토큰은
+  페널티 대상에서 뺀다 (한 줄씩 돌린 학습 평가와 같은 계산). mixed==어댑터별==한 줄씩 출력이 같음을 실측했다.
 · 생성은 잠금 하나로 줄 세운다. 브리지는 요청마다 스레드라 동시에 들어오면 GPU 가 두 배로 먹는다.
-· 미리 올리기(preload) 를 켜면 올리는 동안 들어온 요청은 LoraNotReady → f18 이 규칙으로 대신한다
-  (공개 서비스에서 첫 사용자가 2~3분 기다리지 않게).
+· 미리 올리기(preload) 를 켜면 올리는 동안 들어온 요청은 LoraNotReady → f18 이 규칙으로 대신한다.
 """
 
 from __future__ import annotations
@@ -20,6 +27,7 @@ import os
 import sys
 import threading
 import time
+from contextlib import contextmanager
 
 from ._lora_tagger import GenRequest, LoraNotReady, TaggerConfig
 
@@ -52,10 +60,14 @@ class RowRepetitionPenalty:
         return scores
 
 
+MODES = ("swap", "unmerged", "mixed")
+BACKUP_MARGIN_GB = 8.0
+
+
 class MidmLoraRunner:
     """베이스 한 벌 + 이름 붙은 어댑터들. generate_batch 는 요청 순서대로 출력 문자열을 돌려준다."""
 
-    def __init__(self, cfg: TaggerConfig):
+    def __init__(self, cfg: TaggerConfig, mode: str | None = None):
         import torch
         from peft import PeftModel
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -64,6 +76,8 @@ class MidmLoraRunner:
             raise RuntimeError("CUDA 없음 — 11.5B 를 CPU 로 돌리지 않는다 (CHUCKCHUCK_LORA_ALLOW_CPU=1 로 강제)")
         t0 = time.time()
         self.cfg = cfg
+        mode = (mode or os.environ.get("CHUCKCHUCK_LORA_MODE") or "swap").strip().lower()
+        self.mode = mode if mode in MODES else "swap"
         on_gpu = torch.cuda.is_available()
         tok = AutoTokenizer.from_pretrained(cfg.base)
         if tok.pad_token_id is None:
@@ -83,8 +97,64 @@ class MidmLoraRunner:
         model.eval()
         self.model = model
         self.mixed_ok = True
+        self.backup_on = None
+        if self.mode == "swap":
+            self._make_backup(torch)
         self.load_sec = round(time.time() - t0, 1)
         self.gen_lock = threading.Lock()
+
+    # ── swap: 합치기 · 되돌리기 ──
+    def _lora_layers(self):
+        return [m for m in self.model.modules() if hasattr(m, "lora_A") and hasattr(m, "base_layer")
+                and hasattr(m, "get_delta_weight")]
+
+    def _make_backup(self, torch) -> None:
+        layers = self._lora_layers()
+        need = sum(m.base_layer.weight.numel() * m.base_layer.weight.element_size() for m in layers)
+        # 기본 cpu — GPU 를 예전 REP 서비스만큼(22.4GB)만 문다. 같은 GPU 에서 학습이 돌 수 있어서.
+        # gpu 로 두면 19.5GB 를 더 물고 요청당 ~3초 빨라진다 (되돌리기 0.84초 → 수십 ms, 어댑터 4개).
+        want = (os.environ.get("CHUCKCHUCK_LORA_BACKUP") or "cpu").lower()
+        free = torch.cuda.mem_get_info()[0] if torch.cuda.is_available() else 0
+        on_gpu = want == "gpu" or (want == "auto" and free > need + BACKUP_MARGIN_GB * 2**30)
+        self._layers = layers
+        if on_gpu:
+            self._backup = [m.base_layer.weight.detach().clone() for m in layers]
+        else:
+            self._backup = [m.base_layer.weight.detach().to("cpu").pin_memory() for m in layers]
+        self.backup_on = "gpu" if on_gpu else "cpu"
+        self.backup_gb = round(need / 2**30, 1)
+
+    def _merge(self, name: str) -> None:
+        import torch
+
+        with torch.no_grad():
+            for m in self._layers:
+                if name in m.lora_A:
+                    w = m.base_layer.weight
+                    w.add_(m.get_delta_weight(name).to(w.dtype))
+
+    def _restore(self) -> None:
+        import torch
+
+        with torch.no_grad():
+            for m, b in zip(self._layers, self._backup):
+                m.base_layer.weight.copy_(b, non_blocking=True)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+
+    @contextmanager
+    def _active(self, name: str):
+        """이 어댑터로 생성할 수 있게 해 두고, 끝나면 베이스를 원래대로."""
+        if self.mode != "swap":
+            self.model.set_adapter(name)
+            yield
+            return
+        self._merge(name)
+        try:
+            with self.model.disable_adapter():   # 합친 가중치만 쓴다 — LoRA 를 한 번 더 더하지 않게
+                yield
+        finally:
+            self._restore()
 
     def _prompt(self, req: GenRequest) -> str:
         msgs = [{"role": "system", "content": req.system_prompt}, {"role": "user", "content": req.user_text}]
@@ -107,39 +177,37 @@ class MidmLoraRunner:
         )
         if mixed:
             kw["adapter_names"] = [r.adapter for r in reqs]
-        else:
-            self.model.set_adapter(reqs[0].adapter)
         with torch.no_grad():
             out = self.model.generate(**enc, **kw)
         n_in = enc["input_ids"].shape[1]
         return [tok.decode(row[n_in:], skip_special_tokens=True) for row in out]
 
     def generate_batch(self, reqs: list[GenRequest]) -> list[str]:
-        """요청들을 프롬프트 길이 순으로 max_batch 씩 묶어 생성. 출력은 요청 순서."""
+        """요청들을 생성해 요청 순서대로. mixed 는 길이 순 max_batch 묶음, 나머지는 어댑터별 max_batch 묶음."""
         out: list[str | None] = [None] * len(reqs)
-        order = sorted(range(len(reqs)), key=lambda i: len(reqs[i].user_text))
         step = max(1, self.cfg.max_batch)
         with self.gen_lock:
-            for s in range(0, len(order), step):
-                idx = order[s:s + step]
-                for i, text in zip(idx, self._run_group([reqs[i] for i in idx])):
-                    out[i] = text
+            if self.mode == "mixed" and self.mixed_ok:
+                order = sorted(range(len(reqs)), key=lambda i: len(reqs[i].user_text))
+                try:
+                    for s in range(0, len(order), step):
+                        idx = order[s:s + step]
+                        for i, text in zip(idx, self._run([reqs[i] for i in idx], mixed=True)):
+                            out[i] = text
+                    return [o or "" for o in out]
+                except (TypeError, ValueError) as e:
+                    # 이 PEFT 판이 섞인 어댑터 배치를 못 받으면 어댑터별로 (한 번 보고 끈다)
+                    sys.stderr.write(f"[lora] mixed adapter batch 불가 → 어댑터별: {e}\n")
+                    self.mixed_ok = False
+                    self.mode = "unmerged"
+            for name in dict.fromkeys(r.adapter for r in reqs):
+                idx = sorted((i for i, r in enumerate(reqs) if r.adapter == name), key=lambda i: len(reqs[i].user_text))
+                with self._active(name):
+                    for s in range(0, len(idx), step):
+                        part = idx[s:s + step]
+                        for i, text in zip(part, self._run([reqs[i] for i in part], mixed=False)):
+                            out[i] = text
         return [o or "" for o in out]
-
-    def _run_group(self, group: list[GenRequest]) -> list[str]:
-        if self.mixed_ok:
-            try:
-                return self._run(group, mixed=True)
-            except (TypeError, ValueError) as e:
-                # 이 PEFT 판이 섞인 어댑터 배치를 못 받으면 어댑터별로 나눠 돈다 (한 번 보고 끈다)
-                sys.stderr.write(f"[lora] mixed adapter batch 불가 → 어댑터별 순차: {e}\n")
-                self.mixed_ok = False
-        res: dict[int, str] = {}
-        for name in dict.fromkeys(r.adapter for r in group):
-            sub = [i for i, r in enumerate(group) if r.adapter == name]
-            for i, text in zip(sub, self._run([group[i] for i in sub], mixed=False)):
-                res[i] = text
-        return [res[i] for i in range(len(group))]
 
 
 def _build(cfg: TaggerConfig) -> None:
@@ -212,6 +280,8 @@ def state() -> dict:
            "error": f"{type(_load_error).__name__}: {_load_error}" if _load_error else None}
     if _runner is not None:
         out["load_sec"] = _runner.load_sec
+        out["mode"] = _runner.mode
+        out["backup"] = _runner.backup_on
         out["adapters"] = [a.name for a in _runner.cfg.adapters]
         try:
             import torch

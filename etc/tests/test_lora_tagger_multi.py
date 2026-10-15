@@ -5,8 +5,10 @@ F-18 Mi:dm LoRA 다중 어댑터(REP + FIL 3시드) — GPU 없이 가짜 러너
 
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
+import types
 
 import pytest
 
@@ -270,7 +272,7 @@ def test_preload_then_get_runner(three_fil, fresh_runtime, monkeypatch):
     class SlowRunner:
         def __init__(self, cfg):
             gate.wait(5)
-            self.cfg, self.load_sec = cfg, 0.0
+            self.cfg, self.load_sec, self.mode, self.backup_on = cfg, 0.0, "swap", "gpu"
 
     monkeypatch.setattr(RT, "MidmLoraRunner", SlowRunner)
     cfg = LT.load_config({})
@@ -303,25 +305,78 @@ def test_failed_load_is_not_retried_every_request(three_fil, fresh_runtime, monk
     assert len(built) == 2
 
 
-def test_generate_batch_orders_groups_and_falls_back_to_per_adapter():
+class _FakePeft:
+    def __init__(self):
+        self.active, self.disabled = None, 0
+
+    def set_adapter(self, name):
+        self.active = name
+
+    @contextlib.contextmanager
+    def disable_adapter(self):
+        self.disabled += 1
+        yield
+
+
+def _bare_runner(mode, max_batch=2):
     r = object.__new__(RT.MidmLoraRunner)
-    r.cfg = type("C", (), {"max_batch": 2})()
+    r.cfg = type("C", (), {"max_batch": max_batch})()
     r.gen_lock = threading.Lock()
     r.mixed_ok = True
+    r.mode = mode
+    r.model = _FakePeft()
+    return r
+
+
+def _reqs():
+    return [LT.GenRequest(a, "s", u, 1.0, 8) for a, u in (("rep", "aaaa"), ("fil0", "b"), ("fil1", "cc"), ("fil0", "ddd"))]
+
+
+def test_generate_batch_mixed_falls_back_to_per_adapter():
+    r = _bare_runner("mixed")
     seen = []
 
     def run(group, mixed):
-        seen.append((mixed, [g.adapter for g in group]))
+        seen.append((mixed, r.model.active, [g.adapter for g in group]))
         if mixed:
             raise TypeError("adapter_names unsupported")
         return [f"{g.adapter}:{g.user_text}" for g in group]
 
     r._run = run
-    reqs = [LT.GenRequest(a, "s", u, 1.0, 8) for a, u in (("rep", "aaaa"), ("fil0", "b"), ("fil1", "cc"))]
-    out = r.generate_batch(reqs)
-    assert out == ["rep:aaaa", "fil0:b", "fil1:cc"]           # 요청 순서로 돌려준다
-    assert seen[0] == (True, ["fil0", "fil1"])                 # 짧은 프롬프트부터 2개씩
-    assert r.mixed_ok is False and all(not m for m, _ in seen[1:])
+    assert r.generate_batch(_reqs()) == ["rep:aaaa", "fil0:b", "fil1:cc", "fil0:ddd"]   # 요청 순서로 돌려준다
+    assert seen[0] == (True, None, ["fil0", "fil1"])                                    # 짧은 프롬프트부터 2개씩
+    assert r.mode == "unmerged" and seen[1:] == [(False, "rep", ["rep"]), (False, "fil0", ["fil0", "fil0"]),
+                                                  (False, "fil1", ["fil1"])]
+
+
+def test_swap_mode_merges_one_adapter_at_a_time_and_restores_exactly():
+    torch = pytest.importorskip("torch")
+    r = _bare_runner("swap", max_batch=1)
+
+    class Layer:
+        def __init__(self, w):
+            self.base_layer = types.SimpleNamespace(weight=w)
+            self.lora_A = {"rep": 0, "fil0": 0, "fil1": 0}
+
+        def get_delta_weight(self, name):
+            return torch.full_like(self.base_layer.weight, {"rep": 0.003, "fil0": 0.37, "fil1": -1.1}[name], dtype=torch.float32)
+
+    w0 = (torch.randn(8, 8) * 3).to(torch.bfloat16)
+    r._layers = [Layer(w0.clone())]
+    r._backup = [w0.clone()]
+    seen = []
+
+    def run(group, mixed):
+        seen.append((r.model.disabled, [g.adapter for g in group], r._layers[0].base_layer.weight.clone()))
+        return ["NONE"] * len(group)
+
+    r._run = run
+    for _ in range(3):
+        r.generate_batch(_reqs())
+    assert torch.equal(r._layers[0].base_layer.weight, w0)          # bf16 빼기가 아니라 백업 덮어쓰기라 정확히 원래대로
+    fil0 = [x for x in seen if x[1] == ["fil0"]][0][2]
+    assert torch.equal(fil0, (w0 + torch.full_like(w0, 0.37, dtype=torch.float32).to(torch.bfloat16)))
+    assert all(d >= 1 for d, _, _ in seen)                          # 합친 동안 LoRA 를 또 더하지 않는다
 
 
 def test_row_repetition_penalty_matches_hf_and_skips_padding():
