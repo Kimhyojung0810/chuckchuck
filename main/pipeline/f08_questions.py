@@ -119,6 +119,7 @@ from .contracts import (
 )
 from .providers.llm_base import LLMProvider
 from .providers.llm_impl import get_llm
+from .providers.llm_route import get_stage_llm
 
 MAX_TOKENS = int(os.environ.get("CHUCKCHUCK_QUESTION_MAX_TOKENS", "4096"))
 
@@ -1659,6 +1660,18 @@ def _engine(llm: str | LLMProvider | None, llm_kwargs: dict | None) -> LLMProvid
     return llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
 
 
+def _stage_engine(stage: str, llm: str | LLMProvider | None, llm_kwargs: dict | None) -> LLMProvider:
+    """일(triage·phrase·check)마다 맡은 모델 (providers/llm_route — 10-16 「Solar 혼자 하지 말고 나눠 맡기기」).
+
+    호출부가 llm 을 명시하면(벤치 --llm · 테스트 · 개발 경로 · mock) 그대로 쓴다 — 라우팅은 **기본 경로(llm=None)** 에서만 탄다.
+    주 모델이 마감을 넘기거나 JSON 을 못 주면 서비스 기본 체인(solar→ax)이 한 번 받는다. 어떤 모델이 썼든 아래 코드 가드
+    (근거 대조 · 함정 전제 · 논문 주장 대조 · 말투)는 똑같이 지나간다.
+    """
+    if llm is not None or llm_kwargs:
+        return _engine(llm, llm_kwargs)
+    return get_stage_llm(stage)
+
+
 def _call(engine: LLMProvider, system: str, user: str, temperature: float = 0.3) -> dict:
     """LLM 한 번 부르고 JSON 객체로. 파싱 실패는 QuestionError 로 감싼다."""
     raw = engine.complete(system=system, user=user, temperature=temperature, max_tokens=MAX_TOKENS, json_mode=True)
@@ -1684,6 +1697,37 @@ def _raw_questions(data: dict) -> list[dict]:
     return [q for q in (data.get("questions") or []) if isinstance(q, dict)]
 
 
+def _as_bool(v) -> bool:
+    """LLM 의 참/거짓. 문자열 "false" 를 bool() 로 바꾸면 True 다 — 10-16 실측(엑사원)에서 "trap": "true" 꼴이 왔다."""
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "yes", "1", "y")
+    return bool(v)
+
+
+def _id_key(text: str) -> str:
+    return re.sub(r"[\s\W_]+", "", str(text or "")).lower()
+
+
+def _resolve_node_ids(raw: list[dict], label_of: dict[str, str]) -> list[dict]:
+    """node_id 자리에 **개념 이름**을 적은 것을 실제 id 로 되돌린다 (이름이 대상 하나와만 맞을 때만).
+
+    10-16 실측(엑사원 문장): node_id 에 "4.7은 품질이 아니라 리뷰 수집 방식의 결과다" 처럼 라벨을 적어, 재시도까지 대상 id 가
+    하나도 없어 전부 템플릿 질문으로 떨어졌다. id 는 코드가 정한 조인 키라 지어내면 안 되지만, 라벨이 정확히 한 대상과 같으면
+    그 대상을 가리킨 것이 분명하다. 모르는 것은 그대로 둔다 — 대상 밖 id 는 어댑터가 버린다."""
+    by_key: dict[str, list[str]] = {}
+    for nid, label in label_of.items():
+        by_key.setdefault(_id_key(label), []).append(nid)
+    out = []
+    for q in raw:
+        nid = str(q.get("node_id", "") or "")
+        if nid and nid not in label_of:
+            hit = by_key.get(_id_key(nid)) or []
+            if len(hit) == 1:
+                q = {**q, "node_id": hit[0]}
+        out.append(q)
+    return out
+
+
 def _covers_any_target(raw_questions: list[dict], marks: list[TriageMark]) -> bool:
     targets = {m.node_id for m in marks}
     return any(str(q.get("node_id", "") or "") in targets for q in raw_questions)
@@ -1691,6 +1735,7 @@ def _covers_any_target(raw_questions: list[dict], marks: list[TriageMark]) -> bo
 
 def _questions_with_retry(
     engine: LLMProvider, prompt: str, marks: list[TriageMark], system: str = QUESTION_SYSTEM_PROMPT,
+    label_of: dict[str, str] | None = None,
 ) -> list[dict]:
     """질문 JSON 을 받되, **대상 id 가 하나도 없으면 파싱 실패와 같은 실패로 보고 한 번 더 묻는다.**
 
@@ -1698,10 +1743,11 @@ def _questions_with_retry(
     측정 5회 중 2회. 그때 `_normalize_questions` 는 조용히 전부 템플릿으로 메웠고 사용자는 "라벨 —
     설명해 주세요." 만 받았다. 두 번째도 비면 그대로 템플릿으로 간다 — 구멍은 내지 않는다.
     """
-    raw = _raw_questions(_call_with_retry(engine, system, prompt))
+    fix = (lambda r: _resolve_node_ids(r, label_of)) if label_of else (lambda r: r)
+    raw = fix(_raw_questions(_call_with_retry(engine, system, prompt)))
     if marks and not _covers_any_target(raw, marks):
         try:
-            raw = _raw_questions(_call(engine, system + JSON_RETRY_NUDGE, prompt))
+            raw = fix(_raw_questions(_call(engine, system + JSON_RETRY_NUDGE, prompt)))
         except QuestionError:
             raw = []
     return raw
@@ -1800,9 +1846,11 @@ def _questions_with_papers(
     engine: LLMProvider, prompt: str, marks: list[TriageMark], system: str,
     by_id: dict[str, ConceptNode], by_no: dict[int, Slide], papers: PaperDoc | None,
     paper_plan: dict[str, list[PaperRef]] | None = None,
+    check_engine: LLMProvider | None = None,
 ) -> list[dict]:
     """질문을 받은 뒤, 문헌이 붙었는데 인용이 없는 질문만 골라 qa-cite 로 **한 번** 고쳐 쓴다. 실패하면 첫 응답 그대로."""
-    raw = _questions_with_retry(engine, prompt, marks, system)
+    raw = _questions_with_retry(engine, prompt, marks, system,
+                                label_of={m.node_id: by_id[m.node_id].label for m in marks if m.node_id in by_id})
     targets = _cite_targets(raw, marks, by_id, by_no, papers, paper_plan)
     if targets:
         try:
@@ -1813,7 +1861,7 @@ def _questions_with_papers(
             sys.stderr.write(f"[f08] qa-cite 재작성 실패 — 첫 응답을 그대로 써요: {e}\n")
             for q, _, _ in targets:
                 q["_cite_failed"] = True
-    return _verify_paper_claims(engine, raw, marks, papers)
+    return _verify_paper_claims(check_engine or engine, raw, marks, papers)
 
 
 # ---------------------------------------------------------------------------
@@ -2322,6 +2370,7 @@ def _normalize_marks(
     """
     candidate_ids = {node.id for node, _ in pairs}
     judged: dict[str, dict] = {}
+    raw_marks = _resolve_node_ids(raw_marks, {node.id: node.label for node, _ in pairs})
     for raw in raw_marks:
         node_id = str(raw.get("node_id", "") or "")
         if node_id in candidate_ids and node_id not in judged:
@@ -2342,7 +2391,7 @@ def _normalize_marks(
         marks.append(TriageMark(
             node_id=node.id,
             severity=severity,
-            trap=bool(raw.get("trap", False)),
+            trap=_as_bool(raw.get("trap", False)),
             angle=_usable_angle(str(raw.get("angle", "") or "")),
             source=source,
             rank=0,                      # 아래에서 severity 를 반영해 다시 매긴다
@@ -2568,7 +2617,7 @@ def triage_questions(
         alignment = flow = transcript = pace = None
     probes = derive_probes(graph, claims, slides_text if claims is not None else None)
     pairs = _ordered_candidates(graph, alignment, flow, pace, probes, slides_text)
-    engine = _engine(llm, llm_kwargs)
+    engine = _stage_engine("triage", llm, llm_kwargs)
 
     data = _call_with_retry(
         engine,
@@ -5613,7 +5662,7 @@ def build_questions(
     # 탐침은 근거가 그 탐침인 개념에만 묶는다 — 모순·누락처럼 더 앞선 근거로 뽑힌 개념까지 탐침으로 끌면 근거가 섞인다.
     probe_of = {m.node_id: probe_of[m.node_id] for m in marks
                 if m.node_id in probe_of and probe_of[m.node_id].kind == m.source}
-    engine = _engine(llm, llm_kwargs)
+    engine = _stage_engine("phrase", llm, llm_kwargs)
     flow_of = _flow_issue_by_node(flow)
 
     # 함정은 코드가 고르고 전제도 코드가 자료에서 만든다 (qa/trap). 자료가 없으면 함정도 없다.
@@ -5641,6 +5690,8 @@ def build_questions(
         + (PROBE_SYSTEM_ADDENDUM if probe_of else "")
         + (REASON_SYSTEM_ADDENDUM if _has_reason_structure(marks, by_id, by_no, trap_of) else ""),
         by_id, by_no, papers, paper_plan,
+        # 논문 주장 대조는 따로 맡긴다(temperature 0 · 근거 문장을 코드가 초록과 글자 대조) — 문헌이 있을 때만 만든다
+        check_engine=_stage_engine("check", llm, llm_kwargs) if papers is not None else None,
     )
 
     # 골자가 사실상 같은 질문은 뒤로 민다. 한 번 답하면 셋이 다 닫히는 5분 트랙의
