@@ -15,6 +15,7 @@ import { PresentDock } from './ui/PresentDock.jsx'
 import { Companion } from './piyak/Companion.jsx'
 import { rmsToVolume } from './voice/signal.js'
 import { stationLayout, appRect } from './layout.js'
+import { ST, isReport } from './ui/keys.js'
 import { useAppMirror, pressApp, SlideOverlay, Listener } from './ui/AppMirror.jsx'
 import { ScoreBoard } from './ui/ScoreBoard.jsx'
 
@@ -26,7 +27,7 @@ function useViewport() {
 }
 
 // 자라는 삐약이의 단계 — 정거장 다섯(분석이 늘었다)에 그림 넷: ① 알 · ② ③ 금 간 알 · ④ 깨고 나옴 · ⑤ 모자
-const COMPANION_STAGE = [0, 1, 1, 2, 3]
+const COMPANION_STAGE = [0, 1, 1, 2, 3, 3, 3, 3, 3]
 
 export default function App() {
   const vp = useViewport()
@@ -149,13 +150,19 @@ export default function App() {
         <span className="hud__brand"><img src="assets/chuckchuck-app-icon-64.png" alt="" /><span>척척발표</span></span>
         <ol className="hud__steps" aria-label="리허설 단계">
           {STATIONS.map((s, i) => (
-            <li key={s.key}><span className="ds-step" aria-current={i === at ? 'step' : undefined}>
-              <span className="ds-mono">0{i + 1}</span><span className="hud__step-name">{s.name}</span></span></li>
+            <li key={s.key} className={i === ST.report ? 'hud__report-start' : undefined}>
+              {/* 리포트 정거장끼리는 눌러서 옮겨 다닌다(리포트에 와 있을 때만) — 앞 단계는 앱 흐름이 정한다 */}
+              {isReport(i) && isReport(at)
+                ? <button type="button" className="ds-step" aria-current={i === at ? 'step' : undefined} onClick={() => frameApi.current?.tab(i - ST.report)}>
+                    <span className="ds-mono">0{i + 1}</span><span className="hud__step-name">{s.name}</span></button>
+                : <span className="ds-step" aria-current={i === at ? 'step' : undefined}>
+                    <span className="ds-mono">0{i + 1}</span><span className="hud__step-name">{s.name}</span></span>}</li>
           ))}
         </ol>
         <span className="hud__end"><a className="hud__exit" href="/">나가기</a></span>
       </header>
-      {(at === 0 || at === 4) && <p className="hud__note ds-mono">→ · Enter 다음 · ← 이전 · 빈 곳을 좌우로 끌면 둘러봐요</p>}
+      {at === 0 && <p className="hud__note ds-mono">→ · Enter 다음 · ← 이전 · 빈 곳을 좌우로 끌면 둘러봐요</p>}
+      {isReport(at) && <p className="hud__note ds-mono">← → 리포트 화면 옮기기 · 위 단계를 눌러도 돼요</p>}
       <p className="ds-sr" ref={live} aria-live="polite" />
     </div>
   )

@@ -28,6 +28,11 @@ check('질문 주소는 층과 무관', K.stationOf({ hash: '#/rehearsal/qa', wa
 check('#/rehearsal/qa → ④ 질의응답', K.stationOfHash('#/rehearsal/qa') === 3);
 check('#/rehearsal/report → ⑤ 리포트', K.stationOfHash('#/rehearsal/report') === 4);
 check('#/report/last → ⑤ 리포트', K.stationOfHash('#/report/last') === 4);
+check('리포트 2.0 뿌리 화면이 정거장을 가른다 — 다시 보기 ⑥', K.stationOf({ hash: '#/rehearsal/report', rv2Root: 'replay' }) === 5);
+check('리포트 결과(home) · 모르는 뿌리는 ⑤', K.stationOf({ hash: '#/rehearsal/report', rv2Root: 'home' }) === 4 && K.stationOf({ hash: '#/rehearsal/report', rv2Root: 'x' }) === 4);
+check('리포트 연습은 ⑨', K.stationOf({ hash: '#/report/last', rv2Root: 'practice' }) === 8);
+check('리포트 정거장 → 는 옆 탭', K.keyAction({ key: 'ArrowRight', station: 5 }) === 'tabNext' && K.keyAction({ key: 'ArrowLeft', station: 5 }) === 'tabPrev');
+check('리포트 끝 탭에서 → · 첫 탭에서 ← 는 없다', K.keyAction({ key: 'ArrowRight', station: 8 }) === null && K.keyAction({ key: 'ArrowLeft', station: 4 }) === null);
 check('#/home → 흐름 밖', K.stationOfHash('#/home') === -1);
 check('빈 주소 → 흐름 밖', K.stationOfHash('') === -1);
 check('#/rehearsals 는 흐름이 아니다', K.stationOfHash('#/rehearsals') === -1);

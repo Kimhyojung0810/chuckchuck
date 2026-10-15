@@ -5094,6 +5094,8 @@ function saveLastReport() {
       },
       // 리포트 2.0 (D-005, 10-16 승인) — 다시 연 리포트에서도 Q&A 전환점 · 녹음 다시 듣기(부스 덱)가 되게
       qa: rv2QaSnapshot(),
+      // 미리 찍은 장 그림 주소(부스 덱 assets/deck-slides/…)만 — base64 렌더는 크기 때문에 빼고, 다시 열면 미리보기 PDF 로 그린다
+      slideImages: (nf.slideImages || []).length && (nf.slideImages || []).every((u) => typeof u === 'string' && /^assets\//.test(u)) ? nf.slideImages : null,
       // 부스 덱 녹음으로 한 발표면 그 덱 이름 — 저장은 리포트 2.0 갈래보다 먼저라 take 에서 바로 읽는다
       deckAudio: nf.deckAudio || (ccLastTake && ccLastTake._blob && ccLastTake._blob.deckAudio ? String(ccLastTake._blob.deckAudio) : ''),
     };
@@ -5145,6 +5147,7 @@ function restoreLastReport() {
     // 복원해 놓고 「샘플이에요」나 지난 오류 배너가 뜬다
     useSample: false, pipelineError: null, pipelineDetail: '',
     rv2Qa: snap.qa || null, deckAudio: snap.deckAudio || '',
+    ...(Array.isArray(snap.slideImages) && snap.slideImages.length ? { slideImages: snap.slideImages } : {}),
   });
   return snap.at || 0;
 }
@@ -5284,7 +5287,7 @@ function reportVerdict() {
    같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
-const RV2_FILES = { css: 'css/report_v2.css?v=rv7', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv6'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv7', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv7'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5354,12 +5357,17 @@ async function renderReportV2(restoredAt) {
     saved: restoredAt ? ` (${stampText(restoredAt)})` : '',
   });
   if (rv2Handle) rv2Handle.destroy();
+  const inStudio = document.documentElement.classList.contains('sx-studio');
   rv2Handle = window.ReportV2.mount(app, input, {
     mode: 'app',
+    // /VRShow 에선 리포트 뿌리 화면 다섯이 스튜디오 정거장 다섯(결과 · 다시 보기 · 청중석 · 코칭 · 연습) — 10-16 사용자 「리포트 탭을 여러 개로 분리」
+    tabs: inStudio ? ['home', 'replay', 'audience', 'coach', 'practice'] : null,
+    onRoot: (root) => { app.dataset.rv2Root = root; },
     slideImage: (n) => (uploadedPdf && uploadedPdf.pdf ? slideThumb(n) : null),
     onLegacy: () => {
       // 「이전 리포트」 — 이번 한 번만 옛 화면(새로고침하면 다시 리포트 2.0). 탭에 묶어 두면 돌아올 길이 없었다
       rv2Failed = true;
+      delete app.dataset.rv2Root;
       if (rv2Handle) { rv2Handle.destroy(); rv2Handle = null; }
       renderReport();
     },
@@ -5374,8 +5382,10 @@ async function renderReportV2(restoredAt) {
 }
 // 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게
 window.addEventListener('hashchange', () => {
-  if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; }
+  if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; delete app.dataset.rv2Root; }
 });
+/** 스튜디오(ui/Frame.jsx)가 리포트 탭을 옮길 때 부른다 — 0 결과 · 1 다시 보기 · 2 청중석 · 3 코칭 · 4 연습 */
+window.__rv2Tab = (i) => { if (rv2Handle) rv2Handle.tab(i); };
 
 async function renderReport() {
   await ensureVoicePipelineOut();

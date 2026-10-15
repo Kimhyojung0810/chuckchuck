@@ -57,7 +57,9 @@ export function AppFrame({ rect, onStation, api, onFit }) {
     const hash = win.location.hash
     const doc = win.document
     // 분석 기다림은 발표와 같은 주소라 떠 있는 층으로 가른다 (#bqStage[data-screen=wait])
-    const k = stationOf({ hash, wait: !!doc.querySelector('#bqStage[data-screen="wait"]') })
+    // 리포트는 리포트 2.0 이 #app[data-rv2-root] 에 지금 뿌리 화면(결과 · 다시 보기 · 청중석 · 코칭 · 연습)을 적는다 — 정거장 다섯으로 가른다
+    const app = doc.getElementById('app')
+    const k = stationOf({ hash, wait: !!doc.querySelector('#bqStage[data-screen="wait"]'), rv2Root: (app && app.dataset.rv2Root) || '' })
     if (k < 0) {   // 앱의 「나가기」 · 홈 → 스튜디오는 처음 정거장(앱도 리허설 첫 화면으로) — 늘 절대 주소로
       win.location.replace(new URL(APP_START, location.origin).href)
       return
@@ -89,6 +91,11 @@ export function AppFrame({ rect, onStation, api, onFit }) {
       return true
     }
     if (what === 'back' && stack.current.length > 1) { win.history.back(); return true }
+    if (what === 'tabNext' || what === 'tabPrev') {
+      if (typeof win.__rv2Tab !== 'function') return false
+      win.__rv2Tab(station.current - ST.report + (what === 'tabNext' ? 1 : -1))
+      return true
+    }
     if (what === 'slideNext' || what === 'slidePrev') {
       const b = doc.querySelector(`#vrCall .vr-dock [data-slide-nav="${what === 'slideNext' ? 1 : -1}"]`)
       if (!b || b.disabled) return false
@@ -115,6 +122,8 @@ export function AppFrame({ rect, onStation, api, onFit }) {
   useEffect(() => {
     if (api) api.current = {
       next: () => act('next'), back: () => act('back'), key: (e) => onKey(e, document.activeElement),
+      /** 리포트 탭 i(0 결과 · 1 다시 보기 · 2 청중석 · 3 코칭 · 4 연습)로 — 리포트 2.0 이 뿌리 화면을 바꾸면 sync 가 정거장을 옮긴다 */
+      tab: (i) => { const w = frame.current?.contentWindow; if (w && typeof w.__rv2Tab === 'function') w.__rv2Tab(i) },
       doc: () => frame.current?.contentDocument || null, win: () => frame.current?.contentWindow || null,
     }
   })

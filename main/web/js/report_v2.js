@@ -68,6 +68,9 @@
   function mount(root, data, opts = {}) {
     const MODE = opts.mode || 'page';
     const EMBED = !!window.__RV2_EMBED;
+    /* 탭 모드(스튜디오 /VRShow) — 뿌리 화면 다섯이 스튜디오 정거장 다섯(05 결과 · 06 다시 보기 · 07 청중석 · 08 코칭 · 09 연습)이다.
+       그 다섯으로 가는 push 는 뿌리를 바꾸고(opts.onRoot 로 알린다 → 스튜디오 창이 곡선을 따라 미끄러진다), 그 아래 깊은 화면만 창 안에서 밀어 넣는다 */
+    const TABS = Array.isArray(opts.tabs) && opts.tabs.length ? opts.tabs : null;
     let D = data; let G = null; let V = null;
     let audio = null; let stopAt = null; let playingKey = '';
     const stack = [];      // [{ route, el, short, onTime }]
@@ -147,7 +150,7 @@
       el.innerHTML = `
         <header class="nv-bar">
           ${backWord ? `<button type="button" class="nv-back" data-back>${I.back}<span>${esc(backWord)}</span></button>`
-            : (typeof opts.onLegacy === 'function' ? '<button type="button" class="nv-legacy" data-legacy>이전 리포트</button>' : '<span></span>')}
+            : (typeof opts.onLegacy === 'function' && name === 'home' ? '<button type="button" class="nv-legacy" data-legacy>이전 리포트</button>' : '<span></span>')}
           <h2 class="nv-small">${esc(sc.short || sc.title)}</h2><span class="nv-bar-end"></span>
         </header>
         <div class="nv-scroll">
@@ -182,7 +185,15 @@
       });
     }
     let busy = false;
+    function goRoot(route) {
+      if (stack.length === 1 && stack[0].route === route) return;
+      if (audio) audio.pause();
+      rebuild([route]);
+      saveStack();
+    }
+    const notifyRoot = () => { if (typeof opts.onRoot === 'function' && stack[0]) opts.onRoot(parse(stack[0].route)[0]); };
     async function push(route) {
+      if (TABS && TABS.includes(route)) { goRoot(route); return; }
       if (busy) return;
       busy = true;
       const prev = stack[stack.length - 1];
@@ -228,14 +239,15 @@
     }
     function rebuild(routes) {
       stack.splice(0).forEach((s) => s.el.remove());
-      const list = routes && routes.length ? routes : ['home'];
-      if (list[0] !== 'home') list.unshift('home');
+      const list = routes && routes.length ? routes.slice() : ['home'];
+      if (list[0] !== 'home' && !(TABS && TABS.includes(list[0]))) list.unshift('home');
       list.forEach((r, k) => {
         if (k > 0) { const p = stack[stack.length - 1]; p.el.style.transform = 'translateX(-28%)'; p.el.classList.add('is-under'); p.el.setAttribute('inert', ''); p.el.setAttribute('aria-hidden', 'true'); }
         const s = renderScreen(r);
         NV.appendChild(s.el);
         stack.push(s);
       });
+      notifyRoot();
     }
 
     /* ── 왼쪽 가장자리 밀기 — 손가락을 1:1 로 따라오고, 놓을 때의 속도 · 거리로 정한다(중간에 되돌릴 수 있다) ── */
@@ -536,6 +548,8 @@
     return {
       /** 늦게 온 재료(청중석 등)를 얹고 지금 스택 그대로 다시 그린다 */
       update(patch) { D = { ...D, ...patch }; build(); rebuild(stack.map((s) => s.route)); },
+      /** 탭 i 로 (스튜디오 정거장 · ← → 키) */
+      tab(i) { if (TABS && TABS[i]) goRoot(TABS[i]); },
       destroy() { if (audio) audio.pause(); root.classList.remove('rv2'); root.innerHTML = ''; },
     };
   }
