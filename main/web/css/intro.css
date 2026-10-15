@@ -910,6 +910,48 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 .areas .areas-all { border-color: transparent; background: var(--sun); color: var(--g-ink); }
 .areas .areas-all b { color: var(--g-ink); }
 
+/* ── 6-1) AI 모델마다 맡은 일 — 흰 카드. Solar(주 모델)는 노란 테로 한 장 강조, 파인튜닝한 Mi:dm 은 숫자 한 줄 ── */
+.ai-list { margin-top: 24px; display: grid; gap: 12px; }
+.ai-card {
+  padding: 18px 18px 20px;
+  border-radius: var(--r-card);
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+}
+.ai-main { box-shadow: 0 0 0 2px var(--sun), var(--shadow-card); }
+.ai-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.ai-maker { color: var(--brand-ink); font-size: 13px; font-weight: var(--w-bold); }
+.ai-stage { padding: 3px 10px; border-radius: var(--r-pill); background: var(--brand-weak); color: var(--g-ink); font-size: 12.5px; font-weight: var(--w-bold); }
+.ai-main .ai-stage { background: #FFF3C4; }
+.ai-name { margin-top: 8px; color: var(--g-ink); font-size: 24px; line-height: 1.3; font-weight: var(--w-display); letter-spacing: -.02em; }
+.ai-name small { margin-left: 6px; color: var(--ink-3); font-size: 13.5px; font-weight: var(--w-bold); letter-spacing: 0; vertical-align: 3px; }
+.ai-job { margin-top: 6px; color: var(--ink-2); font-size: 15px; line-height: 1.55; text-wrap: pretty; }
+.ai-how { margin-top: 14px; display: grid; gap: 10px; }
+.ai-how li { display: grid; gap: 2px; padding-left: 14px; border-left: 2px solid var(--mint-line); }
+.ai-main .ai-how li { border-left-color: var(--sun-line); }
+.ai-how b { color: var(--ink); font-size: 14.5px; line-height: 1.4; }
+.ai-how span { color: var(--ink-2); font-size: 14px; line-height: 1.5; text-wrap: pretty; }
+.ai-metric { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 14px; border-radius: 12px; background: var(--fill); }
+.ai-metric span { color: var(--ink-2); font-size: 13.5px; font-weight: var(--w-med); }
+.ai-metric b { color: var(--brand-ink); font-size: 20px; font-weight: var(--w-display); font-variant-numeric: tabular-nums; }
+/* 왜 Solar 인가 — 초록 위 유리판 + 막대 셋 (길이는 55초 대비) */
+.ai-bench { margin-top: 16px; padding: 20px 18px; border-radius: var(--r-card); background: var(--glass); box-shadow: inset 0 0 0 1px var(--line-2); }
+.ai-bench-k { color: var(--sun); font-size: 17px; font-weight: var(--w-display); }
+.ai-bench-lead { margin-top: 6px; color: var(--on-2); font-size: 14.5px; line-height: 1.55; text-wrap: pretty; }
+.ai-bars { margin-top: 16px; display: grid; gap: 10px; }
+.ai-bars li { display: grid; grid-template-columns: 64px minmax(0, 1fr) 56px; align-items: center; gap: 10px; }
+.ai-bar-name { color: var(--on); font-size: 14px; font-weight: var(--w-bold); }
+.ai-bar { height: 12px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .08); overflow: hidden; }
+.ai-bar i { display: block; height: 100%; border-radius: var(--r-pill); background: rgba(255, 255, 255, .45); }
+.ai-bars li:first-child .ai-bar i { background: var(--sun); }
+.ai-bars b { color: var(--on); font-size: 14px; text-align: right; font-variant-numeric: tabular-nums; }
+.ai-bars li:first-child b { color: var(--sun); }
+.ai-bench-note { margin-top: 12px; color: var(--on-3); font-size: 12.5px; }
+.ai-cam { margin-top: 16px; color: var(--on-2); font-size: 14.5px; line-height: 1.6; text-wrap: pretty; }
+.ai-cam b { margin-right: 6px; color: var(--cyan); }
+.made-more { margin-left: 6px; color: var(--ink-3); font-size: 13px; font-weight: var(--w-med); text-underline-offset: 3px; white-space: nowrap; }
+
 /* ── 7) 부스에서 들은 이야기 ───────────────────────────────────────────── */
 .voices .block-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
 .voices-where { color: var(--cyan); font-size: 14px; font-weight: var(--w-bold); }
@@ -1086,6 +1128,8 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   .feat-visual { min-height: 260px; }
   .team-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .areas { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ai-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ai-main { grid-column: 1 / -1; }
 }
 @media (min-width: 960px) {
   :root { --gutter: 40px; }
@@ -1150,6 +1194,18 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   .road li { grid-template-columns: 120px minmax(0, 1fr); }
   .road p b { font-size: 17px; }
   .areas li { min-height: 64px; font-size: 16px; padding: 14px 18px; }
+  .ai .block-head { max-width: 640px; }
+  .ai-list { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 36px; }
+  .ai-card { padding: 22px 22px 24px; }
+  .ai-main { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-rows: auto auto auto 1fr; column-gap: 40px; align-items: start; }
+  .ai-main > :not(.ai-how) { grid-column: 1; }
+  .ai-main .ai-how { grid-column: 2; grid-row: 1 / span 4; margin-top: 0; gap: 14px; }
+  .ai-main .ai-name { font-size: 30px; }
+  .ai-bench { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); column-gap: 40px; align-items: center; padding: 28px 32px; margin-top: 20px; }
+  .ai-bench-k, .ai-bench-lead, .ai-bench-note { grid-column: 1; }
+  .ai-bars { grid-column: 2; grid-row: 1 / span 3; margin-top: 0; }
+  .ai-bars li { grid-template-columns: 80px minmax(0, 1fr) 64px; }
+  .ai-cam { font-size: 16px; }
   .voices .pains { max-width: 720px; }
   .pains-light .pain p { font-size: 16px; }
   .outro-panel { padding: 72px 40px 52px; }

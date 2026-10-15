@@ -35,7 +35,7 @@
 <!-- 서체는 /hi 에 나오는 글자만 담은 woff2 한 장을 우리 서버에서 (10-13, etc/scripts/subset_hi_font.py). 예전 CDN 조각 14개 362KB 가 전송량의 83% 였다.
      preload 주소는 intro.css @font-face 와 같아야 한다(?v= 도 같은 값 — 스크립트가 맞춘다). 글꼴 preload 는 crossorigin 이 있어야 그 요청을 다시 쓴다 -->
 <link rel="preload" href="/assets/fonts/cc-hi-sans.woff2?v=hdeafd04777" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/css/intro.css?v=i18">
+<link rel="stylesheet" href="/css/intro.css?v=i19">
 <script src="/js/funnel.js?v=fn2" defer></script>
 <script src="/js/intro.js?v=i13" defer></script>
 </head>
@@ -359,7 +359,7 @@
         <li><time>2026.11.18</time><p><b>최종 결선 도전</b><span>과학기술회관 · 10팀</span></p></li>
       </ol>
       <div class="made rv">
-        <p class="made-k">국내 AI 기술로 만들었어요</p>
+        <p class="made-k">국내 AI 기술로 만들었어요 <a class="made-more" href="#ai">어디에 썼는지 보기</a></p>
         <ul><li>Upstage Document Parse</li><li>Solar</li><li>SKT A.X</li><li>KT Mi:dm</li><li>LG EXAONE</li></ul>
       </div>
     </section>
@@ -374,6 +374,72 @@
         <li><b>01</b>내용 충실도</li><li><b>02</b>논리 구조</li><li><b>03</b>목적·청중 적합성</li><li><b>04</b>언어적 명료성</li>
         <li><b>05</b>음성적 전달</li><li><b>06</b>시각자료 활용</li><li><b>07</b>시간 관리</li><li class="areas-all"><b>39</b>세부 채점 항목</li>
       </ol>
+    </section>
+
+    <!-- 6-1) AI 모델마다 맡은 일 (10-15) — 사실은 저장소 코드 기준: main/pipeline/config.py · providers/llm_impl.py · f06 · f09 · f12 · f18 · _lora_tagger.py.
+         숫자는 측정 기록 그대로 — 재현성 docs/review/2026-10-02_개념그래프_재현성(251ba8f), 질문 생성 시간 QA_BENCH_LEDGER(2026-09-16), LoRA DATA_PIPELINE §3 -->
+    <section id="ai" class="block ai" aria-labelledby="ai-title">
+      <div class="block-head rv">
+        <p class="eyebrow">Which AI, where</p>
+        <h2 id="ai-title" class="block-title">AI 모델마다<br><span class="hl">맡은 일</span>이 달라요</h2>
+        <p class="block-lead">국내 AI 모델 다섯 개를 <b>가장 잘하는 일</b>에 나눠 맡겼어요. AI가 답하면 <b>근거는 코드가 자료 원문과 맞춰 봐요.</b></p>
+      </div>
+      <ol class="ai-list">
+        <li class="ai-card ai-main rv">
+          <p class="ai-top"><span class="ai-maker">Upstage</span><span class="ai-stage">분석 · 질문 · 판정 · 리포트</span></p>
+          <h3 class="ai-name">Solar <small>주 추론 모델</small></h3>
+          <p class="ai-job">자료의 핵심 주장과 개념 지도를 만들고, 교수님 질문을 만들고, 내 답을 판정해요.</p>
+          <ul class="ai-how">
+            <li><b>세 번 읽고 다수결</b><span>같은 자료를 세 번 읽어 두 번 이상 나온 개념만 남겨요. 같은 자료로 10번 돌려도 핵심 주장이 덱 11개 모두에서 같았어요.</span></li>
+            <li><b>같은 답엔 같은 판정</b><span>판정은 무작위성을 0으로 두고 같은 질문·답은 다시 계산하지 않아요.</span></li>
+            <li><b>근거는 줄 번호로만</b><span>AI는 「3장 2번째 줄」 같은 번호만 돌려주고, 코드가 그 번호로 원문을 찾아 맞는지 확인해요.</span></li>
+          </ul>
+        </li>
+        <li class="ai-card rv">
+          <p class="ai-top"><span class="ai-maker">Upstage</span><span class="ai-stage">자료 읽기</span></p>
+          <h3 class="ai-name">Document Parse</h3>
+          <p class="ai-job">PPT·PDF를 장마다 읽어 글·표·차트를 구조로 바꿔요.</p>
+          <ul class="ai-how">
+            <li><b>장마다 읽는 방식을 골라요</b><span>글만 있는 장과 그림이 많은 장을 다르게 읽고, 차트도 읽어요.</span></li>
+          </ul>
+        </li>
+        <li class="ai-card rv">
+          <p class="ai-top"><span class="ai-maker">SKT</span><span class="ai-stage">받아쓰기 · 예비 두뇌</span></p>
+          <h3 class="ai-name">A.X</h3>
+          <p class="ai-job">발표 녹음을 받아써요. 낱말마다 몇 초에 말했는지까지 받아 장마다 말 빠르기를 재요.</p>
+          <ul class="ai-how">
+            <li><b>Solar가 막히면 이어받아요</b><span>주 모델이 답하지 못하면 A.X가 한 번 대신 답해서 흐름이 끊기지 않아요.</span></li>
+          </ul>
+        </li>
+        <li class="ai-card ai-tuned rv">
+          <p class="ai-top"><span class="ai-maker">KT</span><span class="ai-stage">말버릇 찾기</span></p>
+          <h3 class="ai-name">Mi:dm <small>직접 파인튜닝</small></h3>
+          <p class="ai-job">발표에서 같은 말을 되풀이한 구간을 찾아요.</p>
+          <ul class="ai-how">
+            <li><b>공적 말하기 데이터로 학습</b><span>AI Hub 「공적말하기 실습 및 평가」 640건으로 Mi:dm 2.0에 LoRA를 학습했어요.</span></li>
+          </ul>
+          <p class="ai-metric"><span>되풀이 찾기 정확도(F1)</span><b>0.01 → 0.69</b></p>
+        </li>
+        <li class="ai-card rv">
+          <p class="ai-top"><span class="ai-maker">LG</span><span class="ai-stage">청중 삐약이</span></p>
+          <h3 class="ai-name">EXAONE</h3>
+          <p class="ai-job">발표가 끝나면 청중석 삐약이가 되어 잘한 점을 짚어 줘요.</p>
+          <ul class="ai-how">
+            <li><b>삐약이 넷, 모델 넷</b><span>Mi:dm은 빠뜨린 말, Solar는 순서, EXAONE은 칭찬, A.X는 들은 말을 맡아요. 무엇을 말할지는 코드가 정하고 AI는 말투만 입혀요.</span></li>
+          </ul>
+        </li>
+      </ol>
+      <div class="ai-bench rv">
+        <p class="ai-bench-k">왜 Solar가 주 모델인가요?</p>
+        <p class="ai-bench-lead">같은 자료로 교수님 질문을 만든 시간이에요. 셋 다 지어낸 내용은 없었지만, 빠르고 형식이 안 깨진 Solar를 주 모델로 골랐어요.</p>
+        <ul class="ai-bars" aria-label="질문 만드는 시간">
+          <li><span class="ai-bar-name">Solar</span><span class="ai-bar"><i style="width:10%"></i></span><b>5.4초</b></li>
+          <li><span class="ai-bar-name">A.X</span><span class="ai-bar"><i style="width:48%"></i></span><b>26.5초</b></li>
+          <li><span class="ai-bar-name">EXAONE</span><span class="ai-bar"><i style="width:100%"></i></span><b>55초</b></li>
+        </ul>
+        <p class="ai-bench-note">2026년 9월 팀 실측 · 판정은 Solar로 고정</p>
+      </div>
+      <p class="ai-cam rv"><b>카메라는 브라우저 안에서만</b> OpenCV로 정면을 본 시간만 재고, 화면은 서버로 보내지 않아요. 표정으로 감정을 짐작하지 않아요.</p>
     </section>
 
     <!-- 7) 부스에서 들은 이야기 — AI FESTA 2026 부스에서 실제로 들은 말 (포스터 4면) -->
