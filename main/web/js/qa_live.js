@@ -63,11 +63,12 @@ let liveMicPending = '';
 /**
  * 실시간 받아쓰기가 이 세션에서 이미 죽었는가.
  *
- * `hasLiveDictation()` 은 **생성자가 있는지만** 본다. 크롬은 그 생성자를 늘
- * 노출하지만 실제 인식은 구글 서버로 나가므로, 망이 막히면 `onerror('network')`
- * 로 죽는다. 그런데 다음에 마이크를 다시 눌러도 `hasLiveDictation()` 은 여전히
+ * `hasLiveDictation()` 은 **브라우저가 열 수 있는지만** 본다(마이크 · WebSocket · 오디오 처리).
+ * 받아쓰기 서버(브리지 → A.X 실시간 STT, 2026-10-15 — 예전엔 크롬 Web Speech)에 못 닿거나 마이크가
+ * 막히면 onError 로 죽는데, 다음에 마이크를 다시 눌러도 `hasLiveDictation()` 은 여전히
  * true 라 **같은 길로 다시 들어가 똑같이 죽는다** — 부스에서 이게 걸리면 마이크가
  * 통째로 못 쓰게 된다 (2026-08-07 "지금 녹음이 잘 안되는듯" 의 유력한 원인).
+ * 단 세션 상한(limit) · 오래 조용함(idle)으로 끝난 것은 죽은 게 아니다 — 다시 누르면 다시 연다.
  *
  * 한 번 죽으면 이 세션 동안은 녹음 + 서버 STT 로 간다. 새로고침하면 다시 시도한다 —
  * 망이 돌아왔을 수 있는데 영영 막아 둘 이유는 없다.
@@ -1366,28 +1367,43 @@ function startDictationMic() {
      순수 부분은 booth_logic.js paintDictation 과 같다 (etc/tests/js/booth.smoke.mjs). */
   const pen = { base: ((ta && ta.value) || '').trim(), painted: (ta && ta.value) || '', from: 0, said: 0 };
   try {
-    liveMic = {
-      dictation: true,
-      session: window.ChuckchuckBridge.startLiveDictation({
-        onText: ({ final, interim }) => {
-          // 부스 자동 보내기가 「말이 멈췄나」 를 본다 — 마지막 글이 언제 왔고 확정 전 조각이 남았는지 (booth_call.js bcAutoTick)
-          if (liveMic) { liveMic.lastTextAt = Date.now(); liveMic.interim = interim; liveMic.final = final; }
-          paintLiveAnswer(pen, final + interim);
-        },
-        onError: (msg) => {
-          // 오류가 나면 인식기는 거기서 끝난다. 버튼을 안 되돌리면 이미 죽은
-          // 세션에 「받아쓰기 멈추기」가 남아 사용자가 헛클릭한다.
-          liveMic = null;
-          // 여기 오는 오류(권한 거부·마이크 없음·망)는 다시 시작해도 같은 결과다.
-          // 표시해 두지 않으면 다음에 눌러도 같은 길로 들어가 똑같이 죽는다.
-          // 여기서 곧바로 녹음을 시작하지는 않는다 — onError 는 비동기라 사용자
-          // 조작 권한이 이미 풀렸을 수 있고, 그러면 getUserMedia 가 막힌다.
+    const mic = { dictation: true, speaking: false, lastTextAt: 0, interim: '', final: '' };
+    mic.session = window.ChuckchuckBridge.startLiveDictation({
+      onText: ({ final }) => {
+        // A.X 는 문장이 끝나야 글을 준다 — interim(확정 전 조각)은 없다. 부스 자동 보내기가 「말이 멈췄나」 를
+        // 마지막 글 시각 · 말하는 중(speaking)으로 본다 (booth_call.js bcAutoSend)
+        mic.lastTextAt = Date.now(); mic.final = final; mic.speaking = false;
+        // 멈춘 뒤엔 버린다 — 비운 답 칸을 다시 채워 같은 답이 또 나갈 수 있었다 (사냥 2 #2). 「다 말했어요」로 마지막 문장을 받는 중만 예외
+        if (liveMic !== mic && !mic.finishing) return;
+        paintLiveAnswer(pen, final);
+        paintHearing(false);
+      },
+      onSpeech: (on) => {
+        // 서버가 말소리를 들었다(bos) · 그쳤다(eos) — 글자가 오기 전까지 「듣고 있어요…」 를 보인다. 더 말하면 자동 보내기를 접는다
+        mic.speaking = !!on; mic.lastTextAt = Date.now();
+        if (liveMic === mic) paintHearing(!!on);
+      },
+      onError: (msg, info) => {
+        // 오류가 나면 받아쓰기는 거기서 끝난다. 버튼을 안 되돌리면 이미 죽은
+        // 세션에 「그만 말하기」가 남아 사용자가 헛클릭한다.
+        if (liveMic !== mic) return;
+        liveMic = null;
+        paintHearing(false);
+        // 권한 거부·마이크 없음·서버에 못 닿음은 다시 시작해도 같은 결과다.
+        // 표시해 두지 않으면 다음에 눌러도 같은 길로 들어가 똑같이 죽는다. (시간 다 됨 · 오래 조용함은 다시 열면 된다)
+        // 여기서 곧바로 녹음을 시작하지는 않는다 — onError 는 비동기라 사용자
+        // 조작 권한이 이미 풀렸을 수 있고, 그러면 getUserMedia 가 막힌다.
+        const code = info && info.code;
+        if (code !== 'limit' && code !== 'idle') {
           liveDictationDead = true;
           micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 타이핑으로 답해도 돼요`);
-          setMicBtn('idle', !!(qa.live && qa.live.busy));
-        },
-      }),
-    };
+        } else {
+          micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 이어서 받아써요`);
+        }
+        setMicBtn('idle', !!(qa.live && qa.live.busy));
+      },
+    });
+    liveMic = mic;
   } catch (err) {
     liveMicPending = '';
     // 시작조차 못 했으면 이 브라우저에서는 안 되는 것이다. 다음부터는 녹음으로 간다.
@@ -1437,6 +1453,7 @@ function dropLiveMic() {
   if (!mic) return;
   liveMic = null;
   liveMicPending = '';
+  paintHearing(false);
   try { mic.session.stop(); } catch (_) { /* 이미 멈춤 */ }
   setMicBtn('idle', !!(qa.live && qa.live.busy));
 }
@@ -1451,8 +1468,21 @@ async function stopLiveMic() {
   const idle = () => setMicBtn('idle', !!(qa.live && qa.live.busy));
 
   if (mic.dictation) {
-    // 실시간은 이미 입력창에 다 들어가 있다 — 뒤늦게 받아쓸 게 없다.
-    mic.session.stop();
+    // 실시간은 확정된 문장이 이미 입력창에 있다. 다만 A.X 는 문장이 끝나야 확정하므로, 말을 끝내자마자 누르면
+    // 마지막 문장이 아직 오는 중일 수 있다 — 「다 말했어요」(finish)로 남은 문장을 받아 칸에 담은 뒤 연다(최대 4초).
+    paintHearing(false);
+    if (typeof mic.session.finish === 'function') {
+      liveMicPending = 'transcribing';
+      setMicBtn('transcribing', true);
+      const L0 = qa.live;
+      mic.finishing = true;
+      try { await mic.session.finish(); } catch (_) { /* 받은 데까지 */ }
+      mic.finishing = false;
+      liveMicPending = '';
+      if (qa.live !== L0) return;
+    } else {
+      mic.session.stop();
+    }
     const ta = $('#liveAnswer');
     if (ta) {
       ta.focus();
@@ -1505,6 +1535,24 @@ function paintLiveAnswer(pen, spoken) {
   pen.painted = next;
   pen.said = raw.length;
   ta.scrollTop = ta.scrollHeight;
+}
+
+/**
+ * 「듣고 있어요…」 — 실시간 받아쓰기는 문장이 끝나야 글이 온다(A.X). 그 사이 말하고 있다는 것을 정직하게 보인다.
+ * 답 칸 아래 한 줄(#liveHearing)만 켜고 끈다 — 답 칸에는 아무것도 넣지 않는다(가짜 글이 답으로 나가면 안 된다).
+ */
+function paintHearing(on) {
+  const ta = $('#liveAnswer');
+  let el = $('#liveHearing');
+  if (!el && on && ta && ta.parentNode) {
+    el = document.createElement('p');
+    el.id = 'liveHearing';
+    el.className = 'live-hearing';
+    el.setAttribute('aria-live', 'polite');
+    el.textContent = '듣고 있어요…';
+    ta.insertAdjacentElement('afterend', el);
+  }
+  if (el) el.hidden = !on;
 }
 
 /**

@@ -35,7 +35,7 @@ import {
   startAnswerRecording,
   startLiveDictation,
   transcribeAnswer,
-} from './chuckchuck_bridge.js?v=qkxbc15';
+} from './chuckchuck_bridge.js?v=qkxbc16';
 import {
   DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD,
   appendTranscript, calibrateDelivery, cameraErrorText, captionTail, captureRoutes, clockText, countdownText,
@@ -770,7 +770,7 @@ function showHint() {
 
 async function submit(giveUp) {
   cancelCountdown();
-  if (state.mic) await stopMic({ silent: true });
+  if (state.mic) await stopMic({ silent: true, finish: true });
   if (state.micPending) { note('qa-mic-note', state.micPending === 'transcribing' ? '받아쓰는 중이에요. 글자가 채워지면 「답하기」를 눌러요.' : '마이크를 여는 중이에요.'); return; }
   const cur = q(); const p = pq();
   if (p.closed || state.judging === cur.id) return;   // 닫힌 질문·이 질문의 판정을 기다리는 중에는 더 보내지 않는다 (말로 「답할게요」 해도)
@@ -956,7 +956,7 @@ function setMic(name, disabled = false) {
 }
 
 function toggleMic() {
-  if (state.mic) return stopMic();
+  if (state.mic) return stopMic({ finish: true });
   if (state.micPending) return;
   if (window.isSecureContext === false) {
     note('qa-mic-note', '마이크는 https 주소나 이 컴퓨터의 127.0.0.1 에서만 열려요. 자막을 눌러 적어도 돼요.');
@@ -992,8 +992,10 @@ function watchQuiet() {
   if (!state.mic || !state.mic.dictation || !state.autoTalk) return;
   // 자막 칸에 손으로 쓰는 중이면 자동으로 보내지 않는다 — 계속 듣기만 하고, 보내기는 「답하기」로
   if (state.userTyped) { state.quietTimer = setTimeout(watchQuiet, 500); return; }
+  // 말하는 중(A.X 음성 감지 bos~eos)이면 기다린다 — 글은 문장이 끝나야 오므로, 긴 문장 한가운데를 「조용함」 으로 읽으면 안 된다
+  if (state.mic.session && state.mic.session.speaking) { state.quietTimer = setTimeout(watchQuiet, 500); return; }
   if (speechSettled({ lastChangeAt: state.lastSpeechAt, now: performance.now(), text: $('qa-answer').value })) {
-    stopMic().then(() => { if ($('qa-answer').value.trim()) startCountdown(); });
+    stopMic({ finish: true }).then(() => { if ($('qa-answer').value.trim()) startCountdown(); });
   } else {
     state.quietTimer = setTimeout(watchQuiet, 500);
   }
@@ -1044,7 +1046,15 @@ function runVoiceCommand(cmd) {
   if (cmd === 'answer') return submit(false);
 }
 
-/** 실시간 받아쓰기 — 말하는 중에 자막이 채워진다 (크롬·엣지). */
+/** 듣는 중 안내 — 자동 대화면 쉬면 보낸다, 아니면 버튼으로 */
+function listeningNote() {
+  return state.autoTalk ? '듣고 있어요. 다 말하고 잠깐 쉬면 보내요.' : '듣고 있어요. 다 말하면 「그만 말하기」를 누르고 「답하기」를 눌러요.';
+}
+
+/**
+ * 실시간 받아쓰기 — 말하는 중에 자막이 채워진다 (A.X 실시간 STT, 2026-10-15 — 예전 크롬 Web Speech 를 바꿨다).
+ * 글은 문장이 끝나야 온다. 말하는 동안은 안내 줄에 「듣고 있어요…」 를 띄운다(자막 칸에 가짜 글을 넣지 않는다).
+ */
 function startDictation() {
   const ta = $('qa-answer');
   let pen = newPen(ta.value);
@@ -1068,12 +1078,23 @@ function startDictation() {
           const r = paintDictation(pen, ta.value, `${clean} ${command ? '' : interim}`.trim());
           pen = r.pen;
           if (ta.value !== r.value) { ta.value = r.value; ta.scrollTop = ta.scrollHeight; markSpeech(); }
+          if (state.mic && !state.countdown) note('qa-mic-note', listeningNote());
           if (command) runVoiceCommand(command);
         },
-        onError: (msg) => {
+        onSpeech: (on) => {
+          if (on) markSpeech();
+          if (state.mic && !state.countdown) note('qa-mic-note', on ? '듣고 있어요… 말이 끝나면 자막에 담겨요.' : listeningNote());
+        },
+        onError: (msg, info) => {
           state.mic = null;
-          state.dictationDead = true;
-          note('qa-mic-note', `${msg} 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 자막을 눌러 적어도 돼요.`);
+          const code = info && info.code;
+          // 시간이 다 됐거나 오래 조용했던 것은 고장이 아니다 — 다시 누르면 다시 듣는다
+          if (code === 'limit' || code === 'idle') {
+            note('qa-mic-note', `${msg} 마이크를 다시 누르면 이어서 들어요. 자막을 눌러 적어도 돼요.`);
+          } else {
+            state.dictationDead = true;
+            note('qa-mic-note', `${msg} 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 자막을 눌러 적어도 돼요.`);
+          }
           setMic('idle'); setPhase('asking');
         },
       }),
@@ -1087,7 +1108,7 @@ function startDictation() {
   }
   state.micPending = '';
   state.lastSpeechAt = performance.now();
-  note('qa-mic-note', state.autoTalk ? '듣고 있어요. 다 말하고 잠깐 쉬면 보내요.' : '듣고 있어요. 다 말하면 「그만 말하기」를 누르고 「답하기」를 눌러요.');
+  note('qa-mic-note', listeningNote());
   setMic('dictating'); setPhase('listening');
 }
 
@@ -1103,6 +1124,7 @@ function startPresentDictation() {
       dictation: true,
       present: true,
       session: startLiveDictation({
+        purpose: 'present',     // 발표는 길다 — 브리지 세션 상한이 답(5분)이 아니라 발표(20분)
         onText: ({ final, interim }) => {
           const text = `${state.transcriptBase}${final} ${interim}`.trim();
           state.transcript = text;
@@ -1117,9 +1139,10 @@ function startPresentDictation() {
             else if (hit && hit.cmd === 'prev') stepSlide(-1);
           }
         },
-        onError: (msg) => {
+        onError: (msg, info) => {
           state.mic = null;
-          state.dictationDead = true;
+          const code = info && info.code;
+          if (code !== 'limit' && code !== 'idle') state.dictationDead = true;
           stopSensors();
           note('qa-mic-note', `${msg} 피드백 없이 발표해요. 다 하면 「질문 받기」를 눌러요.`);
           setMic('idle');
@@ -1345,7 +1368,12 @@ async function startRecording() {
   setMic('recording'); setPhase('listening');
 }
 
-async function stopMic({ silent = false } = {}) {
+/**
+ * 마이크를 멈춘다. finish — 사용자가 「다 말했다」 고 멈춘 것(버튼 · 답하기 · 자동 쉼)이라 받아쓰기의 마지막 문장까지 받는다
+ * (A.X 는 문장이 끝나야 확정한다 — 최대 4초). 질문이 넘어가는 등 화면이 바뀌어 멈추는 것은 finish 없이 바로 끊는다 —
+ * 늦게 온 문장이 다음 질문 칸에 차오르면 안 된다.
+ */
+async function stopMic({ silent = false, finish = false } = {}) {
   const mic = state.mic;
   if (!mic) return;
   state.mic = null;
@@ -1361,7 +1389,16 @@ async function stopMic({ silent = false } = {}) {
     return;
   }
   if (mic.dictation) {
-    mic.session.stop();
+    if (finish && typeof mic.session.finish === 'function') {
+      state.micPending = 'transcribing';
+      setMic('transcribing', true);
+      state.finishing = mic;
+      try { await mic.session.finish(); } catch (_) { /* 받은 데까지 */ }
+      state.finishing = null;
+      state.micPending = '';
+    } else {
+      mic.session.stop();
+    }
     if (!silent) note('qa-mic-note', ta.value.trim() ? '자막을 확인하고 「답하기」를 눌러요.' : '말소리를 못 알아들었어요. 다시 말하거나 자막을 눌러 적어요.');
     setMic('idle', !!ta.disabled);
     if (state.phase === 'listening') setPhase('asking');

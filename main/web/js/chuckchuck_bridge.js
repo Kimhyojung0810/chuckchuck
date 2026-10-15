@@ -9,6 +9,7 @@ import {
   PresentationRecorder,
   SlideMarkTracker,
 } from '/sdk/index.js';
+import { canLiveStt, startLiveStt } from './live_stt.js?v=ls3';
 
 const STORE_KEY = 'cheokcheok:chuckchuck-session';
 
@@ -988,104 +989,36 @@ export async function reframeQaQuestion(sessionId, { questionId, question, persp
   });
 }
 
-/** 실시간 받아쓰기 언어. 발표는 한국어라 고정한다. */
-const DICTATION_LANG = 'ko-KR';
-
-/** Web Speech API 오류 코드 → 사람 말. 코드를 그대로 보여 주면 뭘 하라는 건지 모른다. */
-const DICTATION_ERRORS = {
-  'not-allowed': '마이크 권한이 없어요.',
-  'service-not-allowed': '브라우저가 받아쓰기를 막았어요.',
-  'audio-capture': '마이크를 찾지 못했어요.',
-  network: '받아쓰기 서버에 닿지 못했어요.',
-};
-
-/** 브라우저가 실시간 받아쓰기를 해 주는가. Chrome·Edge 는 되고 Safari·Firefox 는 안 된다. */
+/**
+ * 브라우저가 실시간 받아쓰기를 열 수 있는가 — 마이크 · 오디오 처리 · WebSocket · https.
+ * 2026-10-15 부터 받아쓰기는 SKT A.X 실시간 STT(브리지 /api/v1/stt/live)다. 예전 Web Speech(크롬만, 음성을 구글로 보냄)는 뺐다 —
+ * 국내 AI 트랙 규정. 이제 사파리 · 파이어폭스도 실시간으로 받아쓴다.
+ */
 export function hasLiveDictation() {
-  return typeof (window.SpeechRecognition || window.webkitSpeechRecognition) === 'function';
+  return canLiveStt(window);
 }
 
 /**
- * 말하는 대로 글자가 나오는 실시간 받아쓰기 (Web Speech API).
+ * 말하는 대로 글자가 나오는 실시간 받아쓰기 (A.X realtime STT · js/live_stt.js).
  *
- * `startAnswerRecording` 은 다 말한 뒤 파일을 통째로 올려 STT 를 돌리므로 구조상
- * 실시간이 안 된다. 이쪽은 브라우저가 확정 전 조각(interim)까지 흘려 주므로
- * 말하는 중에 글자가 뜬다.
- *
- * **대신 브라우저 기능이라 지원이 갈리고, 크롬은 음성을 구글 서버로 보낸다.**
- * 못 쓰는 브라우저에서는 호출부가 녹음 + 자체 STT 로 되돌아간다.
+ * **글은 문장 단위로 온다** — A.X 는 확정 전 조각(interim)을 주지 않는다. 그래서 onText 의 interim 은 늘 빈 문자열이고,
+ * 말하는 중인지는 onSpeech(true/false, 서버 음성 감지 bos/eos)로 따로 알린다 — 화면은 그동안 「듣고 있어요…」 를 보인다.
+ * 연결 · 마이크는 뒤에서 열린다 — 실패하면 onError(문구, { code }) 한 번. 호출부는 녹음 + 받아쓰기(transcribeAnswer)로 되돌아간다.
  *
  * @param {{ onText: (parts: {final: string, interim: string}) => void,
- *           onError: (message: string) => void }} handlers
- * @returns {{ stop: () => string }} stop 은 확정된 전문을 준다
+ *           onError: (message: string, info?: {code: string}) => void,
+ *           onSpeech?: (speaking: boolean) => void, purpose?: 'answer'|'present' }} handlers
+ * @returns {{ stop: () => string, finish: () => Promise<string>, readonly speaking: boolean }}
+ *   stop 은 바로 끊고 확정된 전문을 준다 · finish 는 「다 말했어요」 — 남은 문장까지 받아 전문을 준다
  */
-export function startLiveDictation({ onText, onError }) {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (typeof Recognition !== 'function') {
+export function startLiveDictation({ onText, onError, onSpeech, purpose = 'answer' }) {
+  if (!hasLiveDictation()) {
     throw new Error('이 브라우저는 실시간 받아쓰기를 지원하지 않아요.');
   }
-  const rec = new Recognition();
-  rec.lang = DICTATION_LANG;
-  rec.continuous = true;       // 한 문장 끝났다고 멈추지 않는다
-  rec.interimResults = true;   // 확정 전 글자도 준다 — 이게 「실시간」의 핵심이다
-
-  let stopped = false;
-  let settled = '';
-  // 바로바로 끝나는 고리 막기 — aborted 등으로 시작하자마자 끝나면 onend 가 다시 start 를 불러 2초에 388번 돌았다 (10-02 사냥 2 #5).
-  // 짧게 끝나면 다시 잇는 간격을 늘리고(0.3·0.6·1.2·2.4초), 다섯 번 이어지면 멈추고 오류로 알린다(호출부가 버튼·타이핑으로 떨어진다)
-  let startedAt = 0;
-  let quickEnds = 0;
-  const QUICK_END_MS = 1500;
-  const QUICK_END_MAX = 5;
-  const begin = () => {
-    if (stopped) return;
-    startedAt = Date.now();
-    try { rec.start(); } catch (_) { /* 이미 도는 중 — onend 가 다시 온다 */ }
-  };
-
-  rec.onresult = (e) => {
-    // 멈춘 뒤 늦게 온 확정 조각은 버린다 — 비운 답 칸을 다시 채워 같은 답이 또 나갈 수 있었다 (사냥 2 #2)
-    if (stopped) return;
-    quickEnds = 0;
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const chunk = e.results[i][0].transcript;
-      if (e.results[i].isFinal) settled += chunk;
-      else interim += chunk;
-    }
-    onText({ final: settled, interim });
-  };
-  rec.onerror = (e) => {
-    // no-speech·aborted 는 알릴 일이 아니다 — 잠깐 말이 없었을 뿐, 곧 이어서 말한다.
-    if (e.error === 'no-speech' || e.error === 'aborted') return;
-    // 나머지(권한 거부·마이크 없음·네트워크)는 다시 시작해도 같은 오류가 난다.
-    // **여기서 안 끊으면** 크롬이 onerror 뒤에 onend 를 쏘고, onend 가 다시
-    // start() 를 불러 onerror 로 돌아오는 고리가 끝없이 돈다.
-    stopped = true;
-    onError(DICTATION_ERRORS[e.error] || `받아쓰기 오류: ${e.error}`);
-  };
-  rec.onend = () => {
-    // 크롬은 조용하면 제풀에 끊는다. 사용자가 멈춘 게 아니면 다시 잇는다.
-    if (stopped) return;
-    if (Date.now() - startedAt < QUICK_END_MS) quickEnds += 1;
-    else quickEnds = 0;
-    if (quickEnds >= QUICK_END_MAX) {
-      stopped = true;
-      onError('받아쓰기가 자꾸 끊겨요.');
-      return;
-    }
-    if (quickEnds) setTimeout(begin, 300 * 2 ** (quickEnds - 1));
-    else begin();
-  };
-  startedAt = Date.now();
-  rec.start();
-
-  return {
-    stop() {
-      stopped = true;
-      try { rec.stop(); } catch (_) { /* 이미 멈춤 */ }
-      return settled.trim();
-    },
-  };
+  return startLiveStt({
+    base: apiBase(), purpose, onText, onError, onSpeech,
+    workletUrl: new URL('./pcm_tap_worklet.js?v=pt1', import.meta.url).href,
+  });
 }
 
 /**

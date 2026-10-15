@@ -230,6 +230,13 @@ def test_서버_코드에_해외_AI_호스트가_없다():
     assert hits == []
 
 
+def test_웹_화면에_브라우저_음성인식이_없다():
+    """크롬 Web Speech 는 음성을 구글 서버로 보낸다 (설계 §7) — 받아쓰기는 A.X 실시간(브리지 /api/v1/stt/live)으로만."""
+    hits = [str(p.relative_to(ROOT)) for p in (ROOT / "main" / "web").rglob("*.js")
+            if "vendor" not in p.parts and "SpeechRecognition" in p.read_text(encoding="utf-8")]
+    assert hits == []
+
+
 # ─── 기능 찾기 · 스레드풀 ────────────────────────────────────────────────────────────────
 
 def test_기능_표의_모듈_이름_규칙():
@@ -393,3 +400,17 @@ def test_내보내기_run_지정과_고정(net, tmp_path, monkeypatch):
     with zipfile.ZipFile(out) as z:
         q = json.loads(z.read("예상질문_생성.json"))
     assert q["run_id"] == first and q["record_count"] == 1                                     # 고정본과 날짜 폴더가 겹쳐도 한 번만
+
+
+def test_실행_결과는_부른_곳마다_마지막_시도로_본다():
+    ex = _export_mod()
+
+    def r(model, ok, t):
+        return {"request": {"method": "POST", "endpoint": "https://x/chat", "model": model, "time_kst": t}, "ok": ok}
+
+    assert ex.run_state([r("solar", False, "1"), r("solar", True, "2")]) == "ok"            # 재시도로 살아남
+    assert ex.run_state([r("midm", False, "1"), r("solar", True, "2")]) == "partial"        # 병아리 하나 결석
+    assert ex.run_state([r("solar", False, "1")]) == "fail"
+    runs = {"a": [r("midm", False, "1"), r("solar", True, "3")], "b": [r("solar", True, "2")]}
+    assert ex.pick(runs)[0] == "b"                                                          # 끝까지 성공한 실행이 먼저
+    assert ex.pick({"a": runs["a"]})[0] == "a"                                              # 없으면 일부 성공

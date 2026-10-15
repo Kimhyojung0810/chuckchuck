@@ -495,8 +495,9 @@ function bcSpeak(text) {
    기존 받아쓰기(toggleLiveMic)와 보내기(submitLiveAnswer)를 그대로 부른다 — 질문 · 판정 요청은 그대로.
    - 켜는 때: 질문(되묻기 · 다시 말하기 포함)이 떠 있고 답 칸이 비었고, 판정 중 · 끝 카드 · 자리 비움 알림 · 처음으로 시트 · 탭 숨김이 아닐 때.
      물음마다 한 번 — 사람이 「그만 말하기」 로 끄면 그 물음에서는 다시 안 켠다
-   - 보내는 때: 확정된 글이 있고 확정 전 조각이 없고 마지막 글 뒤 2.2초 조용하면 3초 초읽기(삐약이 줄 + 「보내지 않기」).
-     더 말하면 초읽기를 접고, 타이핑하면 그 물음에서는 자동 보내기를 멈춘다
+   - 보내는 때: 확정된 글이 있고 말하는 중이 아니고(A.X 음성 감지 bos/eos — 10-15 부터 문장 단위라 확정 전 조각이 없다)
+     마지막 글 · 말소리 뒤 2.2초 조용하면 3초 초읽기(삐약이 줄 + 「보내지 않기」).
+     더 말하면(bos) 초읽기를 접고, 타이핑하면 그 물음에서는 자동 보내기를 멈춘다
    - 실시간 받아쓰기가 없는 브라우저 · 마이크 거부 · 망 오류(liveDictationDead)면 켜지 않는다 — 버튼 · 타이핑 그대로
    받아쓴 글은 답 칸(textarea)의 값만 바뀌어 감시(MutationObserver)에 안 걸리므로 짧은 주기로 돈다 — 화상판이 사라지면 스스로 멈춘다 */
 const BC_AUTO_TICK_MS = 300;
@@ -581,7 +582,8 @@ function bcAutoTick() {
 function bcAutoSend(key, micOn, ta) {
   const mic = micOn ? liveMic : null;
   const text = ta ? ta.value.trim() : '';
-  const quiet = !!mic && mic.dictation && !!mic.lastTextAt && Date.now() - mic.lastTextAt >= BC_AUTO_SILENCE_MS
+  // 문장이 끝나야 글이 오므로 「말하는 중」(speaking, 서버 bos~eos)을 같이 본다 — 안 보면 긴 문장 한가운데서 초읽기가 끝나 보낸다
+  const quiet = !!mic && mic.dictation && !mic.speaking && !!mic.lastTextAt && Date.now() - mic.lastTextAt >= BC_AUTO_SILENCE_MS
     && !String(mic.interim || '').trim() && !!String(mic.final || '').trim();
   if (!mic || bc.sendOffKey === key || qa.live.busy || !text || !quiet) { bcAutoCancelSend(); return; }
   if (!bc.sendAt) {
