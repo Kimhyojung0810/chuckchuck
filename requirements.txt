@@ -10,6 +10,7 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
 python-multipart>=0.0.9   # 업로드 라우트(UploadFile) 가 요구한다
 pypdf>=4.0                # 데모 브리지: PDF 장수를 Upstage 에 보내기 전에 센다 (과금 상한). 없으면 근사치로 센다
+websockets>=13.0          # 데모 브리지: 실시간 받아쓰기 중계 /api/v1/stt/live (main/server/live_stt.py) — 없으면 화면은 녹음 받아쓰기로 떨어진다
 
 # 테스트 — README 가 설치 직후 `python -m pytest etc/tests/ -q` 를 지시한다
 pytest>=8.0
