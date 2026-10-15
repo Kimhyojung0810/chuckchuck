@@ -3,11 +3,13 @@
 #
 # callers: 로컬 개발자가 직접 실행 · 문서(.env.example)에서 안내
 # affected: server.bridge HTTP (:DEMO_PORT) — /api/v1/habits 가 provider=lora 로 동작
-# data: CHUCKCHUCK_LORA_PATH adapter 디렉터리 (adapter_config.json + weights)
+# data: REP·FIL 어댑터 디렉터리 (adapter_config.json + weights) — CHUCKCHUCK_LORA_REP_PATH · CHUCKCHUCK_LORA_FIL_PATHS
+#       (비우면 /data/models/_runs/habits-lora/ 에서 찾는다. etc/habits_lora/README.md)
 # user: "LoRA 같이 돌아가는걸 봐야하는데... 이거 어떻게 해결해...?"
 #
 # 기본 `python` 에는 torch 가 없어서 HABIT_PROVIDER=lora 가 heuristic 으로 떨어진다.
-# midm conda env + GPU 로 띄워야 REP LoRA 가 같이 돈다.
+# midm conda env(또는 torch+peft 가 있는 .venv) + GPU 로 띄워야 REP·FIL LoRA 가 같이 돈다.
+# 뜨자마자 뒤에서 LoRA 를 올린다(CHUCKCHUCK_LORA_PRELOAD=0 으로 끔) — 다 올리기 전 요청은 heuristic(lora-loading).
 #
 # 사용:
 #   ./main/server/run_bridge_midm.sh
@@ -35,8 +37,10 @@ fi
 # 여기선 LoRA/포트만 셸에서 확실히 고정한다.
 export MOCK_EXTERNAL_APIS="${MOCK_EXTERNAL_APIS:-false}"
 export HABIT_PROVIDER="${HABIT_PROVIDER:-lora}"
-export CHUCKCHUCK_LORA_PATH="${CHUCKCHUCK_LORA_PATH:-/home/ubuntu/workspace/20_AIHub_data/runs/tagger_seed42/final}"
+# 어댑터 경로는 비워 두면 _lora_tagger 가 찾는다: /data/models/_runs/habits-lora/{rep_seed42,fil_seed42,fil_seed43,fil_seed44}/final
+# (REP 은 팀 GPU 서버의 옛 경로 20_AIHub_data/runs/tagger_seed42/final 도 후보). 설정했으면 그대로 넘긴다.
 export CHUCKCHUCK_LORA_KINDS="${CHUCKCHUCK_LORA_KINDS:-REP}"
+export HF_HOME="${HF_HOME:-/data/models/_runs/habits-lora/hf_cache}"   # 루트 디스크가 작다
 export DEMO_HOST="${DEMO_HOST:-127.0.0.1}"
 export DEMO_PORT="${DEMO_PORT:-8799}"
 
@@ -49,7 +53,15 @@ echo "  python: $MIDM_PY"
 echo "  url:    http://${DEMO_HOST}:${DEMO_PORT}/"
 echo "  mock:   $MOCK_EXTERNAL_APIS"
 echo "  habits: $HABIT_PROVIDER  kinds=$CHUCKCHUCK_LORA_KINDS"
-echo "  lora:   $CHUCKCHUCK_LORA_PATH"
+PYTHONPATH="$ROOT/main" "$MIDM_PY" - <<'PY' || true
+from pipeline._lora_tagger import load_config
+c = load_config()
+print(f"  base:   {c.base}")
+print(f"  REP:    {c.rep.path if c.rep else '없음 → 규칙'}")
+print(f"  FIL:    {[str(a.path) for a in c.fil] or '없음 → 규칙'}" + (f"  (min {c.fil_min_votes}표)" if c.fil else ""))
+if c.missing:
+    print(f"  ⚠ adapter_config.json 없는 경로: {list(c.missing)}")
+PY
 echo "  soffice: ${SOFFICE_BIN:-(PATH 탐색)}"
 export PYTHONPATH="$ROOT/main${PYTHONPATH:+:$PYTHONPATH}"   # 패키지(pipeline · server)는 main/ 아래다
 exec "$MIDM_PY" -m server.bridge

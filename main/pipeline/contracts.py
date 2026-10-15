@@ -1404,8 +1404,11 @@ class HabitDoc:
     repeat_cnt: int = 0
     filler_cnt: int = 0
     pause_cnt: int = 0
-    provider: str = ""              # heuristic | fixture | lora
+    provider: str = ""              # heuristic | fixture | lora | heuristic(lora-fallback) | heuristic(lora-loading)
     tips: list[str] = field(default_factory=list)
+    # 태그마다 무엇이 찾았나 — {"REP": "lora", "FIL": "lora-ensemble×3" | "rule", "PAUSE": "rule"}.
+    # 리포트가 「간투어는 Mi:dm LoRA 3개가 함께 찾았어요」 처럼 출처를 말할 수 있게 (2026-10-16).
+    detectors: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -1416,6 +1419,7 @@ class HabitDoc:
             "pause_cnt": self.pause_cnt,
             "provider": self.provider,
             "tips": list(self.tips),
+            "detectors": dict(self.detectors),
         }
 
     @classmethod
@@ -1428,6 +1432,7 @@ class HabitDoc:
             pause_cnt=int(d.get("pause_cnt", 0)),
             provider=d.get("provider", ""),
             tips=list(d.get("tips", [])),
+            detectors={str(k): str(v) for k, v in (d.get("detectors") or {}).items()},
         )
 
 

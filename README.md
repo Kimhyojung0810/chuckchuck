@@ -21,7 +21,7 @@
 | F-13 | `main/pipeline/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
 | **F-14** | `main/pipeline/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
 | F-17 | `main/pipeline/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
-| F-18 | `main/pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-18 | `main/pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA — REP 태거 + FIL 3시드 앙상블(어댑터 있으면) · PAUSE·빠진 태그는 규칙 ([`etc/habits_lora/`](etc/habits_lora/README.md)) | `POST /api/v1/habits` |
 | F-19 | `main/pipeline/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
 공통 계약은 `main/pipeline/contracts.py` 하나다. 설정은 `main/pipeline/config.py` (`settings.masked()`).
@@ -114,7 +114,8 @@ F-18 REP LoRA 를 쓰려면 **midm 환경 + CUDA** 로 브리지를 띄운다.
 # MOCK_EXTERNAL_APIS=false
 # 실 API 키들 + (선택) REASONING_BACKEND=midm 등
 # HABIT_PROVIDER=lora
-# CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter   # adapter_config.json 있는 폴더
+# 어댑터는 /data/models/_runs/habits-lora/{rep_seed42,fil_seed42,fil_seed43,fil_seed44}/final 에 두면 자동으로 찾는다
+# (다른 곳이면 CHUCKCHUCK_LORA_REP_PATH · CHUCKCHUCK_LORA_FIL_PATHS — etc/habits_lora/README.md)
 # CHUCKCHUCK_LORA_KINDS=REP
 
 # 2) 실행 (권장 스크립트 — 포트 기본 8799)
@@ -126,8 +127,8 @@ DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 스크립트가 하는 일:
 - `MIDM_PY`(기본: conda `midm` 의 python) 으로 `server.bridge` 실행
 - `HABIT_PROVIDER=lora`, `MOCK_EXTERNAL_APIS=false` 고정
-- `CHUCKCHUCK_LORA_PATH` 미지정 시 팀 서버 기본 adapter 경로를 씀  
-  → 로컬에 어댑터가 없으면 `.env` / 셸에서 경로를 명시할 것
+- 어댑터 경로를 비우면 `/data/models/_runs/habits-lora/` → 팀 서버 옛 경로 순으로 찾고, 찾은 REP·FIL 어댑터를 출력한다
+- 뜨자마자 뒤에서 LoRA 를 올린다 — 다 올리기 전 요청은 `provider=heuristic(lora-loading)`
 
 직접 실행하려면:
 
@@ -135,7 +136,8 @@ DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 conda activate midm
 export MOCK_EXTERNAL_APIS=false
 export HABIT_PROVIDER=lora
-export CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter
+export CHUCKCHUCK_LORA_REP_PATH=/path/to/rep/adapter          # 기본 위치에 두었으면 생략
+export CHUCKCHUCK_LORA_FIL_PATHS=/p/fil_seed42/final,/p/fil_seed43/final,/p/fil_seed44/final
 export DEMO_PORT=8799
 python -m server.bridge
 ```

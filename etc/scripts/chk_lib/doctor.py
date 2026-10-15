@@ -56,7 +56,32 @@ def _lora_check(env: dict[str, str]) -> list[Check]:
     if provider != "lora":
         out.append(Check("F-18 LoRA", "warn", f"HABIT_PROVIDER={provider} — 습관 분석이 heuristic 으로 돈다"))
         return out
-    if (path / "adapter_config.json").is_file():
+    try:  # REP·FIL 어댑터를 서비스와 같은 규칙으로 찾는다 (.env 값 → /data/models/_runs/habits-lora → 옛 경로)
+        import os
+        import sys
+
+        if str(C.ROOT / "main") not in sys.path:
+            sys.path.insert(0, str(C.ROOT / "main"))
+        from pipeline._lora_tagger import load_config
+
+        cfg = load_config({**env, **{k: v for k, v in os.environ.items() if k.startswith("CHUCKCHUCK_LORA_")}})
+    except Exception as e:  # noqa: BLE001
+        cfg = None
+        out.append(Check("F-18 LoRA", "warn", f"설정을 못 읽음 ({type(e).__name__}) — 옛 방식으로 {path} 만 본다"))
+    if cfg is not None:
+        if cfg.rep:
+            out.append(Check("F-18 LoRA REP", "ok", f"어댑터 {cfg.rep.path}"))
+        else:
+            out.append(Check("F-18 LoRA REP", "fail", "REP 어댑터 없음 — /data/models/_runs/habits-lora/rep_seed42/final 에 두거나 "
+                             "CHUCKCHUCK_LORA_REP_PATH 로 (etc/habits_lora/README.md). 없으면 반복은 규칙으로 센다"))
+        if cfg.fil:
+            out.append(Check("F-18 LoRA FIL", "ok", f"어댑터 {len(cfg.fil)}개 · min {cfg.fil_min_votes}표 · rp {cfg.fil[0].task.repetition_penalty}"))
+        else:
+            out.append(Check("F-18 LoRA FIL", "warn", "FIL 어댑터 없음 — 간투어는 규칙(사전)으로 센다. "
+                             "/data/models/_runs/habits-lora/fil_seed{42,43,44}/final 에 두면 자동으로 붙는다"))
+        if cfg.missing:
+            out.append(Check("F-18 LoRA 경로", "warn", f"adapter_config.json 이 없는 설정 경로 {len(cfg.missing)}개 — 기본 위치로 대신 찾았다"))
+    elif (path / "adapter_config.json").is_file():
         out.append(Check("F-18 LoRA", "ok", f"어댑터 {path}"))
     else:
         out.append(Check("F-18 LoRA", "fail", f"어댑터 없음: {path} — CHUCKCHUCK_LORA_PATH 를 이 머신의 경로로. 없으면 provider 가 heuristic 으로 떨어진다"))
