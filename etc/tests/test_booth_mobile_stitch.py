@@ -33,7 +33,7 @@ INDEX = (WEB / "index.html").read_text(encoding="utf-8")
 
 
 def test_랜딩_주_버튼은_투어로_간다():
-    dock = re.search(r'<div class="dock">(.*?)</div>', INTRO, re.S)
+    dock = re.search(r'<(?:div|nav) class="dock"[^>]*>(.*?)</(?:div|nav)>', INTRO, re.S)
     assert dock, "아래 고정 주 버튼 칸이 없어요"
     assert 'href="/index.html#/tour"' in dock.group(1)
     assert "척척발표 살펴보기" in dock.group(1)

@@ -39,7 +39,8 @@ body.bs-nocursor, body.bs-nocursor * { cursor: none; }
 .bs-video {
   position: fixed; inset: 0; width: 100%; height: 100%;
   object-fit: cover; object-position: 50% 50%;
-  transform: scaleX(-1);
+  /* --stage-x: js/booth_scan.js stageShift — 무대 가운데를 오른쪽 기둥 왼쪽 빈 곳 가운데로 (그래프 좌표도 같은 만큼 민다) */
+  transform: translateX(var(--stage-x, 0px)) scaleX(-1);
   filter: brightness(.52) saturate(.75) contrast(1.05);
   background: var(--ink);
 }

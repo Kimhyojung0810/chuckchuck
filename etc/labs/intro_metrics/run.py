@@ -50,7 +50,7 @@ OBSERVE = """() => {
 }"""
 
 STATIC = """() => {
-  const hero = document.querySelector('.hero');
+  const hero = document.querySelector('.hero') || document.querySelector('.stage');   // /hi/stage 는 무대(.stage)
   const txt = [...hero.querySelectorAll('h1, p, a')].filter(n => !n.closest('[aria-hidden="true"]') && !n.classList.contains('fly-caption'))
     .map(n => n.innerText).join(' ');
   const words = txt.split(/\\s+/).filter(Boolean).length;
@@ -116,7 +116,7 @@ def tokens(page) -> dict:
         o[k] = s.getPropertyValue(k).trim(); return o; }""")
 
 
-def throttled_run(b, base: str) -> dict:
+def throttled_run(b, base: str, path: str = "/hi") -> dict:
     ctx = b.new_context(viewport={"width": 393, "height": 852}, device_scale_factor=3, is_mobile=True,
                         has_touch=True, user_agent=IPHONE_UA, locale="ko-KR")
     page = ctx.new_page()
@@ -128,7 +128,7 @@ def throttled_run(b, base: str) -> dict:
     sizes: dict[str, int] = {}
     cdp.on("Network.loadingFinished", lambda e: sizes.__setitem__(e["requestId"], e.get("encodedDataLength", 0)))
     page.add_init_script("(" + OBSERVE + ")()")
-    page.goto(f"{base}/hi", wait_until="load", timeout=90000)
+    page.goto(f"{base}{path}", wait_until="load", timeout=90000)
     try:
         page.wait_for_load_state("networkidle", timeout=30000)
     except Exception:
@@ -146,6 +146,7 @@ def main() -> None:
     ap.add_argument("--base", default="http://127.0.0.1:8987")
     ap.add_argument("--runs", type=int, default=3)
     ap.add_argument("--tag", default="")
+    ap.add_argument("--path", default="/hi", help="/hi/stage 처럼 다른 시안을 잴 때")
     a = ap.parse_args()
     out = HERE / "out" / (datetime.now().strftime("%m%d_%H%M%S") + (("_" + a.tag) if a.tag else ""))
     out.mkdir(parents=True, exist_ok=True)
@@ -153,14 +154,14 @@ def main() -> None:
     with sync_playwright() as p:
         b = p.chromium.launch()
         for _ in range(a.runs):
-            rep["runs"].append(throttled_run(b, a.base))
+            rep["runs"].append(throttled_run(b, a.base, a.path))
         for k in ("lcp_ms", "cls", "kb", "requests", "h1_visible_ms", "cta_visible_ms"):
             rep[k] = statistics.median(r[k] for r in rep["runs"])
         # 첫 화면(연출 끝난 뒤) — 초록 넓이
         ctx = b.new_context(viewport={"width": 393, "height": 852}, device_scale_factor=1, is_mobile=True,
                             has_touch=True, user_agent=IPHONE_UA, locale="ko-KR")
         page = ctx.new_page()
-        page.goto(f"{a.base}/hi", wait_until="networkidle")
+        page.goto(f"{a.base}{a.path}", wait_until="networkidle")
         page.wait_for_timeout(3500)
         png = page.screenshot()
         (out / "first_393.png").write_bytes(png)
@@ -172,7 +173,7 @@ def main() -> None:
         ctx = b.new_context(viewport={"width": 360, "height": 640}, device_scale_factor=2, is_mobile=True,
                             has_touch=True, user_agent=IPHONE_UA, locale="ko-KR")
         page = ctx.new_page()
-        page.goto(f"{a.base}/hi", wait_until="networkidle")
+        page.goto(f"{a.base}{a.path}", wait_until="networkidle")
         page.wait_for_timeout(3500)
         page.screenshot(path=str(out / "first_360x640.png"))
         rep["static_360x640"] = page.evaluate(STATIC)
