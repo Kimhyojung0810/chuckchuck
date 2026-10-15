@@ -5094,7 +5094,8 @@ function saveLastReport() {
       },
       // 리포트 2.0 (D-005, 10-16 승인) — 다시 연 리포트에서도 Q&A 전환점 · 녹음 다시 듣기(부스 덱)가 되게
       qa: rv2QaSnapshot(),
-      deckAudio: nf.deckAudio || '',
+      // 부스 덱 녹음으로 한 발표면 그 덱 이름 — 저장은 리포트 2.0 갈래보다 먼저라 take 에서 바로 읽는다
+      deckAudio: nf.deckAudio || (ccLastTake && ccLastTake._blob && ccLastTake._blob.deckAudio ? String(ccLastTake._blob.deckAudio) : ''),
     };
     try {
       localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snap));
