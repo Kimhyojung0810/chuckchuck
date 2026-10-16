@@ -17,7 +17,8 @@
 **기다림을 늘리지 않는다**: 읽기+말하기 한 콜을 판정 LLM 과 **동시에** 띄운다(`start`). 판정이 끝나면 정책만 맞춰 본다 —
 수가 같으면 추가 호출 없이 끝, 다르면 다시 말하기 1콜(`QA_DIALOGUE_RESPEAK=1`).
 
-설정: `QA_DIALOGUE`(기본 1) · `QA_DIALOGUE_LLM`(기본 solar4) · `QA_DIALOGUE_RESPEAK`(기본 1) · `QA_DIALOGUE_WAIT_SEC`(판정 뒤 더 기다릴 상한, 기본 6)
+설정: `QA_DIALOGUE`(기본 1) · `QA_DIALOGUE_LLM`(기본 solar4, 쉼표로 여럿이면 동시에) · `QA_DIALOGUE_RESPEAK`(기본 1) ·
+`QA_DIALOGUE_RESPEAK_BUDGET_SEC`(다시 말하기 기다림 상한, 기본 2.5 — 넘으면 코드 틀) · `QA_DIALOGUE_WAIT_SEC`(판정 뒤 말하기 콜을 더 기다릴 상한, 기본 6)
 호출 로그 기능명: F-09-talk(읽기·말하기) · F-09-respeak(다시 말하기) — ai_calllog_features.json.
 """
 from __future__ import annotations
@@ -49,6 +50,14 @@ def llm_name() -> str:
 
 def respeak_on() -> bool:
     return (os.environ.get("QA_DIALOGUE_RESPEAK", "1") or "1").strip().lower() not in ("0", "off", "false", "no")
+
+
+def respeak_budget_sec() -> float:
+    """다시 말하기를 기다리는 상한 — 넘으면 코드 틀로 (말 끝 → 다음 말 P95 를 지키려고, 10/17 dev: 다시 말하기 p95 ≈ 3초)."""
+    try:
+        return max(0.0, float(os.environ.get("QA_DIALOGUE_RESPEAK_BUDGET_SEC", "2.5")))
+    except ValueError:
+        return 2.5
 
 
 def wait_sec() -> float:
@@ -729,7 +738,13 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     # 2) 수가 다르거나 검사에 걸림 → 정해진 수로 다시 말하기 (한 콜)
     if not source and (respeak if respeak is not None else respeak_on()) and got:
         extra = _judge_note(judgement, move)
-        r2, a2, sec2 = dialogue_respeak(ti, move, anchor, extra, llm=llm or (_llm(base.model) if base and base.model else None))
+        fut = _POOL.submit(_ai_calllog.carry(dialogue_respeak, "F-09-respeak"), ti, move, anchor, extra,
+                           llm=llm or (_llm(base.model) if base and base.model else None))
+        try:
+            r2, a2, sec2 = fut.result(timeout=respeak_budget_sec())
+        except Exception:  # noqa: BLE001 — 늦으면 코드 틀 (호출은 뒤에서 끝나고 기록은 남는다)
+            r2, a2, sec2 = "", "", respeak_budget_sec()
+            meta["respeak_late"] = True
         r2 = with_quote(soft_trim(tidy_react(r2)), anchor, ti.answer, move)
         meta["respeak_sec"] = sec2
         meta["respeak_text"] = [r2, a2]

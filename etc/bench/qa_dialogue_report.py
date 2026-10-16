@@ -45,6 +45,13 @@ LJ_SYSTEM = """당신은 발표 Q&A 코칭 품질 심사관이다. 발표자의 
 
 
 def load(tag: str) -> list[dict]:
+    """「태그」 또는 「태그@반복」(그 반복만 — 잡음 폭을 반복마다 잰다)."""
+    if "@" in tag:
+        base, rep = tag.split("@", 1)
+        rows = [r for r in load(base) if str(r.get("rep", 0)) == rep]
+        for r in rows:
+            r["_tag"] = tag
+        return rows
     rows = []
     for f in sorted((OUT / "runs" / tag).glob("*.jsonl")):
         rows += [json.loads(x) for x in f.read_text(encoding="utf-8").splitlines() if x.strip()]
