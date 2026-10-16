@@ -213,9 +213,10 @@ export function scoredAnswers(turns) {
   return (Array.isArray(turns) ? turns : []).filter((t) => t && !t.giveUp && !t.clarify && isText(t.answer)).map((t) => t.answer.trim());
 }
 
-/** 서버가 이 질문을 닫았는가 (mastered). 옛 브리지(mastered 없음)는 good 만 닫는다. 코칭 응답은 닫지 않는다 (H-12·B-10) */
+/** 서버가 이 질문을 닫았는가 (mastered). 옛 브리지(mastered 없음)는 good 만 닫는다. 코칭 응답은 닫지 않는다 (H-12·B-10) —
+ *  단 해설(explain)은 2026-10-17 부터 서버가 닫는다(셋째 답 · 둘째 「모르겠어요」, mastered=true). 옛 서버의 해설은 mastered=false 라 그대로다. */
 export function judgementClosed(j) {
-  if (!j || j.coach_stage) return false;
+  if (!j || (j.coach_stage && j.coach_stage !== 'explain')) return false;
   return typeof j.mastered === 'boolean' ? j.mastered : j.verdict === 'good';
 }
 
@@ -350,6 +351,24 @@ export function questionWhy(q) {
 }
 
 /** 요청 제한·AI 서버 지연으로 기다렸다가 다시 보낼 때의 안내 (09-30 H-15). 몇 초 남았는지 보인다 */
+/**
+ * 첫 박자 반응 (2026-10-17 5단계 · 음성UX 조사 R4) — 판정을 기다리는 동안 방금 한 답의 마디 하나를 그대로 받아 0.7초 안에 보인다.
+ * 앱 qa_live.js liveFirstCue 와 같은 규칙 (그 파일은 클래식 스크립트라 import 를 못 한다). 지어내지 않는다 — 원문 그대로, 없으면 "".
+ */
+export function firstCue(answer) {
+  const text = String(answer || '').replace(/[「」『』"“”]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length < 6) return '';
+  const parts = text.split(/[.?!…]\s*|,\s*|\s(?:그래서|그런데|하지만|그리고|그러니까)\s/).map((x) => x.trim()).filter(Boolean);
+  const fit = parts.filter((x) => x.length >= 6 && x.length <= 20);
+  let pick = fit.length ? fit[fit.length - 1] : (parts[parts.length - 1] || '');
+  if (pick.length > 20) {
+    const cut = pick.slice(0, 20);
+    const sp = cut.lastIndexOf(' ');
+    pick = sp >= 6 ? cut.slice(0, sp) : cut;
+  }
+  return pick.length >= 6 ? `「${pick}」라고 했죠. 자료와 맞춰 볼게요` : '';
+}
+
 export function retryWaitText(secondsLeft, reason = 'rate') {
   const n = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
   if (reason === 'upstream') return n > 0 ? `AI 서버가 늦어서 ${n}초 뒤에 한 번 더 보낼게요.` : '한 번 더 보내는 중이에요.';

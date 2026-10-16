@@ -269,6 +269,11 @@ test('H-12 서버가 닫았으면(mastered) 되묻지 않는다 — followup 이
   eq(L.judgementClosed({ verdict: 'good' }), true, '옛 브리지(mastered 없음)는 good 만 닫는다 (B-10)');
   eq(L.judgementClosed({ verdict: 'partial', score: 75 }), false);
   eq(L.judgementClosed({ verdict: 'unknown', coach_stage: 'narrow', mastered: true }), false, '코칭 응답은 닫지 않는다');
+  eq(L.judgementClosed({ verdict: 'wrong', coach_stage: 'explain', mastered: true, closed: true }), true, '해설로 닫음 (2026-10-17)');
+  const cue = L.firstCue('실험실에서 한 거라서, 상황마다 좀 다를 것 같아요.');
+  if (!/^「상황마다 좀 다를 것 같아요」라고 했죠/.test(cue)) throw new Error(cue);
+  eq(L.firstCue('네'), '', '짧은 답엔 첫 반응을 안 지어낸다');
+  eq(L.judgementClosed({ verdict: 'unknown', coach_stage: 'explain', mastered: false }), false, '옛 서버 해설은 닫지 않는다');
 });
 test('H-14 판정에 보내는 힌트는 연 칸만 — 판정이 준 사다리는 사다리에만 (+ 코칭 되물음)', () => {
   eq(L.hintsForJudge(['h1'], { verdict: 'partial', hints: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] }), ['h1']);

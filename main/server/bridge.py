@@ -1388,6 +1388,33 @@ TRANSIENT_DEGRADED = frozenset({
 })
 
 
+#: 꼬리질문 엔진의 세션 기록 (2026-10-17 5단계) — 노드 이해 상태(다음 질문 고르기)와 이미 한 말(되풀이 금지).
+_DLG_NODES = "dlg_nodes:"
+_DLG_SAID = "dlg_said:"
+DLG_SAID_MAX = 16
+
+
+def _dialogue_said(sid: str | None) -> list[str]:
+    return list(STORE.get_triage(_DLG_SAID + str(sid)) or []) if sid else []
+
+
+def _dialogue_note(sid: str | None, judgement) -> None:
+    """판정 하나로 노드 이해 상태를 갱신하고, 이번 반응 · 꼬리질문을 세션의 「이미 한 말」 에 더한다. 실패해도 판정은 그대로 나간다."""
+    if not sid:
+        return
+    try:
+        from pipeline import f09_dialogue as DLG  # noqa: PLC0415
+
+        states = dict(STORE.get_triage(_DLG_NODES + sid) or {})
+        if judgement.node_id:
+            states[judgement.node_id] = DLG.node_state(states.get(judgement.node_id), judgement)
+            STORE.set_triage(_DLG_NODES + sid, states)
+        said = [*_dialogue_said(sid), *(x for x in (judgement.react, judgement.followup) if x)][-DLG_SAID_MAX:]
+        STORE.set_triage(_DLG_SAID + sid, said)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[bridge] 꼬리질문 엔진 기록 실패: {type(e).__name__}\n")
+
+
 def _with_degraded(payload: dict, degraded: list[str]) -> dict:
     """응답에 degraded(코드 목록)·degraded_notes(같은 순서의 문장)를 싣는다. 폴백이 없으면 빈 목록 — 키는 언제나 있다."""
     codes = list(dict.fromkeys(degraded))
@@ -4121,7 +4148,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self._ensemble_pool(str(_session_id_of(body) or ""), found["graph"], slidedoc, body.get("claims"), wait=0)
         return self._json(202, {"ensemble": True, "started": True})
 
-    def _handle_qa_next(self, raw: bytes):
+    def _handle_qa_next(self, raw: bytes):  # noqa: C901
         """
         {session_id, asked:[{question_id, answer, verdict}], prefetch?} → 다음 질문 (3번 이후).
 
@@ -4141,11 +4168,14 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         found = self._resolve(body, "graph", "alignment", "transcript")
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
         asked = []
+        states = STORE.get_triage(_DLG_NODES + str(sid)) or {}     # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
             q = next(iter(STORE.find_questions(sid, str(a.get("question_id") or ""))), None) or {}
+            st = states.get(q.get("node_id", "")) or {}
             asked.append({"question": q.get("question") or str(a.get("question") or "")[:QA_QUESTION_MAX],
                           "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
-                          "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3]})
+                          "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3],
+                          "state": st.get("state", ""), "skipped": st.get("skipped", "")})
         vkey = "ens_voice:" + fingerprint(pool_key, [(a["question"], a["verdict"]) for a in asked])
         last_key = "ens_voice_last:" + str(pool_key)
 
@@ -4493,14 +4523,18 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 slidedoc=slidedoc,
                 # 지난 리허설 기억 (F-25) — 지난번에 빠졌던 점이 이번엔 나왔는지 본다. 포기하면 코칭 단계도 이것이 정한다
                 memory=memory,
+                # 세션에서 이미 한 반응 · 꼬리질문 — 꼬리질문 엔진이 되풀이하지 않는다 (2026-10-17 5단계 R9)
+                avoid=_dialogue_said(store_sid),
             )
         except JudgeError as e:
             sys.stderr.write(f"[bridge] F-09 judge failed: {e}\n")
             return self._json(502, {"error": "judge_failed",
                                     "message": "답변을 판정하지 못했어요. 잠시 뒤 다시 답해 주세요."})
         on_server = qsrc in ("server", "archive", "mismatch")
+        _dialogue_note(store_sid, judgement)
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
+            f"수={judgement.move or '-'}/{(judgement.dialogue or {}).get('source') or '-'} 시도={len(body.get('history') or []) + 1} "
             f"passed={judgement.passed} stage={judgement.coach_stage!r} 질문={qsrc} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"

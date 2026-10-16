@@ -593,7 +593,9 @@ def voice_prompt(signals: list[dict], deck: Deck, asked: list[dict], transcript_
     parts = ["[TASK] qa-ensemble-voice", "", f"## 발표의 핵심 주장\n{deck.thesis}", "", "## 자료", ES.deck_block(deck.lines, 180),
              "", "## 발표 받아쓰기 (앞부분)", transcript_text[:2400], "", "## 이미 물은 질문과 답"]
     for a in asked:
-        parts.append(f"- Q: {a.get('question', '')}\n  A: {(a.get('answer') or '')[:240]}\n  판정: {a.get('verdict', '?')}")
+        parts.append(f"- Q: {a.get('question', '')}\n  A: {(a.get('answer') or '')[:240]}\n  판정: {a.get('verdict', '?')}"
+                     + (f" · 이해 상태: {a['state']}" if a.get("state") else "")
+                     + (f" · 빠진 고리: {a['skipped'][:80]}" if a.get("skipped") else ""))
     parts += ["", "## 신호"]
     for s in signals:
         parts.append(f"{s['id']} [{s['kind']}] 「{s['label']}」({s['slide_no']}장) — {s['note']}"
@@ -706,6 +708,7 @@ def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker:
     다음 질문 하나. 음성 후보가 있으면 그 후보 + 묶음의 남은 상위 2개를 최종 선택 모델이 고른다(이유 한 줄).
     음성 후보가 없거나 선택이 실패하면 묶음의 남은 1등(「묶음에서 대신 냄」, substituted=True).
     """
+    # 이미 물은 노드 + 이해했다고 본 노드(understood)는 다시 고르지 않는다 (노드 이해 상태 — 2026-10-17 5단계)
     asked_nodes = {a.get("node_id") for a in asked}
     asked_q = [a.get("question", "") for a in asked]
     rest = [c for c in pool.winners() if c["node_id"] not in asked_nodes

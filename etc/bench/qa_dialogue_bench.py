@@ -149,6 +149,16 @@ def gen_answers(args) -> int:
 
 
 def _judge(q: Question, answer: str, art: dict, *, judge_llm, prior=None, history=None, give_up=False, avoid=None) -> dict:
+    """판정 한 번. 요청 제한(429)으로 실패하면 물러났다 다시 (실험 판에서 오류 줄이 기준표를 흔들지 않게) — 시간은 마지막 시도만."""
+    for wait in (8, 20, 40, None):
+        d = _judge_once(q, answer, art, judge_llm=judge_llm, prior=prior, history=history, give_up=give_up, avoid=avoid)
+        if d.get("verdict") != "error" or wait is None or "429" not in str(d.get("error")):
+            return d
+        time.sleep(wait)
+    return d
+
+
+def _judge_once(q: Question, answer: str, art: dict, *, judge_llm, prior=None, history=None, give_up=False, avoid=None) -> dict:
     t0 = time.monotonic()
     try:
         v = judge_answer(q, answer, graph=art["concept_graph"], alignment=art.get("alignment_doc"),

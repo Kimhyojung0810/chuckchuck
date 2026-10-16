@@ -88,7 +88,7 @@ MOVE_SHAPES = {
     "explore": "반대 의견을 존중하고 그렇게 본 이유를 묻는다. 자료의 어느 결과와 견줘 볼지 묻는다 — 정답을 들이밀지 마라.",
     "recite": "자료 문장을 옮기기만 했다는 것을 짚고, 그 문장이 질문이 묻는 「왜 · 충분한가 · 어떻게 이어지나」 에 어떻게 답이 되는지 자기 말로 잇게 묻는다.",
     "hint": "괜찮다고 짧게 말하고, 볼 곳 하나(자료 몇 장)만 가리킨 뒤 예/아니오로도 답할 수 있는 아주 쉬운 질문 하나.",
-    "deepen": "맞힌 내용에서 한 걸음 — 그 생각이 왜 그런지(원리) 또는 어디까지 통하는지(적용 범위)를 묻는다.",
+    "deepen": "맞힌 답이다. react 둘째 문장은 그 말이 결론을 **어떻게 받치는지**(답에 있는 근거 있는 강점)만 — 빠진 것을 지적하지 마라. ask 는 그 생각이 어디까지 통하는지(적용 범위) 한 걸음.",
 }
 
 TALK_SYSTEM = """당신은 발표 Q&A 의 심사위원 교수다. 방금 발표자가 질문에 답했다. 채점은 다른 사람이 한다 — 당신은 **답을 읽고, 다음 한 마디를 쓴다.**
@@ -246,8 +246,15 @@ def dialogue_talk(ti: TalkInput, llm=None) -> TalkResult:
     with _ai_calllog.feature_scope("F-09-talk"):
         try:
             engine = llm or _llm()
-            data = _complete(engine, TALK_SYSTEM.format(style=STYLE, shapes=_shapes_block()), talk_user(ti),
-                             temperature=TALK_TEMPERATURE, max_tokens=TALK_MAX_TOKENS)
+            try:
+                data = _complete(engine, TALK_SYSTEM.format(style=STYLE, shapes=_shapes_block()), talk_user(ti),
+                                 temperature=TALK_TEMPERATURE, max_tokens=TALK_MAX_TOKENS)
+            except Exception as e:  # noqa: BLE001 — 요청 제한이면 한 번 더 (제공자가 이미 2초 물러났다 다시 불렀다)
+                if " 429" not in str(e):
+                    raise
+                time.sleep(1.5)
+                data = _complete(engine, TALK_SYSTEM.format(style=STYLE, shapes=_shapes_block()), talk_user(ti),
+                                 temperature=TALK_TEMPERATURE, max_tokens=TALK_MAX_TOKENS)
         except Exception as e:  # noqa: BLE001 — 대화 엔진의 실패가 판정을 깨지 않는다
             sys.stderr.write(f"[f09-dialogue] talk 실패: {type(e).__name__}: {str(e)[:160]}\n")
             return TalkResult(sec=round(time.monotonic() - t0, 2), error=f"{type(e).__name__}: {str(e)[:120]}")
