@@ -219,8 +219,17 @@ ROLES_ADDENDUM = """
 출력: {"items": [{"slot": "T1", "alt": 1, "question": "…", "answer": "…", "lines": ["S3.2"], "why": "…"}, {"slot": "T1", "alt": 2, …}]}"""
 
 
+#: 패턴 → 잘 쓰는 모델 순 (test 9덱 묶음 전체를 작성 계열 뺀 심판단이 매긴 core): solar4 는 P1 4.76 · P4 4.46 · P10 4.42 · P7 4.22 ·
+#: P2 4.17 로 거의 모든 패턴 1등, ax 는 P5(연결) 4.05 · P4 4.13, exaone 은 P7 3.98 · P4 3.93. Mi:dm 은 통과 후보가 적고(35 vs 94) 열린 책 20%.
+STRENGTH: dict[str, tuple[str, ...]] = {
+    "P1": ("solar4", "ax"), "P2": ("solar4", "exaone"), "P3": ("solar4", "ax"), "P4": ("solar4", "ax"),
+    "P5": ("ax", "solar4"), "P6": ("solar4", "ax"), "P7": ("solar4", "exaone"), "P8": ("solar4", "ax"),
+    "P9": ("solar4", "ax"), "P10": ("solar4", "ax"),
+}
+
+
 def gen_system(prompt: str = "guide", assign: str = "all") -> str:
-    return GEN_SYSTEM + (GEN_GUIDE_ADDENDUM if prompt == "guide" else "") + (ROLES_ADDENDUM if assign == "roles" else "")
+    return GEN_SYSTEM + (GEN_GUIDE_ADDENDUM if prompt == "guide" else "") + (ROLES_ADDENDUM if assign in ("roles", "strength") else "")
 
 
 def gen_prompt(slots: list[ES.Slot], deck: Deck, speech_excerpt: str = "") -> str:
@@ -404,7 +413,15 @@ def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[st
             sys.stderr.write(f"[f08-ens] {n} 을 못 만들어요: {str(e)[:80]}\n")
     pool = Pool(slots=slots, models=list(engines))
     order = list(engines)
-    if assign == "roles" and len(order) >= 2:
+    if assign == "strength" and len(order) >= 2:
+        # 패턴마다 잘하는 두 모델만 (10-17 test 묶음 전체, 남 심판 core — MODEL_LEDGER §4). 둘 다 없으면 있는 모델로 채운다.
+        mine = {n: [] for n in order}
+        for s in slots:
+            pref = [m for m in STRENGTH.get(s.pattern, ()) if m in engines] or order
+            for m in (pref + [x for x in order if x not in pref])[:2]:
+                mine[m].append(s)
+        jobs = [(n, chunk) for n in order for chunk in _chunks(mine[n], SLOTS_PER_CALL) if chunk]
+    elif assign == "roles" and len(order) >= 2:
         # 슬롯 i 는 모델 i, i+1 (돌려 가며) — 슬롯마다 두 모델이 서로 다른 관점 둘씩 = 슬롯당 후보 4개, 모델당 호출 1회 남짓
         mine = {n: [s for i, s in enumerate(slots) if n in (order[i % len(order)], order[(i + 1) % len(order)])] for n in order}
         jobs = [(n, chunk) for n in order for chunk in _chunks(mine[n], SLOTS_PER_CALL) if chunk]

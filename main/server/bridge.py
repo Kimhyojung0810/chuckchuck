@@ -3090,6 +3090,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if cached is not None:
             sys.stderr.write(f"[bridge] F-07 graph 캐시 적중 {key}\n")
             self._archive(body, "concept_graph", cached)
+            self._ensemble_kick(body, cached)
             return self._json(200, _analysis_response(cached, list(cached.get("degraded") or [])))
 
         sys.stderr.write(
@@ -3117,6 +3118,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if not degraded:
             _stage_cache_put("graph", key, payload)
         self._archive(body, "concept_graph", payload)
+        self._ensemble_kick(body, payload)
         return self._json(200, _analysis_response(payload, degraded))
 
     def _handle_alignment(self, raw: bytes):
@@ -4085,6 +4087,21 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         sys.stderr.write(f"[bridge] F-08 앙상블 n={len(picked)} 후보={len(pool.candidates)} 버림={len(pool.dropped)} "
                          f"작성={[c['model'] for c in picked]} {pool.timings}\n")
         return doc
+
+    def _ensemble_kick(self, body: dict, graph_raw: dict) -> None:
+        """그래프가 나오는 순간(자료 올린 뒤 · 발표 전) 앙상블 묶음을 뒤에서 띄운다 — 질문 요청 때 기다리지 않게.
+        10-17 실험실: 질문 요청 때 처음 띄우면 부하가 있을 때 45초 안에 못 끝나 지금 방식 질문으로 떨어졌다."""
+        try:
+            from pipeline import f08_ensemble as FE
+
+            sid = _session_id_of(body)
+            if not FE.enabled() or _mock() or not sid or not graph_raw:
+                return
+            slidedoc = ARCHIVE.read_artifact(sid, "slide_doc")
+            if slidedoc:
+                self._ensemble_pool(str(sid), graph_raw, slidedoc, None, wait=0)
+        except Exception as e:  # noqa: BLE001 — 미리 띄우기 실패는 질문 요청이 다시 시도한다
+            sys.stderr.write(f"[bridge] F-08 앙상블 미리 띄우기 실패: {type(e).__name__}: {str(e)[:120]}\n")
 
     def _handle_qa_pool(self, raw: bytes):
         """{session_id, graph?} → 묶음 만들기를 뒤에서 띄운다 (자료 올릴 때 · 발표 중). 202 로 바로 돌아온다."""
