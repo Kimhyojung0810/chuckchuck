@@ -312,8 +312,14 @@ def micro(question: str) -> bool:
     return bool(_MICRO_RE.search(q)) and not _COND_SHIFT_RE.search(q)
 
 
-def vague_deixis(question: str, deck_tokens: set[str]) -> bool:
+#: 발표 전체의 결론·주장을 가리키는 말 — 루트(thesis) 슬롯에서는 가리킬 것이 하나뿐이라 애매하지 않다 (「이 결론을 실제로 쓰면」)
+_ROOT_DEIXIS = ("결론", "주장", "연구", "분석", "결과")
+
+
+def vague_deixis(question: str, deck_tokens: set[str], *, root_slot: bool = False) -> bool:
     for m in _DEIXIS_RE.finditer(question or ""):
+        if root_slot and m.group(1) in _ROOT_DEIXIS:
+            continue
         before = question[:m.start()]
         if not (_tokens(before) - GENERIC) & deck_tokens:
             return True
@@ -346,7 +352,8 @@ def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], id
         why.append("multi_ask")
     if not POLITE_END_RE.search(q):
         why.append("impolite")
-    if vague_deixis(q, deck_tokens):
+    root_slot = slot.kind == "thesis" and slot.pattern in ("P1", "P7", "P10")
+    if vague_deixis(q, deck_tokens, root_slot=root_slot):
         why.append("vague_deixis")
     if micro(q) and slot.pattern != "P9":
         why.append("micro")
@@ -357,7 +364,8 @@ def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], id
     slot_terms = _tokens(f"{slot.label} {slot.partner_label}") - GENERIC
     line_terms = (_tokens(" ".join(lines_by_id[r].text for r in slot.lines if r in lines_by_id)) - GENERIC) & deck_tokens
     qt = _tokens(q)
-    if slot_terms and not (qt & slot_terms) and len(qt & line_terms) < 2:
+    root_ref = root_slot and re.search(r"(?:이|이번|발표의|발표에서 내린)\s?(?:결론|주장|연구|분석)", q)
+    if slot_terms and not (qt & slot_terms) and len(qt & line_terms) < 2 and not root_ref:
         why.append("off_slot")
     trap = slot.trap
     if trap:

@@ -334,7 +334,20 @@ def tidy(c: dict) -> dict:
     q = _second_person(_plain_speech(str(c.get("question") or "").strip()))
     a = re.sub(r"(니다|습니다)요(?=[.!]?\s*$|[.!]\s)", r"\1", str(c.get("answer") or "").strip())
     q = re.sub(r"주시겠어요\?", "주세요.", q)
+    q, a = _strip_line_ids(q), _strip_line_ids(a)
     return {**c, "question": _polite_question(q), "answer": _polite_statement(_plain_speech(a))}
+
+
+_LINE_ID_PAREN_RE = re.compile(r"\s*[(（\[]\s*S\d{1,3}\.\d{1,3}(?:\s*[~,·–-]\s*S?\d{1,3}(?:\.\d{1,3})?)*\s*[)）\]]")
+_LINE_ID_HEAD_RE = re.compile(r"(?<![A-Za-z0-9])S\d{1,3}\.\d{1,3}(?:\s*[~–-]\s*S?\d{1,3}\.\d{1,3})?\s*(?:의|에서|에|은|는|을|를)?\s*")
+
+
+def _strip_line_ids(text: str) -> str:
+    """프롬프트 줄 번호(「(S3.2)」「S3.4의 차트에서」)를 문장에서 뗀다 — 근거 표시일 뿐 발표자는 모르는 표기다(10-17 dev2: 후보 39·음성 51개가
+    이것 하나로 버려졌다). 근거 줄은 lines 칸이 따로 든다. 떼고 나서도 남으면 거르기가 버린다(line_id_leak)."""
+    t = _LINE_ID_PAREN_RE.sub("", text or "")
+    t = _LINE_ID_HEAD_RE.sub("", t)
+    return re.sub(r"\s{2,}", " ", t).strip()
 
 
 def _model_rank(name: str) -> int:
@@ -601,6 +614,8 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
     sig_of = {s["id"]: s for s in signals}
     by_id = {n.id: n for n in deck.graph.nodes}
     speech_vocab = ES._tokens(text)          # 발표에서 한 말 — 음성 질문·모범답은 발화의 낱말을 쓴다
+    from ._spoken import spoken_numbers  # noqa: PLC0415
+    spoken = spoken_numbers(text)            # 「이십구 퍼센트」→「29%」 — 발화의 수도 출처다
     kept, dropped = [], []
     for i, c in enumerate(raw):
         sig = sig_of[c["signal"]]
@@ -611,7 +626,7 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
                        partner_label=" ".join(sig.get("neighbors") or []))
         c = tidy({**c, "uid": f"{c['model']}:{c['signal']}:v{i}"})
         ok, why = ES.check_candidate(c, slot, lines_by_id=deck.lines_by_id, idx=deck.idx, deck_tokens=deck.deck_tokens,
-                                     sources=deck.sources + [text], extra_vocab=speech_vocab)
+                                     sources=deck.sources + [text, spoken], extra_vocab=speech_vocab)
         if any(ES.question_tokens_overlap(c.get("question", ""), a.get("question", "")) >= DUP_OVERLAP for a in asked or []):
             why = [*why, "repeats_asked"]
             ok = None
@@ -701,7 +716,7 @@ GIST_SYSTEM = """당신은 발표 코치다. 질문마다 발표자가 **그대�
 - lines: 근거로 쓴 자료 줄 번호 1~2개.
 출력은 JSON 객체 하나: {"items": [{"id": "q01", "answer": "…요.", "lines": ["S3.2"]}]}"""
 
-_DIRTY_GIST_RE = re.compile(r"^(?:질문의 전제와 달리,\s*)?자료는 이렇게 말해요\s*—|\s·\s|/.*/|한계\s*:|^\d+\s")
+_DIRTY_GIST_RE = re.compile(r"자료는 이렇게 말해요\s*—|\s·\s|/.*/|한계\s*:|^\d+\s")
 #: 코드가 정리할 때 버리는 줄 머리 — 글머리 번호(「1 군당 셀이」), 「제목: 」 꼬리표
 _LINE_HEAD_RE = re.compile(r"^(?:\d{1,2}[.)]?\s+|[가-힣A-Za-z]{1,8}\s*:\s+)")
 
@@ -716,6 +731,11 @@ def _gist_targets(questions: list[Question]) -> list[Question]:
     return [q for q in questions if dirty_gist(q) and not q.trap and q.source != "contradiction"]
 
 
+def _letter_spaced(line: str) -> bool:
+    from .f08_questions import _letter_spaced as ls  # noqa: PLC0415
+    return ls(line)
+
+
 def _tidy_line(line: str) -> str:
     return _LINE_HEAD_RE.sub("", (line or "").strip()).rstrip(" .")
 
@@ -726,7 +746,7 @@ def code_gist(q: Question, deck: Deck) -> str:
     nos = q.slide_nos or ([q.evidence_slide_no] if q.evidence_slide_no else [])
     want = ES._tokens(" ".join([q.question, q.label, q.evidence_quote]))
     cands = [ln for ln in deck.lines if ln.slide_no in nos and " / " not in ln.text and len(_tidy_line(ln.text)) >= 12
-             and not ES._CITATION_RE.search(ln.text)]
+             and not ES._CITATION_RE.search(ln.text) and not _letter_spaced(ln.text)]
     if not cands:
         return ""
     best = max(cands, key=lambda ln: len(want & ES._tokens(ln.text)))
