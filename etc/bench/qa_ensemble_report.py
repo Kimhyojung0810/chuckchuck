@@ -171,6 +171,7 @@ def run_extras(run: dict) -> dict:
         out["opening_by_model"] = Counter(c["model"] for c in ens.get("opening", []))
         out["opening_core_pattern"] = any(c["pattern"] in ("P1", "P2") for c in ens.get("opening", []))
         out["opening_root"] = sum(1 for c in ens.get("opening", []) if c["pattern"] == "P1")
+        out["opening_nodes"] = [c["node_id"] for c in ens.get("opening", [])]
         five = ens.get("five", [])
         out["defensive"] = sum(1 for c in five if c["pattern"] in ("P7", "P9"))
         out["expansive"] = sum(1 for c in five if c["pattern"] == "P10")
@@ -356,7 +357,9 @@ def criteria(agg: dict) -> list[dict]:
         ("1", "지저분한 모범답 0 / 30문항+", "=0", tot("gist_dirty"), f"n={tot('gist_n')}"),
         ("1", "모범답 그대로 → good ≥95%", ">=0.95", _r(tot("gist_good"), tot("gist_n")), ""),
         ("1", "모범답 1~3문장", ">=1.0", _r(tot("gist_sent_ok"), tot("gist_n")), ""),
+        ("1", "외운 답(근거 줄 그대로) vs 이해한 답(모범답) 판정이 갈림 ≥90%", ">=0.9", _r(tot("memo_diff"), tot("memo_n")), f"n={tot('memo_n')}"),
         ("2a", "thesis·claim 비율 ≥60% (앙상블 5문항)", ">=0.6", ens.get("thesis_claim"), f"release {rel.get('thesis_claim')}"),
+        ("2a", "같은 덱 반복에서 1·2번 노드가 같은 비율 (기록)", ">=0.0", node_stability(agg), "목표 ≥0.7"),
         ("2a", "잎 concept 비율 ≤25%", "<=0.25", ens.get("leaf"), f"release {rel.get('leaf')}"),
         ("2", "특이도 0(뻔함 바닥) 비율", "<=0.1", ens.get("spec_zero"), f"release {rel.get('spec_zero')}"),
         ("2", "핵심성 core(심판, 작성 계열 뺌) — release 이상", f">={rel.get('core') or 0}", ens.get("core"), f"release {rel.get('core')} · 차 {P['core']['diff_mean']} CI{P['core']['ci95']} 잡음 {P['core']['noise']}"),
@@ -391,6 +394,21 @@ def criteria(agg: dict) -> list[dict]:
     for stage, name, rule, val, note in rows:
         out.append({"stage": stage, "criterion": name, "rule": rule, "value": val, "pass": _pass(rule, val, rel), "note": note})
     return out
+
+
+def node_stability(agg: dict) -> float | None:
+    """같은 덱의 반복 판끼리 1·2번 노드 집합의 겹침(자카드) 평균."""
+    by = defaultdict(list)
+    for deck, rep, e in agg["extras"]:
+        if e.get("opening_nodes") is not None:
+            by[deck].append(set(e["opening_nodes"]))
+    vals = []
+    for sets in by.values():
+        for i in range(len(sets)):
+            for j in range(i + 1, len(sets)):
+                u = sets[i] | sets[j]
+                vals.append(len(sets[i] & sets[j]) / len(u) if u else 1.0)
+    return round(st.mean(vals), 3) if vals else None
 
 
 def _r(a, b):

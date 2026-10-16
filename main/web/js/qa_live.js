@@ -567,6 +567,7 @@ function presentLiveQuestion() {
   const L = qa.live;
   if (L.asked === L.qi) return;
   L.asked = L.qi;
+  liveEnsemblePrefetch(L);
   const q = L.questions[L.qi];
   // 질문 묶음이 폴백 재료로 만들어졌으면(문헌 검색·주장 없이) 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes)
   if (L.qi === 0 && Array.isArray(L.notes) && L.notes.length) {
@@ -1781,10 +1782,55 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
  *
  * 마지막 질문이었으면 결과 화면으로 가야 하므로 그때만 renderQaLive 에 넘긴다.
  */
+/** 다음 질문 고르기에 보낼 앞 답들 — 서버 색인의 질문 id · 답 · 판정 (CONTRACT §3) */
+function liveEnsembleAsked(L) {
+  return (L.results || []).map((r) => ({ question_id: String(r.id || ''), answer: String(r.answer || '').slice(0, 1200),
+    verdict: r.verdict || '' }));
+}
+
+/** 질문을 낼 때마다 — 지금까지의 답으로 음성 후보 만들기를 뒤에서 시작한다 (기다리지 않는다) */
+function liveEnsemblePrefetch(L) {
+  if (!L || !L.ensemble || !L.ensemble.active || typeof window === 'undefined') return;
+  const bridge = window.ChuckchuckBridge;
+  if (!bridge || !bridge.ensembleNextQuestion) return;
+  bridge.ensembleNextQuestion(L.sessionId, { asked: liveEnsembleAsked(L), prefetch: true }).catch(() => {});
+}
+
+/**
+ * 3번부터 — 네 모델이 발표를 다시 듣고 고른 질문으로 이 자리를 바꾼다. 늦거나 실패하면 준비한 질문 그대로 (기다리게 하지 않는다).
+ * 표시는 작게만 — 「네 모델이 발표를 다시 듣는 중이에요」 (자세한 후보 판은 리포트).
+ */
+async function liveEnsembleAdvance(L) {
+  L.ensDone = { ...(L.ensDone || {}), [L.qi]: true };
+  showCoachThinking();
+  setCoachThinkingText('네 모델이 발표를 다시 듣는 중이에요');
+  try {
+    const bridge = typeof window !== 'undefined' ? window.ChuckchuckBridge : null;
+    if (!bridge || !bridge.ensembleNextQuestion) throw new Error('bridge 없음');
+    const res = await bridge.ensembleNextQuestion(L.sessionId, { asked: liveEnsembleAsked(L) });
+    if (qa.live !== L) return;
+    const nq = res && res.question;
+    if (nq && nq.question) {
+      const same = (q) => q && (q.id === nq.id || q.question === nq.question);
+      if (!L.questions.slice(0, L.qi).some(same)) {
+        const later = L.questions.findIndex((q, i) => i > L.qi && same(q));
+        if (later > L.qi) L.questions.splice(later, 1);
+        L.questions.splice(L.qi, 1, { ...nq, ensembleBy: res.by || '', ensembleSubstituted: !!res.substituted });
+      }
+    }
+  } catch (err) {
+    console.info('[chuckchuck] 다음 질문 고르기가 늦어 준비한 질문으로 가요', err && err.message);
+  } finally {
+    if (qa.live === L) hideCoachThinking();
+  }
+  if (qa.live === L) advanceLiveStream();
+}
+
 function advanceLiveStream() {
   const L = qa.live;
   if (qa.ended) return renderQaLive();
   if (L.qi >= L.questions.length) return enterLiveFinale();
+  if (L.ensemble && L.ensemble.active && L.qi >= 2 && !(L.ensDone || {})[L.qi]) return liveEnsembleAdvance(L);
   presentLiveQuestion();
   saveSession('qa-flow', qa);
   growStream();

@@ -4126,14 +4126,21 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                           "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
                           "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3]})
         vkey = "ens_voice:" + fingerprint(pool_key, [(a["question"], a["verdict"]) for a in asked])
-        fut = _FLIGHTS.run(vkey, lambda: STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
-            pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked)))
+        last_key = "ens_voice_last:" + str(pool_key)
+
+        def make_round():
+            vr_ = STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
+                pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked))
+            STORE.set_triage(last_key, vr_)       # 가장 최근에 끝난 음성 후보 — 이번 답 몫이 아직이면 한 답 앞의 것을 쓴다
+            return vr_
+
+        fut = _FLIGHTS.run(vkey, make_round)
         if body.get("prefetch"):
             return self._json(202, {"started": True})
         try:
             vr = fut.result(timeout=float(body.get("wait_sec") or NEXT_WAIT_SEC))
-        except Exception:  # noqa: BLE001 — 늦으면 묶음에서
-            vr = None
+        except Exception:  # noqa: BLE001 — 늦으면 바로 앞 답까지로 만든 음성 후보(질문을 낼 때 미리 띄운 것), 그것도 없으면 묶음에서
+            vr = STORE.get_triage(last_key)
         t0 = time.monotonic()
         nxt = FE.choose_next(pool, vr, asked)
         if not nxt:

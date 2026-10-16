@@ -8970,6 +8970,8 @@ function ensureLiveQuestions() {
       // 폴백 재료(문헌 검색·주장 없이)로 만든 질문이면 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes · qa_live presentLiveQuestion).
       // 녹음을 받았는데 질문 재료로 못 썼으면(다른 발표 · 판정이 짐작뿐 — QuestionDoc.speech_note) 그 까닭이 맨 앞이다 (REC-14 liveEntryNotes)
       qa.live.notes = typeof liveEntryNotes === 'function' ? liveEntryNotes(doc) : [];
+      // 네 모델 Q&A (서버 QA_ENSEMBLE=1) — 3번부터 발표 음성 · 앞 답으로 다음 질문을 고른다 (qa_live liveEnsembleAdvance)
+      qa.live.ensemble = (doc && doc.ensemble && doc.ensemble.active) ? { active: true, models: doc.ensemble.models || [] } : null;
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;

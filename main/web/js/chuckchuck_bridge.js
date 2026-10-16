@@ -980,6 +980,21 @@ async function judgeOnce(sessionId, { questionId, answer, history, question, giv
  * perspective: example(실제 사례) · evidence(근거) · counter(반례) · cause(원인) · effect(결과).
  * 서버가 새 질문을 이 세션의 질문 색인에 올리므로 그대로 judgeQaAnswer 로 채점된다. 실패하면 던진다(err.code: reframe_failed 등).
  */
+/** 다음 질문 고르기 요청 상한 — 서버는 음성 후보를 0.5초만 기다리고 없으면 묶음에서 바로 낸다. 넘으면 준비한 질문으로 간다 */
+const ENSEMBLE_NEXT_TIMEOUT_MS = 6000;
+
+/**
+ * 네 모델 Q&A — 3번 이후 다음 질문 (docs/qa-ensemble/CONTRACT.md §3, 서버 QA_ENSEMBLE=1 일 때만 질문 묶음에 ensemble 칸이 있다).
+ * prefetch=true 면 지금까지의 답으로 음성 후보 만들기를 뒤에서 시작만 하고 바로 돌아온다(질문을 낼 때마다 부른다).
+ */
+export async function ensembleNextQuestion(sessionId, { asked = [], prefetch = false } = {}) {
+  return qaApi('/api/v1/qa/next', {
+    method: 'POST',
+    json: { session_id: sessionId || null, asked, prefetch: !!prefetch },
+    timeoutMs: ENSEMBLE_NEXT_TIMEOUT_MS,
+  });
+}
+
 export async function reframeQaQuestion(sessionId, { questionId, question, perspective }) {
   const sid = sessionId || 'flat';
   return qaApi(`/api/v1/sessions/${sid}/qa/reframe`, {
@@ -1156,6 +1171,7 @@ window.ChuckchuckBridge = {
   buildQuestions,
   judgeQaAnswer,
   reframeQaQuestion,
+  ensembleNextQuestion,
   registerSessionArtifacts,
   RehearsalRecorder,
   PresentationRecorder,
