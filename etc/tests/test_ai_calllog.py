@@ -27,6 +27,7 @@ from pipeline.providers.llm_base import LLMProvider
 ROOT = Path(__file__).resolve().parents[2]
 FAKE_KEY = "up" + "_" + "FAKEKEY0123456789abcdefABCDEF"   # 문지기 키 검사에 안 걸리게 이어 붙인다 (가짜 값)
 UPSTAGE = "https://api.upstage.ai/v1"
+ANSWER = [{"index": 0, "message": {"role": "assistant", "content": "{\"ok\": 1}"}, "finish_reason": "stop"}]
 CFG = SimpleNamespace(
     docparse_url="https://api.upstage.ai/v1/document-digitization",
     docparse_async_url="https://api.upstage.ai/v1/document-digitization/async",
@@ -39,7 +40,7 @@ class FakeNet:
     """requests.Session.send 자리. plan 의 앞에서부터 (status, body) 또는 예외를 하나씩 쓴다. 다 쓰면 마지막 것을 되풀이."""
 
     def __init__(self, *plan):
-        self.plan = list(plan) or [(200, {"id": "x", "model": "solar-pro3", "choices": [], "usage": {"total_tokens": 3}})]
+        self.plan = list(plan) or [(200, {"id": "x", "model": "solar-pro3", "choices": ANSWER, "usage": {"total_tokens": 3}})]
         self.sent = []
         self.lock = threading.Lock()
 
@@ -132,7 +133,7 @@ def test_국내_AI_목록_밖_호스트는_적지_않는다(net, tmp_path):
 def test_LLM_재시도는_attempt_2_로_남는다(net, tmp_path, monkeypatch):
     from pipeline.providers.llm_impl import OpenAICompatLLM
 
-    net.plan = [(500, {"error": "busy"}), (200, {"id": "ok", "model": "solar-pro3", "choices": [], "usage": {}})]
+    net.plan = [(500, {"error": "busy"}), (200, {"id": "ok", "model": "solar-pro3", "choices": ANSWER, "usage": {}})]
     monkeypatch.setattr(OpenAICompatLLM, "RETRY_BACKOFF_SEC", 0)
     llm = OpenAICompatLLM(api_key=FAKE_KEY, base_url=UPSTAGE, model="solar-pro3", name="solar")
     res = llm._post_with_retry(f"{UPSTAGE}/chat/completions", {"Authorization": f"Bearer {FAKE_KEY}"}, {"model": "solar-pro3"})
@@ -148,6 +149,7 @@ def test_연결_실패는_error_로_남고_다시_던진다(net, tmp_path):
         requests.post(f"{UPSTAGE}/chat/completions", json={"model": "solar-pro3"})
     [r] = records(tmp_path)
     assert r["response"]["error"] == "ConnectionError" and r["ok"] is False and "status" not in r["response"]
+    assert r["response"]["summary"]["error"] == {"type": "ConnectionError", "message": "boom"}
 
 
 def test_성공한_뒤_같은_요청_비동기_폴링은_재시도가_아니다(net, tmp_path):
@@ -453,3 +455,106 @@ def test_라우팅된_주_모델_호출도_기능과_범위가_남는다(net, tm
     assert f08.__dict__["_f08_call"](routed) == "ok"
     rs = records(tmp_path)
     assert len(rs) == 1 and rs[0]["feature_code"] == "F-08"
+
+
+# ─── 10-17 가이드 항목 감사 — 모델 칸 · 사람이 읽는 이름 · 응답 칸 자리 · 빈 답 · 토큰 가리기 ─────────────────────────
+
+def _audit_mod():
+    spec = importlib.util.spec_from_file_location("ai_calllog_audit", ROOT / "etc" / "scripts" / "ai_calllog_audit.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_STT_업로드_단계도_요청_모델이_찬다(net, tmp_path):
+    net.plan = [(200, {"upload_token": "20261017_TOKENVALUEabc", "expire_at": "x"}), (200, {"file_key": "fk1"}),
+                (200, {"message_id": "m1", "audio_duration": 1200, "utterance_count": 1, "utterances": [{"text": "안녕"}]})]
+    requests.get("https://awf-gw.adot.ai/v1/stt/upload-token?fileSize=10", headers={"X-API-Key": FAKE_KEY})
+    requests.put("https://awf-gw.adot.ai/v1/stt/upload/20261017_TOKENVALUEabc", data=b"\x00" * 10,
+                 headers={"Content-Type": "application/octet-stream"})
+    requests.post("https://awf-gw.adot.ai/v1/stt/transcript", json={"speech_model": "A.X_STT_note_batch", "audio_file_key": "fk1"})
+    tok, put, tr = records(tmp_path)
+    assert tok["request"]["model"] == "A.X_STT_note_batch" and tok["request"]["model_source"] == "endpoint_step"
+    assert put["request"]["model"] == "A.X_STT_note_batch"
+    assert tr["request"]["model_source"] == "request" and tr["request"]["model_label"] == "SKT A.X STT (배치)"
+    assert tr["response"]["summary"]["id"] == "m1" and tr["response"]["summary"]["answer_from"].startswith("body.utterances")
+    assert tr["response"]["summary"]["usage"]["audio_duration_ms"] == 1200
+
+
+def test_엑사원은_엔드포인트_ID_옆에_사람이_읽는_이름(net, tmp_path, monkeypatch):
+    monkeypatch.setenv("EXAONE_MODEL_LABEL", "EXAONE 테스트")
+    net.plan = [(200, {"id": "c1", "model": "dep123", "choices": ANSWER, "usage": {"total_tokens": 5}})]
+    requests.post("https://api.friendli.ai/dedicated/v1/chat/completions",
+                  json={"model": "dep123", "messages": [{"role": "user", "content": "q"}]})
+    [r] = records(tmp_path)
+    assert r["request"]["model"] == "dep123" and r["request"]["model_label"] == "EXAONE 테스트 (FriendliAI 전용 엔드포인트 dep123)"
+    s = r["response"]["summary"]
+    assert (s["kind"], s["id"], s["model"], s["answer_from"]) == ("chat", "c1", "dep123", "body.choices[0].message.content")
+
+
+def test_200_인데_답_없이_사고만_잘리면_실패로_적는다(net, tmp_path):
+    net.plan = [(200, {"id": "c2", "model": "dep", "choices": [{"message": {"content": None, "reasoning_content": "Okay..."},
+                                                                 "finish_reason": "length"}], "usage": {"total_tokens": 3000}})]
+    requests.post("https://api.friendli.ai/dedicated/v1/chat/completions", json={"model": "dep", "messages": [{"role": "user", "content": "q"}]})
+    [r] = records(tmp_path)
+    assert r["ok"] is False and r["response"]["summary"]["answer_empty"] is True
+
+
+def test_내보내기는_업로드_토큰과_한글_옆_번호를_가리고_옛_레코드를_채운다(net, tmp_path, monkeypatch):
+    ex = _export_mod()
+    old = {"record_id": "1", "run_id": "f-05-x", "feature_code": "F-05",
+           "request": {"time_kst": "2026-10-15T23:57:05.627+09:00", "method": "GET", "model": None, "body": None,
+                       "endpoint": "https://awf-gw.adot.ai/v1/stt/upload-token?fileSize=1"},
+           "response": {"time_kst": "2026-10-15T23:57:05.707+09:00", "status": 200, "body": {"upload_token": "TOK123"}},
+           "ok": True, "attempt": 1}
+    put = json.loads(json.dumps(old))
+    put["record_id"], put["request"]["method"] = "2", "PUT"
+    put["request"]["endpoint"] = "https://awf-gw.adot.ai/v1/stt/upload/TOK123"
+    put["response"]["body"] = {"file_key": "fk"}
+    tr = json.loads(json.dumps(old))
+    tr["record_id"], tr["request"]["method"] = "3", "POST"
+    tr["request"]["endpoint"] = "https://awf-gw.adot.ai/v1/stt/transcript"
+    tr["request"]["model"] = "A.X_STT_note_batch"
+    tr["response"]["body"] = {"message_id": "m", "utterances": [{"text": "제 번호는01012345678 이고 메일은 a@b.co"}]}
+    rm = ex.run_models([old, put, tr])
+    e = ex.enrich(old, rm)
+    assert e["request"]["model"] == "A.X_STT_note_batch" and e["request"]["model_source"] in ("endpoint_step", "same_run")
+    assert old["request"]["model"] is None                                                       # 사본만 바꾼다
+    m, paths = ex.mask(ex.enrich(put, rm), keys=[])
+    assert m["request"]["endpoint"].endswith("/v1/stt/upload/***") and "TOK123" not in json.dumps(m)
+    m, _ = ex.mask(ex.enrich(old, rm), keys=[])
+    assert m["response"]["body"]["upload_token"] == "***"
+    m, _ = ex.mask(ex.enrich(tr, rm), keys=[])
+    text = m["response"]["body"]["utterances"][0]["text"]
+    assert "01012345678" not in text and "a@b.co" not in text and text.count("***") == 2
+
+
+def test_감사는_항목표와_zip_흔적을_센다(net, tmp_path, monkeypatch):
+    _seed(net, tmp_path, monkeypatch)
+    ex, au = _export_mod(), _audit_mod()
+    out = tmp_path / "a.zip"
+    ex.export(root=tmp_path / "log", since="2000-01-01", out=out, keys=[FAKE_KEY])
+    rep = au.audit([tmp_path / "log"], since="2000-01-01", zips=[out], keys=[FAKE_KEY],
+                   features={"F-08": "예상질문_생성", "F-09": "답변_판정_꼬리질문", "F-20": "발표구성_제안"})
+    assert rep["missing_required_cells"] == 0 and rep["missing_features"] == ["F-20"]
+    assert rep["scan_logs"]["pii_휴대전화"] >= 1                                                 # 원본엔 있다
+    z = rep["zips"][0]
+    assert all(z["scan"][k] == 0 for k in au.SECRET_FIELDS) and z["scan"]["pii_휴대전화"] == 0      # zip 엔 없다
+    assert z["missing_files"] == ["발표구성_제안"] and z["bad_records"] == 0 and not au.failed(rep)
+    assert rep["by_model"]["solar-pro3 — Upstage Solar Pro 3"]["calls"] == 4
+    assert "| F-08 |" in au.to_markdown(rep)
+
+
+def test_글자가_없는_배치_받아쓰기는_실패로_적는다(net, tmp_path):
+    net.plan = [(200, {"message_id": "m", "audio_duration": 5000, "utterances": [{"text": ""}]})]
+    requests.post("https://awf-gw.adot.ai/v1/stt/transcript", json={"speech_model": "A.X_STT_note_batch", "audio_file_key": "k"})
+    [r] = records(tmp_path)
+    assert r["ok"] is False and r["response"]["summary"]["answer_empty"] is True
+
+
+def test_start_run_은_CLI_실행을_나눈다(net, tmp_path):
+    requests.post(f"{UPSTAGE}/chat/completions", json={"model": "solar-pro3", "messages": [{"role": "user", "content": "1"}]})
+    AC.start_run()
+    requests.post(f"{UPSTAGE}/chat/completions", json={"model": "solar-pro3", "messages": [{"role": "user", "content": "2"}]})
+    a, b = records(tmp_path)
+    assert a["run_id"] != b["run_id"]

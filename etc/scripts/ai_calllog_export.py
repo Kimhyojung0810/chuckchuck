@@ -35,13 +35,17 @@ DEFAULT_OUT = Path.home() / "meetings" / "제출" / "국내AI_API_호출로그_�
 _PATTERNS = (
     re.compile(r"Bearer\s+[A-Za-z0-9._\-]+"),
     re.compile(r"\b(?:up|awf|flp|sk|pk)_[A-Za-z0-9]{16,}\b"),          # Upstage · A.X · Friendli 등 키 모양
-    re.compile(r"\b\d{6}-[1-4]\d{6}\b"),                                # 주민등록번호
-    re.compile(r"\b01[016789][-. ]?\d{3,4}[-. ]?\d{4}\b"),               # 휴대전화
-    re.compile(r"\b0\d{1,2}[-. ]\d{3,4}[-. ]\d{4}\b"),                   # 유선 전화
+    # 숫자 경계는 \b 가 아니라 (?<!\d)·(?!\d) — 한글 바로 옆 번호(「번호01012345678」)는 \b 로 안 잡힌다 (10-17 감사)
+    re.compile(r"(?<!\d)\d{6}-[1-4]\d{6}(?!\d)"),                         # 주민등록번호
+    re.compile(r"(?<![\d.])(?:\+82[-. ]?1[016789]|01[016789])[-. ]?\d{3,4}[-. ]?\d{4}(?!\d)"),   # 휴대전화
+    re.compile(r"(?<![\d.])0(?:2|[3-6][1-5]|70)[-. )]\d{3,4}[-. ]\d{4}(?!\d)"),   # 유선 전화 · 인터넷 전화
     re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"),       # 이메일
 )
 #: 구조 필드 — 지문 · 식별자는 키 모양 검사에서 뺀다 (sha256 이 「키 같은 문자열」로 잡히지 않게)
 _SKIP_KEYS = {"sha256", "record_id", "run_id", "id", "request_id"}
+#: 값 자체가 인증정보인 필드 — 통째로 가린다 (A.X STT 업로드 토큰: 10분 유효하지만 업로드 권한이다)
+_SECRET_KEYS = {"upload_token"}
+_UPLOAD_PATH = re.compile(r"(/v1/stt/upload/)[^/?#]+")
 
 
 def env_keys() -> list[str]:
@@ -62,6 +66,15 @@ def mask(value, keys: list[str], path: str = "") -> tuple[object, list[str]]:
             return {k: walk(x, f"{p}.{k}" if p else k, k) for k, x in v.items()}
         if isinstance(v, list):
             return [walk(x, f"{p}[{i}]", key) for i, x in enumerate(v)]
+        if isinstance(v, str) and key in _SECRET_KEYS:
+            if v != "***":
+                hits.append(p)
+            return "***"
+        if isinstance(v, str) and key == "endpoint":
+            out = _UPLOAD_PATH.sub(r"\1***", v)
+            if out != v:
+                hits.append(p)
+            return out
         if isinstance(v, str) and key not in _SKIP_KEYS:
             out = v
             for pat in _PATTERNS:          # 「Bearer <키>」 를 통째로 먼저 — 키만 지우면 「Bearer ***」 가 남는다
@@ -74,6 +87,45 @@ def mask(value, keys: list[str], path: str = "") -> tuple[object, list[str]]:
         return v
 
     return walk(value, path), hits
+
+
+def enrich(r: dict, run_models: dict[str, str] | None = None) -> dict:
+    """10-17 이전 레코드에 없는 칸을 채운 **사본** — 요청 모델(단계 표 → 같은 실행의 모델) · 사람이 읽는 모델 이름 · 응답 칸 자리(summary).
+    본문 값은 바꾸지 않는다. 채운 칸은 model_source 에 출처를 남긴다."""
+    if not AC._PATH_MODELS:                      # CLI 는 install() 을 안 부른다 — 단계 표만 config 에서
+        try:
+            AC._PATH_MODELS[:] = AC.path_models()
+        except Exception:  # noqa: BLE001
+            pass
+    r = json.loads(json.dumps(r))
+    rq, rp = r["request"], r["response"]
+    if not rq.get("model"):
+        m, src = AC.endpoint_model(rq.get("endpoint") or ""), "endpoint_step"
+        if not m:
+            m, src = (run_models or {}).get(r.get("run_id") or ""), "same_run"
+        if m:
+            rq["model"], rq["model_source"] = m, src
+    rq.setdefault("model_source", "request" if rq.get("model") else None)
+    if not rq.get("model_label") or rq["model_label"] == rq.get("model"):     # 표가 늘면(예: solar-pro4) 옛 레코드도 새 이름
+        rq["model_label"] = AC.model_label(rq.get("model"), rq.get("endpoint") or "")
+    if "summary" not in rp:
+        rp["summary"] = AC.summarize(AC.kind_of(rq.get("method") or "", rq.get("endpoint") or ""), rq.get("body"),
+                                     rp.get("status"), rp.get("body"))
+    if r.get("ok") and AC.answer_empty(rp["summary"], rp.get("status")):
+        rp["summary"]["answer_empty"] = True
+        r["ok"] = False
+        r["ok_note"] = "HTTP 200 이지만 답이 없다(대화: content 없이 사고만 · 받아쓰기: 글자 0) — 10-17 감사 규칙으로 실패로 다시 봄"
+    return r
+
+
+def run_models(records: list[dict]) -> dict[str, str]:
+    """run_id → 그 실행에서 요청 본문에 실린 모델 (모델 칸이 빈 단계를 채울 때)."""
+    out: dict[str, str] = {}
+    for r in records:
+        m = r["request"].get("model")
+        if m and r.get("run_id"):
+            out.setdefault(r["run_id"], m)
+    return out
 
 
 def shape(v):
@@ -157,7 +209,9 @@ def export(*, root: Path, since: str, out: Path, runs: dict[str, str] | None = N
     features = features if features is not None else AC._features()
     keys = env_keys() if keys is None else keys
     allowed = set(AC.korean_hosts())
-    all_recs = load(root)
+    raw = load(root)
+    rm = run_models(raw)
+    all_recs = [enrich(r, rm) for r in raw]
     old = [r for r in all_recs if r["request"]["time_kst"][:10] < since]
     recs = [r for r in all_recs if r["request"]["time_kst"][:10] >= since]
     grouped = runs_by_feature(recs)
@@ -189,6 +243,7 @@ def export(*, root: Path, since: str, out: Path, runs: dict[str, str] | None = N
         doc = {
             "feature": name, "feature_code": code, "run_id": rid,
             "models": sorted({r["request"].get("model") for r in rs if r["request"].get("model")}),
+            "model_labels": {r["request"]["model"]: r["request"].get("model_label") for r in rs if r["request"].get("model")},
             "providers": sorted({r.get("provider") for r in rs if r.get("provider")}),
             "record_count": len(rs), "exported_at": stamp, "records": masked_rs,
         }

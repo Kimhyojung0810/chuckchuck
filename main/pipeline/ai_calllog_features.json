@@ -1,5 +1,7 @@
 {
   "_comment": "국내 AI API 호출 로그(main/pipeline/_ai_calllog.py) — 기능 코드 → 제출 파일명(=최종 결과 보고서의 기능명). 지금 이름은 가칭(2026-10-15 설계 §4)이라 보고서 기능명이 정해지면 이 표만 고친다. F-18 Mi:dm LoRA 는 로컬 서빙이라 제출 대상이 아니다.",
+  "_comment_confirmed": "confirmed = 최종 결과 보고서에서 확정된 기능 코드. 여기 없는 기능명은 정리 폴더(etc/scripts/ai_calllog_promise.py) README 에 「가칭」으로 찍힌다.",
+  "confirmed": [],
   "features": {
     "F-01": "발표자료_분석",
     "F-05": "발표_받아쓰기",

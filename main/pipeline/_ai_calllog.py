@@ -57,6 +57,22 @@ _FOREIGN = re.compile(r"(?:^|\.)(?:openai\.com|anthropic\.com|cohere\.(?:ai|com)
 #: 응답에서 이보다 긴 실수 배열(임베딩 벡터)은 길이 · 앞 8개 · sha256 으로 줄인다 — 한 줄이 수 MB 가 된다
 _FLOATS_MAX = 64
 _TEXT_MAX = 20000
+#: 요청 본문에 모델 필드가 없는 단계(A.X STT upload-token · 음성 PUT · Document Parse async 폴링)의 모델 — (호스트, 경로 머리, 모델).
+#: install() 이 config 에서 채운다. 가이드 「요청 모델」 칸이 null 로 남지 않게 (10-17 감사: F-05 레코드 3건 중 2건이 null).
+_PATH_MODELS: list[tuple[str, str, str]] = []
+#: 요청 model 값 → 사람이 읽는 모델 이름. EXAONE(Friendli 전용 엔드포인트)·Mi:dm 은 model 이 엔드포인트 ID 라 따로 붙인다.
+_MODEL_LABELS = {
+    "solar-pro3": "Upstage Solar Pro 3",
+    "solar-pro2": "Upstage Solar Pro 2",
+    "solar-mini": "Upstage Solar Mini",
+    "document-parse": "Upstage Document Parse",
+    "embedding-passage": "Upstage Solar Embedding (passage)",
+    "embedding-query": "Upstage Solar Embedding (query)",
+    "A.X-K2": "SKT A.X K2",
+    "A.X_STT_note_batch": "SKT A.X STT (배치)",
+    "A.X_STT_note_streaming": "SKT A.X STT (실시간 스트리밍)",
+    "midm-pro-fp8-kaic": "KT 믿:음(Mi:dm) Pro — KT 공식 API",
+}
 
 _HOSTS: dict[str, str] = {}
 _ORIG_SEND = None
@@ -105,6 +121,19 @@ def begin_request(*, team: bool, route: str = "") -> Scope:
     return s
 
 
+def start_run() -> None:
+    """다음 호출부터 기능마다 새 실행(run_id)으로 묶는다. CLI · 벤치는 프로세스 하나가 기능마다 한 실행이라, 덱 · 문항마다 이걸 부르면
+    「기능 1회 = 실행 하나」 로 나뉜다 (가이드 「기능별 1회 로그」 — 10-17 감사: 벤치 프로세스 하나의 F-09 가 26건 한 실행이었다)."""
+    global _PROCESS_RUN
+    with _LOCK:
+        _NOSCOPE_RUNS.clear()
+        _PROCESS_RUN = datetime.now(KST).strftime("%Y%m%dT%H%M%S%f")[:-3] + f"-p{os.getpid()}"
+    s = _SCOPE.get()
+    if s is not None:
+        with s.lock:
+            s.runs.clear()
+
+
 def current() -> Scope | None:
     return _SCOPE.get()
 
@@ -140,10 +169,13 @@ def _run_for(code: str, model: str | None) -> tuple[str, str | None]:
 def _stack_feature(frame) -> str:
     """스택을 안쪽부터 올라가며 처음 만난 FUNC_FEATURES 함수 · pipeline.fNN_* 모듈(또는 HELPER_FEATURES)의 기능 코드. 못 찾으면 미분류."""
     f = frame
-    while f is not None:
+    while f is not None:          # 함수 표가 먼저 — 그 함수 안쪽의 도우미 프레임(같은 fNN 모듈)이 모듈 규칙으로 먼저 걸리지 않게
         fn = getattr(getattr(f, "f_code", None), "co_name", "")
         if fn in FUNC_FEATURES:
             return FUNC_FEATURES[fn]
+        f = f.f_back
+    f = frame
+    while f is not None:
         last = str(f.f_globals.get("__name__", "")).rsplit(".", 1)[-1]
         m = _FEATURE_MOD.match(last)
         if m:
@@ -325,6 +357,153 @@ def _model_of(body) -> str | None:
     return None
 
 
+def endpoint_model(endpoint: str) -> str | None:
+    """모델 필드가 없는 단계의 모델 (`_PATH_MODELS`)."""
+    sp = urlsplit(endpoint or "")
+    host = (sp.hostname or "").lower()
+    for h, prefix, model in _PATH_MODELS:
+        if host == h and sp.path.startswith(prefix):
+            return model
+    return None
+
+
+def model_label(model: str | None, endpoint: str = "") -> str | None:
+    """사람이 읽는 모델 이름. Friendli 전용 엔드포인트(EXAONE)는 model 이 엔드포인트 ID 라 EXAONE_MODEL_LABEL 로 이름을 준다."""
+    if not model:
+        return None
+    host = (urlsplit(endpoint or "").hostname or "").lower()
+    if host.endswith("friendli.ai"):
+        name = (os.environ.get("EXAONE_MODEL_LABEL") or "").strip() or "LG AI연구원 EXAONE"
+        return f"{name} (FriendliAI 전용 엔드포인트 {model})"
+    if host.endswith("kt.com") and model not in _MODEL_LABELS:
+        return f"KT 믿:음(Mi:dm) — 엔드포인트 {model}"
+    if model in _MODEL_LABELS:
+        return _MODEL_LABELS[model]
+    m = re.fullmatch(r"solar-(pro|mini)(\d*)(.*)", model)
+    if m and host.endswith("upstage.ai"):          # 표에 없는 새 Solar 판(예: solar-pro4)도 사람이 읽게
+        return f"Upstage Solar {m.group(1).capitalize()}{(' ' + m.group(2)) if m.group(2) else ''}{m.group(3)}"
+    return model
+
+
+def _dig(v, *path):
+    for p in path:
+        if isinstance(p, int):
+            v = v[p] if isinstance(v, list) and len(v) > p else None
+        else:
+            v = v.get(p) if isinstance(v, dict) else None
+        if v is None:
+            return None
+    return v
+
+
+def kind_of(method: str, endpoint: str) -> str:
+    """레코드 종류 — 가이드 항목(응답 ID · 모델명 · 답변 · 토큰)이 본문 어디에 있는지가 종류마다 다르다."""
+    sp = urlsplit(endpoint or "")
+    path = sp.path.rstrip("/")
+    if (method or "").upper() == "WEBSOCKET" or sp.scheme in ("ws", "wss"):
+        return "stt_live"
+    if path.endswith("/chat/completions"):
+        return "chat"
+    if path.endswith("/embeddings"):
+        return "embedding"
+    if path.endswith("/document-digitization/async"):
+        return "docparse_async"
+    if "/document-digitization/requests" in path:
+        return "docparse_poll"
+    if path.endswith("/document-digitization"):
+        return "docparse"
+    if path.endswith("/stt/upload-token"):
+        return "stt_token"
+    if "/stt/upload/" in path:
+        return "stt_upload"
+    if path.endswith("/stt/transcript"):
+        return "stt_transcript"
+    return "other"
+
+
+def summarize(kind: str, req_body, status, rb) -> dict:
+    """가이드 응답 칸(응답 ID · 모델명 · 답변 · 토큰 사용량)이 응답 본문 **어디에** 있는지 — 값은 본문에 그대로 두고 자리만 가리킨다.
+    API 가 주지 않는 항목은 null + 까닭(`*_note`). 답변 원문은 되풀이하지 않는다(글자 수만)."""
+    b = rb if isinstance(rb, dict) else {}
+    s: dict = {"kind": kind, "id": None, "id_from": None, "model": None, "answer_from": None, "answer_chars": 0, "usage": None}
+
+    def ans(path: str, text) -> None:
+        if isinstance(text, str) and text.strip():
+            s["answer_from"], s["answer_chars"] = path, len(text)
+
+    if kind == "chat":
+        s["id"], s["id_from"] = b.get("id"), "body.id"
+        s["model"] = b.get("model")
+        msg = _dig(b, "choices", 0, "message") or {}
+        ans("body.choices[0].message.content", msg.get("content"))
+        if not s["answer_from"]:
+            ans("body.choices[0].message.reasoning_content", msg.get("reasoning_content") or msg.get("reasoning"))
+        s["finish_reason"] = _dig(b, "choices", 0, "finish_reason")
+        s["usage"] = b.get("usage")
+    elif kind == "embedding":
+        s["id_note"] = "Upstage 임베딩 응답에는 ID 필드가 없다"
+        s["model"] = b.get("model")
+        data = b.get("data") if isinstance(b.get("data"), list) else []
+        if data:
+            s["answer_from"], s["answer_chars"] = f"body.data[0..{len(data) - 1}].embedding", len(data)
+        s["usage"] = b.get("usage")
+    elif kind in ("docparse", "docparse_poll"):
+        s["id"] = b.get("id") or b.get("request_id")
+        s["id_from"] = "body.id" if b.get("id") else ("body.request_id" if b.get("request_id") else None)
+        if not s["id"]:
+            s["id_note"] = "Document Parse 동기 응답에는 ID 필드가 없다"
+        s["model"] = b.get("model")
+        ans("body.content.text", _dig(b, "content", "text"))
+        if not s["answer_from"]:
+            ans("body.content.markdown", _dig(b, "content", "markdown"))
+        if not s["answer_from"] and b.get("status"):
+            s["answer_from"], s["answer_chars"] = "body.status", len(str(b["status"]))
+        s["usage"] = b.get("usage")
+    elif kind == "docparse_async":
+        s["id"], s["id_from"] = b.get("request_id"), "body.request_id"
+        s["model"] = _model_of(req_body)
+        s["model_note"] = "접수 응답엔 모델이 없어 요청 form.model"
+        if b.get("request_id"):
+            s["answer_from"], s["answer_chars"] = "body.request_id", len(str(b["request_id"]))
+    elif kind == "stt_token":
+        s["id_note"] = "업로드 토큰 발급 단계(응답 ID 없음) — 토큰은 인증정보라 내보내기에서 *** 로 가린다"
+        s["model_note"] = "응답에 모델이 없어 request.model(이 단계가 속한 STT 모델 — model_source)"
+        if b.get("upload_token"):
+            s["answer_from"], s["answer_chars"] = "body.upload_token", len(str(b["upload_token"]))
+        s["usage_note"] = "토큰 과금 단계가 아니다"
+    elif kind == "stt_upload":
+        s["id"], s["id_from"] = b.get("file_key"), "body.file_key"
+        s["model_note"] = "응답에 모델이 없어 request.model(이 단계가 속한 STT 모델 — model_source)"
+        if b.get("file_key"):
+            s["answer_from"], s["answer_chars"] = "body.file_key", len(str(b["file_key"]))
+        s["usage_note"] = "음성 업로드 단계 — 요청 body.audio 의 bytes 가 양"
+    elif kind == "stt_transcript":
+        s["id"], s["id_from"] = b.get("message_id"), "body.message_id"
+        s["model"] = _model_of(req_body)
+        s["model_note"] = "A.X STT 응답은 모델을 되돌려 주지 않아 요청 speech_model"
+        utt = b.get("utterances") if isinstance(b.get("utterances"), list) else []
+        text = " ".join(str(u.get("text") or "") for u in utt if isinstance(u, dict)).strip()
+        ans(f"body.utterances[0..{max(len(utt) - 1, 0)}].text", text)
+        if b.get("audio_duration") is not None:
+            s["usage"] = {"audio_duration_ms": b.get("audio_duration"), "utterance_count": b.get("utterance_count")}
+            s["usage_note"] = "STT 는 토큰이 아니라 음성 길이로 센다"
+    elif kind == "stt_live":
+        create = _dig(req_body, "create") or {}
+        s["id"], s["id_from"] = create.get("tr_id"), "request.body.create.tr_id"
+        s["model"] = create.get("speech_model")
+        s["model_note"] = "실시간 STT 는 모델을 되돌려 주지 않아 create.speech_model"
+        msgs = b.get("messages") if isinstance(b.get("messages"), list) else []
+        text = " ".join(str(m.get("text") or "") for m in msgs if isinstance(m, dict)).strip()
+        ans(f"body.messages[0..{max(len(msgs) - 1, 0)}].text", text)
+        audio = _dig(req_body, "audio") or {}
+        if audio.get("duration_sec") is not None:
+            s["usage"] = {"audio_duration_sec": audio.get("duration_sec"), "audio_bytes": audio.get("bytes")}
+            s["usage_note"] = "STT 는 토큰이 아니라 음성 길이로 센다"
+    if not (isinstance(status, int) and 200 <= status < 300 or status == 101):
+        s["error"] = b.get("error") if isinstance(b, dict) and b.get("error") is not None else (b or None)
+    return s
+
+
 # ─── 쓰기 ───────────────────────────────────────────────────────────────────────────────
 
 def _features() -> dict:
@@ -382,9 +561,35 @@ def provider_of(host: str) -> str:
     return host
 
 
+def answer_empty(summary: dict, status) -> bool:
+    """200 인데 답이 없다 — 대화: content 가 비었고 사고(reasoning)만 있거나 그마저 max_tokens 에서 잘렸다 ·
+    배치 받아쓰기: 글자가 하나도 없다(말소리를 못 찾음 — 화면은 422 「말소리를 찾지 못했어요」). 기능은 이 호출로 답을 못 얻었다."""
+    if status != 200 or summary.get("kind") not in ("chat", "stt_transcript"):
+        return False
+    src = summary.get("answer_from") or ""
+    if summary["kind"] == "stt_transcript":
+        return not src
+    return not src or (src.endswith("reasoning_content") and summary.get("finish_reason") == "length")
+
+
 def make_record(*, code: str, method: str, endpoint: str, body, t0: str, t1: str, response: dict,
                 ok: bool, attempt: int = 1, provider: str | None = None, model: str | None = None, **extra) -> dict:
-    run_id, run_model = _run_for(code, model or _model_of(body))
+    """한 왕복 = 한 건. 요청 모델은 (넘긴 값 · 요청 본문) → 단계 표(`_PATH_MODELS`) → 같은 실행의 모델 순으로 채우고 출처를 남긴다.
+    `response.summary` 는 가이드 응답 칸(응답 ID · 모델명 · 답변 · 토큰)이 본문 어디에 있는지 가리킨다(값을 되풀이하지 않는다)."""
+    own = model or _model_of(body)
+    run_id, run_model = _run_for(code, own)
+    final, source = own, "request" if own else None
+    if not final:
+        final = endpoint_model(endpoint)            # 단계 표가 먼저 — 여러 모델이 섞인 실행(F-12 · F-07)의 「같은 실행 모델」은 엉뚱할 수 있다
+        source = "endpoint_step" if final else None
+    if not final and run_model:
+        final, source = run_model, "same_run"
+    summary = summarize(kind_of(method, endpoint), body, response.get("status"), response.get("body"))
+    if response.get("error"):                 # 연결 실패 · 읽기 시간 초과 — 응답 본문이 없다. 까닭을 summary 에도
+        summary["error"] = {"type": response.get("error"), "message": response.get("message")}
+    if answer_empty(summary, response.get("status")):
+        summary["answer_empty"] = True      # 200 인데 답이 없다(사고만 하다 max_tokens) — 기능은 이 호출로 답을 못 얻었다
+        ok = False
     s = _SCOPE.get()
     return {
         "record_id": uuid.uuid4().hex,
@@ -392,8 +597,9 @@ def make_record(*, code: str, method: str, endpoint: str, body, t0: str, t1: str
         "feature": _features().get(code, code),
         "feature_code": code,
         "provider": provider or provider_of(urlsplit(endpoint).hostname or ""),
-        "request": {"time_kst": t0, "method": method, "endpoint": endpoint, "model": model or run_model, "body": body},
-        "response": {"time_kst": t1, **response},
+        "request": {"time_kst": t0, "method": method, "endpoint": endpoint, "model": final,
+                    "model_label": model_label(final, endpoint), "model_source": source, "body": body},
+        "response": {"time_kst": t1, **response, "summary": summary},
         "attempt": attempt,
         "ok": bool(ok),
         **({"request_scope": {"id": s.request_id, "route": s.route}} if s else {}),
@@ -454,6 +660,21 @@ def korean_hosts(cfg=None) -> dict[str, str]:
     return out
 
 
+def path_models(cfg=None) -> list[tuple[str, str, str]]:
+    """모델 필드가 없는 단계 → 그 단계가 속한 모델 (config 에서)."""
+    if cfg is None:
+        from .config import settings as cfg  # noqa: PLC0415
+    out = []
+    stt = (urlsplit(getattr(cfg, "ax_stt_base_url", "") or "").hostname or "").lower()
+    if stt:
+        out.append((stt, "/v1/stt/upload", getattr(cfg, "ax_stt_batch_model", "") or "A.X_STT_note_batch"))
+    dp = urlsplit(getattr(cfg, "docparse_async_url", "") or "")
+    if dp.hostname:
+        out.append((dp.hostname.lower(), dp.path.rsplit("/async", 1)[0] + "/requests",
+                    getattr(cfg, "docparse_model", "") or "document-parse"))
+    return out
+
+
 def install(cfg=None) -> bool:
     """requests.Session.send 를 한 번 감싼다. 이미 감쌌으면 호스트 목록만 다시 읽는다. 모드가 off 여도 감싼다(해외 경고는 늘)."""
     global _ORIG_SEND
@@ -462,6 +683,7 @@ def install(cfg=None) -> bool:
     with _LOCK:
         _HOSTS.clear()
         _HOSTS.update(korean_hosts(cfg))
+        _PATH_MODELS[:] = path_models(cfg)
         if _ORIG_SEND is None:
             _ORIG_SEND = requests.Session.send
             requests.Session.send = _send
@@ -518,5 +740,6 @@ class _AudioDigest:
                 "duration_sec": round(self.bytes / (2 * rate), 2), "sha256": self._h.hexdigest()}
 
 
-__all__ = ["install", "uninstall", "begin_request", "current", "should_record", "mode", "root", "record_live_session",
-           "audio_digest", "feature_of", "feature_scope", "carry", "prune", "write", "korean_hosts", "FUNC_FEATURES"]
+__all__ = ["install", "uninstall", "begin_request", "start_run", "current", "should_record", "mode", "root", "record_live_session",
+           "audio_digest", "feature_of", "feature_scope", "carry", "prune", "write", "korean_hosts", "FUNC_FEATURES",
+           "kind_of", "summarize", "answer_empty", "model_label", "endpoint_model", "path_models"]
