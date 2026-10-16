@@ -1392,6 +1392,7 @@ TRANSIENT_DEGRADED = frozenset({
 #: 꼬리질문 엔진의 세션 기록 (2026-10-17 5단계) — 노드 이해 상태(다음 질문 고르기)와 이미 한 말(되풀이 금지).
 _DLG_NODES = "dlg_nodes:"
 _DLG_SAID = "dlg_said:"
+_RUN_SPEECH = "run_speech:"   # Q&A 한 판이 질문을 받을 때의 발표 받아쓰기 · 정합 (/qa/next 의 음성 후보 재료 — 세션 저장소는 마지막 사람 것)
 DLG_SAID_MAX = 16
 
 
@@ -3929,6 +3930,11 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         # 질문마다 basis(근거·자리·탐침·인용·검사)가 실려 있다 — 세션에 트랙별로 붙여 두어 나중에 되짚는다 (P1).
         STORE.put_questions(sid, track, payload)
         self._bind_board(body, payload)
+        run = qa_run_of(body)
+        if run and not body.get("prefetch"):
+            # 이 판의 발표 받아쓰기 · 정합 — /qa/next 가 세션 저장소(마지막 사람 것) 대신 읽는다. 이 사람이 들고 온 본문 값만
+            # (세션 저장소로 채우면 다시 남의 것이 된다 · 안 보냈으면 발화 없이 고른다)
+            STORE.set_triage(_RUN_SPEECH + run_key(sid, run), {"transcript": body.get("transcript"), "alignment": body.get("alignment")})
 
     def _bind_board(self, body: dict, payload: dict) -> None:
         """
@@ -4216,6 +4222,11 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
         asked = []
         run = qa_run_of(body)                                       # Q&A 한 판 — 같은 파일 세션을 나눠 쓰는 사람끼리 안 섞이게
+        if run and "transcript" not in body:
+            # 발표 받아쓰기는 세션 저장소에 「마지막으로 올린 사람」 것만 있다 — 같은 덱 세션의 남의 발화를 3번 질문이 인용하면 안 된다.
+            # 이 판이 질문을 받을 때 들고 온 받아쓰기를 쓰고, 없으면(메모리가 지남 · 다시 띄움) 발화 없이 고른다
+            speech = STORE.get_triage(_RUN_SPEECH + run_key(sid, run)) or {}
+            found["transcript"], found["alignment"] = speech.get("transcript"), speech.get("alignment")
         states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
             q = next(iter(STORE.find_questions(sid, str(a.get("question_id") or ""))), None) or {}
@@ -4568,6 +4579,11 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 "error": "session_missing",
                 "message": "세션 아티팩트가 없어요. 다시 등록하고 시도해 주세요.",
             })
+        run = qa_run_of(body)
+        speech = STORE.get_triage(_RUN_SPEECH + run_key(store_sid, run)) if (store_sid and run and "transcript" not in body) else None
+        if speech is not None:
+            # 이 판이 질문을 받을 때 들고 온 발표 받아쓰기 — 세션 저장소엔 같은 덱을 쓴 마지막 사람 것이 있다 (판이 없던 흐름은 예전처럼)
+            found["transcript"], found["alignment"] = speech.get("transcript"), speech.get("alignment")
         graph = ConceptGraph.from_dict(found["graph"]) if found["graph"] else None
         alignment = AlignmentDoc.from_dict(found["alignment"]) if found["alignment"] else None
         transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None

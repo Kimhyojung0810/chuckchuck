@@ -70,3 +70,19 @@ def test_후보_판도_판마다_나뉘어_남의_3번_이후_기록이_안_보�
     # 메모리가 지나 보관본만 남아도 — 보관본은 A 의 판이라 B 에게 안 준다
     monkeypatch.setattr(bridge, "STORE", SessionStore())
     assert read("rAAAA1111")[0] == 200 and read("rBBBB2222")[0] == 404
+
+
+def test_3번_질문의_발표_받아쓰기는_이_판이_들고_온_것만(monkeypatch):
+    """/qa/next 는 받아쓰기를 본문으로 안 받는다 — 세션 저장소엔 마지막 사람 것만 있어서, 판이 질문을 받을 때 들고 온 것을 붙잡아 둔다."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(bridge, "STORE", SessionStore())
+    sid = "20261017T000000Z_deadbeef"
+    h = SimpleNamespace(_bind_board=lambda body, payload: None)
+    mine = {"full_text": "A 가 한 발표", "by_slide": [{"slide_no": 1, "text": "A 가 한 발표"}]}
+    bridge.Handler._index_questions(h, {"session_id": sid, "qa_run_id": "rAAAA1111", "transcript": mine, "alignment": None},
+                                    "10", {"questions": []})
+    bridge.Handler._index_questions(h, {"session_id": sid, "qa_run_id": "rBBBB2222", "transcript": None}, "10", {"questions": []})
+    key = lambda run: bridge._RUN_SPEECH + bridge.run_key(bridge._store_sid(sid), run)
+    assert bridge.STORE.get_triage(key("rAAAA1111"))["transcript"] == mine
+    assert bridge.STORE.get_triage(key("rBBBB2222"))["transcript"] is None          # 세션 저장소의 남의 것으로 안 채운다
