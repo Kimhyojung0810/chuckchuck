@@ -4043,7 +4043,11 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         """세션 묶음 (캐시 → 만드는 중이면 기다림 → 새로). wait=0 이면 띄우기만 하고 None."""
         from pipeline import f08_ensemble as FE
 
-        key = "ens_pool:" + fingerprint(graph_raw, fingerprint(slidedoc) if slidedoc else None, FE.model_names(), sid)
+        # 열쇠는 그래프의 노드(id · 라벨 · 종류 · 부모)만 — /graph 응답과 세션에 등록된 그래프는 곁가지 칸(degraded 등)이 달라
+        # 같은 묶음을 두 번 만들었다 (10-17 실험실 3판: 미리 띄운 것 6f86 · 질문 요청 e455)
+        nodes = sorted((n.get("id"), n.get("label"), n.get("kind"), n.get("parent_id"))
+                       for n in (graph_raw or {}).get("nodes", []) if isinstance(n, dict))
+        key = "ens_pool:" + fingerprint(nodes, fingerprint(slidedoc) if slidedoc else None, FE.model_names(), FE.assign_mode(), sid)
         hit = STORE.get_triage(key)
         if hit is not None:
             return hit
