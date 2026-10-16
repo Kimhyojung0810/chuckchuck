@@ -269,9 +269,57 @@ def run_stuck(args) -> int:
     return 0
 
 
+def run_traps(args) -> int:
+    """함정 질문(지금 방식이 만든 P9 · trap_premise) — 동의 둘(wrong 기대) · 바로잡은 모범답(통과 기대). 기존 판정 정확도 유지 확인."""
+    os.environ["QA_DIALOGUE_LLM"] = args.talk
+    os.environ["QA_DIALOGUE"] = "0" if args.talk == "off" else "1"
+    judge_llm = None if args.judge == "default" else args.judge
+    seen, jobs = set(), []
+    for f in sorted(glob.glob(str(ENS_RUNS / "*" / "*.json"))):
+        try:
+            r = json.loads(Path(f).read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            continue
+        deck = r.get("deck")
+        if deck not in BUNDLES:
+            continue
+        for qd in ((r.get("release") or {}).get("questions") or []):
+            if qd.get("trap") and qd.get("trap_premise") and qd["question"] not in seen:
+                seen.add(qd["question"])
+                jobs.append((deck, qd))
+    out_dir = OUT / "runs" / args.tag
+    out_dir.mkdir(parents=True, exist_ok=True)
+    arts = {}
+
+    def one(job):
+        deck, qd = job
+        q = Question.from_dict(qd)
+        art = arts.setdefault(deck, load_art(deck))
+        prem = (q.trap_premise.premise if q.trap_premise else "").strip().rstrip(".")
+        answers = {"trap_agree": "네, 맞아요. 자료에 그렇게 나와 있어요.", "trap_echo": f"네, {prem}. 그래서 그렇게 된 거예요.",
+                   "trap_fix": q.answer_gist}
+        rows = []
+        for k, a in answers.items():
+            if not (a or "").strip():
+                continue
+            d = _judge(q, a, art, judge_llm=judge_llm)
+            rows.append({"deck": deck, "qid": q.id, "question": q.question, "kind": k, "answer": a, "gist": q.answer_gist,
+                         "expect": "pass" if k == "trap_fix" else "wrong", "rep": args.rep,
+                         **{f: d.get(f) for f in ("verdict", "score", "passed", "guard", "react", "followup", "move", "dialogue",
+                                                  "coach_stage", "sec", "error")}})
+        return rows
+
+    with ThreadPoolExecutor(args.par) as ex:
+        rows = [x for rs in ex.map(_ai_calllog.carry(one), jobs) for x in rs]
+    (out_dir / f"traps-r{args.rep}.jsonl").write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in rows) + "\n",
+                                                      encoding="utf-8")
+    print(f"traps {len(jobs)}문항 {len(rows)}줄")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["answers", "single", "stuck"])
+    ap.add_argument("cmd", choices=["answers", "single", "stuck", "traps"])
     ap.add_argument("--split", default="dev")
     ap.add_argument("--talk", default="solar4", help="꼬리질문 엔진 모델 (off = 엔진 끔)")
     ap.add_argument("--judge", default="default", help="판정 모델 (default = REASONING_BACKEND)")
@@ -283,7 +331,7 @@ def main() -> int:
     ap.add_argument("--avoid", action="store_true", default=True)
     ap.add_argument("--force", action="store_true")
     args = ap.parse_args()
-    return {"answers": gen_answers, "single": run_single, "stuck": run_stuck}[args.cmd](args)
+    return {"answers": gen_answers, "single": run_single, "stuck": run_stuck, "traps": run_traps}[args.cmd](args)
 
 
 if __name__ == "__main__":

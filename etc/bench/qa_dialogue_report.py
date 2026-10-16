@@ -139,6 +139,18 @@ def dialogue_metrics(rows: list[dict], lj: dict | None = None) -> dict:
             overlaps.append(len(g & other) / len(g))
     m["session_dup"] = dup
     m["react_3gram_overlap"] = st.mean(overlaps) if overlaps else None
+    # 실제 한 판 크기(질문 5개 × 두 턴 ≈ 반응 10개)로 덱 안에서 무작위로 묶어 본 겹침 — 덱 전체(≈50턴)는 실제 판보다 훨씬 길다
+    import random  # noqa: PLC0415
+    rng, sims = random.Random(17), []
+    for rs in sess.values():
+        grams_all = [set(_w3(x["react"])) for x in rs]
+        for _ in range(40):
+            pick = rng.sample(grams_all, min(10, len(grams_all)))
+            for i, g in enumerate(pick):
+                if g:
+                    other = set().union(*(h for j, h in enumerate(pick) if j != i))
+                    sims.append(len(g & other) / len(g))
+    m["react_3gram_overlap_s10"] = st.mean(sims) if sims else None
     # 미시 · 말투 검사 (최종 문장)
     m["micro_regex"] = rate(bool(DLG._MICRO_RE.search(r["followup"])) for r in d)
     style = [not [p for p in DLG.check_turn(r["react"], r["followup"], _ti(r))
