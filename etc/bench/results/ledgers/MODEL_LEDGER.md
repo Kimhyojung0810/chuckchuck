@@ -6,13 +6,15 @@
 - 다시 재기 (한 줄): `etc/scripts/model_bench.sh` — 점검(모델마다 작은 JSON 호출) + Q&A 모델 벤치 → 아래 실행 기록에 줄 추가.
   점검만: `etc/scripts/model_bench.sh --health` (몇 초).
 - 상태: **live** = 오늘 점검에서 답함 · **broken** = 엔드포인트가 막힘(원인 적음) · **absent** = 코드는 있으나 이 서버/서비스에서 안 씀.
-- 대회 규칙: 모든 AI 는 국내 모델(Upstage Solar · SKT A.X · KT Mi:dm · LG EXAONE). 브라우저 MediaPipe 는 화면 연출·실험실용이다 (아래 표 참고).
+- 대회 규칙(운영규정 3조 7호): 「프로젝트에 구성되는 AI 모델 100% 국내」 — 국내 AI 연계 기업 5곳(업스테이지 · SKT · KT · LG AI연구원 · NC AI).
+  지금 쓰는 것은 Upstage Solar · SKT A.X · KT Mi:dm · LG EXAONE. **브라우저 MediaPipe(Google)도 프로젝트에 구성된 AI 모델이라 규정과 맞지 않는다**
+  (10-17 국내 모델·규정 조사 정정 — 예전 「연출용이라 괜찮다」는 틀린 문장이었다). 서비스 경로에서 빼거나 국내 모델로 바꿀 일이 남았다.
 
 ## 1. 모델 표
 
 | 모델 | id / 버전 | 어디에 쓰나 | 상태 (점검일) | 마지막 측정 (날짜 · 커밋) | 다시 재는 명령 |
 |---|---|---|---|---|---|
-| Upstage **Solar** | `solar-pro3` (응답 id `solar-pro3-260323`) | 주 추론 `REASONING_BACKEND=solar`: F-06 개념 · F-07 그래프 · F-26 주장 · F-11 대조 · **F-08 1차 심사(triage)·논문 주장 대조** · **F-08 문장의 예비(EXAONE 마감·실패 때)** · **F-09 판정(온도 0)**·코칭 · F-24 문헌 · F-19 리포트 · F-20 전략 · 삐약이(순서) | live 0.37s (10-16) | Q&A 아래 §2 (10-16) · 그래프 재현성 docs/review/2026-10-02 (251ba8f) · GRAPH_BENCH_LEDGER | `etc/scripts/model_bench.sh` · `etc/scripts/graph_bench.sh` |
+| Upstage **Solar** | `solar-pro3` (응답 id `solar-pro3-260323`) — **10-30 KST 서비스 종료** → 후속 `solar-pro4`(`solar-pro4-260806`, 아래 §4) | 주 추론 `REASONING_BACKEND=solar`: F-06 개념 · F-07 그래프 · F-26 주장 · F-11 대조 · **F-08 1차 심사(triage)·논문 주장 대조** · **F-08 문장의 예비(EXAONE 마감·실패 때)** · **F-09 판정(온도 0)**·코칭 · F-24 문헌 · F-19 리포트 · F-20 전략 · 삐약이(순서) | live 0.37s (10-16) | Q&A 아래 §2 (10-16) · 그래프 재현성 docs/review/2026-10-02 (251ba8f) · GRAPH_BENCH_LEDGER | `etc/scripts/model_bench.sh` · `etc/scripts/graph_bench.sh` |
 | SKT **A.X-K2** | `A.X-K2` (K1 은 10-10 종료) | 예비 `REASONING_FALLBACK=ax`(Solar 가 넘어지면 한 번 — Q&A 문장 라우팅의 예비 체인에도 들어 있다) · 삐약이(들은 말) | live 0.23s (10-16) | §2 (10-16) | `etc/scripts/model_bench.sh` |
 | LG **EXAONE** | Friendli dedicated (`EXAONE_ENDPOINT_ID`), **사고 끔**(`chat_template_kwargs.enable_thinking=false`, 7b8ecfc) | **Q&A 질문 문장(phrase) 주 모델** `QA_PHRASE_MODEL=exaone`(기본, §3) · 삐약이(칭찬) | live 0.14s (10-16, 사고 끔) | §2 (10-16) | `etc/scripts/model_bench.sh` |
 | KT **Mi:dm** (API) | `midm-pro-fp8-kaic` @ midm.kt.com | 삐약이(빠뜨린 말) · Q&A 질문 문장 **후보**(`QA_PHRASE_MODEL=midm`, 기본 아님 — §2-2) | **live 0.41s** (10-16 23:51 새 키). json_mode 에 `response_format` 을 안 보낸다(ea95097 — json_object 는 400 `7005`) | §2-2 (10-17) | `etc/scripts/model_bench.sh --health` |
@@ -96,6 +98,28 @@
 - Friendli dedicated 엔드포인트를 내리면 EXAONE 이 바로 오류 → Solar 가 받는다 (지연 거의 없음). 응답 없이 매달리면 매번 20초를 잃는다 — 그땐 `QA_PHRASE_MODEL=default`.
 - 캐시: 브리지 질문 키에 라우팅 지문이 들어간다 (`bridge._qa_llm_identity`) — 모델을 바꿔 다시 띄우면 새로 만든다.
 
+## 4. 네 모델 Q&A 앙상블 — 역할 배분 (2026-10-17, docs/qa-ensemble/PLAN.md · 결과 /data/models/_runs/qa-ensemble/REPORT.md)
+
+측정: dev 5덱(공학·사회과학·생활/심리·금융·의료 제품) × 3회 판 여러 벌 + test 9덱(환경과학·의학·영문 임상·의학 논문·인문·정책·사업 IR·과학·의료 서비스) × 3회.
+핵심성 = 「잘 답하려면 자료의 핵심 논리를 이해해야 하나」(가린 심판단 4모델, 작성 계열 표 뺌) — 특이도는 바닥 검사로만(지엽 질문에 상을 줘서).
+
+| 역할 | 맡긴 모델 | 근거 (수치) |
+|---|---|---|
+| 슬롯(무엇을 물을지) | **코드** (`_ens_slots`) | 앙상블 이득의 대부분이 여기서 — 같은 묶음에서 고르는 규칙만 바꾸면 차이 없음(4.08~4.18), 한 모델만 써도 3.8~4.3 (release 3.0) |
+| 후보 생성 | **solar4 · ax · midm · exaone 넷** | 같은 심판·같은 호출 비교 2회(v2 r0·r1, 자기 계열 뺀 core): solar4 단독 4.33·4.17 · 넷(pro4) 4.03·4.22 · solar(pro3) 단독 4.06·4.16 · ax 4.06·3.77 · midm 3.87·3.95 · exaone 3.78·3.93 · release 3.13·2.87. 모델 차이는 반복 폭(±0.2) 안 — 넷을 쓰는 까닭은 **견고함**(EXAONE 을 끊어도 질문 정상, core 4.14 vs 4.19)과 작성 다양성(뽑힌 질문 ax 46% · solar4 30% · exaone 16% · midm 8%) |
+| 서로 평가 | 넷 (자기 후보 표는 점수에서 뺌) | 자기 선호(1등을 자기 것으로 − 기대): solar-pro3 +0.39~0.56 · ax +0.17~0.30 · **solar4 −0.03~+0.09** · exaone −0.17~−0.36 · midm −0.17~+0.15. 핵심성 이득은 없음(서로 평가 안 씀 4.17 vs 씀 4.12) — 답 맞음(answer_ok)·협업 기록용 |
+| 최종 선택(3번+) | **solar4** | 같은 선택지 19판: 심판단 1등과 일치 solar4 0.37 · 나머지 0.32, 자기 계열 고름 solar4 0.11(기대 0.16) · ax 0.58(기대 0.35). 고르기 p50 1.1초 · p95 1.6~1.8초 |
+| 발표 음성 추론(3번+ 후보) | 넷 | test: 3번+ 중 핵심 이해 신호 사용 76% · 미시 차이 질문 0 · 답만 바꾸면 3번이 바뀜 83% · 대신 냄 0% |
+| 모범답 정리(지금 방식) | 질문 문장 모델(phrase 라우팅: EXAONE → Solar) | 지저분한 모범답 12/16 → 2/238 (test) |
+| 실험 심판(제출 기능 아님, F-08-bench) | solar4 · ax · exaone · midm | 너그러움: solar4 가장 깐깐(release 2.8~3.2) ↔ midm 가장 너그러움(3.4~3.7) — 조건 비교는 같은 심판·같은 호출로만 |
+
+제공자 변수 (param_replay — 호출 로그의 실제 요청을 변수만 바꿔 다시):
+- EXAONE `presence_penalty=1.5`(모델 카드 권장): 같은 요청 10개 × 2회 — 4096토큰 되풀이 고리 2/20 → 1/20, p95 49.5 → 20.4초, 질문 수 6.25 → 6.55. 앙상블에 `QA_ENS_EXAONE_PP=1.5` 로 켤 수 있다(기본 끔 — 질 영향은 아직 안 잼).
+- A.X K2 `enable_thinking=false` 명시: p50 5.45 → 5.30초, 토큰 622 → 599 — 차이 없음 → 1.8배 느림의 원인이 아니다.
+- Mi:dm `response_format: json_schema`: JSON 성공 9/12 → 12/12, 후보 3.7 → 4.8개, 대신 p50 11.2 → 15.2초. `QA_ENS_MIDM_SCHEMA=1`(기본 끔).
+- solar-pro4 를 Solar 전 역할(1차 심사·판정)에 넣은 dev 5덱 1회: 지저분한 모범답 0/25 · 모범답→good 0.88 · 외운 답 판별 0.79(pro3 release 0.69~0.72) — 회귀 없음(표본 작음). pro4 는 `reasoning_effort` 없으면 추론 끔(0.35초), `high` 면 6.9초 · 553 사고 토큰.
+- EXAONE 실제 모델 이름: Friendli 엔드포인트 ID 만 있어 로그·장부에 정확한 이름을 못 적었다 — `EXAONE_MODEL_LABEL` 로 확인해 넣을 것.
+
 ## 실행 기록
 
 | 시각 | 무엇 | 결과 | HEAD |
@@ -113,3 +137,4 @@
 | 2026-10-17 00:16 | qa solar/exaone@midm | n=10 질문 70 · 특이도 1.74 · 인용률 0.68 · rubric None · 환각 0 · 템플릿 4 · 함정 6 (동의→wrong 6/6, 정정→통과 6/6) · JSON실패 0/21 · F-08 p50 12.6s p95 38.0s · 토큰/F-08 11420 · 판정 midm p50 4.4s JSON실패 0/80 오류 0 | ea95097 |
 | 2026-10-17 00:30 | 실 API 끝까지 (서비스 기본 경로 llm=None · 덱 4개 A1·B1·C1·수면, 트랙 5·5·10·5, 문헌 켬) | 질문 16 · 판정 46회 전부 기대대로 · **EXAONE 문장 마감 초과 → Solar 2/4 덱**(38초·?초, 벤치와 동시 실행) · 문헌 고쳐쓰기 exaone · 논문 대조 solar · 대체 줄 2 · LLM 문장이 템플릿으로 바뀐 질문 7/16(전부 Solar 가 받은 덱) · 모호·엉뚱한 답의 꼬리질문이 같은 고정 문장 11/11 질문 (원문 `/data/models/_runs/qa-route/e2e`) | 177d941 |
 | 2026-10-17 00:40 | 나란히 비교 vs solar/exaone (§2-2 실행) | solar/midm 3승 0패 7무 · midm/exaone 2·2·6 → **기본 그대로(solar/exaone)**, Mi:dm 문장은 `QA_PHRASE_MODEL=midm`(+마감 30초)로만 | ea95097 |
+| 2026-10-17 01:58~03:30 | 네 모델 Q&A 앙상블 실험 (AI_CALLLOG=all → /data/models/_runs/qa-ensemble/calllog) | dev1·dev2·dev3·dev3p4·dev4 · test1(27판) · 한 모델씩(single2 2회) · 오류 주입 · 선택 규칙 · 선택 모델 · 제공자 변수 · pro4 회귀 — §4, QA_BENCH_LEDGER | 57a9194~ |
