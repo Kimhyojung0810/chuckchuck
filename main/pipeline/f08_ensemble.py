@@ -67,9 +67,22 @@ def picker_name() -> str:
     return (os.environ.get("QA_ENS_PICKER") or PICKER_DEFAULT).strip().lower()
 
 
+#: 앙상블 호출에만 얹는 제공자 변수 (10-17 param_replay 실측 — MODEL_LEDGER). 기본은 끔, 측정 뒤 켠다.
+#: QA_ENS_EXAONE_PP=1.5 — EXAONE 모델 카드 권장 presence_penalty: 되풀이 고리(4096토큰) 2/20 → 1/20 · p95 49.5 → 20.4초
+#: QA_ENS_MIDM_SCHEMA=1 — Mi:dm 에 response_format json_schema: JSON 성공 9/12 → 12/12 · 후보 3.7 → 4.8개 · p50 11.2 → 15.2초
+_MIDM_SCHEMA = {"type": "json_schema", "json_schema": {"name": "qa", "schema": {"type": "object", "properties": {
+    "items": {"type": "array"}, "scores": {"type": "array"}, "pick": {"type": "string"}, "reason": {"type": "string"}}}}}
+
+
 def make_llm(name: str) -> LLMProvider:
     from .providers.llm_impl import REGISTRY  # noqa: PLC0415
-    return REGISTRY[name]()
+    llm = REGISTRY[name]()
+    pp = (os.environ.get("QA_ENS_EXAONE_PP") or "").strip()
+    if name == "exaone" and pp:
+        llm.extra_body["presence_penalty"] = float(pp)
+    if name == "midm" and (os.environ.get("QA_ENS_MIDM_SCHEMA") or "").strip() in ("1", "true", "on"):
+        llm.extra_body["response_format"] = _MIDM_SCHEMA
+    return llm
 
 
 # ─── 호출 · 기록 ──────────────────────────────────────────────────────────────────────────────
