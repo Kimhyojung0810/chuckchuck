@@ -42,8 +42,10 @@ from .contracts import (
 )
 from .providers.llm_base import LLMProvider
 
-MODELS_DEFAULT = ("solar", "ax", "midm", "exaone")
-PICKER_DEFAULT = "solar"
+#: solar-pro3 는 2026-10-30 KST 종료 — 후속 solar-pro4(solar4). 10-17 측정: 서로 평가에서 자기 선호 없음(−0.03, pro3 은 +0.39~0.56),
+#: 최종 선택에서 심판단 1등과 일치 0.37(다른 후보 0.32) · 자기 계열 고름 0.11(기대 0.16). MODEL_LEDGER §4.
+MODELS_DEFAULT = ("solar4", "ax", "midm", "exaone")
+PICKER_DEFAULT = "solar4"
 #: 한 번 부를 때 실을 슬롯 수 — 덱당 모델별 1~2회 (PLAN 「호출 수 조절」)
 SLOTS_PER_CALL = int(os.environ.get("QA_ENS_SLOTS_PER_CALL", "5"))
 GEN_MAX_TOKENS = 3000
@@ -126,7 +128,8 @@ def _complete(llm: LLMProvider, role: str, calls: list, *, system: str, user: st
             return data
         except Exception as e:  # noqa: BLE001 — 한 모델의 실패가 묶음을 깨지 않는다
             err = f"{type(e).__name__}: {str(e)[:160]}"
-            transient = any(k in err for k in (" 429", " 500", " 502", " 503", " 504", "연결 실패", "Timeout"))
+            # 연결 실패는 제공자가 이미 한 번 다시 불렀다 — 또 물러나면 죽은 엔드포인트에 묶음이 40초씩 묶인다 (10-17 오류 주입: 87초)
+            transient = any(k in err for k in (" 429", " 500", " 502", " 503", " 504"))
             if wait is None or not transient:
                 break
             retries += 1
@@ -428,7 +431,14 @@ def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[st
             pool.candidates.append({**ok, "node_id": s.node_id, "label": s.label, "pattern": s.pattern,
                                     "angle": s.angle, "trap": s.trap, "peer": 0.0, "peer_scores": []})
     _dedupe(pool)
-    if peer and pool.candidates:
+    # 생성 호출이 하나도 성공 못 한 모델은 서로 평가에서 뺀다 — 넘어진 엔드포인트를 또 기다리지 않는다
+    alive = {c.model for c in pool.calls if c.ok}
+    dead = [n for n in engines if getattr(engines[n], "name", n) not in alive]
+    for n in dead:
+        sys.stderr.write(f"[f08-ens] {n} 생성이 다 실패 — 서로 평가에서 뺀다\n")
+        engines.pop(n)
+    pool.timings["dead_models"] = dead
+    if peer and pool.candidates and engines:
         t1 = time.monotonic()
         with _ai_calllog.feature_scope("F-08-peer"), ThreadPoolExecutor(max_workers=len(engines)) as ex:
             futs = [ex.submit(_ai_calllog.carry(ens_peer_review), n, engines[n], pool.candidates, deck, slot_of,
