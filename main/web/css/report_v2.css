@@ -234,6 +234,137 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-meter i { display: block; height: 100%; width: var(--w); border-radius: 3px; background: var(--accent); animation: nvBar .9s var(--ease) both .1s; }
 @keyframes nvBar { from { width: 0; } to { width: var(--w); } }
 
+/* ── 질문은 이렇게 골랐어요 — 네 모델 후보 판 (js/report_qaboard.js, 10-17). 판정이 아니라 과정이라 판정 5색을 쓰지 않는다 ── */
+.rv2 { --qb-deep: #155C46; --qb-deep-2: #0D3B2D; }
+.rv2 .qb-hero { position: relative; overflow: hidden; border-radius: 28px; padding: 26px 22px 20px; color: #fff;
+  background: radial-gradient(120% 120% at 100% 0%, #1F7A5C 0%, var(--qb-deep) 42%, var(--qb-deep-2) 100%); }
+.rv2 .qb-hero-lead { margin: 0; max-width: 34ch; font-size: 17px; line-height: 1.5; font-weight: 600; letter-spacing: -0.02em; color: rgba(255, 255, 255, .92); }
+.rv2 .qb-funnel { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.rv2 .qb-funnel li { position: relative; display: grid; gap: 4px; padding: 14px 10px 12px; border-radius: 18px; background: rgba(255, 255, 255, .08); animation: nvRise .7s var(--ease) both; animation-delay: calc(.12s + var(--k) * .1s); }
+.rv2 .qb-funnel li:last-child { background: #fff; color: var(--qb-deep); }
+.rv2 .qb-funnel b { font-size: 34px; line-height: 1; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.rv2 .qb-funnel span { font-size: 13px; line-height: 1.35; color: rgba(255, 255, 255, .72); }
+.rv2 .qb-funnel li:last-child span { color: var(--qb-deep); opacity: .8; }
+.rv2 .qb-funnel li + li::before { content: ''; position: absolute; left: -6px; top: 50%; width: 6px; height: 2px; background: rgba(255, 255, 255, .35); }
+.rv2 .qb-hero-foot { display: flex; align-items: center; gap: 12px; margin-top: 16px; font-size: 13px; color: rgba(255, 255, 255, .7); font-variant-numeric: tabular-nums; }
+.rv2 .qb-hero .qb-logos { box-shadow: none; }
+.rv2 .qb-logos { display: inline-flex; flex: none; align-items: center; gap: 8px; height: 28px; padding: 0 10px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--fill-2); }
+.rv2 .qb-logos img { height: 14px; width: auto; max-width: 40px; object-fit: contain; }
+
+/* 모델 표시 — 로고 + 이름(낱말 로고는 로고만) */
+.rv2 .qb-m { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.rv2 .qb-m img { height: 18px; width: auto; max-width: 64px; object-fit: contain; }
+.rv2 .qb-m.is-word img { height: 15px; }
+.rv2 .qb-m.is-sm { font-size: 12px; gap: 4px; } .rv2 .qb-m.is-sm img { height: 14px; max-width: 44px; } .rv2 .qb-m.is-sm.is-word img { height: 11px; }
+.rv2 .qb-m.is-lg { flex: none; font-size: 16px; } .rv2 .qb-m.is-lg img { height: 24px; max-width: 80px; } .rv2 .qb-m.is-lg.is-word img { height: 19px; }
+
+/* 칩 */
+.rv2 .qb-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--fill); color: var(--ink-2); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.rv2 .qb-chip.is-picked { background: var(--accent); color: #fff; }
+.rv2 .qb-chip.is-top { background: var(--accent-wash); color: var(--accent-ink); }
+.rv2 .qb-chip.is-out { background: var(--fill-2); color: var(--ink-3); }
+.rv2 .qb-chip.is-count b { font-variant-numeric: tabular-nums; color: var(--ink); }
+.rv2 .qb-chips, .rv2 .qb-roles, .rv2 .qb-stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.rv2 .qb-stats { margin: 12px 0 0; }
+.rv2 .qb-mrow { display: block; } .rv2 .qb-mrow + .qb-mrow::before { left: 16px; }
+.rv2 .qb-mhead { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+.rv2 .qb-mhead small { font-size: 13px; color: var(--ink-3); } .rv2 .qb-mhead .nv-val { margin-left: auto; }
+.rv2 .qb-roles { margin-top: 10px; }
+.rv2 .qb-legend { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 2px; }
+.rv2 .qb-legend button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 4px; border-radius: 12px; text-align: left; }
+.rv2 .qb-legend button:active { background: var(--fill); }
+.rv2 .qb-legend .qb-n1 { width: auto; min-width: 30px; padding: 0 8px; border-radius: 999px; font-size: 14px; }
+.rv2 .qb-legend span:last-child { display: grid; gap: 1px; min-width: 0; }
+.rv2 .qb-legend b { font-size: 15px; font-weight: 600; line-height: 1.4; }
+.rv2 .qb-legend small { font-size: 12px; color: var(--ink-3); }
+
+/* 미니맵 */
+.rv2 .qb-mapcard { padding: 16px 12px 14px; }
+.rv2 .qb-map svg { width: 100%; max-width: 520px; height: auto; margin: 0 auto; overflow: visible; }
+.rv2 .qb-edges path { fill: none; stroke: var(--fill-2); stroke-width: 1.2; }
+.rv2 .qb-edges path.is-hot { stroke: var(--accent); stroke-width: 2.2; }
+.rv2 .qb-n { fill: var(--ink-4); } .rv2 .qb-n.k-thesis { fill: var(--qb-deep); } .rv2 .qb-n.k-claim { fill: var(--ink-3); }
+.rv2 .qb-n.is-slot { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.rv2 .qb-hit { cursor: pointer; animation: qbPop .55s var(--ease) both; animation-delay: calc(.2s + var(--k) * .12s); transform-box: fill-box; transform-origin: center; }
+@keyframes qbPop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+.rv2 .qb-asked { fill: var(--accent); stroke: #fff; stroke-width: 2.5; }
+.rv2 .qb-hit:hover .qb-asked { fill: var(--accent-ink); }
+.rv2 .qb-num { fill: #fff; font-size: 12px; font-weight: 700; text-anchor: middle; font-family: var(--font); }
+.rv2 .qb-rowlab { fill: var(--ink-3); font-size: 11px; font-weight: 600; font-family: var(--font); }
+.rv2 .qb-mapcap { margin: 10px 4px 0; font-size: 13px; line-height: 1.55; color: var(--ink-3); }
+.rv2 .qb-n1 { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rv2 .qb-pat { flex: none; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--fill); color: var(--ink-2); font-size: 13px; font-weight: 700; }
+.rv2 .qb-pat::before { content: 'P'; font-size: 10px; color: var(--ink-3); margin-right: 1px; }
+.rv2 .qb-entry .qb-logos { margin-right: 2px; }
+.rv2 .qb-entry.is-off .nv-row-main b { color: var(--ink-2); }
+.rv2 .nv-sec small { font-size: 15px; font-weight: 600; color: var(--ink-3); margin-left: 4px; }
+
+/* 자리 · 그래프 위치 */
+.rv2 .qb-k { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 700; color: var(--accent-ink); }
+.rv2 .qb-ask { margin: 6px 0 0; font-size: 19px; line-height: 1.45; font-weight: 700; letter-spacing: -0.02em; }
+.rv2 .qb-path { list-style: none; margin: 16px 0 8px; padding: 0; display: grid; gap: 0; }
+.rv2 .qb-path li { position: relative; display: grid; gap: 1px; padding: 0 0 12px 22px; }
+.rv2 .qb-path li::before { content: ''; position: absolute; left: 4px; top: 6px; width: 9px; height: 9px; border-radius: 50%; background: var(--fill-2); }
+.rv2 .qb-path li + li::after { content: ''; position: absolute; left: 8px; top: -10px; height: 16px; border-left: 1.5px solid var(--fill-2); }
+.rv2 .qb-path li.is-here::before { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-wash); }
+.rv2 .qb-path span { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.rv2 .qb-path b { font-size: 15px; font-weight: 500; line-height: 1.45; color: var(--ink); }
+
+/* 후보 카드 — 옆으로 넘기기 */
+.rv2 .qb-pager { margin: 0 calc(-1 * max(20px, calc((100% - var(--col)) / 2))); padding: 2px max(20px, calc((100% - var(--col)) / 2)) 6px; scroll-padding-left: max(20px, calc((100% - var(--col)) / 2)); border-radius: 0; }
+.rv2 .qb-card { flex: 0 0 min(84%, 340px); scroll-snap-align: start; background: var(--surface); border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: inset 0 0 0 1px transparent; }
+.rv2 .qb-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 26px; }
+.rv2 .qb-card.is-picked { box-shadow: inset 0 0 0 2px var(--accent); }
+.rv2 .qb-card.is-out { background: transparent; box-shadow: inset 0 0 0 1px var(--fill-2); }
+.rv2 .qb-card.is-out .qb-q { color: var(--ink-3); font-weight: 500; }
+.rv2 .qb-card.is-out .qb-m { opacity: .6; }
+.rv2 .qb-q { margin: 0; font-size: 17px; line-height: 1.5; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); }
+.rv2 .qb-cap { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.rv2 .qb-cap b { font-weight: 700; color: var(--ink-3); margin-right: 4px; font-size: 12px; }
+.rv2 .qb-why p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.rv2 .qb-why p + p { margin-top: 4px; }
+.rv2 .qb-meter { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; margin-top: auto; padding-top: 4px; font-size: 13px; color: var(--ink-3); }
+.rv2 .qb-meter i { display: block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--qb-deep) var(--w), var(--fill-2) var(--w)); }
+.rv2 .qb-meter b { font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+
+/* 서로 평가 표 */
+.rv2 .qb-table { background: var(--surface); border-radius: var(--r-group); overflow-x: auto; }
+.rv2 .qb-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rv2 .qb-table th, .rv2 .qb-table td { padding: 12px 8px; text-align: center; border-top: .5px solid var(--sep); font-size: 15px; }
+.rv2 .qb-table thead th { border-top: 0; font-weight: 600; vertical-align: bottom; }
+.rv2 .qb-table th:first-child { text-align: left; padding-left: 14px; }
+.rv2 .qb-th { display: block; font-size: 11px; color: var(--ink-3); font-weight: 600; white-space: nowrap; }
+.rv2 .qb-table td b { font-weight: 600; }
+.rv2 .qb-table td small { display: block; font-size: 11px; color: var(--ink-3); }
+.rv2 .qb-table td.is-self { font-size: 11px; line-height: 1.2; color: var(--ink-4); background: repeating-linear-gradient(-45deg, transparent 0 6px, var(--fill) 6px 8px); }
+.rv2 .qb-table td.is-none { color: var(--ink-4); }
+.rv2 .qb-mini { display: inline-grid; justify-items: center; gap: 2px; }
+.rv2 .qb-mini img { height: 16px; width: auto; max-width: 48px; object-fit: contain; }
+.rv2 .qb-mini.is-word img { height: 11px; }
+.rv2 .qb-mini small { font-size: 10px; font-weight: 600; color: var(--ink-2); line-height: 1.1; }
+.rv2 .qb-table th[scope=row] { text-align: left; }
+.rv2 .qb-table th[scope=row] .qb-mini { justify-items: start; }
+.rv2 .qb-table td.is-avg { background: var(--accent-wash); } .rv2 .qb-table td.is-avg b { color: var(--accent-ink); font-weight: 700; }
+
+/* 근거 · 신호 · 고른 이유 */
+.rv2 .qb-quote { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--fill); font-size: 14px; line-height: 1.55; color: var(--ink-2); }
+.rv2 .qb-quote span { display: inline-block; margin-right: 8px; font-size: 12px; font-weight: 700; color: var(--ink-3); }
+.rv2 .qb-said { margin: 10px 0 0; font-size: 16px; line-height: 1.55; color: var(--ink); font-weight: 500; }
+.rv2 .qb-said span { display: block; font-size: 12px; font-weight: 700; color: var(--ink-3); margin-bottom: 2px; }
+.rv2 .qb-sigs { display: grid; gap: 10px; }
+.rv2 .qb-sig { box-shadow: inset 0 0 0 1px transparent; } .rv2 .qb-sig + .qb-sig { margin-top: 0; }
+.rv2 .qb-sig.is-used { box-shadow: inset 0 0 0 2px var(--accent); }
+.rv2 .qb-sig:not(.is-used) .qb-k { color: var(--ink-3); }
+.rv2 .qb-reason blockquote { margin: 12px 0 10px; font-size: 19px; line-height: 1.5; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+.rv2 .qb-reason blockquote::before { content: '“'; } .rv2 .qb-reason blockquote::after { content: '”'; }
+.rv2 .qb-where .nv-cap { margin-top: 2px; }
+@media (max-width: 420px) {
+  .rv2 .qb-funnel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rv2 .qb-funnel li + li::before { display: none; }
+  .rv2 .qb-funnel b { font-size: 30px; }
+  .rv2 .qb-table th, .rv2 .qb-table td { padding: 10px 5px; font-size: 14px; }
+}
+
 /* 자세한 분석 — 옛 리포트 분석 탭을 품는 화면. 옛 app.css 의 카드 · 단추 결을 그대로 쓰고, 기둥만 넓힌다 */
 .rv2 .nv-screen.is-wide { --col: 1080px; }
 .rv2 .nv-legacyhost { font-size: 15px; line-height: 1.55; letter-spacing: normal; color: #191F28; }

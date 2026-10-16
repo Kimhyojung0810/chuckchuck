@@ -28,6 +28,8 @@
       transcript: t, graph: po.graph || null, alignment: po.alignment || null, flow: po.flow || null, score: po.score || null,
       pace: po.pace || null, habits: po.habits || null, report: po.report || null,
       chatter: raw.chatter || null, questions: null,
+      // 네 모델 Q&A 후보 판 (js/report_qaboard.js) — 판이 없을 때의 까닭: loading · single(한 모델) · missing(이 탭에 없음)
+      qa_board: raw.qaBoard || null, qa_board_state: raw.qaBoardState || '',
       qa: raw.qa && Array.isArray(raw.qa.results) && raw.qa.results.length ? { questions: raw.qa.questions || [], results: raw.qa.results } : null,
     };
   }
@@ -81,7 +83,7 @@
     /* 탭 모드(스튜디오 /VRShow) — 뿌리 화면 다섯이 스튜디오 정거장 다섯(05 결과 · 06 다시 보기 · 07 청중석 · 08 코칭 · 09 연습)이다.
        그 다섯으로 가는 push 는 뿌리를 바꾸고(opts.onRoot 로 알린다 → 스튜디오 창이 곡선을 따라 미끄러진다), 그 아래 깊은 화면만 창 안에서 밀어 넣는다 */
     const TABS = Array.isArray(opts.tabs) && opts.tabs.length ? opts.tabs : null;
-    let D = data; let G = null; let V = null;
+    let D = data; let G = null; let V = null; let QB = null;
     let audio = null; let stopAt = null; let playingKey = '';
     const stack = [];      // [{ route, el, short, onTime }]
     const imgCache = {};
@@ -94,6 +96,7 @@
     function build() {
       G = window.ReportGraph.buildGraph({ ...D, reportId: D.schema || 'report' });
       V = window.ReportGraph.buildViewModel(G, D);
+      QB = window.ReportQaBoard ? window.ReportQaBoard.model(D.qa_board, D.qa) : null;
       if (MODE === 'page') window.__RV2 = { D, G, V, validate: () => window.ReportGraph.validate(G) };
     }
     const all = () => [...V.issues, ...V.unknown, ...V.strengths];
@@ -147,7 +150,10 @@
     const playBtn = (key, a, b, label) => `<button type="button" class="nv-play" data-play="${esc(key)}" data-a="${a}" data-b="${b == null ? '' : b}" ${audio ? '' : 'disabled'}><span class="nv-pi">${I.play}</span><span>${esc(label)}</span></button>`;
 
     /* ── 스택 ── */
-    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy };
+    /* 「질문은 이렇게 골랐어요」 — 네 모델 후보 판 (js/report_qaboard.js). 파일이 없으면 진입점도 없다 */
+    const QBS = window.ReportQaBoard ? window.ReportQaBoard.screens({ esc, I, asset, Q: () => QB }) : null;
+    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy,
+      ...(QBS ? { board: QBS.board, slot: QBS.slot, round: QBS.round } : {}) };
     const parse = (r) => { const k = r.indexOf(':'); return k < 0 ? [r, ''] : [r.slice(0, k), r.slice(k + 1)]; };
     function renderScreen(route) {
       const [name, arg] = parse(route);
@@ -322,6 +328,7 @@
           <button type="button" class="nv-row" data-push="audience"><span class="nv-ico i-orange">${I.people}</span><span class="nv-row-main"><b>삐약이 청중석</b><small>${real.length ? `${real.length}마리가 ${remarks}마디 했어요` : V.evaluators.length ? '이번엔 다 못 왔어요' : '청중 반응을 불러오고 있어요'}</small></span>
             <span class="nv-faces">${V.evaluators.map((e) => `<img src="${esc(asset(`assets/chick-${e.key}-neutral.svg`))}" alt="" class="${e.absent ? 'off' : ''}">`).join('')}</span><i class="nv-chev">${I.chev}</i></button>
           <button type="button" class="nv-row" data-push="practice"><span class="nv-ico i-green">${I.chat}</span><span class="nv-row-main"><b>Q&A 돌아보기</b><small>${V.qa.length ? `질문 ${V.qa.length}개 · 내 어느 말에서 꼬리질문이 나왔나` : 'Q&A 기록이 없어요'}</small></span><i class="nv-chev">${I.chev}</i></button>
+          ${QBS && QB ? QBS.entry() : ''}
           ${sc ? `<button type="button" class="nv-row" data-push="scores"><span class="nv-ico i-gray">${I.chart}</span><span class="nv-row-main"><b>기준별 점수</b><small>39개 항목을 7개 기준으로</small></span><span class="nv-val">${esc(val)}점</span><i class="nv-chev">${I.chev}</i></button>` : ''}
         </div>
         ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">자세한 분석</h3>
@@ -516,6 +523,7 @@
         <p class="nv-note">다시 연습한 결과는 아직 이 진단에 이어지지 않아요. 그래서 나아졌는지는 보여 주지 않아요.</p>
         ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">연습 도구</h3><div class="nv-group"><button type="button" class="nv-row" data-push="legacy:5"><span class="nv-ico i-green">${I.doc}</span><span class="nv-row-main"><b>개념도 · 펀치라인 · 용어 카드</b><small>발표 직전에 챙길 것</small></span><i class="nv-chev">${I.chev}</i></button><button type="button" class="nv-row" data-push="legacy:6"><span class="nv-ico i-blue">${I.chart}</span><span class="nv-row-main"><b>발표 구성 다시 짜기</b><small>순서 · 클라이맥스 · 덧붙일 장</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
         <h3 class="nv-sec">Q&A 돌아보기</h3>
+        ${QBS && (QB || V.qa.length) && QBS.entry(D.qa_board_state) ? `<div class="nv-group">${QBS.entry(D.qa_board_state)}</div>` : ''}
         <div class="nv-group">${V.qa.length ? V.qa.map((q) => `<button type="button" class="nv-row" data-push="qa:${esc(q.id)}"><span class="nv-ico i-${q.result && q.result.verdict === 'good' ? 'green' : q.result && q.result.setAside ? 'gray' : 'orange'}">${I.chat}</span><span class="nv-row-main"><b>${esc(q.text)}</b><small>${esc(state(q.result || {}))}${q.steps.length > 1 ? ` · 꼬리질문 ${q.steps.length - 1}번` : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('') : '<p class="nv-empty">이 리포트엔 Q&A 기록이 없어요.</p>'}</div>`,
       };
     }
@@ -532,7 +540,8 @@
           ${s.claim ? `<p class="nv-why">AI 가 주목한 내 말 「${esc(s.claim)}」</p>` : ''}
           ${s.followup ? `<div class="nv-msg ai"><img src="${esc(asset('assets/chick-solar-curious.svg'))}" alt=""><p>${esc(s.followup)}</p></div>` : ''}`).join('') : '<p class="nv-empty">답하지 않았어요.</p>'}</div>
         ${q.gist ? `<h3 class="nv-sec">자료가 기대한 답</h3><div class="nv-card"><p class="nv-body">${esc(q.gist)}</p></div>` : ''}
-        ${D.provenance && D.provenance.qa ? `<p class="nv-note">${esc(D.provenance.qa)}</p>` : ''}`,
+        ${D.provenance && D.provenance.qa ? `<p class="nv-note">${esc(D.provenance.qa)}</p>` : ''}
+        ${QBS ? QBS.link(q.text) : ''}`,
       };
     }
     /* 자세한 분석 — 옛 리포트(#/rehearsal/report)의 분석 탭을 그대로(같은 코드 · 같은 데이터) 한 화면에 품는다. 기능을 지우지 않는다
