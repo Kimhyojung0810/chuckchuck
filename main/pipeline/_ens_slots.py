@@ -47,7 +47,8 @@ _METHOD_RE = re.compile(r"설계|방법|검정|모형|모델링|분석|실험|�
 _LIMIT_RE = re.compile(r"한계|제약|다만|주의|아직|못\s?했|얇다|부족|일반화|다를\s?수|limitation|caveat", re.I)
 _NEXT_RE = re.compile(r"다음\s*단계|향후|계획|제안|적용|활용|권고|시사점|next|future", re.I)
 
-_CITATION_RE = re.compile(r"et\s*al\.?|\(\d{4}[a-z]?\)|^[A-Z][a-z]+\s*\(?\d{4}")
+_CITATION_RE = re.compile(r"et\s*al\.?|\(\d{4}[a-z]?\)|^[A-Z][a-z]+\s*\(?\d{4}"
+                          r"|^(?:Fig(?:ure)?\.?|Table|Supplementary|그림|표)\s*\d|doi\s*:|https?://|^References?$|참고\s*문헌", re.I)
 #: 덱 크기에 따른 슬롯 수 — 네 모델 × 슬롯 = 후보 수. 많으면 서로 평가 프롬프트가 길어진다.
 SLOTS_MIN, SLOTS_MAX = 6, 10
 SLOTS_PER_NODE = 2
@@ -142,6 +143,23 @@ def _supported(node, claims) -> bool:
     return any(grounding.numbers(e) for e in (node.evidence or []))
 
 
+def path_to_root(graph, node_id: str) -> list[str]:
+    """노드 → 루트까지 라벨 경로 (자기 포함). 질문 후보의 필수 칸 — 4단계 후보 판이 「그래프의 어디를 물었나」 로 그린다."""
+    by_id = {n.id: n for n in graph.nodes}
+    out, seen, cur = [], set(), by_id.get(node_id)
+    while cur is not None and cur.id not in seen:
+        seen.add(cur.id)
+        out.append(cur.label)
+        cur = by_id.get(cur.parent_id) if cur.parent_id else None
+    return out
+
+
+def root_distance(graph, node_id: str) -> int:
+    """루트(thesis)까지 홉 수. 그래프 밖 노드는 9."""
+    p = path_to_root(graph, node_id)
+    return len(p) - 1 if p else 9
+
+
 def _children(graph, node_id: str) -> list:
     return [n for n in graph.nodes if n.parent_id == node_id]
 
@@ -149,6 +167,7 @@ def _children(graph, node_id: str) -> list:
 def candidate_slots(graph, claims, slides: dict, lines: list[DeckLine], idx=None) -> list[Slot]:
     """그래프 위치마다 물을 수 있는 패턴 전부 — 점수 높은 순 (아직 자르지 않는다)."""
     root = _root(graph)
+    cover = traps._cover_slide(idx) if idx is not None else None
     out: list[Slot] = []
     by_id = {n.id: n for n in graph.nodes}
 
@@ -166,8 +185,10 @@ def candidate_slots(graph, claims, slides: dict, lines: list[DeckLine], idx=None
     for node in graph.nodes:
         if root is not None and node.id == root.id:
             continue
-        if _CITATION_RE.search(node.label or ""):
-            continue                         # 참고문헌 노드(「Leroy (2009)」) — 발표의 논리가 아니다
+        if _CITATION_RE.search(node.label or "") or _CITATION_RE.search(node.summary or ""):
+            continue                         # 참고문헌·그림 캡션 노드(「Leroy (2009)」·「Fig. 1 – (A) …」) — 발표의 논리가 아니다 (10-16 외부 의학 PDF)
+        if cover is not None and set(node.slide_nos or []) <= {cover} and node.kind != "thesis":
+            continue                         # 표지에만 있는 노드(소속·이름·과정) — 묻지 않는다
         text = _slide_text(slides, node.slide_nos or [])
         meta = " ".join([node.label, node.summary or "", *(node.evidence or [])])
         if node.kind == "claim":
@@ -236,6 +257,8 @@ def build_slots(graph, claims, slides: dict, lines: list[DeckLine], idx=None, *,
             continue
         if s.pattern == "P8" and p8 >= 2:
             continue
+        if sum(1 for c in chosen if c.pattern == s.pattern) >= max(2, cap // 3):
+            continue                     # 한 패턴이 슬롯을 다 먹지 않게 — 각도 다양성 (투자 덱: 10칸이 전부 P2 였다)
         if s.pattern == "P9" and any(c.pattern == "P9" for c in chosen):
             continue
         seen.add(key)
@@ -258,7 +281,7 @@ _DEIXIS_RE = re.compile(r"(?<![가-힣])(?:이|그|해당|위|앞의|이런|그�
 _MICRO_RE = re.compile(
     r"몇\s?(?:장|개|명|퍼센트|%|배|번|회|건|년|시간|분|사이클|도)|얼마(?:였|인가|인지|나\s?되|예요|이에요|입니까)|"
     r"(?:수치|값|비율|숫자)(?:는|가|은|이)\s*(?:무엇|얼마|몇)|(?:정의|뜻)(?:는|가|이|은)\s*(?:무엇|뭔)|무엇의\s*약자|"
-    r"몇\s*장에|어느\s*장|(?<![가-힣])[0-9]+\s*장(?:에서|에|의)\s*(?:나온|제시된|적힌)|"
+    r"\d[\d.,]*\s*\S{0,3}인지\s*\d|몇\s*장에|어느\s*장|(?<![가-힣])[0-9]+\s*장(?:에서|에|의)\s*(?:나온|제시된|적힌)|"
     r"(?:발표에서|말로는)\s*.{0,40}(?:라고|이라고)\s*했는데.{0,30}(?:자료|슬라이드).{0,20}(?:다르|달라|맞나)")
 _COND_SHIFT_RE = re.compile(r"바뀌면|달라지면|바꾸면|달라질|바뀔|높아지면|낮아지면|늘리면|줄이면|없다면|라면")
 #: 어느 발표에나 붙는 낱말 — 「특화」 셈에서 뺀다
@@ -324,6 +347,12 @@ def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], id
     terms = specific_terms(q, "", deck_tokens)
     if not terms:
         why.append("generic")
+    # 슬롯 일치 재검사 — 모델이 대상을 맘대로 바꾸지 않았나 (유형 지시 적중은 42.6% 뿐이었다, BEA 2025 · 기술조사 §1-2)
+    slot_terms = _tokens(f"{slot.label} {slot.partner_label}") - GENERIC
+    line_terms = (_tokens(" ".join(lines_by_id[r].text for r in slot.lines if r in lines_by_id)) - GENERIC) & deck_tokens
+    qt = _tokens(q)
+    if slot_terms and not (qt & slot_terms) and len(qt & line_terms) < 2:
+        why.append("off_slot")
     trap = slot.trap
     if trap:
         from .contracts import TrapPremise  # noqa: PLC0415
@@ -457,4 +486,4 @@ def _speech_quote(label: str, speech: str, limit: int = 90) -> str:
 
 __all__ = ["PATTERNS", "ANGLE_OF", "Slot", "DeckLine", "deck_lines", "deck_block", "build_slots", "candidate_slots",
            "check_candidate", "micro", "vague_deixis", "specific_terms", "voice_signals", "speech_cover",
-           "question_tokens_overlap", "GENERIC"]
+           "question_tokens_overlap", "GENERIC", "path_to_root", "root_distance"]

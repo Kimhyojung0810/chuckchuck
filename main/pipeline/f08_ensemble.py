@@ -187,6 +187,26 @@ GEN_SYSTEM = """당신은 이 발표를 끝까지 들은 심사위원 교수다.
 {"items": [{"slot": "T1", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
 
 
+#: 시장조사 §5-2 지침 블록을 우리 말투(해요체)로 옮긴 변형 — A/B (`prompt="guide"`). 형태·금지 목록이 더 구체적이다.
+GEN_GUIDE_ADDENDUM = """
+
+[형태] 맥락 한 문장(자료의 주장·구절을 짚기) + 질문 한 문장. 질문 문장은 25~70자. 칭찬으로 시작하지 않는다.
+[질문의 꼴] 「왜 / 어떻게 이어지나 / 만약 ~라면 / 어디까지 맞나 / 이 근거로 충분한가」 중 하나.
+[스스로 시험] ① 자료를 펼쳐 놓고 찾아 읽기만 하면 답할 수 있나? → 그렇다면 다시 쓴다. ② 이 질문을 다른 발표에 그대로 붙여도 말이 되나? → 그렇다면 다시 쓴다.
+[금지 — 이런 질문은 버린다] 숫자·용어·장 번호 확인(「12000이 맞나요?」「몇 장에 나왔죠?」) · 발표 말과 자료의 작은 차이 · 한 문장에 질문 두 개 · 대상 없는 지시어(「이 조건은요?」) · 주제 없는 열린 질문(「어떻게 생각하세요?」) · 자료에 없는 사실을 전제로 깐 질문(함정 슬롯이 아닐 때).
+숫자는 결론을 바꾸는 근거일 때만 「그 값이 달랐다면 결론이 유지되나」처럼 묻는다."""
+
+#: 역할 나누기 변형(`assign="roles"`) — 슬롯마다 두 모델, 한 호출에 서로 다른 관점 둘 (기술조사 §2-4: 다양성은 온도가 아니라 역할로)
+ROLES_ADDENDUM = """
+
+[이번 호출] 슬롯마다 **서로 다른 관점의 후보 두 개**를 쓴다(alt 1·2). 예: 하나는 근거가 주장을 왜 받치는지(보증), 하나는 결론이 기대는 숨은 가정이나 무너지는 조건.
+출력: {"items": [{"slot": "T1", "alt": 1, "question": "…", "answer": "…", "lines": ["S3.2"], "why": "…"}, {"slot": "T1", "alt": 2, …}]}"""
+
+
+def gen_system(prompt: str = "guide", assign: str = "all") -> str:
+    return GEN_SYSTEM + (GEN_GUIDE_ADDENDUM if prompt == "guide" else "") + (ROLES_ADDENDUM if assign == "roles" else "")
+
+
 def gen_prompt(slots: list[ES.Slot], deck: Deck, speech_excerpt: str = "") -> str:
     parts = ["[TASK] qa-ensemble-generate", "", f"## 발표의 핵심 주장\n{deck.thesis}", "", "## 자료 (줄 번호: 원문)",
              ES.deck_block(deck.lines)]
@@ -197,9 +217,9 @@ def gen_prompt(slots: list[ES.Slot], deck: Deck, speech_excerpt: str = "") -> st
 
 
 def ens_generate(name: str, llm: LLMProvider, slots: list[ES.Slot], deck: Deck, calls: list, *,
-                 temperature: float = 0.4, speech_excerpt: str = "") -> list[dict]:
+                 temperature: float = 0.4, speech_excerpt: str = "", system: str | None = None) -> list[dict]:
     """모델 하나 · 슬롯 묶음 하나 → 원 후보들 (작성 모델 이름을 붙여서)."""
-    data = _complete(llm, "generate", calls, system=GEN_SYSTEM, user=gen_prompt(slots, deck, speech_excerpt),
+    data = _complete(llm, "generate", calls, system=system or gen_system(), user=gen_prompt(slots, deck, speech_excerpt),
                      temperature=temperature, max_tokens=GEN_MAX_TOKENS)
     ids = {s.id for s in slots}
     out = []
@@ -328,7 +348,7 @@ def _chunks(xs: list, n: int) -> list[list]:
 def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[str] | None = None,
                llms: dict[str, LLMProvider] | None = None, peer: bool = True, peer_self: bool = False,
                slots_limit: int | None = None, temperature: float = 0.4, seed: int = 0,
-               slots: list[ES.Slot] | None = None) -> Pool:
+               slots: list[ES.Slot] | None = None, prompt: str = "guide", assign: str = "all") -> Pool:
     """자료만으로(transcript 없이도) 후보 묶음을 만든다. llms 를 주면 그걸 쓴다(벤치·테스트)."""
     t0 = time.monotonic()
     deck = Deck.build(graph, slidedoc, claims)
@@ -343,11 +363,18 @@ def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[st
         except Exception as e:  # noqa: BLE001 — 키 없는 모델은 빠진다
             sys.stderr.write(f"[f08-ens] {n} 을 못 만들어요: {str(e)[:80]}\n")
     pool = Pool(slots=slots, models=list(engines))
-    jobs = [(n, chunk) for n in engines for chunk in _chunks(slots, SLOTS_PER_CALL)]
+    order = list(engines)
+    if assign == "roles" and len(order) >= 2:
+        # 슬롯 i 는 모델 i, i+1 (돌려 가며) — 슬롯마다 두 모델이 서로 다른 관점 둘씩 = 슬롯당 후보 4개, 모델당 호출 1회 남짓
+        mine = {n: [s for i, s in enumerate(slots) if n in (order[i % len(order)], order[(i + 1) % len(order)])] for n in order}
+        jobs = [(n, chunk) for n in order for chunk in _chunks(mine[n], SLOTS_PER_CALL) if chunk]
+    else:
+        jobs = [(n, chunk) for n in order for chunk in _chunks(slots, SLOTS_PER_CALL)]
+    system = gen_system(prompt, assign)
     raw: list[dict] = []
     with _ai_calllog.feature_scope("F-08-gen"), ThreadPoolExecutor(max_workers=max(1, len(jobs))) as ex:
         futs = [ex.submit(_ai_calllog.carry(ens_generate), n, engines[n], chunk, deck, pool.calls,
-                          temperature=temperature) for n, chunk in jobs]
+                          temperature=temperature, system=system) for n, chunk in jobs]
         for f in as_completed(futs):
             raw.extend(f.result())
     pool.timings["generate_sec"] = round(time.monotonic() - t0, 2)
@@ -437,6 +464,33 @@ def pick_opening(pool: Pool, transcript=None, n: int = 2) -> list[dict]:
     return picked
 
 
+DEFENSIVE = ("P7", "P9")
+
+
+def pick_session(pool: Pool, transcript=None, n: int = 5) -> list[dict]:
+    """
+    한 세션 몫(기본 5) — 1·2번(`pick_opening`) 뒤에 묶음 순서로 채우되 (노드, 각도) 겹침 없이, 방어형(P7·P9) ≤ 2,
+    확장형(P10) ≥ 1 (시장조사 §4 · Kanze 2018: 방어형만 몰면 답이 방어로만 간다). 3번부터는 실제로는 음성 후보가 먼저다 —
+    이 목록은 음성이 늦을 때 대신 낼 순서이자 리포트 후보 판의 기본 순서다.
+    """
+    out = pick_opening(pool, transcript)
+    seen = {(c["node_id"], c["angle"]) for c in out}
+    for c in pool.winners():
+        if len(out) >= n:
+            break
+        if any(c["uid"] == o["uid"] for o in out) or (c["node_id"], c["angle"]) in seen:
+            continue
+        if c["pattern"] in DEFENSIVE and sum(1 for o in out if o["pattern"] in DEFENSIVE) >= 2:
+            continue
+        out.append(c)
+        seen.add((c["node_id"], c["angle"]))
+    if len(out) >= 3 and not any(o["pattern"] == "P10" for o in out):
+        p10 = next((c for c in pool.winners() if c["pattern"] == "P10"), None)
+        if p10 is not None:
+            out[-1] = p10
+    return out
+
+
 def _speech_of(transcript) -> dict[int, str]:
     if transcript is None:
         return {}
@@ -453,7 +507,8 @@ VOICE_SYSTEM = """당신은 이 발표를 끝까지 듣고 앞 질문 두 개의
 - 앞 답이 약했으면 같은 것을 다시 묻지 말고 한 걸음 더 깊이(왜) 또는 옆으로(이어진 주장) 또는 바로잡게 묻는다.
 - 질문은 해요체 한 문장, 묻는 것 하나, 100자 안팎. 가리키는 말만 쓰지 말고 자료의 개념 이름을 댄다.
 - answer(모범답): 자료 줄에 있는 사실로 1~2문장 해요체. lines: 근거 자료 줄 번호 1~3개.
-출력은 JSON 객체 하나: {"items": [{"signal": "V2", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
+- signal 칸에는 아래 「신호」 목록에 **실제로 있는** 번호만 쓴다.
+출력은 JSON 객체 하나: {"items": [{"signal": "<신호 번호>", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
 
 PICK_SYSTEM = """당신은 Q&A 진행을 맡은 심사위원장이다. 다음에 물을 질문 하나를 후보에서 고른다. 작성자는 가려져 있다.
 고르는 기준(순서대로): ① 발표자가 자료의 핵심 논리를 이해했는지 드러나는가 ② 발표와 앞 답에서 드러난 빈틈을 찌르는가 ③ 이미 물은 것과 겹치지 않는가 ④ 분명하고 답할 수 있는가.
@@ -481,8 +536,14 @@ def ens_voice(name: str, llm: LLMProvider, signals: list[dict], deck: Deck, aske
     ids = {s["id"]: s for s in signals}
     out = []
     for it in (data.get("items") or []) if isinstance(data, dict) else []:
-        if isinstance(it, dict) and str(it.get("signal")) in ids:
-            out.append({**it, "signal": str(it["signal"]), "model": name})
+        if not isinstance(it, dict):
+            continue
+        m = re.search(r"V\d+", str(it.get("signal") or ""))
+        sid = m.group(0) if m else ""
+        if sid not in ids and len(signals) == 1:
+            sid = signals[0]["id"]          # 신호가 하나뿐이면 그것 (10-17: 예시의 「V2」 를 네 모델이 다 베꼈다)
+        if sid in ids:
+            out.append({**it, "signal": sid, "model": name})
     if calls:
         calls[-1].n_out = len(out)
     return out
@@ -626,7 +687,7 @@ def to_question(c: dict, i: int, graph=None) -> Question:
 
 
 __all__ = ["enabled", "model_names", "picker_name", "build_pool", "pick_opening", "voice_round", "choose_next",
-           "plan_total", "to_question", "Pool", "VoiceRound", "Deck", "peer_score"]
+           "plan_total", "to_question", "pick_session", "Pool", "VoiceRound", "Deck", "peer_score"]
 
 
 # ─── 1단계: 모범답 정리 (지금 방식의 질문에도 쓴다 — f08_questions.build_questions 끝) ──────────────────────
