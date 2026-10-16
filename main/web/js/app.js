@@ -5130,6 +5130,8 @@ function rv2QaSnapshot() {
       answer_gist: q.answer_gist || '', evidence_slide_no: q.evidence_slide_no || null, slide_nos: q.slide_nos || [] })),
     results: L.results.map((r) => ({ id: r.id, label: r.label, question: r.question, answer: r.answer || '', verdict: r.verdict,
       setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0, trail: r.trail || [] })),
+    // 네 모델이 고른 질문이었나 · 그 판을 다시 받을 세션 (리포트 「질문은 이렇게 골랐어요」)
+    ensemble: !!(L.ensemble && L.ensemble.active), sessionId: L.sessionId || '',
   };
 }
 
@@ -5147,7 +5149,7 @@ function restoreLastReport() {
     // 저장본은 실측이다. 남아 있던 샘플 플래그·옛 오류를 같이 걷지 않으면
     // 복원해 놓고 「샘플이에요」나 지난 오류 배너가 뜬다
     useSample: false, pipelineError: null, pipelineDetail: '',
-    rv2Qa: snap.qa || null, deckAudio: snap.deckAudio || '',
+    rv2Qa: snap.qa || null, rv2Board: snap.qaBoard || null, deckAudio: snap.deckAudio || '',
     ...(Array.isArray(snap.slideImages) && snap.slideImages.length ? { slideImages: snap.slideImages } : {}),
   });
   return snap.at || 0;
@@ -5289,7 +5291,9 @@ function reportVerdict() {
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv11', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv11'] };
+// 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
+const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs1';
+const RV2_FILES = { css: 'css/report_v2.css?v=rv12', js: ['js/report_graph.js?v=rg1', 'js/report_qaboard.js?v=qb1', 'js/report_v2.js?v=rv12'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5321,6 +5325,26 @@ function loadRv2Files() {
   rv2Loading.catch(() => { rv2Loading = null; });
   return rv2Loading;
 }
+/* ── 네 모델 Q&A 후보 판 (4단계 리포트 「질문은 이렇게 골랐어요」, docs/qa-ensemble/CONTRACT.md §1) ──
+   브리지 세션 메모리에서 받는다(POST /api/v1/qa/board) — 동의와 무관하게 내 리포트에선 보이고, 서버 보관은 동의 세션만(보관소 규칙 그대로).
+   다시 열 리포트를 위해 이 브라우저의 마지막 리포트 저장본에만 같이 둔다. LLM 을 부르지 않는다 */
+let rv2BoardMem = { sid: '', board: null };
+async function rv2FetchQaBoard(sid) {
+  const res = await fetch('/api/v1/qa/board', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sid }) });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`qa board ${res.status}`);
+  const j = await res.json();
+  return (j && j.board) || null;
+}
+function rv2PersistBoard(board) {
+  try {
+    const snap = JSON.parse(localStorage.getItem(LAST_REPORT_KEY) || 'null');
+    if (!snap || !snap.qa) return;
+    snap.qaBoard = board;
+    try { localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snap)); }
+    catch (_) { snap.qaBoard = { ...board, calls: [], rounds: (board.rounds || []).map((r) => ({ ...r, calls: [] })) }; localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snap)); }
+  } catch (_) { /* 넘치면 판만 빠진다 — 리포트 저장본은 그대로 */ }
+}
 async function renderReportV2(restoredAt) {
   app.className = 'rv2-host';
   app.innerHTML = '<p class="note" role="status" style="padding:56px 24px">리포트를 준비하고 있어요…</p>';
@@ -5346,6 +5370,13 @@ async function renderReportV2(restoredAt) {
   }
   const total = deckTotalSlides();
   const imgs = (nf && nf.slideImages) || [];
+  const qaLive = (qa.live && Array.isArray(qa.live.results) && qa.live.results.length) ? qa.live : null;
+  const qaSaved = !qaLive && nf.rv2Qa ? nf.rv2Qa : null;
+  const ensOn = !!((qaLive && qaLive.ensemble && qaLive.ensemble.active) || (qaSaved && qaSaved.ensemble));
+  const boardSid = (qaLive && qaLive.sessionId) || (qaSaved && qaSaved.sessionId) || '';
+  let board = qaLive ? (rv2BoardMem.sid && rv2BoardMem.sid === boardSid ? rv2BoardMem.board : null) : (nf.rv2Board || null);
+  const boardMiss = ensOn ? 'missing' : 'single';
+  const boardState = board || !(qaLive || qaSaved) ? '' : (boardSid ? 'loading' : boardMiss);
   const input = window.ReportV2.inputFromApp({
     pipelineOut: out,
     marks: nf.marks || null,
@@ -5357,6 +5388,7 @@ async function renderReportV2(restoredAt) {
     },
     qa: (qa.live && Array.isArray(qa.live.results) && qa.live.results.length) ? { questions: qa.live.questions || [], results: qa.live.results } : (nf.rv2Qa || null),
     chatter: chatterCache || null,
+    qaBoard: board, qaBoardState: boardState,
     saved: restoredAt ? ` (${stampText(restoredAt)})` : '',
   });
   if (rv2Handle) rv2Handle.destroy();
@@ -5375,6 +5407,15 @@ async function renderReportV2(restoredAt) {
       renderReport();
     },
   });
+  if (board && qaLive) rv2PersistBoard(board);
+  // 네 모델이 고른 과정 — 판은 가볍다(LLM 없음). 받으면 얹고, 없으면 까닭(한 모델이 골랐어요 · 기록 없음)을 남긴다
+  if (boardState === 'loading') {
+    const handle = rv2Handle;
+    rv2FetchQaBoard(boardSid).catch(() => null).then((b) => {
+      if (b) { if (qaLive) rv2BoardMem = { sid: boardSid, board: b }; else nf.rv2Board = b; rv2PersistBoard(b); }
+      if (rv2Handle === handle && app.classList.contains('rv2-host')) rv2Handle.update(b ? { qa_board: b, qa_board_state: '' } : { qa_board_state: boardMiss });
+    });
+  }
   // 청중석은 늦게 온다(실 LLM 넷) — 오면 얹는다. 화면 · 고른 진단은 그대로
   if (!chatterCache && chatterPending) {
     chatterPending.then((doc) => {
@@ -5392,6 +5433,10 @@ async function renderReportV2Demo() {
     if (!window.__RV2_SAMPLE) {
       await new Promise((ok, fail) => { const el = document.createElement('script'); el.src = RV2_SAMPLE_JS; el.onload = ok; el.onerror = () => fail(new Error('샘플을 받지 못했어요')); document.head.appendChild(el); });
     }
+    // 샘플 판은 없어도 리포트는 연다 — 받지 못하면 「질문은 이렇게 골랐어요」 만 빠진다
+    if (!window.__RV2_QA_BOARD) {
+      await new Promise((ok) => { const el = document.createElement('script'); el.src = RV2_QA_BOARD_SAMPLE_JS; el.onload = ok; el.onerror = ok; document.head.appendChild(el); });
+    }
   } catch (err) {
     app.className = 'narrow';
     app.innerHTML = `<div class="card empty-card"><h2 class="section-title">샘플 리포트를 열지 못했어요</h2><p class="note">연결을 확인하고 다시 눌러요.</p></div>`;
@@ -5404,7 +5449,7 @@ async function renderReportV2Demo() {
   const tabs = ['home', 'replay', 'audience', 'coach', 'practice'];
   if (rv2Handle) rv2Handle.destroy();
   try { sessionStorage.removeItem('cheokcheok:rv2-stack'); } catch (_) { /* 처음부터 */ }
-  rv2Handle = window.ReportV2.mount(app, window.__RV2_SAMPLE, {
+  rv2Handle = window.ReportV2.mount(app, { ...window.__RV2_SAMPLE, qa_board: window.__RV2_QA_BOARD || null }, {
     mode: 'app',
     tabs: document.documentElement.classList.contains('sx-studio') ? tabs : null,
     onRoot: (root) => { app.dataset.rv2Root = root; },
