@@ -189,7 +189,13 @@ def dialogue_metrics(rows: list[dict], lj: dict | None = None) -> dict:
         prem = [j.get("premise") for j, r in zip([lj.get(_key(r)) for r in d], d) if j and r["kind"] == "premise"]
         prem = [p for p in prem if p is not None and str(p).lower() not in ("null", "none", "")]
         m["lj_premise"] = rate(prem)
-        m["lj_natural"] = st.mean([float(j.get("natural") or 0) for j in js]) if js else None
+        nat = []
+        for j in js:
+            try:
+                nat.append(float(j.get("natural")))
+            except (TypeError, ValueError):
+                continue
+        m["lj_natural"] = st.mean(nat) if nat else None
     return m
 
 
