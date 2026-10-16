@@ -205,7 +205,8 @@ def test_쪽을_안_고른_답의_반응이_자료_쪽_값을_흘리면_코드_�
                                                                               said="35%예요")
 
 
-def test_모르겠어요_1단_2단은_발표_쪽_인용과_장만_보이고_보기는_두_값이다():
+def test_모르겠어요_1단_2단은_발표_쪽_인용과_장만_보이고_보기는_두_값이다(monkeypatch):
+    monkeypatch.setenv("QA_GIVEUP_CLOSE", "3")   # 예전 사다리(발판 단계)를 잰다 — 기본은 둘째 「모르겠어요」 에 해설로 닫는다 (2026-10-17)
     deck_text = " ".join(s.raw_text for s in GARDEN.slides)
     fu, choices = _narrow_followup({"followup": "자료가 말하는 35% 쪽인가요, 발표의 50% 쪽인가요?", "choices": ["35%", "50%"]},
                                    GARDEN_Q, None, deck_text, hide_quote=True)

@@ -44,6 +44,9 @@ FUNC_FEATURES = {
     "ens_pick": "F-08-pick",
     "ens_voice": "F-08-voice",
     "polish_gists": "F-08-gist",
+    # 꼬리질문 엔진 (2026-10-17 5단계, f09_dialogue) — 판정(F-09)과 따로 센다
+    "dialogue_talk": "F-09-talk",
+    "dialogue_respeak": "F-09-respeak",
 }
 _FEATURE_MOD = re.compile(r"^f(\d{2})_[a-z0-9_]+$")
 #: 호스트 꼬리 → 제공사 (국내 AI 연계 기업). 실제 기록 대상 호스트는 install() 이 config 의 base URL 에서 정한다

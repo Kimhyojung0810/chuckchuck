@@ -438,7 +438,8 @@ def test_1단에서_LLM_이_선택형을_안_쓰면_코드가_둘_중_하나를_
     assert "쪽인가요" in j.followup and "«주의 전환은" in j.followup
 
 
-def test_2단은_LLM_없이_빈칸과_선택지를_준다():
+def test_2단은_LLM_없이_빈칸과_선택지를_준다(monkeypatch):
+    monkeypatch.setenv("QA_GIVEUP_CLOSE", "3")   # 예전 사다리(발판 단계)를 잰다 — 기본은 둘째 「모르겠어요」 에 해설로 닫는다 (2026-10-17)
     llm = ScriptedLLM({"react": "안 불러야 한다"})
     history = [QaTurn(question_id="q01-switch", question="q", answer="(모르겠어요)", verdict="unknown", gave_up=True)]
     j = coach_stuck(question(**EVQ), graph=GRAPH, history=history, llm=llm)

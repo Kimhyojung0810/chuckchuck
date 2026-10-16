@@ -132,7 +132,8 @@ def _two_give_ups(question_text: str | None = None) -> list[QaTurn]:
     ]
 
 
-def test_second_give_up_scaffolds_with_a_blank():
+def test_second_give_up_scaffolds_with_a_blank(monkeypatch):
+    monkeypatch.setenv("QA_GIVEUP_CLOSE", "3")   # 예전 사다리(발판 단계)를 잰다 — 기본은 둘째 「모르겠어요」 에 해설로 닫는다 (2026-10-17)
     """두 번째 포기는 답이 아니라 **발판**이다 — 골자에서 낱말 하나를 가린 빈칸. LLM 을 안 부른다."""
     history = [QaTurn(question=make_question().question, answer="모르겠어요", verdict="unknown")]
     llm = RecordingLLM()
@@ -358,3 +359,22 @@ def test_qaturn_roundtrips_question_id():
     assert QaTurn.from_dict(t.to_dict()).question_id == "q01-c1"
     # 옛 클라이언트(한글 3키)는 id 없이 온다 — 빈 문자열로 떨어지고 문면 비교로 폴백한다
     assert QaTurn.from_dict({"질문": "질문", "답변": "답", "판정": "partial"}).question_id == ""
+
+
+def test_second_give_up_explains_and_closes_by_default():
+    """2026-10-17 5단계: 둘째 「모르겠어요」 는 근거 장을 짚는 해설로 **닫는다** (실사용: 해설 단계 0번 · 같은 질문 25번 갇힘)."""
+    history = [QaTurn(question=make_question().question, answer="모르겠어요", verdict="unknown", gave_up=True)]
+    llm = CoachLLM({"react": "네", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
+    j = coach_stuck(make_question(), history=history, llm=llm)
+    assert j.coach_stage == "explain" and j.closed and j.mastered and j.close_reason == "explained"
+    assert j.followup == ""
+
+
+def test_third_attempt_closes_even_after_wrong_answers():
+    """오답 둘 뒤 「모르겠어요」 — 이 질문의 셋째 시도라 해설로 닫는다 (QA_MAX_ATTEMPTS)."""
+    q = make_question()
+    history = [QaTurn(question=q.question, answer="엉뚱한 답", verdict="wrong", question_id=q.id),
+               QaTurn(question="꼬리질문", answer="또 엉뚱한 답", verdict="wrong", question_id=q.id)]
+    llm = CoachLLM({"react": "네", "explanation": "핵심은 지연이 이탈로 이어진다는 점입니다."})
+    j = coach_stuck(q, history=history, llm=llm)
+    assert j.coach_stage == "explain" and j.mastered
