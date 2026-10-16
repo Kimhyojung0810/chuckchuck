@@ -899,6 +899,8 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       session_id: sessionId || null,
+      // 질문을 새로 받는 때가 곧 Q&A 한 판의 시작이다 — 판 값을 새로 (미리 만들기 prefetch 는 지금 판을 그대로)
+      qa_run_id: qaRunId(sessionId, { fresh: !prefetch }),
       graph,
       alignment,
       flow: flow || null,
@@ -930,6 +932,23 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
  * stillWanted() 가 거짓이면(그새 다음 질문으로 갔거나 화면을 떠났으면) 다시 보내지 않고 code='cancelled' 로 끝낸다.
  * 끝까지 막히면 마지막 오류를 그대로 던진다 (err.rateLimited 가 참이면 요청 제한 — 판정 실패 출구로 세지 않는다).
  */
+/**
+ * Q&A 한 판의 구분 값 (2026-10-17) — 판정 · /qa/next · 질문 요청에 qa_run_id 로 싣는다. 서버는 앞 답 · 음성 후보 · 이해 상태 · 이미 한 말을
+ * 세션이 아니라 이 판 단위로 나눈다 — 같은 파일(부스 덱)을 올린 사람끼리 세션이 같아도 기록이 섞이지 않게.
+ * 세션이 바뀌면 새로 만든다. 화면이 Q&A 를 새로 시작할 때 fresh=true 로 부른다.
+ */
+let qaRun = { sid: null, id: '' };
+export function qaRunId(sessionId, { fresh = false } = {}) {
+  const sid = sessionId || 'flat';
+  if (fresh || qaRun.sid !== sid || !qaRun.id) {
+    const rnd = (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+      ? globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 20)
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    qaRun = { sid, id: `r${rnd}` };
+  }
+  return qaRun.id;
+}
+
 export async function judgeQaAnswer(sessionId, { onWait = null, stillWanted = null, ...req }) {
   for (let attempt = 0; ; attempt += 1) {
     try {
@@ -962,6 +981,7 @@ async function judgeOnce(sessionId, { questionId, answer, history, question, giv
     prior_answers: priorAnswers || [],
     // 보여준 힌트 — 코치가 힌트와 이어지는 말로 반응한다 (일방향 힌트 방지)
     hints_shown: hintsShown || [],
+    qa_run_id: qaRunId(sid),
   };
   const path = `/api/v1/sessions/${sid}/qa/judge`;
   try {
@@ -990,7 +1010,7 @@ const ENSEMBLE_NEXT_TIMEOUT_MS = 6000;
 export async function ensembleNextQuestion(sessionId, { asked = [], prefetch = false } = {}) {
   return qaApi('/api/v1/qa/next', {
     method: 'POST',
-    json: { session_id: sessionId || null, asked, prefetch: !!prefetch },
+    json: { session_id: sessionId || null, asked, prefetch: !!prefetch, qa_run_id: qaRunId(sessionId) },
     timeoutMs: ENSEMBLE_NEXT_TIMEOUT_MS,
   });
 }
@@ -1151,6 +1171,7 @@ export async function suggestContext(slideDoc) {
 }
 
 window.ChuckchuckBridge = {
+  qaRunId,
   suggestContext,
   attachRehearsalRuntime,
   deleteSession,

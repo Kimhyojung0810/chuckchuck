@@ -90,3 +90,24 @@
 | `QA_ENS_EXAONE_PP` | (끔) | EXAONE presence_penalty (권장 1.5) |
 | `QA_ENS_MIDM_SCHEMA` | (끔) | Mi:dm response_format json_schema |
 | `QA_GIST_POLISH` | 1 | 지금 방식 질문의 지저분한 모범답 정리(1단계) |
+
+## 6. Q&A 한 판 구분 값 `qa_run_id` (2026-10-17, 5단계 · 4단계 보고)
+
+파싱이 같은 파일의 세션을 재사용한다(부스 덱은 미리 파싱한 세션 하나를 모두가 쓴다). 세션 id 만으로 나누면 같은 파일을 올린 사람끼리
+3번 이후 기록(앞 답 · 음성 후보 · 이해 상태 · 이미 한 말 · 판의 「뽑힌 것」)이 섞인다 — 개인정보 · 정확도 둘 다 문제다.
+
+- **만드는 곳**: 브라우저 `chuckchuck_bridge.js` `qaRunId(sessionId, {fresh})` — `r` + 무작위 20자(`[A-Za-z0-9_-]{4,48}`).
+  질문 요청(`/api/v1/questions`, prefetch 가 아닐 때)이 새 판을 연다. 세션이 바뀌어도 새로 만든다. `window.ChuckchuckBridge.qaRunId` 로도 부를 수 있다.
+- **싣는 곳** (본문 필드 이름 `qa_run_id`): `/api/v1/questions` · `/api/v1/sessions/{sid}/qa/judge` · `/api/v1/qa/next`. 4단계 `/api/v1/qa/board` 도 같은 이름으로 받는다.
+- **서버 열쇠**: `server.bridge.qa_run_of(body)` (모양이 틀리면 "") · `run_key(sid, run)` = `"<sid>:<run>"` (run 이 없으면 `"<sid>"` — 옛 클라이언트는 예전처럼).
+  - 이해 상태 `dlg_nodes:<sid>:<run>` · 이미 한 말 `dlg_said:<sid>:<run>` (꼬리질문 엔진)
+  - 음성 후보 `ens_voice:` 지문에 run 과 앞 답 원문을 넣는다 · 마지막 음성 후보 `ens_voice_last:<pool>:<run>`
+  - 판 보관본 `qa_ensemble_board` 에 `"qa_run_id"` 칸 — 4단계 판(`ens_board:<sid>` → `ens_board:<sid>:<run>`)은 이 값으로 나눠 읽는다(합칠 때 qa_board.py 를 맞춘다).
+- **남은 것**: 발표 받아쓰기(transcript)는 여전히 세션 단위다 — 같은 파일 세션에 두 사람이 녹음을 올리면 음성 신호의 「발화」 가 섞일 수 있다.
+  파싱 세션 재사용(파일 sha)을 판 단위로 나누거나, 받아쓰기를 판 열쇠로 따로 두는 것은 배포 전 결정이 필요하다.
+
+## 7. 꼬리질문 엔진 (5단계) — 판정 응답에 더한 칸
+
+`QaJudgement.to_dict()` 에 `move`(connect·clarify·challenge·explore·recite·hint·deepen·refocus·explain) · `anchor`(답 원문 구절) ·
+`dialogue`(읽기 신호 · 출처 llm/respeak/template/judge/guard · judge_sec · sec_after_judge) · `close_reason` 에 `explained`(갇힘 출구)가 더해졌다.
+`closed=true` 면 질문을 닫는다(`mastered`) — 셋째 답 · 둘째 「모르겠어요」, `coach_stage="explain"` · `explanation` 에 근거 장 해설.

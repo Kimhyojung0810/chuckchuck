@@ -35,7 +35,7 @@ import {
   startAnswerRecording,
   startLiveDictation,
   transcribeAnswer,
-} from './chuckchuck_bridge.js?v=qkxbc17';
+} from './chuckchuck_bridge.js?v=qkxbc18';
 import {
   DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD,
   appendTranscript, calibrateDelivery, cameraErrorText, captionTail, captureRoutes, clockText, countdownText,

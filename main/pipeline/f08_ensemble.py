@@ -204,7 +204,7 @@ GEN_SYSTEM = """당신은 이 발표를 끝까지 들은 심사위원 교수다.
 - answer(모범답): 발표자가 그대로 말하면 되는 1~2문장 해요체. 자료 줄에 있는 사실만 쓰고 지어내지 않는다. 「자료는 이렇게 말해요」 같은 머리말·줄 이어 붙이기 금지.
 - lines: 모범답의 근거 자료 줄 번호 1~3개 (예: "S3.2"). 줄 번호는 lines 칸에만 쓰고 질문·모범답 문장에는 쓰지 않는다.
 - 자료가 그 슬롯의 답을 담지 않으면 {"slot": "T3", "skip": true}.
-- why: 이 질문이 이 발표의 핵심을 찌르는 까닭 한 줄.
+- why: 이 질문이 이 발표의 핵심을 찌르는 까닭 한 줄, 해요체(「…를 보기 때문이에요」 — 「…합니다」 「…한다」 금지).
 
 출력은 JSON 객체 하나:
 {"items": [{"slot": "T1", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
@@ -369,7 +369,12 @@ def tidy(c: dict) -> dict:
     a = re.sub(r"(니다|습니다)요(?=[.!]?\s*$|[.!]\s)", r"\1", str(c.get("answer") or "").strip())
     q = re.sub(r"주시겠어요\?", "주세요.", q)
     q, a = _strip_line_ids(q), _strip_line_ids(a)
-    return {**c, "question": _polite_question(q), "answer": _polite_statement(_plain_speech(a))}
+    out = {**c, "question": _polite_question(q), "answer": _polite_statement(_plain_speech(a))}
+    if c.get("why"):
+        # 「이렇게 물은 까닭」 은 리포트 후보 판에 그대로 보인다 — 「…요구합니다」 같은 합쇼체 · 해라체 끝을 해요체로 (2026-10-17 4단계 보고)
+        from ._speech import plain_to_haeyo, to_haeyo  # noqa: PLC0415
+        out["why"] = _polite_statement(plain_to_haeyo(to_haeyo(_strip_line_ids(str(c["why"]).strip()))))
+    return out
 
 
 _LINE_ID_PAREN_RE = re.compile(r"\s*[(（\[]\s*S\d{1,3}\.\d{1,3}(?:\s*[~,·–-]\s*S?\d{1,3}(?:\.\d{1,3})?)*\s*[)）\]]")
@@ -581,6 +586,7 @@ VOICE_SYSTEM = """당신은 이 발표를 끝까지 듣고 앞 질문 두 개의
 - 질문은 해요체 한 문장, 묻는 것 하나, 100자 안팎. 가리키는 말만 쓰지 말고 자료의 개념 이름을 댄다.
 - answer(모범답): 자료 줄에 있는 사실로 1~2문장 해요체. lines: 근거 자료 줄 번호 1~3개.
 - signal 칸에는 아래 「신호」 목록에 **실제로 있는** 번호만 쓴다.
+why 는 해요체 한 줄.
 출력은 JSON 객체 하나: {"items": [{"signal": "<신호 번호>", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
 
 PICK_SYSTEM = """당신은 Q&A 진행을 맡은 심사위원장이다. 다음에 물을 질문 하나를 후보에서 고른다. 작성자는 가려져 있다.
