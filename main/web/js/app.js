@@ -21,6 +21,7 @@ const loadSession = key => {
   catch (_) { return null; }
 };
 const saveSession = (key, value) => {
+  if (key === 'new-flow' && value && value.__demo) return;   // 리포트 2.0 샘플(데모) 동안의 nf — 내 진행 기록을 덮지 않는다
   try {
     // SlideDoc / blob 결과는 용량이 커서 sessionStorage에서 제외
     const slim = { ...value };
@@ -5288,7 +5289,7 @@ function reportVerdict() {
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv8', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv9'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv11', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv11'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5397,6 +5398,7 @@ async function renderReportV2Demo() {
     return;
   }
   if (!/report\/demo/.test(location.hash)) return;
+  rv2DemoSwapIn(window.__RV2_SAMPLE);
   const want = Number.isInteger(window.__rv2WantTab) ? window.__rv2WantTab : 0;
   window.__rv2WantTab = null;
   const tabs = ['home', 'replay', 'audience', 'coach', 'practice'];
@@ -5410,8 +5412,42 @@ async function renderReportV2Demo() {
   if (want > 0) rv2Handle.tab(want);
 }
 
-// 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게
+/* 샘플(데모) 리포트 동안 옛 분석 탭(슬라이드로 보는 발표 · 말하기 · 개념 전달 …)도 샘플을 그리도록 nf · 자료 · 청중석을 잠시 바꾼다.
+   내 것은 따로 들고 있다가 데모 주소를 떠나면 되돌린다. 샘플 nf 는 저장하지 않는다(saveSession __demo) */
+let rv2DemoBackup = null;
+function rv2DemoSwapIn(S) {
+  if (!S) return;
+  if (!rv2DemoBackup) rv2DemoBackup = { nf, nfSlideDoc, uploadedPdf, chatterCache };
+  const t = S.transcript || {};
+  nf = { __demo: true, fileName: (S.deck && (S.deck.file_name || S.deck.title)) || '', slideTitles: ((S.deck && S.deck.slides) || []).map((x) => x.title),
+    slideImages: (S.deck && S.deck.slide_images) || [], sec: Math.round(t.duration_sec || 0), min: (S.context && S.context.min) || 0, occ: (S.context && S.context.occ) || '',
+    marks: t.marks || null, pipelinePhase: 'done', deckAudio: S.deck && S.deck.key,
+    pipelineOut: { graph: S.graph, alignment: S.alignment, flow: S.flow, score: S.score, pace: S.pace, habits: S.habits, report: S.report, transcript: t } };
+  nfSlideDoc = null; uploadedPdf = null; chatterCache = S.chatter || null;
+}
+function rv2DemoSwapOut() {
+  if (!rv2DemoBackup) return;
+  ({ nf, nfSlideDoc, uploadedPdf, chatterCache } = rv2DemoBackup);
+  rv2DemoBackup = null;
+}
+/** 리포트 2.0 이 옛 리포트의 분석 탭 하나를 한 화면으로 품는다 (10-16 사용자 「#/rehearsal 리포트 기능을 삭제하면 안 되는데」) — i 는 R_TAB_VIEWS 순서 */
+window.__rv2Legacy = (i, host) => {
+  document.querySelectorAll('#rbody').forEach((el) => { if (el !== host) el.removeAttribute('id'); });
+  host.id = 'rbody';
+  rTab = i;
+  try {
+    R_TAB_VIEWS[i]();
+    wireSessionDelete(host); wireFeedback(host); animateViz(host);
+    if (typeof paintDeckThumbs === 'function') paintDeckThumbs(host);
+    if (typeof paintDeckStage === 'function') paintDeckStage(host);
+  } catch (err) {
+    console.warn('[chuckchuck] legacy view', i, err);
+    host.innerHTML = '<p class="note">이 분석을 그리지 못했어요. 「이전 리포트」 에서 볼 수 있어요.</p>';
+  }
+};
+// 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게. 샘플 동안 바꿔 둔 내 것도 되돌린다
 window.addEventListener('hashchange', () => {
+  if (!/report\/demo/.test(location.hash)) rv2DemoSwapOut();
   if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; delete app.dataset.rv2Root; }
 });
 /** 스튜디오(ui/Frame.jsx)가 리포트 탭을 옮길 때 부른다 — 0 결과 · 1 다시 보기 · 2 청중석 · 3 코칭 · 4 연습 */
@@ -5753,6 +5789,8 @@ const R_TAB_VIEWS = [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools, rStra
  */
 function switchReportTab(i) {
   const btns = $$('#rtabs button');
+  // 리포트 2.0 이 옛 분석 탭을 품고 있으면(탭 막대 없음) 그 화면을 리포트 2.0 안에서 밀어 넣는다 — 옛 리포트를 통째로 다시 그리지 않게
+  if (!btns.length && rv2Handle && typeof rv2Handle.open === 'function') { rv2Handle.open(`legacy:${i}`); return; }
   if (!btns.length || !$('#rbody')) { rTab = i; renderReport(); return; }
   rTab = i;
   btns.forEach((b, k) => b.classList.toggle('on', k === i));

@@ -24,10 +24,10 @@
 .rv2 [hidden] { display: none !important; }
 body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 { position: relative; height: 100dvh; min-height: 480px; background: var(--bg); color: var(--ink); font: 17px/1.47 var(--font); letter-spacing: -0.01em; word-break: keep-all; -webkit-font-smoothing: antialiased; overflow: hidden; }
-.rv2 button { font: inherit; color: inherit; letter-spacing: inherit; cursor: pointer; border: 0; background: none; padding: 0; text-align: inherit; }
+:where(.rv2 button:not(.nv-legacyhost button)) { font: inherit; color: inherit; letter-spacing: inherit; cursor: pointer; border: 0; background: none; padding: 0; text-align: inherit; }
 .rv2 :focus-visible { outline: 3px solid rgba(8, 184, 121, .45); outline-offset: 2px; border-radius: 10px; }
-.rv2 h1, .rv2 h2, .rv2 h3 { margin: 0; text-wrap: balance; }
-.rv2 svg { display: block; }
+.rv2 .nv-large, .rv2 .nv-small, .rv2 .nv-sec, .rv2 .nv-sheet-title { margin: 0; text-wrap: balance; }
+:where(.rv2 svg:not(.nv-legacyhost svg)) { display: block; }
 
 /* ── 스택 ── */
 .rv2 .nv { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
@@ -46,7 +46,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-back svg { width: 12px; height: 20px; flex: none; }
 .rv2 .nv-back span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rv2 .nv-back:active { opacity: .5; }
-.rv2 .nv-legacy { justify-self: start; height: 44px; padding: 0 10px; color: var(--ink-3); font-size: 15px; }
+.rv2 .nv-oldbtn { justify-self: start; height: 44px; padding: 0 10px; color: var(--ink-3); font-size: 15px; }
 
 /* 본문 기둥 — iOS 앱처럼 한 기둥, 넓은 화면에선 가운데 */
 .rv2 .nv-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px max(20px, calc((100% - var(--col)) / 2)) calc(120px + env(safe-area-inset-bottom, 0px)); }
@@ -233,6 +233,11 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-meter { display: block; height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; margin-top: 8px; }
 .rv2 .nv-meter i { display: block; height: 100%; width: var(--w); border-radius: 3px; background: var(--accent); animation: nvBar .9s var(--ease) both .1s; }
 @keyframes nvBar { from { width: 0; } to { width: var(--w); } }
+
+/* 자세한 분석 — 옛 리포트 분석 탭을 품는 화면. 옛 app.css 의 카드 · 단추 결을 그대로 쓰고, 기둥만 넓힌다 */
+.rv2 .nv-screen.is-wide { --col: 1080px; }
+.rv2 .nv-legacyhost { font-size: 15px; line-height: 1.55; letter-spacing: normal; color: #191F28; }
+.rv2 .nv-legacyhost > * + * { margin-top: 16px; }
 
 /* 앱 안(/VRShow 리포트 단계 · #/rehearsal/report) — 앱 칸의 여백 · 폭을 걷고 창 높이를 채운다 */
 #app.rv2-host { padding: 0 !important; max-width: none !important; width: 100%; height: 100dvh; }

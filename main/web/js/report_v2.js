@@ -62,6 +62,16 @@
     bang: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v5.3M8 11.9v.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>',
     doc: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 2.8h5.5L15.5 7v9.2A1.3 1.3 0 0 1 14.2 17.5H6a1.3 1.3 0 0 1-1.3-1.3V4.1A1.3 1.3 0 0 1 6 2.8Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M11 3v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
   };
+  /** 옛 리포트 분석 탭 (app.js R_TAB_VIEWS 순서 그대로) */
+  const LEGACY = [
+    { name: '슬라이드로 보는 발표', short: '슬라이드', line: '장마다 판정 · 그 장에서 한 말 · 이렇게 말해 봐요', icon: 'doc', ico: 'i-blue' },
+    { name: '말하기', short: '말하기', line: '말 속도 · 시간 배분 · 말버릇 · 청중 반응', icon: 'wave', ico: 'i-orange' },
+    { name: '개념 전달', short: '개념 전달', line: '개념마다 설명했는지 · 판정 근거', icon: 'check', ico: 'i-green' },
+    { name: '흐름', short: '흐름', line: '설명 순서 · 빠진 고리 · 잘 이은 곳', icon: 'chart', ico: 'i-gray' },
+    { name: '채점 근거', short: '채점 근거', line: '39개 항목의 점수와 근거 · 이의 제기', icon: 'doc', ico: 'i-gray' },
+    { name: '연습 도구', short: '연습 도구', line: '개념도 · 펀치라인 · 용어 카드', icon: 'redo', ico: 'i-green' },
+    { name: '발표 구성', short: '발표 구성', line: '발표 순서를 다시 짜 보기', icon: 'chart', ico: 'i-blue' },
+  ];
   const badge = (x) => `<span class="nv-badge t-${tone(x)}">${tone(x) === 'ok' ? I.check : tone(x) === 'na' ? I.q : I.bang}</span>`;
 
   /* ═══ 마운트 ═══════════════════════════════════════════════════════════ */
@@ -137,20 +147,20 @@
     const playBtn = (key, a, b, label) => `<button type="button" class="nv-play" data-play="${esc(key)}" data-a="${a}" data-b="${b == null ? '' : b}" ${audio ? '' : 'disabled'}><span class="nv-pi">${I.play}</span><span>${esc(label)}</span></button>`;
 
     /* ── 스택 ── */
-    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores };
+    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy };
     const parse = (r) => { const k = r.indexOf(':'); return k < 0 ? [r, ''] : [r.slice(0, k), r.slice(k + 1)]; };
     function renderScreen(route) {
       const [name, arg] = parse(route);
       const sc = (ROUTES[name] || home)(arg);
       const el = document.createElement('section');
-      el.className = `nv-screen nv-${ROUTES[name] ? name : 'home'}`;
+      el.className = `nv-screen nv-${ROUTES[name] ? name : 'home'}${sc.wide ? ' is-wide' : ''}`;
       el.setAttribute('aria-label', sc.title);
       const prev = stack[stack.length - 1];
       const backWord = prev ? prev.short : '';
       el.innerHTML = `
         <header class="nv-bar">
           ${backWord ? `<button type="button" class="nv-back" data-back>${I.back}<span>${esc(backWord)}</span></button>`
-            : (typeof opts.onLegacy === 'function' && name === 'home' ? '<button type="button" class="nv-legacy" data-legacy>이전 리포트</button>' : '<span></span>')}
+            : (typeof opts.onLegacy === 'function' && name === 'home' ? '<button type="button" class="nv-oldbtn" data-legacy>이전 리포트</button>' : '<span></span>')}
           <h2 class="nv-small">${esc(sc.short || sc.title)}</h2><span class="nv-bar-end"></span>
         </header>
         <div class="nv-scroll">
@@ -313,7 +323,9 @@
             <span class="nv-faces">${V.evaluators.map((e) => `<img src="${esc(asset(`assets/chick-${e.key}-neutral.svg`))}" alt="" class="${e.absent ? 'off' : ''}">`).join('')}</span><i class="nv-chev">${I.chev}</i></button>
           <button type="button" class="nv-row" data-push="practice"><span class="nv-ico i-green">${I.chat}</span><span class="nv-row-main"><b>Q&A 돌아보기</b><small>${V.qa.length ? `질문 ${V.qa.length}개 · 내 어느 말에서 꼬리질문이 나왔나` : 'Q&A 기록이 없어요'}</small></span><i class="nv-chev">${I.chev}</i></button>
           ${sc ? `<button type="button" class="nv-row" data-push="scores"><span class="nv-ico i-gray">${I.chart}</span><span class="nv-row-main"><b>기준별 점수</b><small>39개 항목을 7개 기준으로</small></span><span class="nv-val">${esc(val)}점</span><i class="nv-chev">${I.chev}</i></button>` : ''}
-        </div>`,
+        </div>
+        ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">자세한 분석</h3>
+        <div class="nv-group">${LEGACY.map((L, k) => `<button type="button" class="nv-row" data-push="legacy:${k}"><span class="nv-ico ${L.ico}">${I[L.icon]}</span><span class="nv-row-main"><b>${esc(L.name)}</b><small>${esc(L.line)}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` : ''}`,
         cta: { label: '다시 연습하기', attr: 'data-push="practice"', icon: I.redo },
       };
     }
@@ -404,6 +416,7 @@
           ${D.transcript && D.transcript.marks_estimated ? '<p class="nv-cap">장 경계는 녹음 내용으로 추정한 대략 위치예요.</p>' : ''}
           ${audio ? '' : '<p class="nv-cap">녹음이 저장되지 않아 들을 수 없어요. 글로만 봐요.</p>'}
         </div>
+        ${typeof window.__rv2Legacy === 'function' ? `<div class="nv-group" style="margin-top:12px"><button type="button" class="nv-row" data-push="legacy:0"><span class="nv-ico i-blue">${I.doc}</span><span class="nv-row-main"><b>슬라이드로 보는 발표</b><small>장마다 판정 · 그 장에서 한 말</small></span><i class="nv-chev">${I.chev}</i></button><button type="button" class="nv-row" data-push="legacy:1"><span class="nv-ico i-orange">${I.wave}</span><span class="nv-row-main"><b>말하기</b><small>말 속도 · 시간 배분 · 말버릇</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
         <h3 class="nv-sec">받아쓰기</h3>
         <div class="nv-group nv-lines">${V.utterances.map((u) => `<button type="button" class="nv-line${hit.has(u.id) ? ' is-hit' : ''}" data-u="${esc(u.id)}" data-s="${u.start}"><time>${fmt(u.start)}</time><span>${esc(u.text)}</span></button>`).join('') || '<p class="nv-empty">받아쓰기가 없어요.</p>'}</div>
         <div class="nv-sheet" hidden><div class="nv-sheet-card" role="dialog" aria-label="진단"><i class="nv-grab"></i><div class="nv-sheet-body"></div></div></div>`,
@@ -501,6 +514,7 @@
         <h3 class="nv-sec">어디부터 할까요</h3>
         <div class="nv-group">${targets.map((p) => `<button type="button" class="nv-row" data-href="index.html${esc(p.route)}"><span class="nv-ico i-green">${I.redo}</span><span class="nv-row-main"><b>${esc(p.label)}</b><small>${why(p)}${EMBED ? ' — 앱에서 열려요' : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>
         <p class="nv-note">다시 연습한 결과는 아직 이 진단에 이어지지 않아요. 그래서 나아졌는지는 보여 주지 않아요.</p>
+        ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">연습 도구</h3><div class="nv-group"><button type="button" class="nv-row" data-push="legacy:5"><span class="nv-ico i-green">${I.doc}</span><span class="nv-row-main"><b>개념도 · 펀치라인 · 용어 카드</b><small>발표 직전에 챙길 것</small></span><i class="nv-chev">${I.chev}</i></button><button type="button" class="nv-row" data-push="legacy:6"><span class="nv-ico i-blue">${I.chart}</span><span class="nv-row-main"><b>발표 구성 다시 짜기</b><small>순서 · 클라이맥스 · 덧붙일 장</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
         <h3 class="nv-sec">Q&A 돌아보기</h3>
         <div class="nv-group">${V.qa.length ? V.qa.map((q) => `<button type="button" class="nv-row" data-push="qa:${esc(q.id)}"><span class="nv-ico i-${q.result && q.result.verdict === 'good' ? 'green' : q.result && q.result.setAside ? 'gray' : 'orange'}">${I.chat}</span><span class="nv-row-main"><b>${esc(q.text)}</b><small>${esc(state(q.result || {}))}${q.steps.length > 1 ? ` · 꼬리질문 ${q.steps.length - 1}번` : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('') : '<p class="nv-empty">이 리포트엔 Q&A 기록이 없어요.</p>'}</div>`,
       };
@@ -520,6 +534,17 @@
         ${q.gist ? `<h3 class="nv-sec">자료가 기대한 답</h3><div class="nv-card"><p class="nv-body">${esc(q.gist)}</p></div>` : ''}
         ${D.provenance && D.provenance.qa ? `<p class="nv-note">${esc(D.provenance.qa)}</p>` : ''}`,
       };
+    }
+    /* 자세한 분석 — 옛 리포트(#/rehearsal/report)의 분석 탭을 그대로(같은 코드 · 같은 데이터) 한 화면에 품는다. 기능을 지우지 않는다
+       (10-16 사용자 「리포트 기능들을 삭제하면 안 되는데 — 슬라이드 보여 주고 말 어투 찾아 주고 등등」). 앱 안에서만(window.__rv2Legacy) */
+    function legacy(arg) {
+      const i = Math.max(0, Math.min(LEGACY.length - 1, Number(arg) || 0));
+      const L = LEGACY[i];
+      if (typeof window.__rv2Legacy !== 'function') return { title: L.name, short: L.short, html: '<p class="nv-empty">이 분석은 앱 안 리포트에서 볼 수 있어요.</p>' };
+      return { title: L.name, short: L.short, eyebrow: '자세한 분석', wide: true,
+        html: '<div class="nv-legacyhost"></div>',
+        // 옛 탭은 문서에서 #rbody 를 찾는다 — 화면이 문서에 붙은 뒤에 그린다
+        wire(el) { const host = el.querySelector('.nv-legacyhost'); const run = () => (host.isConnected ? window.__rv2Legacy(i, host) : requestAnimationFrame(run)); run(); } };
     }
     function scores() {
       const sc = V.score;
@@ -549,6 +574,8 @@
     return {
       /** 늦게 온 재료(청중석 등)를 얹고 지금 스택 그대로 다시 그린다 */
       update(patch) { D = { ...D, ...patch }; build(); rebuild(stack.map((s) => s.route)); },
+      /** 화면 하나를 밀어 넣는다 — 옛 분석 탭 안의 「판정 근거 자세히 보기」 같은 이동이 쓴다 */
+      open(route) { push(route); },
       /** 탭 i 로 (스튜디오 정거장 · ← → 키) */
       tab(i) { if (TABS && TABS[i]) goRoot(TABS[i]); },
       destroy() { if (audio) audio.pause(); root.classList.remove('rv2'); root.innerHTML = ''; },
