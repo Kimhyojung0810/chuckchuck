@@ -56,6 +56,7 @@ from server.rate_limit import RateLimiter  # noqa: E402
 from server import shield  # noqa: E402
 from server import live_stt  # noqa: E402
 from server import tour_events  # noqa: E402
+from server import qa_board  # noqa: E402 — 네 모델 Q&A 후보 판 (4단계 리포트)
 from server.session_archive import SessionArchive, git_sha  # noqa: E402
 from server.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from server import clova_transcript  # noqa: E402
@@ -2376,6 +2377,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_qa_pool(raw)
         if parsed.path == "/api/v1/qa/next":
             return self._handle_qa_next(raw)
+        if parsed.path == "/api/v1/qa/board":
+            return self._handle_qa_board(raw)
         # 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다
         if parsed.path.endswith("/qa/reframe") and "/api/v1/sessions/" in parsed.path:
             return self._handle_qa_reframe(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
@@ -4087,7 +4090,12 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         doc.model = "ensemble:" + "+".join(pool.models)
         doc._ensemble = {"active": True, "models": pool.models, "n_candidates": len(pool.candidates),
                          "timings": pool.timings, "next": "/api/v1/qa/next"}
-        self._archive(body, "qa_ensemble_board", {**pool.to_dict(), "picked": [c["uid"] for c in picked]})
+        # 후보 판(4단계 리포트) — 세션 메모리에 늘 담고(동의 없는 세션도 자기 리포트에서 본다 · /api/v1/qa/board), 보관은 동의 세션만(보관소가 거른다)
+        board = qa_board.board(pool.to_dict(), [c["uid"] for c in picked], found["graph"], track=str(doc.track or ""),
+                               prev=STORE.get_triage("ens_board:" + sid) if sid else None)
+        if sid:
+            STORE.set_triage("ens_board:" + sid, board)
+        self._archive(body, "qa_ensemble_board", board)
         sys.stderr.write(f"[bridge] F-08 앙상블 n={len(picked)} 후보={len(pool.candidates)} 버림={len(pool.dropped)} "
                          f"작성={[c['model'] for c in picked]} {pool.timings}\n")
         return doc
@@ -4163,9 +4171,11 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         except Exception:  # noqa: BLE001 — 늦으면 바로 앞 답까지로 만든 음성 후보(질문을 낼 때 미리 띄운 것), 그것도 없으면 묶음에서
             vr = STORE.get_triage(last_key)
         t0 = time.monotonic()
-        nxt = FE.choose_next(pool, vr, asked)
+        pick_calls: list = []
+        nxt = FE.choose_next(pool, vr, asked, calls=pick_calls)
         if not nxt:
             return self._json(200, {"question": None, "done": True})
+        self._ensemble_round(body, len(asked) + 1, nxt, vr, pick_calls, time.monotonic() - t0)
         q = FE.to_question(nxt, len(asked) + 1)
         payload = {"questions": [q.to_dict()]}
         STORE.remember_questions(sid, f"ens:{q.id}", payload)
@@ -4176,6 +4186,33 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         return self._json(200, {"question": out, "substituted": bool(nxt.get("substituted")),
                                 "pick_reason": nxt.get("pick_reason", ""), "signal": nxt.get("signal_kind") or "",
                                 "by": nxt.get("model", "")})
+
+    def _ensemble_round(self, body: dict, n: int, nxt: dict, vr, pick_calls: list, sec: float) -> None:
+        """3번+ 질문 하나의 고른 과정(음성 신호 · 네 모델 후보 · 버림 · 최종 선택)을 후보 판에 잇는다. 실패해도 질문은 나간다."""
+        try:
+            sid = str(_session_id_of(body) or "")
+            b = STORE.get_triage("ens_board:" + sid) if sid else None
+            if not b:
+                return
+            b = qa_board.with_round(b, qa_board.round_record(n, nxt, vr, pick_calls, sec, paths_from=b["graph"]["nodes"]))
+            STORE.set_triage("ens_board:" + sid, b)
+            self._archive(body, "qa_ensemble_board", b)
+        except Exception as e:  # noqa: BLE001 — 판은 리포트 재료다. 질문을 막지 않는다
+            sys.stderr.write(f"[bridge] F-08 앙상블 판 기록 실패: {type(e).__name__}: {str(e)[:120]}\n")
+
+    def _handle_qa_board(self, raw: bytes):
+        """
+        {session_id} → 이 세션의 후보 판 (리포트 「질문은 이렇게 골랐어요」). 세션 메모리 → (동의 세션이면) 보관본 순.
+        LLM 을 부르지 않는다. 판이 없으면 404 {board: null} — 이번 질문을 한 모델이 골랐거나(QA_ENSEMBLE=0 · 묶음 실패) 메모리가 지났다.
+        """
+        body = json.loads(raw or b"{}")
+        sid = _session_id_of(body)
+        if not sid:
+            return self._json(400, {"error": "bad_request", "message": "session_id 가 필요해요."})
+        b = STORE.get_triage("ens_board:" + sid) or ARCHIVE.read_artifact(sid, "qa_ensemble_board")
+        if not b or not b.get("candidates"):
+            return self._json(404, {"board": None, "message": "이 세션엔 네 모델이 고른 기록이 없어요."})
+        return self._json(200, {"board": b})
 
     def _memory_for(self, body: dict):
         """
