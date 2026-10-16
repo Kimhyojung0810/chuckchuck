@@ -290,8 +290,9 @@
       const row = (x, k) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}">
           <span class="nv-num t-${tone(x)}">${k + 1}</span><span class="nv-row-main"><b>${esc(x.title)}</b><small>${esc(EV[x.evidence])}${x.status === 'conflicting' ? ' · 판정이 흔들려요' : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`;
       return {
-        title: '리포트', short: '리포트', eyebrow: D.deck.title,
+        title: '리포트', short: '리포트', eyebrow: `${D.sample ? '샘플 · ' : ''}${D.deck.title}`,
         html: `
+        ${D.sample ? '<div class="nv-callout nv-samplenote"><b>샘플 리포트예요</b><p>미리 돌려 둔 부스 시연 발표의 실제 분석이에요. 직접 발표를 마치면 이 자리에 내 리포트가 떠요.</p></div>' : ''}
         <section class="nv-hero">
           ${val != null ? `<div class="nv-score">
             <svg class="nv-ring" viewBox="0 0 108 108" aria-hidden="true"><circle cx="54" cy="54" r="46" class="bg"/><circle cx="54" cy="54" r="46" class="fg" style="--c:${C.toFixed(1)};--off:${(C * (1 - Math.max(0, Math.min(100, val)) / 100)).toFixed(1)}"/></svg>
@@ -386,7 +387,7 @@
       const slideAt = (s) => (V.slides.find((sl) => sl.spans.some((sp) => s >= sp.start && s < sp.end)) || {}).no || 1;
       const s0 = t ? slideAt(t[0]) : (focus && focus.anchor.slide_no) || 1;
       return {
-        title: '발표 다시 보기', short: '다시 보기', eyebrow: focus ? focus.title : D.deck.title,
+        title: '발표 다시 보기', short: '다시 보기', eyebrow: focus ? focus.title : `${D.sample ? '샘플 · ' : ''}${D.deck.title}`,
         html: `
         <div class="nv-stage">${slideTag(s0, 'nv-slide')}</div>
         <div class="nv-card nv-player">

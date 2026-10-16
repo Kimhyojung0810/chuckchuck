@@ -5287,7 +5287,8 @@ function reportVerdict() {
    같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
-const RV2_FILES = { css: 'css/report_v2.css?v=rv7', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv7'] };
+const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
+const RV2_FILES = { css: 'css/report_v2.css?v=rv8', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv9'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5380,6 +5381,34 @@ async function renderReportV2(restoredAt) {
     }).catch(() => { /* 청중석은 「기록이 없어요」 로 남는다 */ });
   }
 }
+/** 공개 샘플 리포트 — js/report_sample.js(실측 부스 시연 발표 묶음)를 처음 쓸 때만 받는다. 스튜디오가 고른 탭(__rv2WantTab)으로 연다 */
+async function renderReportV2Demo() {
+  app.className = 'rv2-host';
+  app.innerHTML = '<p class="note" role="status" style="padding:56px 24px">샘플 리포트를 준비하고 있어요…</p>';
+  try {
+    await loadRv2Files();
+    if (!window.__RV2_SAMPLE) {
+      await new Promise((ok, fail) => { const el = document.createElement('script'); el.src = RV2_SAMPLE_JS; el.onload = ok; el.onerror = () => fail(new Error('샘플을 받지 못했어요')); document.head.appendChild(el); });
+    }
+  } catch (err) {
+    app.className = 'narrow';
+    app.innerHTML = `<div class="card empty-card"><h2 class="section-title">샘플 리포트를 열지 못했어요</h2><p class="note">연결을 확인하고 다시 눌러요.</p></div>`;
+    return;
+  }
+  if (!/report\/demo/.test(location.hash)) return;
+  const want = Number.isInteger(window.__rv2WantTab) ? window.__rv2WantTab : 0;
+  window.__rv2WantTab = null;
+  const tabs = ['home', 'replay', 'audience', 'coach', 'practice'];
+  if (rv2Handle) rv2Handle.destroy();
+  try { sessionStorage.removeItem('cheokcheok:rv2-stack'); } catch (_) { /* 처음부터 */ }
+  rv2Handle = window.ReportV2.mount(app, window.__RV2_SAMPLE, {
+    mode: 'app',
+    tabs: document.documentElement.classList.contains('sx-studio') ? tabs : null,
+    onRoot: (root) => { app.dataset.rv2Root = root; },
+  });
+  if (want > 0) rv2Handle.tab(want);
+}
+
 // 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게
 window.addEventListener('hashchange', () => {
   if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; delete app.dataset.rv2Root; }
@@ -5394,6 +5423,9 @@ async function renderReport() {
      행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
      라벨은 샘플인데 열면 내 발표 리포트가 떴다 */
   let reportId = routeParts()[1] || '';
+  /* #/rehearsal/report/demo — /VRShow 에서 발표를 안 해도 리포트 정거장(05~09)을 둘러보는 공개 샘플 (10-16 사용자 「미리 돌린 샘플 자료로
+     왔다 갔다」). 내 결과(nf)는 건드리지 않고, 화면이 「샘플 리포트」 로 표시한다. 그래서 팀 샘플 문(sampleOpen)보다 앞에 둔다 */
+  if (reportId === 'demo') { renderReportV2Demo(); return; }
   /* 공개 방문자는 샘플 리포트(sample-*·DATA.reportProfiles)를 못 연다 — 자기 결과(#/report)와
      이 브라우저에 저장한 마지막 리포트(#/report/last)만 */
   if (reportId && reportId !== 'last' && !sampleOpen()) {

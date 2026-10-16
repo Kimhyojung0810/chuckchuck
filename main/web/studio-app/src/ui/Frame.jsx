@@ -123,7 +123,15 @@ export function AppFrame({ rect, onStation, api, onFit }) {
     if (api) api.current = {
       next: () => act('next'), back: () => act('back'), key: (e) => onKey(e, document.activeElement),
       /** 리포트 탭 i(0 결과 · 1 다시 보기 · 2 청중석 · 3 코칭 · 4 연습)로 — 리포트 2.0 이 뿌리 화면을 바꾸면 sync 가 정거장을 옮긴다 */
-      tab: (i) => { const w = frame.current?.contentWindow; if (w && typeof w.__rv2Tab === 'function') w.__rv2Tab(i) },
+      // 리포트에 와 있으면 그 리포트의 탭을, 아니면(발표를 아직 안 했으면) 미리 돌린 샘플 리포트의 그 탭을 연다 (10-16 사용자 「샘플 자료로 왔다 갔다」)
+      tab: (i) => {
+        const w = frame.current?.contentWindow
+        if (!w) return
+        const onReport = station.current >= ST.report && w.document.getElementById('app')?.classList.contains('rv2')
+        if (onReport && typeof w.__rv2Tab === 'function') { w.__rv2Tab(i); return }
+        w.__rv2WantTab = i
+        w.location.hash = '#/rehearsal/report/demo'
+      },
       doc: () => frame.current?.contentDocument || null, win: () => frame.current?.contentWindow || null,
     }
   })

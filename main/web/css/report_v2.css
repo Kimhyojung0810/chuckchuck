@@ -130,6 +130,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-callout p { margin: 4px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
 .rv2 .nv-callout.t-ct { background: var(--ct-bg); } .rv2 .nv-callout.t-ct b { color: var(--ct); }
 .rv2 .t-ct-text { color: var(--ct); }
+.rv2 .nv-samplenote { margin: -6px 0 16px; background: rgba(8, 184, 121, .1); } .rv2 .nv-samplenote b { color: var(--accent-ink); }
 .rv2 .v-ok { color: var(--ok); } .rv2 .v-no { color: var(--no); } .rv2 .v-ct { color: var(--ct); } .rv2 .v-om { color: var(--om); } .rv2 .v-na { color: var(--ink-3); }
 
 /* ── 아래 단추 — 토스식 꽉 찬 단추, 위로 바탕이 번지듯 ── */

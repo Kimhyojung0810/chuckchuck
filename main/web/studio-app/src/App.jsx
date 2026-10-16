@@ -151,8 +151,8 @@ export default function App() {
         <ol className="hud__steps" aria-label="리허설 단계">
           {STATIONS.map((s, i) => (
             <li key={s.key} className={i === ST.report ? 'hud__report-start' : undefined}>
-              {/* 리포트 정거장끼리는 눌러서 옮겨 다닌다(리포트에 와 있을 때만) — 앞 단계는 앱 흐름이 정한다 */}
-              {isReport(i) && isReport(at)
+              {/* 리포트 정거장(05~09)은 언제든 눌러서 간다 — 발표 전이면 미리 돌린 샘플 리포트로(Frame api.tab). 앞 단계(01~04)는 앱 흐름이 정한다 */}
+              {isReport(i)
                 ? <button type="button" className="ds-step" aria-current={i === at ? 'step' : undefined} onClick={() => frameApi.current?.tab(i - ST.report)}>
                     <span className="ds-mono">0{i + 1}</span><span className="hud__step-name">{s.name}</span></button>
                 : <span className="ds-step" aria-current={i === at ? 'step' : undefined}>

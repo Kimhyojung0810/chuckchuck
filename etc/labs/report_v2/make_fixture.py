@@ -15,6 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "main/web/data/report_v2_rec.json"
+SAMPLE_JS = ROOT / "main/web/js/report_sample.js"
 
 
 def main() -> int:
@@ -63,6 +64,12 @@ def main() -> int:
     }
     OUT.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"→ {OUT.relative_to(ROOT)} ({OUT.stat().st_size // 1024} KB)")
+    # 공개 샘플 — /VRShow 에서 발표를 안 해도 리포트 정거장(05~09)을 둘러보게 (10-16 사용자 「미리 돌린 샘플 자료로 왔다 갔다」).
+    # data/*.json 은 팀 전용이라 공개 js/ 로 낸다. 화면이 「샘플 리포트」 로 표시한다(sample: true)
+    sample = {**out, "sample": True, "provenance": {"sample": "샘플 리포트예요 — 미리 돌려 둔 부스 시연 발표의 실제 분석이에요(내 발표가 아니에요).", **out["provenance"]}}
+    SAMPLE_JS.write_text("/* 리포트 2.0 공개 샘플 — etc/labs/report_v2/make_fixture.py 가 만든다. 손으로 고치지 않는다 */\nwindow.__RV2_SAMPLE = "
+                         + json.dumps(sample, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
+    print(f"→ {SAMPLE_JS.relative_to(ROOT)} ({SAMPLE_JS.stat().st_size // 1024} KB)")
     return 0
 
 
