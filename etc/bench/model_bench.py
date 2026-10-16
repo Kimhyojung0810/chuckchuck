@@ -8,7 +8,8 @@
     ... --ledger                                                   # 표를 etc/bench/results/ledgers/MODEL_LEDGER.md 끝에 붙인다
 
 조합은 `triage/phrase` (예: `solar/exaone` = 1차 심사 Solar · 질문 문장 EXAONE). **판정(F-09)·rubric 심사관은 solar 로 고정**한다 —
-각 모델이 자기 질문을 채점하지 않게. 측정 자체는 `qa_eval.py` 를 그대로 부른다 (같은 지표 · 같은 코드 가드).
+각 모델이 자기 질문을 채점하지 않게. 판정 모델을 재려면 `triage/phrase@judge` (예: `solar/exaone@midm` — 판정만 Mi:dm,
+rubric 심사관은 그대로 solar). 판정 조합은 질문 품질(rubric)을 다시 매기지 않는다 — 판정은 질문을 바꾸지 않는다. 측정 자체는 `qa_eval.py` 를 그대로 부른다 (같은 지표 · 같은 코드 가드).
 결과 원문(질문 문장 — 자료 본문이 든다)은 `--out`(기본 /data/models/_runs/qa-route/bench) 아래에만 남고 저장소에는 표만 들어간다.
 
 실 LLM 을 부른다 (.env, 과금). mock 으로 재지 않는다 (CLAUDE.md §2).
@@ -36,7 +37,14 @@ JUDGE = "solar"
 
 
 def _slug(cfg: str) -> str:
-    return cfg.replace("/", "-").replace("+", "_")
+    return cfg.replace("/", "-").replace("+", "_").replace("@", "_j")
+
+
+def _split_cfg(cfg: str) -> tuple[str, str, str]:
+    """`triage/phrase[@judge]` → (triage, phrase, judge). judge 를 안 적으면 JUDGE(solar)."""
+    body, _, judge = cfg.partition("@")
+    triage, phrase = body.split("/", 1)
+    return triage, phrase, (judge or JUDGE)
 
 
 # ---------------------------------------------------------------------------
@@ -79,16 +87,16 @@ def _done(run_dir: Path, tag: str, bundle: Path) -> bool:
 
 
 def _run_one(cfg: str, rep: int, bundle: Path, args, run_dir: Path) -> tuple[str, int, int]:
-    triage, phrase = cfg.split("/", 1)
+    triage, phrase, judge = _split_cfg(cfg)
     tag = f"{_slug(cfg)}-r{rep}"
     if _done(run_dir, tag, bundle):
         return f"{tag} {bundle.stem}", 0, 0
     log = run_dir / f"{tag}_{bundle.stem}.log"
     cmd = [sys.executable, str(ROOT / "etc" / "bench" / "qa_eval.py"),
            "--bundle", str(bundle), "--track", args.track, "--limit", str(args.limit),
-           "--llm", phrase, "--triage-llm", triage, "--judge-llm", JUDGE,
+           "--llm", phrase, "--triage-llm", triage, "--judge-llm", judge,
            "--no-coach", "--fresh-triage", "--tag", tag, "--out-dir", str(run_dir)]
-    if not args.no_rubric:
+    if not args.no_rubric and judge == JUDGE:
         cmd += ["--rubric", "--rubric-llm", JUDGE, "--rubric-runs", str(args.rubric_runs)]
     t0 = time.time()
     with log.open("w", encoding="utf-8") as f:
@@ -184,6 +192,11 @@ def aggregate(run_dir: Path, cfg: str) -> dict:
         "f08_p95": _pct([r["summary"].get("f08_sec") for r in rows], 0.95),
         "triage_p50": _pct(role_secs("triage"), 0.5), "phrase_p50": _pct(role_secs("phrase"), 0.5),
         "phrase_p95": _pct(role_secs("phrase"), 0.95),
+        "judge_p50": _pct(role_secs("judge"), 0.5), "judge_p95": _pct(role_secs("judge"), 0.95),
+        "judge_json_fail": (f"{sum(1 for c in calls if c.get('role') == 'judge' and c.get('json_ok') is False)}/"
+                            f"{sum(1 for c in calls if c.get('role') == 'judge' and c.get('json_ok') is not None)}"),
+        "judge_errors": sum(r["summary"].get("judge_errors") or 0 for r in rows),
+        "judge_answered_by": ",".join(sorted({c.get("model") or "" for c in calls if c.get("role") == "judge"} - {""})),
         "tokens_per_f08": (round(sum((c.get("prompt_tokens") or 0) + (c.get("completion_tokens") or 0) for c in f08) / len(rows))
                            if rows else None),
         "completion_tokens_per_f08": round(sum(c.get("completion_tokens") or 0 for c in f08) / len(rows)) if rows else None,
@@ -196,7 +209,8 @@ COLS = [("config", "조합 triage/phrase"), ("runs", "n(번들×회)"), ("questi
         ("hallucination", "환각"), ("template_fallback", "템플릿"), ("impolite", "반말"), ("traps", "함정"),
         ("trap_agree_wrong", "함정동의→wrong"), ("trap_fixed_passed", "함정정정→통과"), ("gist_passed", "골자→통과"),
         ("json_fail", "JSON실패"), ("errors", "오류"), ("f08_p50", "F-08 p50(s)"), ("f08_p95", "p95"),
-        ("phrase_p50", "문장 p50"), ("tokens_per_f08", "토큰/F-08")]
+        ("phrase_p50", "문장 p50"), ("tokens_per_f08", "토큰/F-08"),
+        ("judge_answered_by", "판정 모델"), ("judge_p50", "판정 p50"), ("judge_json_fail", "판정 JSON실패"), ("judge_errors", "판정 오류")]
 
 
 def report(run_dir: Path, configs: list[str]) -> str:
@@ -223,7 +237,8 @@ def ledger_rows(run_dir: Path, configs: list[str], n_bundles: int, reps: int) ->
             f"| {stamp} | qa {c} | n={a['runs']} 질문 {a['questions']} · 특이도 {a['specificity']} · 인용률 {a['grounding']} · "
             f"rubric {a['rubric_overall']} · 환각 {a['hallucination']} · 템플릿 {a['template_fallback']} · 함정 {a['traps']} "
             f"(동의→wrong {a['trap_agree_wrong']}, 정정→통과 {a['trap_fixed_passed']}) · JSON실패 {a['json_fail']} · "
-            f"F-08 p50 {a['f08_p50']}s p95 {a['f08_p95']}s · 토큰/F-08 {a['tokens_per_f08']} | {_head()} |"
+            f"F-08 p50 {a['f08_p50']}s p95 {a['f08_p95']}s · 토큰/F-08 {a['tokens_per_f08']} · "
+            f"판정 {a['judge_answered_by']} p50 {a['judge_p50']}s JSON실패 {a['judge_json_fail']} 오류 {a['judge_errors']} | {_head()} |"
         )
     return rows
 

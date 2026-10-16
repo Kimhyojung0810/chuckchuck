@@ -596,6 +596,9 @@ class OpenAICompatLLM(LLMProvider):
     #: 두 번째도 실패하면 그대로 올린다 — 무한 재시도로 과금을 태우지 않는다 (f08·f11 의 JSON 재시도와 같은 규율).
     RETRY_ONCE_STATUS = frozenset({429, 500, 502, 503, 504})
     RETRY_BACKOFF_SEC = 2.0
+    #: json_mode 때 `response_format: {"type": "json_object"}` 를 보내는가. 이 필드를 못 받는 제공자는 끈다 —
+    #: 그때도 JSON 은 프롬프트 지시 + 모듈의 JSON 추출·재시도(f08 `_call_with_retry` 등)가 지킨다.
+    JSON_OBJECT_FORMAT = True
 
     def _post_with_retry(self, url: str, headers: dict, payload: dict):
         try:
@@ -636,7 +639,7 @@ class OpenAICompatLLM(LLMProvider):
             "max_tokens": max_tokens,
             **self.extra_body,
         }
-        if json_mode:
+        if json_mode and self.JSON_OBJECT_FORMAT:
             # 프롬프트 지시만으로는 모델이 한 줄 JSON 안에 이스케이프 안 된 따옴표를
             # 넣어 파싱이 깨진다. OpenAI 호환 제공자는 이 필드로 구조를 강제한다.
             payload["response_format"] = {"type": "json_object"}
@@ -645,6 +648,8 @@ class OpenAICompatLLM(LLMProvider):
             # 실행해 보기 전까지 모르는 지뢰를 밟는다 (F-09 「모르겠어요」가 그랬다).
             if "json" not in f"{system}\n{user}".lower():
                 payload["messages"][0]["content"] += "\n\n출력은 JSON 객체 하나로만 한다."
+        elif json_mode:
+            payload["messages"][0]["content"] += "\n\n출력은 JSON 객체 하나로만 한다. 코드펜스·말머리 없이."
         res = self._post_with_retry(url, headers, payload)
         if res.status_code != 200:
             raise ConceptError(
@@ -701,7 +706,13 @@ class MidmLLM(OpenAICompatLLM):
 
     2026-09-22: Friendli dedicated 에서 KT 공식 엔드포인트로 옮김. 공식 문서가 요구하는
     Content-Type charset 을 그대로 보낸다. MIDM_ENDPOINT_ID 가 요청의 model 필드가 된다.
+
+    2026-10-16 새 키 실측: `response_format` 은 `json_schema`(properties 필수)만 받는다 — `json_object` 는 400 `7005`
+    「Invalid value: 'json_object'. Supported values is: 'json_schema'」. 그래서 json_mode 의 모든 호출(점검 · 삐약이 ·
+    Q&A)이 401 이 풀린 뒤에도 400 으로 넘어졌다. 형식 필드 없이 보내면 같은 프롬프트에 JSON 만 온다(0.4초) — 끈다.
     """
+
+    JSON_OBJECT_FORMAT = False
 
     def __init__(self, api_key: str | None = None, endpoint_id: str | None = None):
         eid = endpoint_id or os.environ.get("MIDM_ENDPOINT_ID", "midm-pro-fp8-kaic")
