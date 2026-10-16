@@ -57,8 +57,15 @@ def r3(x):
     return None if x is None else round(x, 3)
 
 
+def _b(x) -> bool:
+    """LLM 심판이 「"false"」 처럼 문자열로 준 참/거짓도 읽는다."""
+    if isinstance(x, str):
+        return x.strip().lower() in ("true", "1", "yes", "예")
+    return bool(x)
+
+
 def rate(xs):
-    xs = [bool(x) for x in xs]
+    xs = [_b(x) for x in xs]
     return (sum(xs) / len(xs)) if xs else None
 
 
@@ -173,7 +180,7 @@ def dialogue_metrics(rows: list[dict], lj: dict | None = None) -> dict:
         m["lj_gap"] = rate(j.get("gap") for j in js)
         m["lj_micro"] = rate(j.get("micro") for j in js)
         prem = [j.get("premise") for j, r in zip([lj.get(_key(r)) for r in d], d) if j and r["kind"] == "premise"]
-        prem = [p for p in prem if p is not None]
+        prem = [p for p in prem if p is not None and str(p).lower() not in ("null", "none", "")]
         m["lj_premise"] = rate(prem)
         m["lj_natural"] = st.mean([float(j.get("natural") or 0) for j in js]) if js else None
     return m

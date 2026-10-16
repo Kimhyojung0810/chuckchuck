@@ -192,3 +192,10 @@ def test_인용이_없으면_첫_문장을_답_구절_인용으로():
     assert r == "「실험실에서 한 거라서」라고 했죠. 조건이 아직 흐려요."
     assert DLG.with_quote("조건이 흐려요.", "지어낸 구절", ANSWER, "clarify") == "조건이 흐려요."     # 원문에 없으면 손대지 않는다
     assert DLG.with_quote("괜찮아요.", "실험실에서", ANSWER, "hint") == "괜찮아요."
+
+
+def test_자료_줄을_대신_말하면_누설이다():
+    t = DLG.talk_input(q(), "높은 온도에서만 측정했어요.", deck_lines=["[2장] 충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다"])
+    bad = DLG.check_turn("「높은 온도에서만」이라고 했죠. 자료는 충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다고 해요.",
+                         "자료 2장은 어떻게 말해요?", t)
+    assert "deck_leak" in bad
