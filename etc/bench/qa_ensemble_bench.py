@@ -323,7 +323,7 @@ def main() -> int:
     ap.add_argument("--judges", default=",".join(JUDGES))
     ap.add_argument("--summary-judge", default="solar4")
     ap.add_argument("--prompt", default="guide")
-    ap.add_argument("--assign", default="all")
+    ap.add_argument("--assign", default="all", help="실험 판은 비교를 위해 all 이 기본 (서비스 기본은 f08_ensemble.assign_mode)")
     ap.add_argument("--peer-self", action="store_true", default=True)
     ap.add_argument("--flows", default=",".join(FLOWS))
     ap.add_argument("--voice2", action="store_true", default=True)

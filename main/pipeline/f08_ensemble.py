@@ -65,6 +65,13 @@ def model_names() -> list[str]:
     return [m.strip().lower() for m in raw.split(",") if m.strip()]
 
 
+def assign_mode() -> str:
+    """슬롯을 누구에게 — strength(패턴별 잘하는 두 모델, 기본) · all(넷 다 모든 슬롯) · roles(돌려 가며 둘).
+    10-17 dev 2회(같은 심판 한 호출): strength 4.30·4.46 vs all 4.15·4.29 — 두 번 다 +0.16, 심판 넷 중 셋이 같은 쪽, 호출 −20%.
+    Mi:dm 은 생성 슬롯이 없고 서로 평가 · 음성 추론을 맡는다."""
+    return (os.environ.get("QA_ENS_ASSIGN") or "strength").strip().lower()
+
+
 def picker_name() -> str:
     return (os.environ.get("QA_ENS_PICKER") or PICKER_DEFAULT).strip().lower()
 
@@ -397,7 +404,7 @@ def _chunks(xs: list, n: int) -> list[list]:
 def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[str] | None = None,
                llms: dict[str, LLMProvider] | None = None, peer: bool = True, peer_self: bool = False,
                slots_limit: int | None = None, temperature: float = 0.4, seed: int = 0,
-               slots: list[ES.Slot] | None = None, prompt: str = "guide", assign: str = "all") -> Pool:
+               slots: list[ES.Slot] | None = None, prompt: str = "guide", assign: str | None = None) -> Pool:
     """자료만으로(transcript 없이도) 후보 묶음을 만든다. llms 를 주면 그걸 쓴다(벤치·테스트)."""
     t0 = time.monotonic()
     deck = Deck.build(graph, slidedoc, claims)
@@ -413,6 +420,7 @@ def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[st
             sys.stderr.write(f"[f08-ens] {n} 을 못 만들어요: {str(e)[:80]}\n")
     pool = Pool(slots=slots, models=list(engines))
     order = list(engines)
+    assign = assign or assign_mode()
     if assign == "strength" and len(order) >= 2:
         # 패턴마다 잘하는 두 모델만 (10-17 test 묶음 전체, 남 심판 core — MODEL_LEDGER §4). 둘 다 없으면 있는 모델로 채운다.
         mine = {n: [] for n in order}
@@ -450,7 +458,8 @@ def build_pool(graph, slidedoc, claims=None, *, transcript=None, models: list[st
     _dedupe(pool)
     # 생성 호출이 하나도 성공 못 한 모델은 서로 평가에서 뺀다 — 넘어진 엔드포인트를 또 기다리지 않는다
     alive = {c.model for c in pool.calls if c.ok}
-    dead = [n for n in engines if getattr(engines[n], "name", n) not in alive]
+    tried = {c.model for c in pool.calls}
+    dead = [n for n in engines if getattr(engines[n], "name", n) in tried and getattr(engines[n], "name", n) not in alive]
     for n in dead:
         sys.stderr.write(f"[f08-ens] {n} 생성이 다 실패 — 서로 평가에서 뺀다\n")
         engines.pop(n)

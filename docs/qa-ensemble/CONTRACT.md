@@ -81,8 +81,9 @@
 | 이름 | 기본 | 뜻 |
 |---|---|---|
 | `QA_ENSEMBLE` | 0 | 켜면 질문 요청이 묶음으로 고른다 · `/qa/next` 가 열린다 |
-| `QA_ENS_MODELS` | solar,ax,midm,exaone | 후보·서로 평가·음성 모델 (solar-pro3 은 10-30 종료 → `solar4`) |
-| `QA_ENS_PICKER` | solar | 3번+ 최종 선택 모델 (측정 결과는 MODEL_LEDGER) |
+| `QA_ENS_MODELS` | solar4,ax,midm,exaone | 후보·서로 평가·음성 모델 (solar-pro3 은 10-30 종료) |
+| `QA_ENS_ASSIGN` | strength | 슬롯을 누구에게 — strength(패턴별 잘하는 두 모델: `f08_ensemble.STRENGTH`) · all(넷 다) · roles(돌려 가며) |
+| `QA_ENS_PICKER` | solar4 | 3번+ 최종 선택 모델 (측정 결과는 MODEL_LEDGER §4) |
 | `QA_ENS_SLOTS_PER_CALL` | 5 | 한 호출에 싣는 슬롯 수 (덱당 모델별 1~2회) |
 | `QA_ENS_POOL_WAIT_SEC` | 45 | 질문 요청이 묶음을 기다리는 상한 |
 | `QA_ENS_NEXT_WAIT_SEC` | 0.5 | 다음 질문이 음성 후보를 기다리는 상한 |
