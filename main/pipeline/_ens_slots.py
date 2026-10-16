@@ -253,7 +253,10 @@ def build_slots(graph, claims, slides: dict, lines: list[DeckLine], idx=None, *,
     chosen: list[Slot] = []
     for s in candidate_slots(graph, claims, slides, lines, idx):
         key = (s.node_id, s.pattern)
-        if key in seen or per_node.get(s.node_id, 0) >= SLOTS_PER_NODE:
+        # 루트(핵심 주장)는 셋까지 — 결론·한계·옮겨 쓰기(P1·P7·P10)를 다 묻게. 둘이면 한계가 옮겨 쓰기를 늘 밀어내
+        # 세션에 확장형(P10)이 0이었다 (10-17 test: P10 슬롯 9/27판, 시장조사 §4 「확장형 ≥ 1」)
+        cap_node = SLOTS_PER_NODE + (1 if s.kind == "thesis" else 0)
+        if key in seen or per_node.get(s.node_id, 0) >= cap_node:
             continue
         if s.pattern == "P8" and p8 >= 2:
             continue
