@@ -62,6 +62,7 @@ import os
 import re
 import sys
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import dataclass, replace
 
@@ -177,6 +178,8 @@ from .contracts import (
     ConceptMemory,
     MemoryDoc,
     QA_COACH_STAGES,
+    QA_GIVEUP_CLOSE,
+    QA_MAX_ATTEMPTS,
     QA_MAX_ROUNDS,
     QA_TEXT_MAX,
     QA_VERDICT_FALLBACK,
@@ -196,6 +199,8 @@ from .contracts import (
     qa_probe_tier,
 )
 from .f08_questions import build_hint_ladder
+from . import f09_dialogue as DLG
+from ._recital import deep_question, recital
 from .providers.llm_base import LLMProvider
 from .providers.llm_impl import FallbackLLM, OpenAICompatLLM, get_llm
 
@@ -509,6 +514,11 @@ verdict 는 다음 넷 중 하나다:
    것으로 치지 마라. 답변이 질문·자료와 무관한 이야기면 wrong 이다.
 1-2. **낱말 나열은 설명이 아니다.** 골자·자료의 낱말을 쉼표로 늘어놓기만 하고 그 낱말들이 어떻게 이어지는지(원인·결과·
    비교·방향) 말하지 않은 답은 good 이 아니다 — 60 이하다. 질문 문장을 그대로 되읊은 답도 답이 아니다.
+1-3. **외운 답과 이해한 답을 가른다** (핵심 원칙: 자료의 핵심 논리를 간파했는가). 질문이 왜·충분한가·어떻게 이어지나·어디까지 맞나를
+   묻는데 자료 문장을 거의 그대로 옮겨 놓기만 하고 그 문장이 질문에 **어떻게** 답이 되는지 잇지 않은 답은 good 이 아니다 — 60 이하다.
+   반대로 자료에 그 문장이 그대로 없어도, 자료 줄을 이어 핵심 논리를 맞게 말한 답(모범답과 같은 논리)은 good 이다 — 추론이라고 깎지 마라.
+   단 결론의 **방향 · 범위**가 모범답 · 자료와 다르면(「완전히 해결된다」 「어디서나 성립한다」 처럼 과장 · 단정하거나 반대로 말하면)
+   추론이 아니라 어긋난 답이다 — 70 미만이다.
 2. **선택형 질문(둘 중 하나·예/아니오)은 맞는 쪽을 고른 것 자체가 완전한 답이다.**
    "X 쪽인가요, Y 쪽인가요?" 에 "X 쪽이요" 라고만 답해도,
    그 선택이 맞으면 근거가 없어도 good 이다.
@@ -2398,11 +2408,22 @@ def _coach_stage(question: Question, turns: list[QaTurn]) -> str:
         1 for t in turns
         if _same_question(t) and (t.gave_up or looks_stuck(t.answer))
     )
-    # 0: 위치(자료 인용 + 둘 중 하나) · 1: 발판(빈칸, LLM 없음) · 2+: 해설.
-    # 답 공개까지 간접 힌트 두 번 — MVP_SPEC §5.3 "세 번째에 자기 말로".
-    if prior >= 2:
+    # 2026-10-17 5단계 (실사용: 같은 질문 연속 wrong 25번 · 해설 단계 실사용 0번): 「모르겠어요」 를 QA_GIVEUP_CLOSE(2)번째 누르면
+    # 근거 장을 짚는 해설로 **닫는다**. 이 질문에 낸 답이 이미 QA_MAX_ATTEMPTS − 1 개면(오답 둘 뒤 「모르겠어요」) 역시 해설로 닫는다.
+    # 0: 위치(자료 인용 + 둘 중 하나) → 해설. 발판(빈칸)은 memory 가 「지난번에도 막혔다」 고 할 때만 (coach_stuck).
+    attempts = sum(1 for t in turns if _same_question(t)) + 1
+    close_at = _env_int("QA_GIVEUP_CLOSE", QA_GIVEUP_CLOSE)
+    if prior + 1 >= close_at or attempts >= QA_MAX_ATTEMPTS:
         return "explain"
-    return "scaffold" if prior == 1 else "narrow"
+    # 예전 사다리(QA_GIVEUP_CLOSE=3): 1 → 발판(빈칸) · 2 → 해설
+    return "scaffold" if prior >= 1 else "narrow"
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return max(1, int(os.environ.get(name, "") or default))
+    except ValueError:
+        return default
 
 
 COACH_SYSTEM_PROMPT = """당신은 발표 코치다. 발표자가 방금 막혔다.
@@ -2445,6 +2466,8 @@ _COACH_REACT_FALLBACK = "괜찮아요. 여기서 같이 짚어 볼게요."
 #: 「식사 순서만으로 혈당 스파이크를 완전히 막을 수 없다는 점을 짚어 줘서 감사해요」 — 하지 않은 말을 칭찬하며 1단에서 정답을 흘렸다).
 #: 막힌 사람은 아무 말도 안 했다 — 칭찬·「짚었다」·답의 내용이 들어갈 자리가 없다. 안심 한 마디와 다음 걸음만 말한다.
 #: 예전 칭찬 낱말 거름(「잘 짚」「정확해요」 — 2026-09-10 「핵심을 잘 짚으셨어요」)으로는 「짚어 줘서 감사해요」 같은 공 돌리기를 다 못 막았다.
+#: 「모르겠어요」 1단의 안심 한 마디 — 세 꼴.
+_NARROW_REACTS = ("괜찮아요. 여기서 같이 짚어 볼게요.", "괜찮아요. 자료에서 한 걸음씩 짚어 가요.", "괜찮아요. 쉬운 데서부터 같이 가요.")
 _COACH_REACT = {
     "narrow": _COACH_REACT_FALLBACK,
     "clarify": "제가 어렵게 물었어요. 같은 질문을 쉽게 다시 물어볼게요.",
@@ -2558,6 +2581,8 @@ def coach_stuck(
     else:
         followup, choices = _narrow_followup(data, question, graph, deck_text, hide_quote=hidden)
         explanation = ""
+        # 「모르겠어요」 첫 반응은 질문마다 꼴을 바꾼다 — 한 세션에서 같은 문장이 되풀이되지 않게 (R9, 2026-10-17)
+        react = _NARROW_REACTS[int(hashlib.sha1((question.id or question.question).encode()).hexdigest(), 16) % len(_NARROW_REACTS)]
         if not hidden:
             react = _with_quote(react, question)
 
@@ -2579,6 +2604,9 @@ def coach_stuck(
         hints=build_hint_ladder(question, None),
         coach_stage=stage if stage in QA_COACH_STAGES else "narrow",
         explanation=explanation,
+        # 해설은 이 질문을 닫는다 (2026-10-17 5단계) — 예전엔 해설 뒤 「다시 말해 보세요」 로 한 턴 더 붙들었다.
+        closed=stage == "explain",
+        move="explain" if stage == "explain" else ("hint" if stage in ("narrow", "scaffold") else ""),
         choices=choices,
         # 함정의 인용은 사실 줄이다 — 화면이 인용 카드로 그리므로 해설 전에는 싣지 않는다(장 번호는 둔다 — 장 그림으로 가리킨다).
         # 해설(3단)에서는 연다. WP-Q 뒤 함정 질문의 evidence_quote 는 비어 있다(묶음에서 사실 줄을 뺐다) — 사실은 trap_premise.fact 에서.
@@ -3352,10 +3380,16 @@ def judge_answer(
     llm_kwargs: dict | None = None,
     slidedoc: SlideDoc | dict | None = None,
     memory: MemoryDoc | dict | None = None,
+    avoid: list[str] | None = None,
+    dialogue: bool | None = None,
 ) -> QaJudgement:
     """
     Question + 답변 (+선택 ConceptGraph·AlignmentDoc·Transcript·history·Context·MemoryDoc)
     → QaJudgement.
+
+    꼬리질문 엔진 (2026-10-17 5단계, `f09_dialogue`): 판정 LLM 과 **동시에** 읽기+말하기 한 콜을 띄워, 판정 뒤 코드 정책으로 반응 ·
+    꼬리질문을 입힌다(앞 답 구절 인용 → 구체 평가 → 인용에서 나온 질문). avoid 는 세션에서 이미 한 반응 · 꼬리질문(되풀이 금지 R9),
+    dialogue=False 면 엔진을 끈다(기본은 QA_DIALOGUE). 같은 질문에 QA_MAX_ATTEMPTS 번째 답에도 안 닫히면 근거 장 해설로 닫는다(closed).
 
     memory(F-25) 를 주면 이 개념의 지난 리허설 기억(판정·빠진 점)이 판정 프롬프트에 실려, 지난번에 빠졌던 점이
     이번엔 나왔는지 알아본다. 포기하면 코칭 시작 단계도 기억이 정한다 (coach_stuck). 안 주면 예전과 같다.
@@ -3488,6 +3522,11 @@ def judge_answer(
                  f" 발표자에게는 보이지 않는다)\n{gist}")
     elif gist and gist_grounded:
         user += f"\n\n## 기대하는 답의 골자 (채점 기준 — 발표자에게는 보이지 않는다)\n{gist}"
+    elif gist and prep.ens_gist:
+        # 네 모델 앙상블의 모범답 — 서로 평가를 거친, 자료 줄을 잇는 **추론**이 든 답이다(P2 충분한가 · P7 한계 · P10 응용). 낱말이 자료에
+        # 그대로 없다고 「참고만」 으로 실으면 판정이 같은 논리의 답을 partial 70~75 로 깎았다 (1~3단계 test: 모범답 그대로 → good 0.82).
+        user += ("\n\n## 모범답 (채점 기준 — 자료 줄을 잇는 추론이 든 답이다. 같은 논리를 자기 말로 하면 good. 자료와 어긋나는 사실을 말하면 아니다."
+                 f" 발표자에게는 보이지 않는다)\n{gist}")
     elif gist:
         user += (
             "\n\n## 기대하는 답의 골자 (참고만 — 일부가 자료 본문에서 확인되지 않는다. 자료와 다르면 자료가 맞다."
@@ -3559,14 +3598,26 @@ def judge_answer(
         + "이 단계 지시는 규칙 9 보다 우선한다. followup 의 넓이는 여기서 정한다."
     )
 
+    # 꼬리질문 엔진 — 판정 LLM 과 동시에 (기다림을 늘리지 않는다). 같은 질문에서 이미 한 꼬리질문(history 의 2턴째부터 question 칸)과
+    # 세션에서 한 말(avoid)은 되풀이 금지 재료로 싣는다.
+    same_q = [t for t in turns if (t.question_id or "") == (question.id or "") or not t.question_id]
+    attempt_no = len(same_q) + 1
+    # 판정 엔진을 객체로 받은 호출(테스트의 대본 LLM · 하네스)은 엔진을 켜지 않는다 — 실 API 를 몰래 부르지 않게. 이름(None · "solar4")으로 받은
+    # 서비스 · 벤치 호출만 켠다.
+    use_dialogue = (DLG.enabled() and not isinstance(llm, LLMProvider)) if dialogue is None else bool(dialogue)
+    ti = DLG.talk_input(question, answer, prior=prior_answers, asked=[t.question for t in same_q[1:] if t.question],
+                        avoid=avoid, deck_lines=_dialogue_lines(question, prep.line_index), graph=graph) if use_dialogue else None
+    talk_futs = DLG.start(ti) if ti is not None else []
+
     key_extra = f"{question.id}|{_deck_fingerprint(slidedoc)}"
+    t_judge = time.monotonic()
     try:
         data = _call(engine, user, extra_system=tier_brief, key_extra=key_extra)
     except JudgeError:
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
         data = _call(engine, user, extra_system=tier_brief + JSON_RETRY_NUDGE, key_extra=key_extra)
 
-    return _normalize(
+    judged = _normalize(
         _haeyo_data(data), question, engine.name, round_no,
         followup_tier=tier,
         forced_point=giveup_topic,
@@ -3576,6 +3627,51 @@ def judge_answer(
         repeated=repeated,
         **prep.guard_kwargs,
     )
+    # 외운 답 (2026-10-17 5단계, `_recital`) — 깊은 질문에 자료 문장만 옮겨 놓은 답은 통과시키지 않는다. 우리 모범답을 담은 답은 뺀다.
+    if (judged.verdict in ("good", "partial") and judged.score > RECITAL_SCORE_MAX and judged.guard in ("", "ungrounded", "echo")
+            and deep_question(question.question, _pattern_of(question))
+            and recital(answer, [ln.text for ln in prep.deck.lines])
+            and not covers_gist(answer, question.answer_gist or "", min_recall=GIST_COVER_STRICT)):
+        judged = replace(judged, verdict="partial", score=RECITAL_SCORE_MAX, guard="recital",
+                         guard_reason="자료 문장을 옮겼지만 질문이 묻는 「왜」 를 잇지 않았어요",
+                         summary_sentence=_clip(f"{question.label or '이 개념'} — 자료 문장을 옮겼지만 왜 그런지는 아직 잇지 않았어요."))
+    # 갇힘 출구 — 이 질문의 QA_MAX_ATTEMPTS 번째 답에도 안 닫혔다 (10/7 부스: 같은 질문 연속 wrong 25번). 근거 장을 짚는 해설로 닫는다.
+    closing = (not judged.mastered) and attempt_no >= QA_MAX_ATTEMPTS
+    if closing:
+        judged = replace(judged, closed=True, coach_stage="explain", followup="",
+                         explanation=_explain_text(question, "", prep.deck),
+                         evidence_quote=_quote_of(question), evidence_slide_no=_quote_slide_of(question))
+    judge_sec = round(time.monotonic() - t_judge, 2)
+    if ti is None or not talk_futs:
+        return judged
+    # 늦거나 실패하면 다시 말하기 · 코드 틀로 (판정은 그대로). 기다리는 상한은 판정이 끝난 뒤부터 QA_DIALOGUE_WAIT_SEC.
+    out = DLG.apply(judged, ti, talk_futs, closing=closing)
+    # 턴 시각 — 판정 LLM 몫과 엔진이 판정 뒤에 더한 몫을 나눠 남긴다 (지연 기준표: 앙상블 · 엔진 몫 vs 상수 몫)
+    return replace(out, dialogue={**(out.dialogue or {}), "judge_sec": judge_sec})
+
+
+#: 외운 답(자료 문장 옮기기)의 점수 상한 — 통과(70) 아래.
+RECITAL_SCORE_MAX = 60
+
+
+def _pattern_of(question: Question) -> str:
+    """앙상블 질문의 슬롯 패턴(`pattern:P2`) — 없으면 ""."""
+    return next((c.split(":", 1)[1] for c in _checks_of(question) if c.startswith("pattern:")), "")
+
+
+#: 꼬리질문 엔진에 싣는 근거 장 자료 줄 수.
+DIALOGUE_LINES_MAX = 10
+
+
+def _dialogue_lines(question: Question, line_index: LineIndex | None) -> list[str]:
+    """근거 장(질문의 장 · 근거 장)의 자료 줄 — 「[3장] …」. 판정 프롬프트와 같은 번호표에서."""
+    if line_index is None:
+        return []
+    nos = [n for n in dict.fromkeys([question.evidence_slide_no, *question.slide_nos]) if n]
+    out: list[str] = []
+    for no in nos:
+        out += [f"[{no}장] {r.text[:140]}" for r in line_index.in_slide(no)]
+    return out[:DIALOGUE_LINES_MAX]
 
 
 @dataclass(frozen=True)
@@ -3591,6 +3687,8 @@ class _JudgeInputs:
     guard_kwargs: dict
     #: 자료 줄 번호표 (`_judge_grounds.index_lines`) — 프롬프트의 `[S4-2]` 와 판정 근거(grounds) 되찾기가 같은 표를 쓴다.
     line_index: LineIndex | None = None
+    #: 앙상블 모범답(추론 포함)을 채점 기준으로 싣는가 — 자료와 어긋나는 짝이 없을 때만 (2026-10-17 5단계).
+    ens_gist: bool = False
 
 
 def _judge_inputs(question: Question, slidedoc: SlideDoc | None, graph: ConceptGraph | None,
@@ -3621,8 +3719,12 @@ def _judge_inputs(question: Question, slidedoc: SlideDoc | None, graph: ConceptG
     probe = probe_of(question)
     gist_text = (question.answer_gist or "").strip()
     code_gist = bool(GIST_REBUILT_CHECKS & checks) or (question.trap and question.trap_premise is not None)
+    # 네 모델 앙상블 모범답(서로 평가 통과 · 자료 줄로 받친 1~2문장)은 추론이 들어도 모범답이다 — 자료와 어긋나는 짝·자료에 없는 수가 없으면.
+    sup = support(gist_text, deck, question.question, judge_deck) if gist_text and "ensemble" in checks else None
+    ens_gist = bool(sup is not None and not sup.conflicts and not sup.missing_numbers and not template_gist(question)
+                    and not question.trap)
     gist_floor = (bool(gist_text) and not template_gist(question) and not evidence_gist(question)
-                  and (code_gist if probe is not None else (gist_grounded or code_gist)))
+                  and (code_gist if probe is not None else (gist_grounded or code_gist or ens_gist)))
     probe_labels = tuple(
         n.label for n in (graph.node(i) if graph is not None else None for i in (probe.node_ids[1:] if probe else []))
         if n is not None and n.label)
@@ -3646,7 +3748,7 @@ def _judge_inputs(question: Question, slidedoc: SlideDoc | None, graph: ConceptG
         probe_labels=probe_labels,
         line_index=line_index,
     )
-    return _JudgeInputs(question, deck, judge_deck, probed, sample_gist, gist_grounded, absence_denied, kwargs, line_index)
+    return _JudgeInputs(question, deck, judge_deck, probed, sample_gist, gist_grounded, absence_denied, kwargs, line_index, ens_gist)
 
 
 #: 골자 자체 점검의 대본 — LLM 이 가장 무르게 굴 때(「무엇이든 good 85」). 이때 우리 골자가 떨어지면 떨군 것은 **코드 가드**다.

@@ -204,7 +204,7 @@ GEN_SYSTEM = """당신은 이 발표를 끝까지 들은 심사위원 교수다.
 - answer(모범답): 발표자가 그대로 말하면 되는 1~2문장 해요체. 자료 줄에 있는 사실만 쓰고 지어내지 않는다. 「자료는 이렇게 말해요」 같은 머리말·줄 이어 붙이기 금지.
 - lines: 모범답의 근거 자료 줄 번호 1~3개 (예: "S3.2"). 줄 번호는 lines 칸에만 쓰고 질문·모범답 문장에는 쓰지 않는다.
 - 자료가 그 슬롯의 답을 담지 않으면 {"slot": "T3", "skip": true}.
-- why: 이 질문이 이 발표의 핵심을 찌르는 까닭 한 줄.
+- why: 이 질문이 이 발표의 핵심을 찌르는 까닭 한 줄, 해요체(「…를 보기 때문이에요」 — 「…합니다」 「…한다」 금지).
 
 출력은 JSON 객체 하나:
 {"items": [{"slot": "T1", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
@@ -369,7 +369,12 @@ def tidy(c: dict) -> dict:
     a = re.sub(r"(니다|습니다)요(?=[.!]?\s*$|[.!]\s)", r"\1", str(c.get("answer") or "").strip())
     q = re.sub(r"주시겠어요\?", "주세요.", q)
     q, a = _strip_line_ids(q), _strip_line_ids(a)
-    return {**c, "question": _polite_question(q), "answer": _polite_statement(_plain_speech(a))}
+    out = {**c, "question": _polite_question(q), "answer": _polite_statement(_plain_speech(a))}
+    if c.get("why"):
+        # 「이렇게 물은 까닭」 은 리포트 후보 판에 그대로 보인다 — 「…요구합니다」 같은 합쇼체 · 해라체 끝을 해요체로 (2026-10-17 4단계 보고)
+        from ._speech import plain_to_haeyo, to_haeyo  # noqa: PLC0415
+        out["why"] = _polite_statement(plain_to_haeyo(to_haeyo(_strip_line_ids(str(c["why"]).strip()))))
+    return out
 
 
 _LINE_ID_PAREN_RE = re.compile(r"\s*[(（\[]\s*S\d{1,3}\.\d{1,3}(?:\s*[~,·–-]\s*S?\d{1,3}(?:\.\d{1,3})?)*\s*[)）\]]")
@@ -581,6 +586,7 @@ VOICE_SYSTEM = """당신은 이 발표를 끝까지 듣고 앞 질문 두 개의
 - 질문은 해요체 한 문장, 묻는 것 하나, 100자 안팎. 가리키는 말만 쓰지 말고 자료의 개념 이름을 댄다.
 - answer(모범답): 자료 줄에 있는 사실로 1~2문장 해요체. lines: 근거 자료 줄 번호 1~3개.
 - signal 칸에는 아래 「신호」 목록에 **실제로 있는** 번호만 쓴다.
+why 는 해요체 한 줄.
 출력은 JSON 객체 하나: {"items": [{"signal": "<신호 번호>", "question": "…?", "answer": "…요.", "lines": ["S3.2"], "why": "…"}]}"""
 
 PICK_SYSTEM = """당신은 Q&A 진행을 맡은 심사위원장이다. 다음에 물을 질문 하나를 후보에서 고른다. 작성자는 가려져 있다.
@@ -593,7 +599,9 @@ def voice_prompt(signals: list[dict], deck: Deck, asked: list[dict], transcript_
     parts = ["[TASK] qa-ensemble-voice", "", f"## 발표의 핵심 주장\n{deck.thesis}", "", "## 자료", ES.deck_block(deck.lines, 180),
              "", "## 발표 받아쓰기 (앞부분)", transcript_text[:2400], "", "## 이미 물은 질문과 답"]
     for a in asked:
-        parts.append(f"- Q: {a.get('question', '')}\n  A: {(a.get('answer') or '')[:240]}\n  판정: {a.get('verdict', '?')}")
+        parts.append(f"- Q: {a.get('question', '')}\n  A: {(a.get('answer') or '')[:240]}\n  판정: {a.get('verdict', '?')}"
+                     + (f" · 이해 상태: {a['state']}" if a.get("state") else "")
+                     + (f" · 빠진 고리: {a['skipped'][:80]}" if a.get("skipped") else ""))
     parts += ["", "## 신호"]
     for s in signals:
         parts.append(f"{s['id']} [{s['kind']}] 「{s['label']}」({s['slide_no']}장) — {s['note']}"
@@ -706,6 +714,7 @@ def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker:
     다음 질문 하나. 음성 후보가 있으면 그 후보 + 묶음의 남은 상위 2개를 최종 선택 모델이 고른다(이유 한 줄).
     음성 후보가 없거나 선택이 실패하면 묶음의 남은 1등(「묶음에서 대신 냄」, substituted=True).
     """
+    # 이미 물은 노드 + 이해했다고 본 노드(understood)는 다시 고르지 않는다 (노드 이해 상태 — 2026-10-17 5단계)
     asked_nodes = {a.get("node_id") for a in asked}
     asked_q = [a.get("question", "") for a in asked]
     rest = [c for c in pool.winners() if c["node_id"] not in asked_nodes

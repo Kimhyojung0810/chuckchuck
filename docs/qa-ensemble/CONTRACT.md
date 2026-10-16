@@ -44,7 +44,7 @@
 - **4단계 구현(10-17, `main/server/qa_board.py`)**: 판은 위 칸 + `schema: "qa-board/1"` · `graph.nodes`(id·label·kind·parent_id·weight·slide_nos 만) ·
   `paths`(슬롯 → 루트 라벨) · `track`/`tracks`(트랙별 고른 순서) · `rounds`(3번+ `/qa/next` 마다: n · uid · by · question · signal_kind ·
   pick_reason · substituted · signals · candidates · dropped · calls · voice_sec · pick_sec · path). 보관본과 같은 판을 **세션 메모리**
-  (`STORE ens_board:<sid>`)에도 늘 담아, 동의 없는 세션도 `POST /api/v1/qa/board {session_id}` → `{board}`(없으면 404)로 자기 리포트에서 본다
+  (바탕 `STORE ens_board_base:<지문>` → 질문을 받아 간 판마다 `ens_board:<sid>:<run>`)에도 늘 담아, 동의 없는 세션도 `POST /api/v1/qa/board {session_id, qa_run_id}` → `{board}`(없으면 404)로 자기 리포트에서 본다
   (LLM 없음 · 과금 경로 아님). 보관은 그대로 동의 세션만. 앞 답 약점(weak_answer) 신호의 인용(답 원문)은 판에 남기지 않는다.
   화면: `main/web/js/report_qaboard.js` (리포트 2.0 board · slot:<id> · round:<n>), 샘플 판 `js/report_qaboard_sample.js`(`etc/labs/report_v2/make_qa_board.py`).
 - 판에 보여 줄 것(제안): 슬롯별로 모델 후보를 가로로, 뽑힌 것 강조 · 서로 평가 점수(누가 누구를 몇 점) · 버린 까닭 칩 · 작성 모델 표시.
@@ -96,3 +96,25 @@
 | `QA_ENS_EXAONE_PP` | (끔) | EXAONE presence_penalty (권장 1.5) |
 | `QA_ENS_MIDM_SCHEMA` | (끔) | Mi:dm response_format json_schema |
 | `QA_GIST_POLISH` | 1 | 지금 방식 질문의 지저분한 모범답 정리(1단계) |
+
+## 6. Q&A 한 판 구분 값 `qa_run_id` (2026-10-17, 5단계 · 4단계 보고)
+
+파싱이 같은 파일의 세션을 재사용한다(부스 덱은 미리 파싱한 세션 하나를 모두가 쓴다). 세션 id 만으로 나누면 같은 파일을 올린 사람끼리
+3번 이후 기록(앞 답 · 음성 후보 · 이해 상태 · 이미 한 말 · 판의 「뽑힌 것」)이 섞인다 — 개인정보 · 정확도 둘 다 문제다.
+
+- **만드는 곳**: 브라우저 `chuckchuck_bridge.js` `qaRunId(sessionId, {fresh})` — `r` + 무작위 20자(`[A-Za-z0-9_-]{4,48}`).
+  질문 요청(`/api/v1/questions`, prefetch 가 아닐 때)이 새 판을 연다. 세션이 바뀌어도 새로 만든다. `window.ChuckchuckBridge.qaRunId` 로도 부를 수 있다.
+- **싣는 곳** (본문 필드 이름 `qa_run_id`): `/api/v1/questions` · `/api/v1/sessions/{sid}/qa/judge` · `/api/v1/qa/next`. 4단계 `/api/v1/qa/board` 도 같은 이름으로 받는다.
+- **서버 열쇠**: `server.bridge.qa_run_of(body)` (모양이 틀리면 "") · `run_key(sid, run)` = `"<sid>:<run>"` (run 이 없으면 `"<sid>"` — 옛 클라이언트는 예전처럼).
+  - 이해 상태 `dlg_nodes:<sid>:<run>` · 이미 한 말 `dlg_said:<sid>:<run>` (꼬리질문 엔진)
+  - 음성 후보 `ens_voice:` 지문에 run 과 앞 답 원문을 넣는다 · 마지막 음성 후보 `ens_voice_last:<pool>:<run>`
+  - 후보 판 `ens_board:<sid>:<run>` (합침 10-17) — 바탕(후보 · 거르기 · 서로 평가 · 뽑힌 것)은 질문 결과에 실린 `ensemble.board_key` 로 들고 있다가 `_bind_board` 가 질문을 받아 간 판마다 복사한다(캐시로 받은 판도). 3번+ 기록은 그 판 칸에만 붙는다.
+  - 판 보관본 `qa_ensemble_board` 는 세션에 하나(마지막 판)이고 `"qa_run_id"` 칸이 있다 — `/qa/board` 는 메모리에 없을 때 **같은 판 값일 때만** 보관본을 준다.
+- **남은 것**: 발표 받아쓰기(transcript)는 여전히 세션 단위다 — 같은 파일 세션에 두 사람이 녹음을 올리면 음성 신호의 「발화」 가 섞일 수 있다.
+  파싱 세션 재사용(파일 sha)을 판 단위로 나누거나, 받아쓰기를 판 열쇠로 따로 두는 것은 배포 전 결정이 필요하다.
+
+## 7. 꼬리질문 엔진 (5단계) — 판정 응답에 더한 칸
+
+`QaJudgement.to_dict()` 에 `move`(connect·clarify·challenge·explore·recite·hint·deepen·refocus·explain) · `anchor`(답 원문 구절) ·
+`dialogue`(읽기 신호 · 출처 llm/respeak/template/judge/guard · judge_sec · sec_after_judge) · `close_reason` 에 `explained`(갇힘 출구)가 더해졌다.
+`closed=true` 면 질문을 닫는다(`mastered`) — 셋째 답 · 둘째 「모르겠어요」, `coach_stage="explain"` · `explanation` 에 근거 장 해설.

@@ -120,6 +120,15 @@
 - solar-pro4 를 Solar 전 역할(1차 심사·판정)에 넣은 dev 5덱 1회: 지저분한 모범답 0/25 · 모범답→good 0.88 · 외운 답 판별 0.79(pro3 release 0.69~0.72) — 회귀 없음(표본 작음). pro4 는 `reasoning_effort` 없으면 추론 끔(0.35초), `high` 면 6.9초 · 553 사고 토큰.
 - EXAONE 실제 모델 이름: Friendli 엔드포인트 ID 만 있어 로그·장부에 정확한 이름을 못 적었다 — `EXAONE_MODEL_LABEL` 로 확인해 넣을 것.
 
+## 5. 판정 · 꼬리질문 대화 엔진 (2026-10-17 5단계, 결과 /data/models/_runs/qa-dialogue/REPORT.md)
+
+| 역할 | 맡긴 모델 | 근거 (수치) |
+|---|---|---|
+| 판정(F-09) | **solar4 권장** (지금 기본은 REASONING_BACKEND=solar → pro3) | 같은 답 230개(dev): 외운 답 판별 solar4 0.935 · pro3 0.761, 모호한 답 통과 막음 0.74 · 0.26, 틀린 사실 답 통과 막음 0.96 · 0.83. 대신 판정 p50 4.1 · 2.3초. pro3 는 10-30 종료 |
+| 꼬리질문 읽기+말하기(F-09-talk) | **solar4** (`QA_DIALOGUE_LLM`) | v2 같은 판정에서 말하기만: 인용 solar4 0.87 · ax 0.95 · exaone 0.64 · midm 0.57, 틀린 전제 짚음 0.96 · 0.83 · 0.52 · 0.57, 코드 틀 0.11 · 0.09 · 0.51 · 0.80 |
+| 다시 말하기(F-09-respeak) | 읽기 콜과 같은 모델 | 수가 다르거나 말투 검사에 걸릴 때만 · 2.5초 상한(`QA_DIALOGUE_RESPEAK_BUDGET_SEC`) |
+| 실험 심판(F-09-bench) | exaone(꼬리질문 품질) · ax(가상 방문자) · solar4(답 유형 만들기) | 말하기에 안 쓴 모델로 · 사람 대용 Claude 가린 라벨 90문항과 같이 본다 |
+
 ## 실행 기록
 
 | 시각 | 무엇 | 결과 | HEAD |
@@ -138,3 +147,4 @@
 | 2026-10-17 00:30 | 실 API 끝까지 (서비스 기본 경로 llm=None · 덱 4개 A1·B1·C1·수면, 트랙 5·5·10·5, 문헌 켬) | 질문 16 · 판정 46회 전부 기대대로 · **EXAONE 문장 마감 초과 → Solar 2/4 덱**(38초·?초, 벤치와 동시 실행) · 문헌 고쳐쓰기 exaone · 논문 대조 solar · 대체 줄 2 · LLM 문장이 템플릿으로 바뀐 질문 7/16(전부 Solar 가 받은 덱) · 모호·엉뚱한 답의 꼬리질문이 같은 고정 문장 11/11 질문 (원문 `/data/models/_runs/qa-route/e2e`) | 177d941 |
 | 2026-10-17 00:40 | 나란히 비교 vs solar/exaone (§2-2 실행) | solar/midm 3승 0패 7무 · midm/exaone 2·2·6 → **기본 그대로(solar/exaone)**, Mi:dm 문장은 `QA_PHRASE_MODEL=midm`(+마감 30초)로만 | ea95097 |
 | 2026-10-17 01:58~03:30 | 네 모델 Q&A 앙상블 실험 (AI_CALLLOG=all → /data/models/_runs/qa-ensemble/calllog) | dev1·dev2·dev3·dev3p4·dev4 · test1(27판) · 한 모델씩(single2 2회) · 오류 주입 · 선택 규칙 · 선택 모델 · 제공자 변수 · pro4 회귀 — §4, QA_BENCH_LEDGER | 57a9194~ |
+| 2026-10-17 04:00~06:10 | 5단계 판정 · 꼬리질문 엔진 실험 (AI_CALLLOG=all → /data/models/_runs/qa-dialogue/calllog) | dev 판 j0·t1·v2(모델 4+1)·v3·v4(3회)·v5 · test j0t·v4t·j6t · 갇힘 stuck1·stuck-test · 함정 traps · 지연 lat-off/on · 퍼널 · 실험실 4판 — §5 | 10df432 |

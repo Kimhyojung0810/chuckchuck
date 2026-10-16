@@ -471,12 +471,20 @@ def voice_signals(graph, slides: dict, speech_of: dict[int, str], alignment=None
                             "자료에서 무게가 큰 주장인데 발표에서는 짧게 지나갔어요"))
     by_id = {n.id: n for n in graph.nodes}
     for a in answers or []:
-        if a.get("verdict") in ("partial", "wrong", "unknown") and a.get("node_id") in by_id:
+        # 노드 이해 상태(꼬리질문 엔진 f09_dialogue.node_state, 2026-10-17 5단계)가 있으면 그것으로 — understood 는 신호가 아니다,
+        # misread 는 바로잡기, gap 은 빠진 고리 쪽으로 더 깊이, unknown 은 옆(이웃 주장)으로.
+        state = a.get("state") or ""
+        weak = state in ("gap", "misread", "unknown", "partial") or (not state and a.get("verdict") in ("partial", "wrong", "unknown"))
+        if weak and a.get("node_id") in by_id:
             node = by_id[a["node_id"]]
+            note = {"gap": "앞 답이 이 주장의 고리를 건너뛰었어요", "misread": "앞 답이 이 부분을 자료와 어긋나게 설명했어요",
+                    "unknown": "앞 답에서 이 부분을 모른다고 했어요"}.get(state, "앞 답에서 이 부분 이해가 약했어요")
+            gap = a.get("skipped") or ", ".join(a.get("missing") or [])
             out.append({**_sig("weak_answer", node, None, (a.get("answer") or "")[:90],
-                               "앞 답에서 이 부분 이해가 약했어요" + (f" — 빠진 점: {', '.join(a.get('missing') or [])[:80]}"
-                                                                if a.get("missing") else "")),
-                        "move": "correct" if a.get("verdict") == "wrong" else "deeper",
+                               note + (f" — 빠진 고리: {gap[:80]}" if gap else "")),
+                        "state": state,
+                        "move": ("correct" if (state == "misread" or (not state and a.get("verdict") == "wrong"))
+                                 else "sideways" if state == "unknown" else "deeper"),
                         "neighbors": [n.label for n in graph.nodes if n.parent_id == node.id][:3]
                         + ([by_id[node.parent_id].label] if node.parent_id in by_id else [])})
     for i, s in enumerate(out, 1):

@@ -13,7 +13,8 @@
 const LIVE_VERDICT = {
   good:    { flag: 'won',  react: 'full',    word: '설득 완료' },
   partial: { flag: 'won',  react: 'partial', word: '부분 인정' },
-  wrong:   { flag: 'lost', react: 'none',    word: '미방어' },
+  // 「미방어」는 첫 wrong 직후 이탈 82%(10/7 부스)의 말이었다 — 지난 일을 이름 붙이지 않고 다음 할 일로 (2026-10-17 5단계). 색(--no)은 그대로
+  wrong:   { flag: 'lost', react: 'none',    word: '다시 짚어요' },
   unknown: { flag: 'lost', react: 'none',    word: '판정 보류' },
 };
 /* 등급을 낱말로 부르면 「치명도 치명」처럼 명사가 겹친다 — 한 줄로 말한다 */
@@ -1033,6 +1034,35 @@ function setCoachThinkingText(text) {
   if (span) span.textContent = text || '듣고 있어요';
 }
 
+/**
+ * 첫 박자 반응 (2026-10-17 5단계 · 음성UX 조사 R4) — 방금 한 답에서 뜻이 서는 마디 하나를 그대로 받아 「「…」라고 했죠」 로 먼저 보인다.
+ * 판정(LLM 1.9~4초)을 기다리는 동안 0.7초 안에 「내 말을 들었다」 를 느끼게 한다. 지어내지 않는다 — 답 원문 그대로, 없으면 "".
+ * 고르는 법: 문장·쉼표·잇는 말로 마디를 나눠 6~20자 마디 중 마지막 것(결론이 대개 뒤에 온다), 길면 어절에서 자른다.
+ */
+const LIVE_CUE_MIN = 6;
+const LIVE_CUE_MAX = 20;
+const LIVE_SLOW_CUE_MS = 5000;
+function liveFirstCue(answer) {
+  const text = String(answer || '').replace(/[「」『』"“”]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length < LIVE_CUE_MIN) return '';
+  const parts = text.split(/[.?!…]\s*|,\s*|\s(?:그래서|그런데|하지만|그리고|그러니까)\s/).map((x) => x.trim()).filter(Boolean);
+  const fit = parts.filter((x) => x.length >= LIVE_CUE_MIN && x.length <= LIVE_CUE_MAX);
+  let pick = fit.length ? fit[fit.length - 1] : (parts[parts.length - 1] || '');
+  if (pick.length > LIVE_CUE_MAX) {
+    const cut = pick.slice(0, LIVE_CUE_MAX);
+    const sp = cut.lastIndexOf(' ');
+    pick = sp >= LIVE_CUE_MIN ? cut.slice(0, sp) : cut;
+  }
+  pick = pick.replace(/(?:요|다)$/, (m) => m).trim();
+  return pick.length >= LIVE_CUE_MIN ? `「${pick}」라고 했죠. 자료와 맞춰 볼게요` : '';
+}
+
+/** 판정이 5초를 넘으면 무엇을 하는지 말한다 (R4) — 「자료 N장과 맞춰 보고 있어요」. */
+function liveSlowCue(q) {
+  const no = (q && (q.evidence_slide_no || (q.slide_nos || [])[0])) || 0;
+  return no ? `자료 ${no}장과 맞춰 보고 있어요` : '자료와 맞춰 보고 있어요';
+}
+
 /** 기다렸다 다시 보낼 때의 안내. 부스 booth_logic.retryWaitText 와 같은 말 */
 function liveRetryWaitText(secondsLeft, reason = 'rate') {
   const n = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
@@ -1639,6 +1669,12 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   growStream();
   setLiveBusy(true);
   showCoachThinking();
+  // 첫 박자 반응 (R4 — 말 끝 → 0.7초 안): 판정을 기다리는 동안 방금 한 말의 구절을 먼저 받아 준다(LLM 없이). 5초를 넘으면 무엇을 하는지 말한다
+  const cue = giveUp ? '' : liveFirstCue(answer);
+  if (cue) setCoachThinkingText(cue);
+  const slowCue = typeof setTimeout === 'function' ? setTimeout(() => {
+    if (qa.live === L && L.busy) setCoachThinkingText(liveSlowCue(q));
+  }, LIVE_SLOW_CUE_MS) : 0;
   // 판정이 실패하면 입력창에 답을 되살린다 — 창을 비웠으므로, 안 되살리면
   // 「다시 시도」가 처음부터 다시 타이핑하기가 된다.
   let failedAnswer = '';
@@ -1684,6 +1720,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     const judgedHints = Array.isArray(v.hints) ? v.hints : [];
     if (judgedHints.length && judgedHints.length >= ((L.hintList || liveQuestionHints()).length)) L.hintList = judgedHints;
     L.judgeFailed = false;
+    if (slowCue) clearTimeout(slowCue);
     hideCoachThinking();
     // 폴백 표시(자료 본문 없이 판정 등)는 한 질문에 한 번만 짧게. 서버 질문을 못 찾은 것은 개발 로그로만 (09-30 WP-B)
     const notes = liveDegradedLines(v).filter((n) => !(L.notesShown || []).includes(n));
@@ -1731,10 +1768,12 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 닫는 기준은 **서버의 mastered 하나**다. passed 로 닫으면 요지만 맞힌 72점
     // 답이 곧바로 넘어가 되묻기가 아예 안 돈다 — 그게 이 화면이 밋밋했던 이유다.
     const done = v.mastered === undefined ? v.passed : v.mastered;
-    if (v.coach_stage === 'explain') {
-      // 해설을 받았다고 닫지 않는다 — 답을 봤으니 이제 한 번 말해 볼 차례다.
+    if (v.coach_stage === 'explain' && !done) {
+      // 옛 서버: 해설을 받았다고 닫지 않는다 — 답을 봤으니 이제 한 번 말해 볼 차례다.
       coachedRetell(q, v, answer);
     } else if (done) {
+      // 2026-10-17 5단계: 서버가 해설로 닫았으면(셋째 답 · 둘째 「모르겠어요」 — closed) 근거 장 해설을 보여 주고 다음 질문으로 간다.
+      // 실사용에서 같은 질문 연속 wrong 25번 · 4번 넘게 답한 쌍 8/13 이었다 — 한 번 더 붙들지 않는다.
       finishLiveQuestion(q, v, answer);
       closed = true;
     } else {
@@ -1745,6 +1784,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       askAgain(v, v.round_no || L.turn, { skipMissing: shownMissing });
     }
   } catch (err) {
+    if (slowCue) clearTimeout(slowCue);
     if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }   // 옛 방문객의 실패도 지금 화면에 안 쓴다 (P0-A)
     hideCoachThinking();
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.
@@ -1938,7 +1978,7 @@ function liveWonCount(results) {
  */
 function liveForcedClose(r) {
   if (!r || r.revealed || r.gaveUp) return false;
-  if (r.closeReason) return r.closeReason === 'rounds' || r.closeReason === 'guard';
+  if (r.closeReason) return r.closeReason === 'rounds' || r.closeReason === 'guard' || r.closeReason === 'explained';
   return !!r.mastered && r.verdict !== 'good';
 }
 
@@ -2251,7 +2291,7 @@ function closeLiveQuestion(record) {
  * 전체 화면 학습 카드로 갈아타지 않는 것은 그대로다 (2026-08-07 사용자 요청).
  */
 /** 닫힌 까닭별 마무리 카드 칩 — good 은 판정 낱말 그대로, 3라운드 출구는 그렇다고 말한다 (결과 화면 칩과 같은 말) */
-const CLOSE_CHIP = { rounds: '세 번째에 넘어갔어요', guard: '자료와 다시 맞춰 봐요' };
+const CLOSE_CHIP = { rounds: '세 번째에 넘어갔어요', guard: '자료와 다시 맞춰 봐요', explained: '같이 풀고 넘어가요' };
 
 function finishLiveQuestion(q, v, answer) {
   const L = qa.live;
@@ -2259,7 +2299,8 @@ function finishLiveQuestion(q, v, answer) {
   // 왜 닫혔나 — good(설득) · rounds(3라운드에서 통과 수준) · guard(가드에 막힌 채 3라운드). 결과 화면이 나눠 센다 (09-30 §10)
   const closeReason = v.close_reason || (v.verdict === 'good' ? 'good' : 'rounds');
   // 함정의 골자는 화면 사본에 없다(gist_withheld) — 닫힌 판정 응답이 싣고 온다 (09-30 WP-J2)
-  const closeGist = v.answer_gist || q.answer_gist || '';
+  // 갇힘 출구(explained — 셋째 답 · 둘째 「모르겠어요」)는 서버가 근거 장을 짚어 쓴 해설이 먼저다 (2026-10-17 5단계)
+  const closeGist = (closeReason === 'explained' && v.explanation) || v.answer_gist || q.answer_gist || '';
   pushTurn({
     who: 'sys', kind: 'done',
     flag: m.flag, outcome: v.verdict, word: CLOSE_CHIP[closeReason] || m.word,
@@ -2280,7 +2321,7 @@ function finishLiveQuestion(q, v, answer) {
     mastered: true,
     closeReason,
     // 「모르겠어요」 코칭(보기·빈칸)을 거쳐 닫혔나 — 결과에서 「도움 받아 닫힘」 으로 센다 (liveBucket · 09-30 C-09)
-    viaCoach: (L.turns || []).some((t) => t.gaveUp),
+    viaCoach: (L.turns || []).some((t) => t.gaveUp) || closeReason === 'explained',
     summary: v.summary_sentence || '',
     // 닫는 판정이 가리킨 다시 볼 장 (빠진 줄·어긋난 줄 — 2026-10-01). 결과 한 줄이 「자료 N장 다시 보기」 로 적는다
     lookSlides: v.verdict === 'good' ? [] : liveGroundSlides(v),

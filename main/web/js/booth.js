@@ -35,18 +35,18 @@ import {
   startAnswerRecording,
   startLiveDictation,
   transcribeAnswer,
-} from './chuckchuck_bridge.js?v=qkxbc17';
+} from './chuckchuck_bridge.js?v=qkxbc18';
 import {
   DELIVERY, MAX_SHOTS, MIC_LABEL, MIC_LABEL_PRESENT, TELL_STATUS, TELL_WORD,
   appendTranscript, calibrateDelivery, cameraErrorText, captionTail, captureRoutes, clockText, countdownText,
   createDelivery, degradedLines, deliveryObserve, deliverySummary, devOnlyDegraded, fitScale, giveupLabel, giveupSaid,
   hintLadder, hintsForJudge, judgementBubble, judgementClosed, meterText, mergeLadder, newPen, paintDictation, presentCommand,
-  questionHistory, questionWhy, retryWaitText, scoredAnswers, selfViewErrorText, shotFileName, shotsAdvice,
+  questionHistory, questionWhy, retryWaitText, firstCue, scoredAnswers, selfViewErrorText, shotFileName, shotsAdvice,
   speakableJudgement, speechSettled, tally, voiceCommand,
-} from './booth_logic.js?v=b11';
+} from './booth_logic.js?v=b13';
 import {
   askQuestion, createOverlayState, enterPresent, enterQa, renderOverlay, setCaption, setMainOf, setPhaseOf,
-} from './booth_overlay_state.js?v=o6';
+} from './booth_overlay_state.js?v=o7';
 
 const PARSE_TIMEOUT_MS = 120000;
 const SOUND_KEY = 'cheokcheok:booth-sound';
@@ -784,6 +784,8 @@ async function submit(giveUp) {
   $('qa-answer').value = '';
   state.userTyped = false;
   setPhase('judging');
+  // 첫 박자 반응 (R4) — 판정을 기다리는 동안 방금 한 말을 먼저 받아 준다(LLM 없이, 0.7초 안)
+  if (!giveUp) { const cue = firstCue(answer); if (cue) note('qa-mic-note', cue); }
   // 이번 답이 실제로 받은 물음 — 되물음이 떠 있으면 그것이다 (앱 submitLiveAnswer 의 askedNow)
   const askedNow = (p.last && !p.closed && p.last.followup) || cur.question;
   state.judging = cur.id;

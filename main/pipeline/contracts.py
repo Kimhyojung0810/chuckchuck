@@ -1581,9 +1581,10 @@ def qa_passed(verdict: str, score: int) -> bool:
 #:   · echo(질문 되읊기) · repeat(앞 답 되풀이) · ungrounded(답이 골자·자료와 맞닿지 않음) · short(한두 낱말) · choice(되물음 칩)
 #:   · language(한국어가 아닌 답) · contra_said(모순 질문에 발표 쪽을 다시 고름 · wrong 35)
 #:   · contra_dispute(모순 질문에 발표 쪽을 출처·자료 오류를 들어 고름 — 자료 안의 숫자로만 확인한다 · wrong 35)
+#:   · recital(깊은 질문에 자료 문장을 옮기기만 함 — 외운 답 · partial 60, 2026-10-17 5단계 `_recital`)
 QA_JUDGE_GUARDS = ("", "trap", "trap_misfixed", "trap_open", "injection", "deck", "number_unsupported", "self_opposed",
                    "restated", "reason", "off_topic", "focus_miss", "list", "echo", "repeat", "ungrounded", "short", "choice",
-                   "language", "contra_said", "contra_dispute")
+                   "language", "contra_said", "contra_dispute", "recital")
 
 
 #: 한 질문을 붙들 최대 라운드. 넘어가면 통과 수준(qa_passed)에서 닫아 준다 —
@@ -1675,6 +1676,24 @@ def _gist_parts_of(raw: object) -> list[str]:
 #: narrow(위치: 자료 인용 + 둘 중 하나) → scaffold(발판: 빈칸, LLM 없음) → explain(해설 + 출처).
 #: clarify 는 포기가 아니라 되물음. "" 는 평시 판정.
 QA_COACH_STAGES = ("", "narrow", "scaffold", "explain", "clarify")
+
+#: 한 질문에 낼 수 있는 답(포기 포함)의 최대 수 (2026-10-17 5단계). 이 수째 답에도 닫히지 않으면 근거 장을 짚는 해설로 닫고 다음 질문으로 간다.
+#: 같은 질문 연속 wrong ≤ 3 · 4번 이상 갇힘 0 (계획 §3-1). QA_MAX_ROUNDS(서로 다른 답 수)와 따로 센다 — 되풀이한 답도 갇힘이다.
+QA_MAX_ATTEMPTS = 3
+#: 「모르겠어요」 를 이만큼 누르면 해설로 닫는다 (예전엔 셋째에 해설 · 닫지 않고 다시 말하기).
+QA_GIVEUP_CLOSE = 2
+
+#: 꼬리질문 엔진(f09_dialogue)의 수 — 무엇을 할지는 코드가 신호로 정하고(정책), LLM 은 문장만 쓴다 (10/13 설계 · 2026-10-17 구현).
+#:   connect    답이 건너뛴 고리(근거 → 주장, 주장 → 주장) 하나를 묻는다
+#:   clarify    흐린 말이 정확히 무엇을 뜻하는지
+#:   challenge  자료와 어긋난 말을 자료의 그 장과 견주게 한다 (값은 말하지 않는다)
+#:   explore    반대 의견의 이유와, 자료의 어느 결과와 견줄지
+#:   recite     자료 문장을 옮기기만 한 답 — 그 문장이 질문의 「왜·충분한가」 에 어떻게 답이 되는지
+#:   hint       모른다·빈 답 — 볼 곳 하나와 아주 쉬운 질문
+#:   deepen     맞힌 답 — 원리나 적용 범위 한 걸음 (닫히는 질문은 꼬리질문 없이 반응만)
+#:   refocus    질문과 다른 이야기 — 그 말은 받아 주고 질문이 묻는 핵심으로 돌아오게 한다
+#:   explain    갇힘 출구 — 근거 장을 짚고 닫는다
+DIALOGUE_MOVES = ("", "connect", "clarify", "challenge", "explore", "recite", "hint", "deepen", "refocus", "explain")
 
 #: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
 #: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.
@@ -2852,6 +2871,16 @@ class QaJudgement:
     #: evidence_quote(질문의 근거 인용, 코칭 카드)와 따로 둔다 — 그것은 질문이 정해 둔 한 줄이고, 이것은 **이번 답**을 판정한 줄이다.
     #: 옛 세션(이 키 없음)은 빈 목록으로 읽는다 (2026-10-01).
     grounds: list[JudgeGround] = field(default_factory=list)
+    #: 갇힘 출구로 닫았나 (2026-10-17 5단계) — 같은 질문에 답을 QA_MAX_ATTEMPTS 번 냈는데도 통과를 못 했거나 「모르겠어요」 를 두 번 눌렀다.
+    #: 근거 장을 짚는 해설(coach_stage="explain", explanation)을 주고 질문을 닫는다 — 실사용(10/7 부스)에서 같은 질문 연속 wrong 25번,
+    #: (방문, 질문) 13쌍 중 8쌍이 4번 넘게 답했다. 요청 바디에서 읽지 않는다(guard_blocked 와 같은 까닭).
+    closed: bool = False
+    #: 꼬리질문 엔진(f09_dialogue)이 고른 수 — DIALOGUE_MOVES. "" 면 엔진이 안 돌았다(옛 판정 · 코칭 경로).
+    move: str = ""
+    #: 반응·꼬리질문이 붙잡은 **답 원문 구절** (낱말 그대로). 비면 붙잡을 구절이 없었다.
+    anchor: str = ""
+    #: 엔진의 읽기 신호·검사 결과·출처(llm|respeak|code)·시간 — 하네스·로그용. 화면은 move·anchor 만 쓴다.
+    dialogue: dict = field(default_factory=dict)
 
     @property
     def close_reason(self) -> str:
@@ -2863,6 +2892,8 @@ class QaJudgement:
             return ""
         if self.verdict == "good":
             return "good"
+        if self.closed and not qa_mastered(self.verdict, self.score, self.round_no, self.guard_blocked):
+            return "explained"
         return "rounds" if self.passed else "guard"
 
     @property
@@ -2878,7 +2909,7 @@ class QaJudgement:
         passed 보다 엄격하다 — 절반만 맞힌 답에 한 걸음 더 묻기 위해서다.
         자세한 이유는 `qa_mastered` 를 보라.
         """
-        return qa_mastered(self.verdict, self.score, self.round_no, self.guard_blocked)
+        return self.closed or qa_mastered(self.verdict, self.score, self.round_no, self.guard_blocked)
 
     def to_dict(self) -> dict:
         return {
@@ -2903,6 +2934,9 @@ class QaJudgement:
             "guard_reason": self.guard_reason,
             "guard": self.guard,
             "grounds": [g.to_dict() for g in self.grounds],
+            "move": self.move,
+            "anchor": self.anchor,
+            "dialogue": dict(self.dialogue),
             # 파생 — 프론트가 임계를 다시 계산하지 않게 서버가 계산해 내려보낸다.
             # 둘을 다 보낸다: passed 는 리포트가 세는 값, mastered 는 대화가 닫는 값.
             "passed": self.passed,
@@ -2946,6 +2980,9 @@ class QaJudgement:
             guard=str(d.get("guard", "") or "") if str(d.get("guard", "") or "") in QA_JUDGE_GUARDS else "",
             grounds=[JudgeGround.from_dict(g) for g in (d.get("grounds") or []) if isinstance(g, dict)
                      and str(g.get("quote", "") or "").strip()][:QA_GROUNDS_MAX],
+            move=str(d.get("move", "") or "") if str(d.get("move", "") or "") in DIALOGUE_MOVES else "",
+            anchor=str(d.get("anchor", "") or ""),
+            dialogue=dict(d.get("dialogue") or {}) if isinstance(d.get("dialogue"), dict) else {},
             # `passed`·`mastered`·`guard_blocked` 는 일부러 읽지 않는다 — 요청 바디가 임계를 뒤집을 수 없어야 한다.
             # round_no 는 읽는다: 파생값이 아니라 서버가 센 사실이고, 판정을 저장했다가
             # 다시 읽을 때(옛 세션 복원) 이 값이 없으면 mastered 가 1라운드로 되돌아간다.

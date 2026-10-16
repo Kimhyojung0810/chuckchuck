@@ -5329,8 +5329,13 @@ function loadRv2Files() {
    브리지 세션 메모리에서 받는다(POST /api/v1/qa/board) — 동의와 무관하게 내 리포트에선 보이고, 서버 보관은 동의 세션만(보관소 규칙 그대로).
    다시 열 리포트를 위해 이 브라우저의 마지막 리포트 저장본에만 같이 둔다. LLM 을 부르지 않는다 */
 let rv2BoardMem = { sid: '', board: null };
+/* 판은 Q&A 한 판(qa_run_id) 단위다 — 같은 덱 세션을 나눠 쓴 남의 3번+ 기록이 안 보이게 (CONTRACT §6). 방금 한 판의 값 */
+function rv2QaRun(sid) {
+  const b = window.ChuckchuckBridge;
+  return (b && typeof b.qaRunId === 'function') ? b.qaRunId(sid) : '';
+}
 async function rv2FetchQaBoard(sid) {
-  const res = await fetch('/api/v1/qa/board', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sid }) });
+  const res = await fetch('/api/v1/qa/board', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sid, qa_run_id: rv2QaRun(sid) }) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`qa board ${res.status}`);
   const j = await res.json();

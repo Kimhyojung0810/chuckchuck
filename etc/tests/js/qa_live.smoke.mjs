@@ -34,7 +34,7 @@ const APP_SRC = readFileSync(path.join(JS_DIR, 'app.js'), 'utf8');
    조용히 통과해 버린다. */
 const EXPORT_LINE = `
 ;globalThis.__api = {
-  qaLiveActive, newLiveState, liveStalled, hintSlideNos, liveWeakAnswer,
+  qaLiveActive, newLiveState, liveStalled, hintSlideNos, liveWeakAnswer, liveFirstCue, liveSlowCue,
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
   liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
   paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
@@ -974,6 +974,18 @@ test('같은 주제, 다른 관점 — 서버 질문을 지금 자리에 넣는�
 });
 
 let failed = 0;
+test('첫 박자 반응 — 답 원문의 마디를 그대로 받고, 짧은 답 · 빈 답엔 안 지어낸다 (2026-10-17 R4)', () => {
+  const { liveFirstCue, liveSlowCue } = newContext().api;
+  const a = '실험실에서 한 거라서, 상황마다 좀 다를 것 같아요.';
+  const cue = liveFirstCue(a);
+  const m = cue.match(/「(.+)」라고 했죠/);
+  if (!m || !a.includes(m[1])) throw new Error(cue);
+  eq(liveFirstCue('네'), '', '짧은 답');
+  eq(liveFirstCue(''), '', '빈 답');
+  if (liveFirstCue('가'.repeat(80)).length > 40) throw new Error('긴 마디는 어절에서 자른다');
+  eq(liveSlowCue({ evidence_slide_no: 3 }), '자료 3장과 맞춰 보고 있어요');
+});
+
 for (const c of cases) {
   try {
     await c.fn();

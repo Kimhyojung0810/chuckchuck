@@ -1389,6 +1389,51 @@ TRANSIENT_DEGRADED = frozenset({
 })
 
 
+#: 꼬리질문 엔진의 세션 기록 (2026-10-17 5단계) — 노드 이해 상태(다음 질문 고르기)와 이미 한 말(되풀이 금지).
+_DLG_NODES = "dlg_nodes:"
+_DLG_SAID = "dlg_said:"
+DLG_SAID_MAX = 16
+
+
+_RUN_RE = re.compile(r"^[A-Za-z0-9_-]{4,48}$")
+
+
+def qa_run_of(body: dict) -> str:
+    """
+    Q&A 한 판의 구분 값 (`qa_run_id`, 2026-10-17) — 브라우저가 Q&A 를 시작할 때 만들어 판정 · /qa/next · 질문 요청에 싣는다.
+    파싱이 같은 파일의 세션을 재사용하므로(부스 덱은 미리 파싱한 세션 하나를 모두가 쓴다) 세션 id 만으로 나누면 같은 파일을 올린 사람끼리
+    3번 이후 기록(앞 답 · 음성 후보 · 이해 상태 · 이미 한 말)이 섞인다. 모양이 틀리면 "" (옛 클라이언트 — 세션 단위로 예전처럼).
+    """
+    run = str(body.get("qa_run_id") or "").strip()
+    return run if _RUN_RE.match(run) else ""
+
+
+def run_key(sid: str | None, run: str) -> str:
+    """세션 · 판 열쇠 — 판 값이 없으면 세션만 (예전 그대로)."""
+    return f"{sid}:{run}" if run else str(sid or "")
+
+
+def _dialogue_said(sid: str | None) -> list[str]:
+    return list(STORE.get_triage(_DLG_SAID + str(sid)) or []) if sid else []
+
+
+def _dialogue_note(sid: str | None, judgement) -> None:
+    """판정 하나로 노드 이해 상태를 갱신하고, 이번 반응 · 꼬리질문을 세션의 「이미 한 말」 에 더한다. 실패해도 판정은 그대로 나간다."""
+    if not sid:
+        return
+    try:
+        from pipeline import f09_dialogue as DLG  # noqa: PLC0415
+
+        states = dict(STORE.get_triage(_DLG_NODES + sid) or {})
+        if judgement.node_id:
+            states[judgement.node_id] = DLG.node_state(states.get(judgement.node_id), judgement)
+            STORE.set_triage(_DLG_NODES + sid, states)
+        said = [*_dialogue_said(sid), *(x for x in (judgement.react, judgement.followup) if x)][-DLG_SAID_MAX:]
+        STORE.set_triage(_DLG_SAID + sid, said)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[bridge] 꼬리질문 엔진 기록 실패: {type(e).__name__}\n")
+
+
 def _with_degraded(payload: dict, degraded: list[str]) -> dict:
     """응답에 degraded(코드 목록)·degraded_notes(같은 순서의 문장)를 싣는다. 폴백이 없으면 빈 목록 — 키는 언제나 있다."""
     codes = list(dict.fromkeys(degraded))
@@ -3883,6 +3928,25 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         STORE.remember_questions(sid, track, payload)
         # 질문마다 basis(근거·자리·탐침·인용·검사)가 실려 있다 — 세션에 트랙별로 붙여 두어 나중에 되짚는다 (P1).
         STORE.put_questions(sid, track, payload)
+        self._bind_board(body, payload)
+
+    def _bind_board(self, body: dict, payload: dict) -> None:
+        """
+        네 모델이 고른 질문을 받아 간 Q&A 한 판에 후보 판을 잇는다 — ens_board:<sid>:<run>. 캐시로 돌려준 질문도 같은 바탕을 쓴다.
+        같은 판에 이미 있으면(다른 트랙 · 다시 받기) 3번+ 기록을 이어 붙인다 (qa_board.board 의 prev). 판 값이 없는 옛 클라이언트는 세션 칸.
+        """
+        bkey = ((payload or {}).get("ensemble") or {}).get("board_key")
+        sid = str(_session_id_of(body) or "")
+        if not bkey or not sid:
+            return
+        base = STORE.get_triage(bkey)
+        if not base:
+            return
+        run = qa_run_of(body)
+        key = "ens_board:" + run_key(sid, run)
+        prev = STORE.get_triage(key)
+        b = qa_board.rebase(base, prev) if prev else base
+        STORE.set_triage(key, {**b, "qa_run_id": run})
 
     def _question_inputs(self, body: dict, graph_raw: dict, slidedoc, llm) -> tuple:
         """
@@ -4090,12 +4154,14 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         doc.model = "ensemble:" + "+".join(pool.models)
         doc._ensemble = {"active": True, "models": pool.models, "n_candidates": len(pool.candidates),
                          "timings": pool.timings, "next": "/api/v1/qa/next"}
-        # 후보 판(4단계 리포트) — 세션 메모리에 늘 담고(동의 없는 세션도 자기 리포트에서 본다 · /api/v1/qa/board), 보관은 동의 세션만(보관소가 거른다)
-        board = qa_board.board(pool.to_dict(), [c["uid"] for c in picked], found["graph"], track=str(doc.track or ""),
-                               prev=STORE.get_triage("ens_board:" + sid) if sid else None)
-        if sid:
-            STORE.set_triage("ens_board:" + sid, board)
-        self._archive(body, "qa_ensemble_board", board)
+        # 후보 판(4단계 리포트) — 판의 바탕(후보 · 거르기 · 서로 평가 · 뽑힌 것)은 자료에서만 나온다. 질문 요청의 결과(캐시 포함)와 함께
+        # 묶음 열쇠로 들고 있다가, 질문을 받아 간 Q&A 한 판(qa_run_id)마다 ens_board:<sid>:<run> 으로 따로 잇는다 (_bind_board).
+        # 3번+ 기록(음성 신호 · 앞 답 인용)은 그 판 칸에만 붙는다 — 같은 덱을 올린 사람끼리 안 섞인다 (CONTRACT §6).
+        board = qa_board.board(pool.to_dict(), [c["uid"] for c in picked], found["graph"], track=str(doc.track or ""))
+        bkey = "ens_board_base:" + fingerprint(sid, board.get("candidates") and [c.get("uid") for c in board["candidates"]],
+                                                [c["uid"] for c in picked], str(doc.track or ""))
+        STORE.set_triage(bkey, board)
+        doc._ensemble["board_key"] = bkey
         sys.stderr.write(f"[bridge] F-08 앙상블 n={len(picked)} 후보={len(pool.candidates)} 버림={len(pool.dropped)} "
                          f"작성={[c['model'] for c in picked]} {pool.timings}\n")
         return doc
@@ -4129,7 +4195,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self._ensemble_pool(str(_session_id_of(body) or ""), found["graph"], slidedoc, body.get("claims"), wait=0)
         return self._json(202, {"ensemble": True, "started": True})
 
-    def _handle_qa_next(self, raw: bytes):
+    def _handle_qa_next(self, raw: bytes):  # noqa: C901
         """
         {session_id, asked:[{question_id, answer, verdict}], prefetch?} → 다음 질문 (3번 이후).
 
@@ -4149,13 +4215,18 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         found = self._resolve(body, "graph", "alignment", "transcript")
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
         asked = []
+        run = qa_run_of(body)                                       # Q&A 한 판 — 같은 파일 세션을 나눠 쓰는 사람끼리 안 섞이게
+        states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
             q = next(iter(STORE.find_questions(sid, str(a.get("question_id") or ""))), None) or {}
+            st = states.get(q.get("node_id", "")) or {}
             asked.append({"question": q.get("question") or str(a.get("question") or "")[:QA_QUESTION_MAX],
                           "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
-                          "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3]})
-        vkey = "ens_voice:" + fingerprint(pool_key, [(a["question"], a["verdict"]) for a in asked])
-        last_key = "ens_voice_last:" + str(pool_key)
+                          "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3],
+                          "state": st.get("state", ""), "skipped": st.get("skipped", "")})
+        # 음성 후보는 판(qa_run_id)마다 — 앞 답(asked)이 프롬프트에 실리므로 다른 사람의 답과 같은 열쇠를 쓰면 안 된다
+        vkey = "ens_voice:" + fingerprint(pool_key, run, [(a["question"], a["verdict"], a["answer"]) for a in asked])
+        last_key = "ens_voice_last:" + run_key(str(pool_key), run)
 
         def make_round():
             vr_ = STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
@@ -4191,25 +4262,31 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         """3번+ 질문 하나의 고른 과정(음성 신호 · 네 모델 후보 · 버림 · 최종 선택)을 후보 판에 잇는다. 실패해도 질문은 나간다."""
         try:
             sid = str(_session_id_of(body) or "")
-            b = STORE.get_triage("ens_board:" + sid) if sid else None
+            key = "ens_board:" + run_key(sid, qa_run_of(body))
+            b = STORE.get_triage(key) if sid else None
             if not b:
                 return
             b = qa_board.with_round(b, qa_board.round_record(n, nxt, vr, pick_calls, sec, paths_from=b["graph"]["nodes"]))
-            STORE.set_triage("ens_board:" + sid, b)
+            STORE.set_triage(key, b)
             self._archive(body, "qa_ensemble_board", b)
         except Exception as e:  # noqa: BLE001 — 판은 리포트 재료다. 질문을 막지 않는다
             sys.stderr.write(f"[bridge] F-08 앙상블 판 기록 실패: {type(e).__name__}: {str(e)[:120]}\n")
 
     def _handle_qa_board(self, raw: bytes):
         """
-        {session_id} → 이 세션의 후보 판 (리포트 「질문은 이렇게 골랐어요」). 세션 메모리 → (동의 세션이면) 보관본 순.
+        {session_id, qa_run_id} → 이 Q&A 판의 후보 판 (리포트 「질문은 이렇게 골랐어요」). 세션 메모리 → (동의 세션이면, 같은 판의) 보관본 순.
         LLM 을 부르지 않는다. 판이 없으면 404 {board: null} — 이번 질문을 한 모델이 골랐거나(QA_ENSEMBLE=0 · 묶음 실패) 메모리가 지났다.
         """
         body = json.loads(raw or b"{}")
         sid = _session_id_of(body)
         if not sid:
             return self._json(400, {"error": "bad_request", "message": "session_id 가 필요해요."})
-        b = STORE.get_triage("ens_board:" + sid) or ARCHIVE.read_artifact(sid, "qa_ensemble_board")
+        run = qa_run_of(body)
+        b = STORE.get_triage("ens_board:" + run_key(sid, run))
+        if not b:
+            # 보관본은 세션에 하나뿐이다(마지막으로 쓴 판) — 내 판일 때만 준다. 같은 덱 세션을 나눠 쓴 남의 3번+ 기록을 주지 않는다
+            kept = ARCHIVE.read_artifact(sid, "qa_ensemble_board")
+            b = kept if isinstance(kept, dict) and str(kept.get("qa_run_id") or "") == run else None
         if not b or not b.get("candidates"):
             return self._json(404, {"board": None, "message": "이 세션엔 네 모델이 고른 기록이 없어요."})
         return self._json(200, {"board": b})
@@ -4530,14 +4607,19 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 slidedoc=slidedoc,
                 # 지난 리허설 기억 (F-25) — 지난번에 빠졌던 점이 이번엔 나왔는지 본다. 포기하면 코칭 단계도 이것이 정한다
                 memory=memory,
+                # 세션에서 이미 한 반응 · 꼬리질문 — 꼬리질문 엔진이 되풀이하지 않는다 (2026-10-17 5단계 R9)
+                avoid=_dialogue_said(run_key(store_sid, qa_run_of(body)) if store_sid else None),
             )
         except JudgeError as e:
             sys.stderr.write(f"[bridge] F-09 judge failed: {e}\n")
             return self._json(502, {"error": "judge_failed",
                                     "message": "답변을 판정하지 못했어요. 잠시 뒤 다시 답해 주세요."})
         on_server = qsrc in ("server", "archive", "mismatch")
+        _dialogue_note(run_key(store_sid, qa_run_of(body)) if store_sid else None, judgement)
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
+            f"수={judgement.move or '-'}/{(judgement.dialogue or {}).get('source') or '-'} 시도={len(body.get('history') or []) + 1} "
+            f"판정={(judgement.dialogue or {}).get('judge_sec', '-')}s 엔진+={(judgement.dialogue or {}).get('sec_after_judge', '-')}s "
             f"passed={judgement.passed} stage={judgement.coach_stage!r} 질문={qsrc} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"

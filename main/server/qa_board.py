@@ -72,6 +72,18 @@ def board(pool_dict: dict, picked: list[str], graph_raw, *, track: str = "", pre
     }
 
 
+
+def rebase(base: dict, prev: dict) -> dict:
+    """
+    같은 Q&A 판(qa_run_id)에 질문을 다시 받았을 때 — 새 바탕(base)에 그 판의 앞 기록을 잇는다. 묶음이 같을 때만 트랙 순서와
+    3번+ 기록(rounds)을 가져온다. 바탕은 여러 판이 나눠 쓰므로 고치지 않고 새 dict 를 돌려준다.
+    """
+    same_pool = [c.get("uid") for c in prev.get("candidates") or []] == [c.get("uid") for c in base.get("candidates") or []]
+    if not same_pool:
+        return base
+    tracks = {**(prev.get("tracks") or {}), **(base.get("tracks") or {})}
+    return {**base, "tracks": tracks, "rounds": list(prev.get("rounds") or [])}
+
 def _slim_cand(c: dict) -> dict:
     keep = ("uid", "model", "signal", "signal_kind", "signal_note", "signal_quote", "node_id", "label", "pattern",
             "question", "answer", "why", "lines", "slide_no", "quote", "slot", "peer")
