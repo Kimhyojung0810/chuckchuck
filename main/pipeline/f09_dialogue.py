@@ -497,6 +497,28 @@ def soft_trim(react: str) -> str:
     return " ".join(out)
 
 
+#: 인용 없이도 되는 수 — 모름(인용할 말이 없다) · 갇힘 출구.
+_NO_QUOTE_MOVES = frozenset({"hint", "explain"})
+
+
+def with_quote(react: str, anchor: str, answer: str, move: str) -> str:
+    """
+    반응이 답 원문 구절을 인용하지 않았으면 첫 문장을 「「구절」라고 했죠.」 로 바꾼다 (R8 — 인용 → 평가 → 질문). 첫 문장은 대개 받아 주는 말이라
+    뜻을 잃지 않는다. 한 문장뿐이면 앞에 붙인다. 구절이 답 원문에 없으면 손대지 않는다(지어내지 않는다).
+    """
+    if move in _NO_QUOTE_MOVES or not anchor or quoted_anchor(react, answer) or _squash(anchor) not in _squash(answer):
+        return react
+    sents = sentences_of(react)
+    head = f"「{anchor}」{josa_of(anchor, '이라고', '라고')} 했죠."
+    if len(sents) >= 2:
+        return " ".join([head, *sents[1:]])
+    return " ".join([head, *sents])
+
+
+def quote_problem(react: str, answer: str, move: str) -> list[str]:
+    return [] if move in _NO_QUOTE_MOVES or quoted_anchor(react, answer) else ["no_quote"]
+
+
 def quoted_anchor(react: str, answer: str) -> str:
     """반응이 낫표로 인용한 구절 중 답 원문에 있는 것."""
     for m in re.finditer(r"「([^」]{2,40})」", react or ""):
@@ -656,9 +678,9 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
 
     def candidate(t: TalkResult) -> tuple[str, str, list[str]]:
         if id(t) not in checked:
-            r = soft_trim(tidy_react(t.react))
+            r = with_quote(soft_trim(tidy_react(t.react)), _anchor_for(t.move, t.read, t.anchor), ti.answer, t.move)
             a = t.ask if need_ask else ""
-            checked[id(t)] = (r, a, check_turn(r, a, ti, need_ask=need_ask, numbers_ok=numbers_ok))
+            checked[id(t)] = (r, a, check_turn(r, a, ti, need_ask=need_ask, numbers_ok=numbers_ok) + quote_problem(r, ti.answer, t.move))
         return checked[id(t)]
 
     def accept(t: TalkResult) -> bool:
@@ -682,7 +704,7 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     move = policy(judgement.verdict, judgement.guard, read, gave_up=gave_up, closing=closing, passed=judgement.passed)
     meta: dict = {"read": read, "llm_move": base.move if base else "", "talk_sec": base.sec if base else None,
                   "talk_model": base.model if base else "", "talk_ok": bool(base), "talk_n": len(got),
-                  "talk_moves": [[t.model, t.move, (candidate(t)[2] if t.ok else [t.error])] for t in got],
+                  "talk_moves": [[t.model, t.move, (candidate(t)[2] if t.ok else [t.error]), t.react, t.ask] for t in got],
                   "talk_error": "" if base else (got[0].error if got else "no_talk")}
     if move == "explain":
         react = _closing_react(base, ti, judgement)
@@ -700,10 +722,11 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     if not source and (respeak if respeak is not None else respeak_on()) and got:
         extra = _judge_note(judgement, move)
         r2, a2, sec2 = dialogue_respeak(ti, move, anchor, extra, llm=llm or (_llm(base.model) if base and base.model else None))
-        r2 = soft_trim(tidy_react(r2))
+        r2 = with_quote(soft_trim(tidy_react(r2)), anchor, ti.answer, move)
         meta["respeak_sec"] = sec2
+        meta["respeak_text"] = [r2, a2]
         a2 = a2 if need_ask else ""
-        p2 = check_turn(r2, a2, ti, need_ask=need_ask, numbers_ok=numbers_ok)
+        p2 = check_turn(r2, a2, ti, need_ask=need_ask, numbers_ok=numbers_ok) + quote_problem(r2, ti.answer, move)
         meta["respeak_problems"] = p2
         if r2 and not p2:
             react, ask, source = r2, a2, "respeak"

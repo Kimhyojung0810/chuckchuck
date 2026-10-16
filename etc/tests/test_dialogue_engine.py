@@ -185,3 +185,10 @@ def test_외운_답_가리기():
     assert not recital("충전 속도와 온도만 바꾸고 나머지를 묶었기 때문에 2C 효과만 보인다고 봐요.", deck)
     assert not recital("셀이 적어서 단정하긴 어려워요.", deck)
     assert deep_question("", "P2") and not deep_question("", "P1") and deep_question("이 결론은 어디까지 맞나요?")
+
+
+def test_인용이_없으면_첫_문장을_답_구절_인용으로():
+    r = DLG.with_quote("실험실 이야기를 했죠. 조건이 아직 흐려요.", "실험실에서 한 거라서", ANSWER, "clarify")
+    assert r == "「실험실에서 한 거라서」라고 했죠. 조건이 아직 흐려요."
+    assert DLG.with_quote("조건이 흐려요.", "지어낸 구절", ANSWER, "clarify") == "조건이 흐려요."     # 원문에 없으면 손대지 않는다
+    assert DLG.with_quote("괜찮아요.", "실험실에서", ANSWER, "hint") == "괜찮아요."

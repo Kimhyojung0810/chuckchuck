@@ -167,8 +167,13 @@ def dialogue_metrics(rows: list[dict], lj: dict | None = None) -> dict:
     return m
 
 
+_COACH_TAIL_RE = re.compile(r"\s*자료(?:\s*\d+장)?[은는]\s*이렇게 말해요:\s*«.*?»\s*$")
+
+
 def _w3(t: str) -> list[str]:
-    w = re.findall(r"[가-힣A-Za-z0-9]+", re.sub(r"「[^」]*」", " ", t or ""))
+    # 화면이 보이는 글만 — 「모르겠어요」 1단의 자료 인용 꼬리는 화면이 떼고 카드로 그린다(qa_live coachReactText)
+    t = _COACH_TAIL_RE.sub("", t or "")
+    w = re.findall(r"[가-힣A-Za-z0-9]+", re.sub(r"「[^」]*」", " ", t))
     return [" ".join(w[i:i + 3]) for i in range(len(w) - 2)]
 
 
