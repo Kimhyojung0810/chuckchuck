@@ -203,7 +203,9 @@ STAT_HEAD = ["| 대상 | 호출 | 성공 | 429 | 그 밖 오류 | 재시도 | �
              "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
 
 
-def _stats(rs: list[dict]) -> dict:
+def _stats(rs) -> dict:
+    if isinstance(rs, dict):                       # {run_id: [레코드]} — 성공 실행이 없는 기능의 묶음
+        rs = [r for run in rs.values() for r in run]
     b = AU._bucket()
     for r in rs:
         AU._add(b, r)
@@ -229,6 +231,10 @@ def build(*, dirs: list[Path], out: Path, since: str = "2026-10-14", roles: dict
         code = r.get("feature_code") or AC.UNCLASSIFIED
         if code not in feats and not include_unlisted:      # 벤치 · 실험(F-08-bench 등)은 서비스 기능이 아니다 — 따로 센다
             skipped[code] += 1
+            continue
+        host = (urlsplit(r["request"].get("endpoint") or "").hostname or "").lower()
+        if host in ("127.0.0.1", "localhost", "::1"):
+            skipped["오류주입_로컬"] += 1          # 10-17 오류 주입 실험(엔드포인트를 로컬로 막음) — 국내 AI 로 나가지 않은 호출
             continue
         by_group[group_of(r)].append(r)
     meta = {g[0]: g for g in GROUPS}
