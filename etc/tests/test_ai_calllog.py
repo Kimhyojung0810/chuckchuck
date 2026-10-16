@@ -414,3 +414,42 @@ def test_실행_결과는_부른_곳마다_마지막_시도로_본다():
     runs = {"a": [r("midm", False, "1"), r("solar", True, "3")], "b": [r("solar", True, "2")]}
     assert ex.pick(runs)[0] == "b"                                                          # 끝까지 성공한 실행이 먼저
     assert ex.pick({"a": runs["a"]})[0] == "a"                                              # 없으면 일부 성공
+
+
+# ─── 10-17 네 모델 Q&A — 함수 표 · 스레드 건너기 · 라우팅 풀 ────────────────────────────────────
+
+def test_함수_표가_모듈보다_먼저다():
+    feats = json.loads(AC.FEATURES_FILE.read_text(encoding="utf-8"))["features"]
+    assert set(AC.FUNC_FEATURES.values()) <= set(feats)                   # 표에 없는 코드면 파일명이 코드 그대로 나간다
+
+    def ens_peer_review():
+        return AC.feature_of(__import__("sys")._getframe())
+    assert ens_peer_review() == "F-08-peer"
+
+
+def test_carry_는_스레드풀로_범위와_기능을_넘긴다(net, tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setenv("AI_CALLLOG", "team")                             # 범위가 안 따라가면 0건
+    _team_scope()
+    llm = PostingLLM()
+    with ThreadPoolExecutor(2) as pool, AC.feature_scope("F-08-gen"):
+        futs = [pool.submit(AC.carry(llm.complete), system="", user=f"u{i}") for i in range(4)]
+        [f.result() for f in futs]
+    rs = records(tmp_path)
+    assert len(rs) == 4 and {r["feature_code"] for r in rs} == {"F-08-gen"}
+    assert rs[0]["feature"] == "예상질문_후보생성_네모델"
+
+
+def test_라우팅된_주_모델_호출도_기능과_범위가_남는다(net, tmp_path, monkeypatch):
+    from pipeline.providers.llm_route import RoutedLLM
+
+    monkeypatch.setenv("AI_CALLLOG", "team")
+    _team_scope()
+    routed = RoutedLLM(PostingLLM("ok"), PostingLLM("no"), deadline_sec=5, stage="phrase")
+    from pipeline import f08_questions as f08                            # 스택에 f08 이 있는 자리에서 부른 것처럼
+
+    exec(compile("def _f08_call(r):\n    return r.complete(system='', user='q')\n", f08.__file__, "exec"), f08.__dict__)
+    assert f08.__dict__["_f08_call"](routed) == "ok"
+    rs = records(tmp_path)
+    assert len(rs) == 1 and rs[0]["feature_code"] == "F-08"

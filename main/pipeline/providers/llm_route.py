@@ -109,7 +109,10 @@ class RoutedLLM(LLMProvider):
                  max_tokens: int = 4096, json_mode: bool = False) -> str:
         kw = dict(system=system, user=user, temperature=temperature, max_tokens=max_tokens, json_mode=json_mode)
         t0 = time.monotonic()
-        fut = _POOL.submit(self.primary.complete, **kw)
+        # 일꾼 스레드엔 부른 쪽 스택이 없다 — 요청 범위(team)와 기능 코드를 들고 건너가게 (호출 로그 `_ai_calllog.carry`, 10-17:
+        # 이게 없어서 라우팅된 EXAONE 질문 문장 호출이 「미분류」였고 team 모드에선 아예 안 적혔다).
+        from .. import _ai_calllog  # noqa: PLC0415
+        fut = _POOL.submit(_ai_calllog.carry(self.primary.complete), **kw)
         try:
             out = fut.result(timeout=self.deadline_sec)
             reason = _unusable(out, json_mode)

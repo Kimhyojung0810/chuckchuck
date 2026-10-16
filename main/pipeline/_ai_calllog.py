@@ -36,6 +36,15 @@ UNCLASSIFIED = "미분류"
 FEATURES_FILE = Path(__file__).with_name("ai_calllog_features.json")
 #: 유틸 모듈이지만 스레드풀 안에서 바로 LLM 을 불러 스택에 fNN 모듈이 없는 곳 (설계 §3)
 HELPER_FEATURES = {"_typed_graph": "F-07", "_judge_grounds": "F-09"}
+#: 같은 모듈 안에서도 **함수**로 기능을 가르는 표 (2026-10-17 네 모델 Q&A) — 스택에서 이 함수 이름을 만나면 모듈보다 먼저 쓴다.
+#: f08_ensemble 의 일 하나가 곧 제출 기능 하나다 (후보 생성 · 서로 평가 · 최종 선택 · 발표 음성 추론 · 모범답 정리).
+FUNC_FEATURES = {
+    "ens_generate": "F-08-gen",
+    "ens_peer_review": "F-08-peer",
+    "ens_pick": "F-08-pick",
+    "ens_voice": "F-08-voice",
+    "polish_gists": "F-08-gist",
+}
 _FEATURE_MOD = re.compile(r"^f(\d{2})_[a-z0-9_]+$")
 #: 호스트 꼬리 → 제공사 (국내 AI 연계 기업). 실제 기록 대상 호스트는 install() 이 config 의 base URL 에서 정한다
 _PROVIDERS = (("upstage.ai", "Upstage"), ("adot.ai", "SKT"), ("kt.com", "KT"),
@@ -85,6 +94,8 @@ class Scope:
 
 
 _SCOPE: contextvars.ContextVar[Scope | None] = contextvars.ContextVar("ai_calllog_scope", default=None)
+#: 스택으로 못 가르는 자리(스레드풀 일꾼 — RoutedLLM 마감 풀 · 네 모델 병렬)를 위한 기능 표지. `carry()` · `feature_scope()` 가 건다.
+_FEATURE_HINT: contextvars.ContextVar[str | None] = contextvars.ContextVar("ai_calllog_feature", default=None)
 
 
 def begin_request(*, team: bool, route: str = "") -> Scope:
@@ -126,10 +137,13 @@ def _run_for(code: str, model: str | None) -> tuple[str, str | None]:
 
 # ─── 기능 찾기 · 재시도 ───────────────────────────────────────────────────────────────────────
 
-def feature_of(frame) -> str:
-    """스택을 안쪽부터 올라가며 처음 만난 pipeline.fNN_* 모듈(또는 HELPER_FEATURES)의 기능 코드. 못 찾으면 미분류."""
+def _stack_feature(frame) -> str:
+    """스택을 안쪽부터 올라가며 처음 만난 FUNC_FEATURES 함수 · pipeline.fNN_* 모듈(또는 HELPER_FEATURES)의 기능 코드. 못 찾으면 미분류."""
     f = frame
     while f is not None:
+        fn = getattr(getattr(f, "f_code", None), "co_name", "")
+        if fn in FUNC_FEATURES:
+            return FUNC_FEATURES[fn]
         last = str(f.f_globals.get("__name__", "")).rsplit(".", 1)[-1]
         m = _FEATURE_MOD.match(last)
         if m:
@@ -138,6 +152,55 @@ def feature_of(frame) -> str:
             return HELPER_FEATURES[last]
         f = f.f_back
     return UNCLASSIFIED
+
+
+def feature_of(frame) -> str:
+    """이 호출의 기능 코드 — `feature_scope()` 로 건 표지가 있으면 그것, 없으면 스택(`_stack_feature`), 스택이 미분류면
+    스레드를 건너온 표지(`carry()`)."""
+    hint = _FEATURE_HINT.get()
+    code = _stack_feature(frame)
+    if hint and (code == UNCLASSIFIED or hint.startswith(code + "-")):
+        return hint
+    return code
+
+
+class feature_scope:
+    """`with feature_scope("F-08-gen"):` — 이 안에서 나가는 호출(같은 스레드 · carry 로 넘긴 스레드)은 이 기능으로 적는다.
+    스택이 더 좁은 기능(예: 같은 F-08 안의 F-08-peer 함수)을 가리키면 스택이 이긴다."""
+
+    def __init__(self, code: str | None):
+        self.code = code
+        self._tok = None
+
+    def __enter__(self):
+        if self.code:
+            self._tok = _FEATURE_HINT.set(self.code)
+        return self
+
+    def __exit__(self, *exc):
+        if self._tok is not None:
+            _FEATURE_HINT.reset(self._tok)
+        return False
+
+
+def carry(fn, feature: str | None = None):
+    """스레드풀에 넘길 함수를 감싼다 — 지금 맥락(요청 범위 · 기능 표지)을 복사하고, 표지가 없으면 **부르는 쪽 스택**의 기능을 건다.
+    RoutedLLM 마감 풀 · 네 모델 병렬처럼 일꾼 스택에 fNN 모듈이 없는 자리에서 기능 · team 범위가 사라지지 않게 (10-17 실측: 라우팅된
+    EXAONE 질문 문장 호출이 미분류였고, team 모드에선 범위가 끊겨 아예 안 적혔다)."""
+    code = feature or _FEATURE_HINT.get() or _stack_feature(sys._getframe(1))
+    ctx = contextvars.copy_context()
+
+    def run(*a, **kw):
+        def inner():
+            tok = _FEATURE_HINT.set(code) if code and code != UNCLASSIFIED else None
+            try:
+                return fn(*a, **kw)
+            finally:
+                if tok is not None:
+                    _FEATURE_HINT.reset(tok)
+        return ctx.copy().run(inner)    # 같은 감싼 함수가 여러 일꾼에서 동시에 돌아도 되게 — 부를 때마다 사본
+
+    return run
 
 
 def _caller(frame):
@@ -456,4 +519,4 @@ class _AudioDigest:
 
 
 __all__ = ["install", "uninstall", "begin_request", "current", "should_record", "mode", "root", "record_live_session",
-           "audio_digest", "feature_of", "prune", "write", "korean_hosts"]
+           "audio_digest", "feature_of", "feature_scope", "carry", "prune", "write", "korean_hosts", "FUNC_FEATURES"]
