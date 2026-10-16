@@ -75,8 +75,9 @@ PAIR_SYSTEM = """당신은 발표 Q&A 심사위원장이다. 같은 발표에 �
 기준: 발표자가 자료의 **핵심을 간파했는지** 더 잘 드러내는 묶음 (숫자·용어 확인, 뻔한 질문, 틀린 전제는 감점).
 먼저 근거를 두세 가지 쓰고, 그다음 고른다. 출력은 JSON 하나: {"reasons": ["…", "…"], "winner": "A" | "B" | "tie"}"""
 
-SUMMARY_SYSTEM = """아래 「발표 요약」만 보고 질문마다 모범답의 골자를 쓸 수 있는지 판단한다. 요약에 없는 세부(숫자·표·특정 장의 문구)를 봐야만 답할 수 있으면 false.
-출력은 JSON 하나: {"items": [{"id": "Q01", "answerable": true}]}"""
+SUMMARY_SYSTEM = """당신은 이 발표의 요약 몇 줄만 들은 청중이다. 질문마다, 요약에 나온 주장들과 그 사이의 논리만으로 답의 **골자**(왜 그런지·어떻게 이어지는지·어디까지 맞는지)를 말할 수 있으면 true 다.
+요약에 없는 세부(특정 숫자·표의 값·특정 장의 문구·용어 정의)를 꼭 봐야만 답할 수 있으면 false 다. 답이 완벽할 필요는 없다 — 방향을 잡을 수 있으면 true.
+먼저 질문마다 판단 근거를 짧게 생각하고, 출력은 JSON 하나: {"items": [{"id": "Q01", "answerable": true}]}"""
 
 
 def load(name: str) -> dict:
@@ -288,6 +289,23 @@ def gist_checks(qs: list[Question], art: dict) -> list[dict]:
 
 # ─── 판 하나 ────────────────────────────────────────────────────────────────────────────────
 
+def reeval(args) -> int:
+    """심판 프롬프트를 고친 뒤 같은 질문으로 다시 잰다 — 생성 잡음 없이 심판만 비교."""
+    args.judges = [j for j in args.judges.split(",") if j]
+    rec = json.loads(args.reeval.read_text(encoding="utf-8"))
+    art = load(rec["deck"])
+    seed = zlib.crc32(f"{rec['deck']}:{rec['rep']}:{rec.get('tag', '')}".encode()) % 10_000
+    sets: dict = {}
+    for k in rec.get("eval", {}).get("keys", []):
+        sets.setdefault(k["set"], []).append({x: k.get(x) for x in ("question", "author", "node_id", "trap")})
+    rec["eval_prev"] = rec.get("eval")
+    rec["eval"] = eval_sets(sets, art, args, seed)
+    out = args.out / args.reeval.name
+    out.write_text(json.dumps(rec, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    print(f"다시 잼: {out}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--deck", required=True)
@@ -305,7 +323,10 @@ def main() -> int:
     ap.add_argument("--voice2", action="store_true", default=True)
     ap.add_argument("--no-eval", action="store_true")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--reeval", type=Path, help="저장된 판 JSON 의 평가(심판단·요약·짝 비교)만 다시 — 생성은 그대로")
     args = ap.parse_args()
+    if args.reeval:
+        return reeval(args)
     args.models = [m for m in args.models.split(",") if m]
     args.judges = [j for j in args.judges.split(",") if j]
     args.out.mkdir(parents=True, exist_ok=True)

@@ -179,7 +179,7 @@ GEN_SYSTEM = """당신은 이 발표를 끝까지 들은 심사위원 교수다.
 - 「이 조건」「그 결과」처럼 가리키는 말만 쓰지 말고 무엇인지 이름(자료의 고유 개념)을 댄다. 다른 발표에 그대로 쓸 수 있는 뻔한 질문은 쓰지 않는다.
 - 자료에 없는 사실·숫자를 전제로 깔지 않는다. 문헌·논문 이름을 지어내지 않는다.
 - answer(모범답): 발표자가 그대로 말하면 되는 1~2문장 해요체. 자료 줄에 있는 사실만 쓰고 지어내지 않는다. 「자료는 이렇게 말해요」 같은 머리말·줄 이어 붙이기 금지.
-- lines: 모범답의 근거 자료 줄 번호 1~3개 (예: "S3.2").
+- lines: 모범답의 근거 자료 줄 번호 1~3개 (예: "S3.2"). 줄 번호는 lines 칸에만 쓰고 질문·모범답 문장에는 쓰지 않는다.
 - 자료가 그 슬롯의 답을 담지 않으면 {"slot": "T3", "skip": true}.
 - why: 이 질문이 이 발표의 핵심을 찌르는 까닭 한 줄.
 
@@ -600,15 +600,18 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
             raw.extend(f.result())
     sig_of = {s["id"]: s for s in signals}
     by_id = {n.id: n for n in deck.graph.nodes}
+    speech_vocab = ES._tokens(text)          # 발표에서 한 말 — 음성 질문·모범답은 발화의 낱말을 쓴다
     kept, dropped = [], []
     for i, c in enumerate(raw):
         sig = sig_of[c["signal"]]
         node = by_id.get(sig["node_id"])
-        slot = ES.Slot(id="V", node_id=sig["node_id"], label=sig["label"], kind=sig.get("node_kind", ""), pattern="P2",
-                       slides=list(node.slide_nos or []) if node else [])
+        slot = ES.Slot(id="V", node_id=sig["node_id"], label=sig["label"], kind=sig.get("node_kind", ""), pattern="voice",
+                       slides=list(node.slide_nos or []) if node else [],
+                       lines=[sig["deck_line"]] if sig.get("deck_line") else [],
+                       partner_label=" ".join(sig.get("neighbors") or []))
         c = tidy({**c, "uid": f"{c['model']}:{c['signal']}:v{i}"})
         ok, why = ES.check_candidate(c, slot, lines_by_id=deck.lines_by_id, idx=deck.idx, deck_tokens=deck.deck_tokens,
-                                     sources=deck.sources + [text])
+                                     sources=deck.sources + [text], extra_vocab=speech_vocab)
         if any(ES.question_tokens_overlap(c.get("question", ""), a.get("question", "")) >= DUP_OVERLAP for a in asked or []):
             why = [*why, "repeats_asked"]
             ok = None
@@ -719,15 +722,16 @@ def _tidy_line(line: str) -> str:
 
 def code_gist(q: Question, deck: Deck) -> str:
     """LLM 이 못 고친 골자 — 근거 장의 자료 줄 **하나**로 「자료 N장은 「…」라고 해요.」 (표 머리줄·글머리·이어 붙이기 없이)."""
-    from ._traps import josa  # noqa: PLC0415
+    from ._traps import _quoted_josa  # noqa: PLC0415
     nos = q.slide_nos or ([q.evidence_slide_no] if q.evidence_slide_no else [])
     want = ES._tokens(" ".join([q.question, q.label, q.evidence_quote]))
-    cands = [ln for ln in deck.lines if ln.slide_no in nos and " / " not in ln.text and len(_tidy_line(ln.text)) >= 12]
+    cands = [ln for ln in deck.lines if ln.slide_no in nos and " / " not in ln.text and len(_tidy_line(ln.text)) >= 12
+             and not ES._CITATION_RE.search(ln.text)]
     if not cands:
         return ""
     best = max(cands, key=lambda ln: len(want & ES._tokens(ln.text)))
     text = _tidy_line(best.text)
-    return f"자료 {best.slide_no}장은 「{text}」{josa(text, '이라고', '라고')} 해요."
+    return f"자료 {best.slide_no}장은 「{text}」{_quoted_josa(text, '이라고', '라고')} 해요."
 
 
 def polish_gists(questions: list[Question], deck: Deck, llm: LLMProvider, calls: list | None = None) -> dict:
@@ -760,7 +764,11 @@ def polish_gists(questions: list[Question], deck: Deck, llm: LLMProvider, calls:
             ln = deck.lines_by_id[refs[0]]
             q.evidence_slide_no, q.evidence_quote = ln.slide_no, ln.text[:180]
             if checks is not None:
-                checks.append("gist_polished")
+                if not grounding.supported_sentences(a, deck.idx)[1]:
+                    checks.append("gist_polished")         # 절마다 자료로 받쳐짐 — 골자 바닥
+                else:
+                    # 자료 줄을 잇는 추론이 든 깨끗한 모범답 — 더는 틀 자리 표시가 아니다. 보통 LLM 골자처럼 F-09 가 스스로 대조한다
+                    checks[:] = [c for c in checks if c not in ("gist_template", "fallback_template")] + ["gist_polished_inference"]
             stat["polished"] += 1
             continue
         fixed = code_gist(q, deck)
@@ -782,4 +790,4 @@ def _gist_ok(a: str, deck: Deck) -> bool:
         return False
     if len(grounding.unknown_terms(a, deck.idx)) >= 2 or grounding.gist_problems(a, deck.idx):
         return False
-    return not grounding.supported_sentences(a, deck.idx)[1]
+    return not ES.LINE_ID_RE.search(a)

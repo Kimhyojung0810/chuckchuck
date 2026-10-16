@@ -296,6 +296,10 @@ _SENT_END_RE = re.compile(r"(요|다|죠)[.!]?\s*$")
 QUESTION_MAX = 200
 _LEAD_RE = re.compile(r"^(?:질문의 전제와 달리,\s*)?자료는 이렇게 말해요\s*—\s*")
 _LINE_REF_RE = re.compile(r"S\d{1,3}\.\d{1,3}")
+#: 질문·모범답 문장에 새어 나온 프롬프트 줄 번호(「S3.4의 차트에서」 — 10-17 Mi:dm) — 발표자가 모르는 표기다
+LINE_ID_RE = re.compile(r"(?<![A-Za-z0-9])S\d{1,3}\.\d{1,3}")
+#: 옮겨 쓰기·한계 패턴은 자료 밖 낱말이 자연스럽다(적용처·반례) — 자료 밖 낱말 상한을 늘린다
+OPEN_PATTERNS = ("P7", "P10")
 
 
 def specific_terms(text: str, label: str, deck_tokens: set[str]) -> list[str]:
@@ -322,7 +326,7 @@ def haeyo_answer(text: str) -> str:
 
 
 def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], idx, deck_tokens: set[str],
-                    sources: list[str]) -> tuple[dict | None, list[str]]:
+                    sources: list[str], extra_vocab: set[str] | None = None) -> tuple[dict | None, list[str]]:
     """
     모델 후보 하나 → (다듬은 후보, 버린 까닭들). 까닭이 하나라도 있으면 버린다 — 템플릿으로 바꾸지 않는다.
     다듬기는 말투(물음 끝·모범답 해요체)와 근거 줄 되찾기뿐 — 내용은 바꾸지 않는다.
@@ -336,6 +340,8 @@ def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], id
         why.append("not_korean")
     if len(q) > QUESTION_MAX:
         why.append("too_long")
+    if LINE_ID_RE.search(q) or LINE_ID_RE.search(a):
+        why.append("line_id_leak")
     if q.count("?") + q.count("？") > 1:
         why.append("multi_ask")
     if not POLITE_END_RE.search(q):
@@ -365,7 +371,7 @@ def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], id
             why.append("number_not_in_deck")
         if grounding.question_premise_problems(q, idx):
             why.append("false_premise")
-        if len(grounding.unknown_terms(q, idx)) >= 3:
+        if len(grounding.unknown_terms(q, idx, extra_vocab)) >= (5 if slot.pattern in OPEN_PATTERNS else 3):
             why.append("off_deck_terms")
     refs = [r for r in (c.get("lines") or []) if isinstance(r, str)]
     refs = [m for r in refs for m in _LINE_REF_RE.findall(r)]
@@ -385,13 +391,13 @@ def check_candidate(c: dict, slot: Slot, *, lines_by_id: dict[str, DeckLine], id
             why.append("answer_fragment")
         # 「왜」 질문의 모범답은 자료 줄을 잇는 추론이 든다 — 절마다 자료 대조(supported_sentences)로 버리면 핵심 질문이 다 빠진다
         # (10-17 A1 실측: 36개 중 25개). 그래서 **지어낸 낱말**(자료·그래프에 없는 내용 명사 셋 이상)만 버리고, 절 대조는 표시로 남긴다.
-        if len(grounding.unknown_terms(a, idx)) >= ANSWER_NOVEL_MAX:
+        if len(grounding.unknown_terms(a, idx, extra_vocab)) >= ANSWER_NOVEL_MAX + (2 if slot.pattern in OPEN_PATTERNS else 0):
             why.append("answer_off_deck")
         if grounding.gist_problems(a, idx):
             why.append("answer_mismatch")
     if why:
         return None, why
-    inference = bool(not trap and grounding.supported_sentences(a, idx)[1])
+    inference = bool(not trap and grounding.supported_sentences(a, idx, extra_vocab)[1])
     slide = found[0].slide_no if found else (slot.slides[0] if slot.slides else 0)
     return {**c, "question": q, "answer": a, "lines": [ln.id for ln in found], "slide_no": slide,
             "quote": found[0].text if found else (trap or {}).get("fact", ""), "terms": terms,
