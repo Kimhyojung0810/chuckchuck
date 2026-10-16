@@ -55,6 +55,8 @@
   /** 자료 줄의 표 구분자(| --- |)를 걷는다 — report_v2.js plainDeck 과 같은 규칙 */
   const plain = (t) => String(t || '').replace(/\|\s*-{3,}\s*/g, ' ').replace(/^\s*\|\s*|\s*\|\s*$/g, '').replace(/\s*\|\s*/g, ' · ').replace(/(?:·\s*){2,}/g, '· ').replace(/\s{2,}/g, ' ').trim();
   const norm = (t) => String(t || '').replace(/\s+/g, '').replace(/[?？.!。]+$/, '');
+  /** 질문 문장(마지막 문장) 25~70자 — f08_ensemble.form_factor 와 같은 규칙. 벗어나면 고르기 점수가 0.85배 */
+  const formOk = (q) => { const body = String(q || '').trim().split(/(?<=[.!])\s+/).pop() || ''; return body.length >= 25 && body.length <= 70; };
   const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 
   /* ─── 순수: 판 → 뷰모델 (etc/tests/js/report_qaboard.smoke.mjs) ─────────────────────────── */
@@ -214,7 +216,7 @@
     /** 후보 카드 — 모델이 쓴 질문 하나. 뽑힌 것 · 이 자리 1등 · 버린 것 */
     function card(c, { askedN = 0, top = false, drop = null, fromPool = false } = {}) {
       const pct = Math.round((c.peer || 0) * 100);
-      const tag = askedN ? chip(`${askedN}번으로 물었어요`, 'is-picked') : drop ? chip('뺐어요', 'is-out') : top ? chip('이 자리 1등', 'is-top') : fromPool ? chip('미리 만든 후보', '') : '';
+      const tag = askedN ? chip(`${askedN}번으로 물었어요`, 'is-picked') : drop ? chip('뺐어요', 'is-out') : top ? chip('서로 평가 1등', 'is-top') : fromPool ? chip('미리 만든 후보', '') : '';
       return `<article class="qb-card${askedN ? ' is-picked' : ''}${drop ? ' is-out' : ''}">
         <header>${logo(c.model)}${tag}</header>
         <p class="qb-q">${esc(c.question || '(질문을 쓰지 않았어요)')}</p>
@@ -296,7 +298,7 @@
         <div class="nv-card qb-where"><p class="qb-k">이 자리에서 묻는 것</p><p class="qb-ask">${esc(desc)}</p>${pathChips(s.path)}
           ${(s.slides || []).length ? `<p class="nv-cap">근거 ${esc(s.slides.join(' · '))}장${s.partner_label ? ` · 이어지는 주장 「${esc(s.partner_label)}」` : ''}</p>` : ''}</div>
         <h3 class="nv-sec">모델마다 쓴 후보 <small>${s.kept.length + s.dropped.length}개</small></h3>
-        <div class="nv-pager qb-pager">${ordered.map((c) => card(c, { askedN: (Q.asked.find((x) => x.uid === c.uid) || {}).n || 0, top: c === s.top && !pick })).join('')}${s.dropped.map((d) => card(d, { drop: d })).join('')}</div>
+        <div class="nv-pager qb-pager">${ordered.map((c) => card(c, { askedN: (Q.asked.find((x) => x.uid === c.uid) || {}).n || 0, top: c === s.top && c !== pick })).join('')}${s.dropped.map((d) => card(d, { drop: d })).join('')}</div>
         <p class="nv-note">옆으로 넘겨 보세요. 거르기를 통과한 후보만 서로 평가를 받아요.</p>
         <h3 class="nv-sec">서로 평가</h3>
         ${matrix(s.kept, reviewers)}
@@ -304,6 +306,7 @@
         <div class="nv-card">${pick ? `<p class="nv-body">${askedN <= 2
           ? '1 · 2번은 발표가 끝나자마자 나와야 해서 AI 를 다시 부르지 않고 골랐어요. 그래프에서 무게가 큰 자리(핵심 주장일수록 커요)이면서 서로 평가가 높은 후보예요.'
           : '음성 후보가 늦거나 없을 때를 대비해 미리 만든 묶음의 순서대로 냈어요.'}</p>
+          ${s.top && s.top !== pick && s.top.peer > pick.peer ? `<p class="nv-cap" style="margin-top:8px">서로 평가는 ${esc(modelOf(s.top.model).name)} 후보(${Math.round(s.top.peer * 100)}점)가 더 높았어요.${!formOk(s.top.question) && formOk(pick.question) ? ' 그 후보는 질문 문장이 25~70자를 벗어나 고르기 점수가 깎였어요 — 맥락 한 문장 + 짧은 질문 한 문장이 듣기 쉬워요.' : ''}</p>` : ''}
           <p class="qb-stats">${chip(`자리 무게 ${Number(s.score || 0).toFixed(2)}`)}${chip(`서로 평가 ${Math.round((pick.peer || 0) * 100)}점`)}${chip(`${modelOf(pick.model).name} 작성`)}</p>`
           : `<p class="nv-body">이 자리는 이번엔 묻지 않았어요. 같은 노드를 이미 물었거나 질문 수가 찼어요.${s.top ? ` 이 자리 1등은 ${esc(modelOf(s.top.model).name)} 후보(서로 평가 ${Math.round(s.top.peer * 100)}점)였어요.` : ''}</p>`}</div>
         ${(pick || s.top) && (pick || s.top).answer ? `<h3 class="nv-sec">자료가 기대한 답</h3><div class="nv-card"><p class="nv-body">${esc((pick || s.top).answer)}</p>${(pick || s.top).quote ? `<p class="qb-quote"><span>${esc((pick || s.top).slide_no || '')}장</span>${esc(plain((pick || s.top).quote))}</p>` : ''}</div>` : ''}`,
