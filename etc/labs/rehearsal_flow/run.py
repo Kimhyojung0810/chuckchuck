@@ -782,6 +782,20 @@ def run(args) -> Path:
                     sel = ".rv2 .nv-screen:last-child [data-push^='issue:']" if route == "issue" else f".rv2 .nv-screen:last-child [data-push='{route}']"
                     page.click(sel); page.wait_for_timeout(800); shot(f"rv2_{route}")
                     page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                # 「질문은 이렇게 골랐어요」 (네 모델 후보 판, 10-17) — 연습 → 고른 과정 → 자리 · 3번+ 질문. 판은 /api/v1/qa/board 로 늦게 온다
+                page.click(".rv2 .nv-screen:last-child [data-push='practice']"); page.wait_for_timeout(800)
+                try:
+                    page.wait_for_selector(".rv2 .nv-screen:last-child [data-push='board']", timeout=8000)
+                    page.click(".rv2 .nv-screen:last-child [data-push='board']"); page.wait_for_timeout(1500); shot("rv2_board")
+                    R["qa_board"] = page.evaluate("""() => ({ asked: document.querySelectorAll('.rv2 .nv-screen:last-child .qb-hit').length,
+                      funnel: [...document.querySelectorAll('.rv2 .qb-funnel b')].map(b => b.textContent), rounds: document.querySelectorAll('.rv2 .nv-screen:last-child [data-push^="round:"]').length })""")
+                    for pre in ("slot:", "round:"):
+                        if page.query_selector(f".rv2 .nv-screen:last-child .nv-group [data-push^='{pre}']"):
+                            page.click(f".rv2 .nv-screen:last-child .nv-group [data-push^='{pre}']"); page.wait_for_timeout(900); shot(f"rv2_board_{pre[:-1]}")
+                            page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                except Exception as e:  # noqa: BLE001 — 판이 없는 리허설(QA_ENSEMBLE=0)은 진입 줄이 「한 모델이 골랐어요」
+                    R["qa_board"] = {"error": str(e)[:120], "entry": page.evaluate("(document.querySelector('.rv2 .qb-entry')||{}).innerText || ''")}
+                print("  qa_board    ", R.get("qa_board"), flush=True)
                 # /VRShow 갈래 — 플래그 없이도 정면 창 안에선 리포트 2.0 인가 (마지막 리포트로 연다)
                 vr = page.context.new_page()
                 vr.set_viewport_size({"width": 1512, "height": 860})
@@ -794,6 +808,13 @@ def run(args) -> Path:
                     vr.wait_for_timeout(5000)
                     R["vrshow_v2"] = fr.evaluate("""() => ({ on: !!document.querySelector('#app.rv2'), issues: document.querySelectorAll('.rv2 .nv-screen:last-child .nv-row[data-push^="issue:"]').length, legacy: !!document.querySelector('.rv2 [data-legacy]') })""")
                     vr.screenshot(path=str(out / "vrshow_report_v2.png"))
+                    if True:   # 다시 연 리포트(#/report/last)도 판을 세션 메모리 · 저장본에서 다시 얹는다
+                        vr.wait_for_timeout(2500)
+                        fr.evaluate("rv2Handle && rv2Handle.open('board')"); vr.wait_for_timeout(1600)
+                        vr.screenshot(path=str(out / "vrshow_board.png"))
+                        R["vrshow_board"] = fr.evaluate("(document.querySelector('.rv2 .nv-screen:last-child .nv-large')||{}).textContent || ''")
+                        fr.evaluate("(() => { const b = document.querySelector('.rv2 .nv-screen:last-child .nv-group [data-push^=\"slot:\"]'); if (b) b.click(); })()"); vr.wait_for_timeout(1200)
+                        vr.screenshot(path=str(out / "vrshow_board_slot.png"))
                 print("  vrshow_v2   ", R.get("vrshow_v2"), flush=True)
                 vr.close()
                 page.evaluate("try { localStorage.setItem('cheokcheok:report-v2', '1'); } catch (_) {}")

@@ -93,7 +93,8 @@ def round_record(n: int, nxt: dict, vr, pick_calls, sec: float, *, paths_from: l
         "signal": nxt.get("signal", ""),
         "signal_kind": nxt.get("signal_kind", ""),
         "signal_note": nxt.get("signal_note", ""),
-        "signal_quote": nxt.get("signal_quote", ""),
+        # 앞 답 약점(weak_answer)의 인용은 그 사람의 답 원문이다 — 판에 남기지 않는다(같은 파일을 올린 사람끼리 세션을 나눠 쓴다)
+        "signal_quote": "" if nxt.get("signal_kind") == "weak_answer" else nxt.get("signal_quote", ""),
         "answer": nxt.get("answer", ""),
         "quote": nxt.get("quote", ""),
         "slide_no": nxt.get("slide_no", 0),
@@ -101,7 +102,8 @@ def round_record(n: int, nxt: dict, vr, pick_calls, sec: float, *, paths_from: l
         "pick_failed": bool(nxt.get("pick_failed")),
         "pick_reason": str(nxt.get("pick_reason") or "")[:200],
         "signals": [{k: s.get(k) for k in ("id", "kind", "node_id", "label", "slide_no", "deck_line", "deck_text",
-                                            "speech_quote", "note", "move") if s.get(k) not in (None, "")}
+                                            "speech_quote", "note", "move") if s.get(k) not in (None, "")
+                     and not (k == "speech_quote" and s.get("kind") == "weak_answer")}
                     for s in signals],
         "candidates": [_slim_cand(c) for c in getattr(vr, "candidates", None) or []],
         "dropped": [{k: d.get(k) for k in ("uid", "model", "signal", "reasons", "question") if k in d}

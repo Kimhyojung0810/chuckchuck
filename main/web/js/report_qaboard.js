@@ -83,9 +83,11 @@
     if (!fromQa) {
       asked.length = 0;
       const picked = (board.picked || []).map((u) => byUid[u]).filter(Boolean);
-      const head = rounds.length ? picked.slice(0, 2) : picked;
+      // 3번+ 기록은 샘플 판에서만 순서대로 늘어놓는다 — 내 판인데 Q&A 기록과 하나도 안 맞으면 그 기록은 내 것이 아닐 수 있다(같은 파일 = 같은 세션)
+      const own = board.source ? rounds : [];
+      const head = own.length ? picked.slice(0, 2) : picked;
       head.forEach((c, k) => asked.push(item(k + 1, c, null)));
-      rounds.forEach((r) => asked.push(item(r.n || asked.length + 1, null, r)));
+      own.forEach((r) => asked.push(item(r.n || asked.length + 1, null, r)));
     }
     const askedBySlot = {}; const askedByNode = {};
     asked.forEach((a) => {
@@ -145,7 +147,7 @@
       const ordered = row.map((n, i) => [n, anc(n), -(Number(n.weight) || 0), i]).sort((a, b) => a[1] - b[1] || a[2] - b[2] || a[3] - b[3]).map((x) => x[0]);
       ordered.forEach((n, i) => { pos[n.id] = { x: X0 + (W - X0 - 14) * (ordered.length === 1 ? 0.5 : (i + 0.5) / ordered.length), y: Y[k], d: k }; });
     });
-    return { pos, by, rows, Y, W, H: 30 + (present.length - 1) * GAP + 26 };
+    return { pos, by, rows, Y, W, H: 30 + (present.length - 1) * GAP + 40 };
   }
 
   /* ─── 화면 ─────────────────────────────────────────────────────────── */
@@ -184,7 +186,10 @@
       Object.keys(askedNodes).forEach((id) => { let cur = L.by[id]; const seen = new Set(); while (cur && cur.parent_id && L.by[cur.parent_id] && !seen.has(cur.id)) { seen.add(cur.id); hot.add(cur.id); cur = L.by[cur.parent_id]; } });
       const edges = Q.graph.filter((n) => n.parent_id && L.pos[n.parent_id] && L.pos[n.id]).map((n) => {
         const a = L.pos[n.parent_id]; const b = L.pos[n.id]; const my = (a.y + b.y) / 2;
-        return `<path class="${hot.has(n.id) ? 'is-hot' : ''}" d="M${a.x.toFixed(1)} ${a.y} C${a.x.toFixed(1)} ${my} ${b.x.toFixed(1)} ${my} ${b.x.toFixed(1)} ${b.y}"/>`;
+        // 같은 줄끼리(개념 아래 개념)는 줄 아래로 휘게 — 곧게 그으면 점들을 덮는다
+        const d = a.y === b.y ? `M${a.x.toFixed(1)} ${a.y} Q${((a.x + b.x) / 2).toFixed(1)} ${a.y + 14 + Math.min(14, Math.abs(a.x - b.x) / 8)} ${b.x.toFixed(1)} ${b.y}`
+          : `M${a.x.toFixed(1)} ${a.y} C${a.x.toFixed(1)} ${my} ${b.x.toFixed(1)} ${my} ${b.x.toFixed(1)} ${b.y}`;
+        return `<path class="${hot.has(n.id) ? 'is-hot' : ''}" d="${d}"/>`;
       }).join('');
       const dense = L.rows[2].length > 18;
       const dots = Q.graph.filter((n) => L.pos[n.id]).map((n) => {
@@ -250,7 +255,7 @@
         <section class="qb-hero">
           <p class="qb-hero-lead">네 모델이 개념 그래프의 자리마다 질문을 쓰고, 서로 평가한 뒤 골랐어요.</p>
           <ol class="qb-funnel">${step(T.written, '모델이 쓴 후보', 0)}${step(T.passed, '거르기 통과', 1)}${step(T.reviews, '서로 평가', 2)}${step(T.asked, Q.fromQa ? '내가 받은 질문' : '고른 질문', 3)}</ol>
-          <div class="qb-hero-foot">${logos(Q.models.map((m) => m.key))}<span>${T.calls ? `AI 호출 ${T.calls}번` : ''}${T.voice ? ` · 발표를 듣고 쓴 후보 ${T.voice}개` : ''}</span></div>
+          <div class="qb-hero-foot">${logos(Q.models.map((m) => m.key))}<span>${T.calls ? `AI 호출 ${T.calls}번` : ''}${T.voice ? ` · 발표를 듣고 쓴 후보 ${T.voice}개` : ''}${Q.models.some((m) => m.dead) ? ` · ${Q.models.filter((m) => m.dead).map((m) => m.name).join(' · ')}는 이번에 후보 응답이 깨져 평가에서 빠졌어요` : ''}</span></div>
         </section>
         <h3 class="nv-sec">그래프의 어디를 물었나</h3>
         <div class="nv-card qb-mapcard">${minimap(Q)}</div>
@@ -262,7 +267,7 @@
         ${Q.fromQa ? '' : '<p class="nv-note">Q&A 기록과 맞춰 볼 질문이 없어서, 판이 고른 순서로 보여 줘요.</p>'}
         <h3 class="nv-sec">모델마다 맡은 일</h3>
         <div class="nv-group">${Q.models.map((m) => `<div class="nv-row is-static qb-mrow"><div class="qb-mhead">${logo(m.key, 'is-lg')}<small>${esc(m.org)}</small>${m.asked ? `<span class="nv-val">질문 ${m.asked}개</span>` : ''}</div><span class="qb-roles">${[
-          m.written ? `후보 ${m.written}개 · 통과 ${m.passed}개` : m.dead ? '이번엔 응답이 없었어요' : '',
+          m.dead ? '후보 응답이 깨져 이번엔 빠졌어요' : m.written ? `후보 ${m.written}개 · 통과 ${m.passed}개` : '',
           m.reviews ? `서로 평가 ${m.reviews}건` : '',
           m.voice ? `발표 듣고 후보 ${m.voice}개` : '',
           Q.picker === m.key ? '3번부터 최종 선택' : '',
@@ -320,7 +325,7 @@
         html: `
         <div class="nv-card"><p class="qb-k">물은 질문 ${chip(`${modelOf(r.by).name} 작성`)}</p><p class="qb-ask">${esc(r.question)}</p></div>
         <h3 class="nv-sec">AI 가 들은 신호</h3>
-        ${(r.signals || []).length ? `<div class="qb-sigs">${r.signals.map((s) => `<div class="nv-card qb-sig${used && s.id === used.id ? ' is-used' : ''}">
+        ${(r.signals || []).length ? `<div class="qb-sigs">${r.signals.slice().sort((x, y) => (used && y.id === used.id) - (used && x.id === used.id)).map((s) => `<div class="nv-card qb-sig${used && s.id === used.id ? ' is-used' : ''}">
             <p class="qb-k">${esc(SIGNAL[s.kind] || s.kind)}${used && s.id === used.id ? chip('이 질문의 재료', 'is-picked') : ''}</p>
             <p class="qb-ask">${esc(s.label)}</p>
             ${s.speech_quote ? `<p class="qb-said"><span>발표에서 한 말</span>«${esc(s.speech_quote)}»</p>` : ''}
@@ -343,7 +348,7 @@
       if (Q) {
         return `<button type="button" class="nv-row qb-entry" data-push="board"><span class="nv-ico i-green">${I.chart}</span><span class="nv-row-main"><b>질문은 이렇게 골랐어요</b><small>네 모델 · 후보 ${Q.totals.written}개 → 질문 ${Q.totals.asked}개</small></span>${logos(Q.models.map((m) => m.key))}<i class="nv-chev">${I.chev}</i></button>`;
       }
-      const line = { loading: '네 모델이 고른 과정을 불러오고 있어요', single: '이번 질문은 한 모델이 골랐어요', missing: '네 모델이 고른 기록이 이 탭에 남아 있지 않아요' }[state];
+      const line = { loading: '네 모델이 고른 과정을 불러오고 있어요', single: '이번 질문은 한 모델이 골랐어요', missing: '네 모델이 고른 기록은 리포트를 처음 연 탭에서 볼 수 있어요' }[state];
       return line ? `<div class="nv-row is-static qb-entry is-off"><span class="nv-ico i-gray">${I.chart}</span><span class="nv-row-main"><b>질문은 이렇게 골랐어요</b><small>${esc(line)}</small></span></div>` : '';
     }
 

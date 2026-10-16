@@ -41,6 +41,12 @@
   `bad_line_ref` · `answer_len` · `answer_fragment` · `answer_messy` · `answer_number_not_in_deck` · `answer_off_deck` · `answer_mismatch` ·
   `trap_premise_missing` · `duplicate` · `repeats_asked`(음성) · `skipped`(모델이 「자료가 답을 안 담음」).
 - 그래프 경로: `_ens_slots.path_to_root(graph, node_id)` → 노드 → 루트 라벨 목록 (「그래프의 어디를 물었나」).
+- **4단계 구현(10-17, `main/server/qa_board.py`)**: 판은 위 칸 + `schema: "qa-board/1"` · `graph.nodes`(id·label·kind·parent_id·weight·slide_nos 만) ·
+  `paths`(슬롯 → 루트 라벨) · `track`/`tracks`(트랙별 고른 순서) · `rounds`(3번+ `/qa/next` 마다: n · uid · by · question · signal_kind ·
+  pick_reason · substituted · signals · candidates · dropped · calls · voice_sec · pick_sec · path). 보관본과 같은 판을 **세션 메모리**
+  (`STORE ens_board:<sid>`)에도 늘 담아, 동의 없는 세션도 `POST /api/v1/qa/board {session_id}` → `{board}`(없으면 404)로 자기 리포트에서 본다
+  (LLM 없음 · 과금 경로 아님). 보관은 그대로 동의 세션만. 앞 답 약점(weak_answer) 신호의 인용(답 원문)은 판에 남기지 않는다.
+  화면: `main/web/js/report_qaboard.js` (리포트 2.0 board · slot:<id> · round:<n>), 샘플 판 `js/report_qaboard_sample.js`(`etc/labs/report_v2/make_qa_board.py`).
 - 판에 보여 줄 것(제안): 슬롯별로 모델 후보를 가로로, 뽑힌 것 강조 · 서로 평가 점수(누가 누구를 몇 점) · 버린 까닭 칩 · 작성 모델 표시.
   **화면 문구는 해요체**, 판정 색은 쓰지 말 것(판정이 아니다).
 
