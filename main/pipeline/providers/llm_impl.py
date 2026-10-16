@@ -689,6 +689,23 @@ class SolarLLM(OpenAICompatLLM):
         )
 
 
+class Solar4LLM(SolarLLM):
+    """Upstage solar-pro4 — solar-pro3 가 2026-10-30 KST 서비스 종료라 후속 후보 (10-17 조사). `reasoning_effort` 를 안 보내면 추론이 꺼진 채다.
+    추론을 켠 변형은 `solar4r` (reasoning_effort=high). 비교는 etc/bench/qa_ensemble_bench.py · MODEL_LEDGER."""
+
+    REASONING: str | None = None
+
+    def __init__(self, api_key: str | None = None, model: str | None = None):
+        super().__init__(api_key=api_key, model=model or os.environ.get("UPSTAGE_SOLAR4_MODEL", "solar-pro4"))
+        self.name = "solar4" if self.REASONING is None else "solar4r"
+        if self.REASONING:
+            self.extra_body["reasoning_effort"] = self.REASONING
+
+
+class Solar4ReasonLLM(Solar4LLM):
+    REASONING = "high"
+
+
 class AxLLM(OpenAICompatLLM):
     """SKT A.X-K2 (2026-10-10 K1 서빙 종료 — 예전 이름이면 401)."""
 
@@ -802,6 +819,8 @@ class FallbackLLM(LLMProvider):
 REGISTRY: dict[str, type[LLMProvider]] = {
     "mock": MockLLM,
     "solar": SolarLLM,
+    "solar4": Solar4LLM,
+    "solar4r": Solar4ReasonLLM,
     "ax": AxLLM,
     "midm": MidmLLM,
     "exaone": ExaoneLLM,

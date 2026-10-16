@@ -5713,6 +5713,7 @@ def build_questions(
         for q in questions:
             if q.basis is not None:
                 q.basis.checks.append(_SPEECH_UNUSED_CHECK[unused])
+    _polish_gists(questions, graph, slidedoc, claims, llm, llm_kwargs)
     _log_bases(questions)
 
     used = {pid for q in questions for pid in q.paper_ids}
@@ -5727,6 +5728,35 @@ def build_questions(
         speech_unused=unused,
         speech_note=SPEECH_UNUSED_NOTES.get(unused, ""),
     )
+
+
+def _real_engine(engine) -> bool:
+    """실 제공자(OpenAI 호환 · 라우팅 · 예비 체인)인가."""
+    from .providers.llm_impl import FallbackLLM, OpenAICompatLLM  # noqa: PLC0415
+    from .providers.llm_route import RoutedLLM  # noqa: PLC0415
+    inner = getattr(engine, "inner", engine)          # 벤치 RecordingLLM 껍데기
+    return isinstance(inner, (OpenAICompatLLM, FallbackLLM, RoutedLLM))
+
+
+def _polish_gists(questions: list[Question], graph, slidedoc, claims, llm, llm_kwargs) -> None:
+    """
+    지저분한 모범답(「자료는 이렇게 말해요 — A · 한계: … / …」, 10-16 실 API 12/16)을 한 번 더 불러 깨끗한 1~2문장으로 (10-17 1단계).
+    `QA_GIST_POLISH=0` 이면 끈다. 질문 문장 모델(phrase 라우팅)이 쓰고, 통과 못 하면 코드가 자료 줄 하나로 정리한다 (f08_ensemble).
+    mock · 자료 없음이면 하지 않는다. 실패해도 질문은 그대로 나간다.
+    """
+    if (os.environ.get("QA_GIST_POLISH") or "1").strip().lower() in ("0", "false", "off", "no") or slidedoc is None:
+        return
+    from . import f08_ensemble as FE  # noqa: PLC0415 — 같은 F-08
+    if not FE._gist_targets(questions):
+        return
+    try:
+        engine = _stage_engine("phrase", llm, llm_kwargs)
+        if not _real_engine(engine):
+            return                   # mock · 테스트의 가짜 엔진 — 옛 골자 그대로 (테스트가 골자 문장을 대조한다)
+        stat = FE.polish_gists(questions, FE.Deck.build(graph, slidedoc, claims), engine)
+        sys.stderr.write(f"[f08] 모범답 정리 {stat}\n")
+    except Exception as e:  # noqa: BLE001 — 정리 실패로 질문을 잃지 않는다
+        sys.stderr.write(f"[f08] 모범답 정리 실패: {type(e).__name__}: {str(e)[:120]}\n")
 
 
 # ---------------------------------------------------------------------------

@@ -460,7 +460,8 @@ EVIDENCE_GIST_LEAD = "자료는 이렇게 말해요 — "
 #: 채점 바닥으로도 쓰지 않는다** (09-30 standard e2e703b · WP-J3). 두 사다리(F-08 힌트 · F-09 「모르겠어요」)와 판정이 같은 잣대를 쓴다.
 TEMPLATE_GIST_CHECKS = frozenset({"gist_template", "fallback_template"})
 #: 틀 자리에 코드가 **모범답을 다시 지었다**는 표시 — 탐침 코드 골자·탐침 폴백 골자·함정 바로잡음 골자는 자리 표시가 아니다.
-GIST_REBUILT_CHECKS = frozenset({"gist_probe_code", "gist_probe_rebuilt", "gist_rebuilt_trap"})
+GIST_REBUILT_CHECKS = frozenset({"gist_probe_code", "gist_probe_rebuilt", "gist_rebuilt_trap", "gist_polished"})
+#: (10-17) gist_polished — 틀 골자를 LLM 이 다시 쓰고 코드가 절마다 자료로 받쳐진 것을 확인한 모범답 (f08_ensemble.polish_gists)
 
 
 def template_gist(question) -> bool:
@@ -472,7 +473,11 @@ def template_gist(question) -> bool:
 
 def evidence_gist(question) -> bool:
     """골자가 자료 줄을 이어 붙인 꼴(「자료는 이렇게 말해요 — A · B (1, 5장)」)인가 — 머리말·장 목록째 가리면 발판이 아니다."""
-    return (getattr(question, "answer_gist", "") or "").startswith(EVIDENCE_GIST_LEAD)
+    if (getattr(question, "answer_gist", "") or "").startswith(EVIDENCE_GIST_LEAD):
+        return True
+    # 10-17 모범답 정리: 코드가 자료 줄 **하나**로 다시 쓴 골자(「자료 3장은 「…」라고 해요.」)도 자료 줄 그대로다 — 같은 대접
+    basis = getattr(question, "basis", None)
+    return "gist_evidence_line" in (getattr(basis, "checks", None) or [])
 
 
 # ---------------------------------------------------------------------------
