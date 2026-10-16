@@ -61,7 +61,11 @@ def outcome_table(rows: list[dict]) -> dict:
     return t
 
 
-def simulate(table: dict, mix: dict, *, new: bool, n: int = 4000, seed: int = 7) -> dict:
+#: 10/7 부스 실측 — 첫 wrong 직후 이탈 82% (계속 0.18)
+BOOTH_STAY_AFTER_WRONG = 0.18
+
+
+def simulate(table: dict, mix: dict, *, new: bool, n: int = 4000, seed: int = 7, stay_after_wrong: float = 1.0) -> dict:
     """질문 하나(Q1)에서 2번으로 넘어가는가. 인내를 다 쓰기 전에 질문이 닫혀야 2번에 닿는다."""
     rng = random.Random(seed)
     kinds, weights = list(mix), list(mix.values())
@@ -80,6 +84,8 @@ def simulate(table: dict, mix: dict, *, new: bool, n: int = 4000, seed: int = 7)
                 wrong_turns += o["verdict"] == "wrong"
                 if o["good"] or (attempt >= 3 and o["passed"]) or (new and attempt >= 3):
                     closed = True
+                elif o["verdict"] == "wrong" and rng.random() > stay_after_wrong:
+                    break                      # wrong 을 보고 떠남
             if attempt >= 4 and not closed:
                 stuck4 += 1 if attempt == 4 else 0
             if closed:
@@ -136,7 +142,16 @@ def main() -> int:
         res["structure"][name] = {"old": simulate(outcome_table(ro), mix, new=False),
                                   "new": simulate(outcome_table(rn), mix, new=True)}
     if args.persona_llm:
-        res["persona"] = persona_stay(ro, rn, args.persona_llm)
+        res["persona"] = per = persona_stay(ro, rn, args.persona_llm)
+        # 보정: 가상 방문자의 옛 글 「계속」 비율을 부스 실측(0.18)에 맞춰 새 글에도 같은 배율 — 추정이다
+        if per.get("old_stay") and per.get("new_stay") is not None:
+            scale = BOOTH_STAY_AFTER_WRONG / per["old_stay"]
+            stay_new = min(1.0, per["new_stay"] * scale)
+            res["calibrated"] = {"stay_after_wrong_old": BOOTH_STAY_AFTER_WRONG, "stay_after_wrong_new": round(stay_new, 3)}
+            for name, mix in VISITORS.items():
+                res["calibrated"][name] = {
+                    "old": simulate(outcome_table(ro), mix, new=False, stay_after_wrong=BOOTH_STAY_AFTER_WRONG),
+                    "new": simulate(outcome_table(rn), mix, new=True, stay_after_wrong=stay_new)}
     txt = json.dumps(res, ensure_ascii=False, indent=1)
     print(txt)
     if args.out:
