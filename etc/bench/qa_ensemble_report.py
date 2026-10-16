@@ -75,9 +75,11 @@ def q_metrics(question: str, node_id: str, deck_name: str) -> dict:
     node = next((n for n in g.nodes if n.id == node_id), None)
     dist = ES.root_distance(g, node_id) if node is not None else 9
     terms = ES.specific_terms(question, node.label if node else "", deck.deck_tokens)
+    floor = ES.specific_terms(question, "", deck.deck_tokens)        # 바닥 검사(거르기와 같은 정의 — 라벨 낱말도 센다)
     body = re.split(r"(?<=[.!])\s+", question.strip())[-1]
-    return {"root_dist": dist, "kind": (node.kind if node else "") or "concept",
-            "spec": len(terms), "micro_code": ES.micro(question), "deixis": ES.vague_deixis(question, deck.deck_tokens),
+    root = bool(node is not None and node.kind == "thesis")
+    return {"root_dist": dist, "kind": (node.kind if node else "") or "concept", "spec_floor": len(floor),
+            "spec": len(terms), "micro_code": ES.micro(question), "deixis": ES.vague_deixis(question, deck.deck_tokens, root_slot=root),
             "double": question.count("?") + question.count("？") > 1 or bool(_DOUBLE_RE.search(question)),
             "len_ok": 25 <= len(body) <= 70, "polite": bool(ES.POLITE_END_RE.search(question))}
 
@@ -133,7 +135,7 @@ def set_summary(rows: list[dict]) -> dict:
             "open_book": f("open_book"), "transplant": f("transplant"), "micro": f("micro"), "deep": f("deep"),
             "single": f("single"), "grounded": mean([r["grounded"] for r in rows]),
             "summary_ok": f("summary_ok"), "spec": mean([r["spec"] for r in rows]),
-            "spec_zero": f("spec_zero") if False else round(sum(1 for r in rows if r["spec"] == 0) / n, 3),
+            "spec_zero": round(sum(1 for r in rows if r.get("spec_floor", r["spec"]) == 0) / n, 3),
             "thesis_claim": round(sum(1 for r in rows if r["kind"] in ("thesis", "claim")) / n, 3),
             "leaf": round(sum(1 for r in rows if r["kind"] not in ("thesis", "claim") and r["root_dist"] >= 2) / n, 3),
             "deixis": f("deixis"), "double": f("double"), "len_ok": f("len_ok"), "polite": f("polite"),
@@ -263,6 +265,8 @@ def load_runs(paths: list[Path], split: str | None) -> list[dict]:
                 r = json.loads(f.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 continue
+            if not isinstance(r, dict) or "deck" not in r or "rep" not in r:
+                continue                       # 집계 결과 파일 등 판이 아닌 것
             if split and r.get("split") != split:
                 continue
             runs.append(r)

@@ -35,7 +35,8 @@ from pipeline.providers.llm_impl import REGISTRY  # noqa: E402
 from bench.qa_ensemble_bench import CORE_SYSTEM, FAMILY, JUDGES, load  # noqa: E402
 
 TOPIC = {"A1": "공학", "C1": "사회과학", "sleep": "생활·심리", "invest": "금융", "pitch": "의료 제품",
-         "B1": "환경과학", "glucose": "의학·생활", "iohexol": "영문 임상", "vitd": "의학 논문"}
+         "B1": "환경과학", "glucose": "의학·생활", "iohexol": "영문 임상", "vitd": "의학 논문",
+         "novel": "인문", "jeonse": "정책", "banchan": "사업 IR", "led": "과학", "clinic": "의료 서비스"}
 
 
 def judge_pool(run: dict, judges: list[str]) -> dict:

@@ -47,9 +47,15 @@ BUNDLES = {
     "glucose": "/data/models/_runs/qa-route/bundles/held_health_glucose.json",
     "iohexol": "/data/models/_runs/qa-ensemble/bundles/iohexol_case.json",
     "vitd": "/data/models/_runs/qa-ensemble/bundles/vitd_kim2011.json",
+    # test 늘림 (etc/labs/qa_bench/corpus — 녹음 없는 덱은 「자료만으로」 경로를 본다): 인문 · 정책 · 사업 IR · 과학 · 의료 서비스(녹음 있음)
+    "novel": "/data/models/_runs/qa-ensemble/bundles/hum_novel.json",
+    "jeonse": "/data/models/_runs/qa-ensemble/bundles/policy_jeonse.json",
+    "banchan": "/data/models/_runs/qa-ensemble/bundles/ir_banchan.json",
+    "led": "/data/models/_runs/qa-ensemble/bundles/sci_led.json",
+    "clinic": "/data/models/_runs/qa-ensemble/bundles/clinic.json",
 }
 DEV = ("A1", "C1", "sleep", "invest", "pitch")
-TEST = ("B1", "glucose", "iohexol", "vitd")
+TEST = ("B1", "glucose", "iohexol", "vitd", "novel", "jeonse", "banchan", "led", "clinic")
 JUDGES = ("solar4", "ax", "exaone", "midm")
 FAMILY = {"solar": "solar", "solar4": "solar", "solar4r": "solar", "ax": "ax", "exaone": "exaone", "midm": "midm"}
 

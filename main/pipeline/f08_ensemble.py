@@ -203,7 +203,7 @@ GEN_SYSTEM = """당신은 이 발표를 끝까지 들은 심사위원 교수다.
 #: 시장조사 §5-2 지침 블록을 우리 말투(해요체)로 옮긴 변형 — A/B (`prompt="guide"`). 형태·금지 목록이 더 구체적이다.
 GEN_GUIDE_ADDENDUM = """
 
-[형태] 맥락 한 문장(자료의 주장·구절을 짚기) + 질문 한 문장. 질문 문장은 25~70자. 칭찬으로 시작하지 않는다.
+[형태] 맥락 한 문장(자료의 주장·구절을 짚기) + 질문 한 문장. **질문 문장은 25~70자**(맥락 문장은 따로). 칭찬으로 시작하지 않는다.
 [질문의 꼴] 「왜 / 어떻게 이어지나 / 만약 ~라면 / 어디까지 맞나 / 이 근거로 충분한가」 중 하나.
 [스스로 시험] ① 자료를 펼쳐 놓고 찾아 읽기만 하면 답할 수 있나? → 그렇다면 다시 쓴다. ② 이 질문을 다른 발표에 그대로 붙여도 말이 되나? → 그렇다면 다시 쓴다.
 [금지 — 이런 질문은 버린다] 숫자·용어·장 번호 확인(「12000이 맞나요?」「몇 장에 나왔죠?」) · 발표 말과 자료의 작은 차이 · 한 문장에 질문 두 개 · 대상 없는 지시어(「이 조건은요?」) · 주제 없는 열린 질문(「어떻게 생각하세요?」) · 자료에 없는 사실을 전제로 깐 질문(함정 슬롯이 아닐 때).
@@ -327,13 +327,15 @@ class Pool:
         return next((s for s in self.slots if s.id == sid), None)
 
     def winners(self) -> list[dict]:
-        """슬롯마다 서로 평가 1등 (동점이면 슬롯 점수 · 모델 이름 순 — 결정적)."""
+        """슬롯마다 1등 — 서로 평가 × 형태(질문 문장 25~70자) (동점이면 모델 이름 순 — 결정적).
+        세션 순서는 슬롯 점수(위계 · 패턴) × (0.5 + 서로 평가) × 형태."""
         best: dict[str, dict] = {}
         for c in self.candidates:
             cur = best.get(c["slot"])
-            if cur is None or (c["peer"], -_model_rank(c["model"])) > (cur["peer"], -_model_rank(cur["model"])):
+            if cur is None or (c["peer"] * form_factor(c), -_model_rank(c["model"])) > \
+                    (cur["peer"] * form_factor(cur), -_model_rank(cur["model"])):
                 best[c["slot"]] = c
-        return sorted(best.values(), key=lambda c: -(self.slot(c["slot"]).score * (0.5 + c["peer"])))
+        return sorted(best.values(), key=lambda c: -(self.slot(c["slot"]).score * (0.5 + c["peer"]) * form_factor(c)))
 
     def to_dict(self) -> dict:
         return {"slots": [s.to_dict() for s in self.slots], "candidates": self.candidates, "dropped": self.dropped,
@@ -361,6 +363,15 @@ def _strip_line_ids(text: str) -> str:
     t = _LINE_ID_PAREN_RE.sub("", text or "")
     t = _LINE_ID_HEAD_RE.sub("", t)
     return re.sub(r"\s{2,}", " ", t).strip()
+
+
+#: 질문 문장(맥락 문장 뒤 마지막 문장) 길이 — 시장조사 §5-1 B3: 「맥락 한 문장 + 질문 한 문장, 질문 25~70자」 (dev3: 76% 만 지켰다)
+FORM_MIN, FORM_MAX = 25, 70
+
+
+def form_factor(c: dict) -> float:
+    body = re.split(r"(?<=[.!])\s+", str(c.get("question") or "").strip())[-1]
+    return 1.0 if FORM_MIN <= len(body) <= FORM_MAX else 0.85
 
 
 def _model_rank(name: str) -> int:
@@ -726,10 +737,11 @@ __all__ = ["enabled", "model_names", "picker_name", "build_pool", "pick_opening"
 GIST_SYSTEM = """당신은 발표 코치다. 질문마다 발표자가 **그대로 말하면 되는 모범답**을 다시 쓴다.
 - 1~2문장, 해요체. 질문에 바로 답한다. 「자료는 이렇게 말해요」 같은 머리말, 「·」「/」로 줄 이어 붙이기, 장 번호 나열, 표 머리줄 옮기기 금지.
 - 주어진 자료 줄에 있는 사실만 쓴다. 숫자는 자료 줄의 숫자만. 자료 줄로 답할 수 없으면 {"id": "q01", "skip": true}.
-- lines: 근거로 쓴 자료 줄 번호 1~2개.
+- lines: 근거로 쓴 자료 줄 번호 1~2개. 줄 번호는 lines 칸에만 — 모범답 문장에는 쓰지 않는다.
+- 질문이 이미 인용한 주장을 그대로 되풀이하는 것은 답이 아니다 — 그 주장을 받치는 근거·이유를 쓴다.
 출력은 JSON 객체 하나: {"items": [{"id": "q01", "answer": "…요.", "lines": ["S3.2"]}]}"""
 
-_DIRTY_GIST_RE = re.compile(r"자료는 이렇게 말해요\s*—|\s·\s|/.*/|한계\s*:|^\d+\s")
+_DIRTY_GIST_RE = re.compile(r"자료는 이렇게 말해요\s*—|\s·\s|/.*/|한계\s*:|^[1-9][.)]?\s(?=[가-힣]{2,})")
 #: 코드가 정리할 때 버리는 줄 머리 — 글머리 번호(「1 군당 셀이」), 「제목: 」 꼬리표
 _LINE_HEAD_RE = re.compile(r"^(?:\d{1,2}[.)]?\s+|[가-힣A-Za-z]{1,8}\s*:\s+)")
 
@@ -749,6 +761,12 @@ def _letter_spaced(line: str) -> bool:
     return ls(line)
 
 
+def _spaced_out(line: str) -> bool:
+    """글자마다 띄운 표지 줄 — 「경 영 정 보 학 과 · 2 0 2 6 . 1 0 . 6」. 한 글자 낱말이 절반 넘으면."""
+    words = [w for w in (line or "").split() if w not in ("·", "|", "/")]
+    return len(words) >= 6 and sum(1 for w in words if len(w) == 1) * 2 > len(words)
+
+
 def _tidy_line(line: str) -> str:
     return _LINE_HEAD_RE.sub("", (line or "").strip()).rstrip(" .")
 
@@ -758,8 +776,11 @@ def code_gist(q: Question, deck: Deck) -> str:
     from ._traps import _quoted_josa  # noqa: PLC0415
     nos = q.slide_nos or ([q.evidence_slide_no] if q.evidence_slide_no else [])
     want = ES._tokens(" ".join([q.question, q.label, q.evidence_quote]))
+    qtok = ES._tokens(q.question)
+    # 질문이 이미 인용한 줄(주장 문장)을 되읊으면 답이 아니다 — 「이 주장을 받치는 근거는?」 에 그 주장을 돌려줬다 (10-17 dev3 partial 55)
     cands = [ln for ln in deck.lines if ln.slide_no in nos and " / " not in ln.text and len(_tidy_line(ln.text)) >= 12
-             and not ES._CITATION_RE.search(ln.text) and not _letter_spaced(ln.text)]
+             and not ES._CITATION_RE.search(ln.text) and not _letter_spaced(ln.text) and not _spaced_out(ln.text)
+             and len(ES._tokens(ln.text) - qtok) >= 2]
     if not cands:
         return ""
     best = max(cands, key=lambda ln: len(want & ES._tokens(ln.text)))
@@ -788,7 +809,9 @@ def polish_gists(questions: list[Question], deck: Deck, llm: LLMProvider, calls:
     got = {str(it.get("id")): it for it in (data.get("items") or []) if isinstance(it, dict)} if isinstance(data, dict) else {}
     for k, q in keyed.items():
         it = got.get(k) or {}
-        a = tidy({"question": q.question, "answer": it.get("answer", "")})["answer"] if not it.get("skip") else ""
+        raw_a = str(it.get("answer") or "")
+        # 모범답에 줄 번호를 썼으면 떼지 않고 버린다 — 떼면 「자료 줄 와 인용되어」 처럼 문장이 부서진다 (10-17 dev3)
+        a = tidy({"question": q.question, "answer": raw_a})["answer"] if not it.get("skip") and not ES.LINE_ID_RE.search(raw_a) else ""
         refs = [r for r in (it.get("lines") or []) if isinstance(r, str) and r in deck.lines_by_id]
         ok = bool(a) and _gist_ok(a, deck) and bool(refs)
         checks = q.basis.checks if q.basis is not None else None
