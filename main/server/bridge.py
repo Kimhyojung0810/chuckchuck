@@ -146,6 +146,9 @@ PAID_PATHS = frozenset({
     # 비대칭이 된다. 사람이 분당 30턴을 못 넘으므로 정상 사용엔 안 걸린다.
     # (세션 경로 /api/v1/sessions/{id}/qa/judge 는 아래 endswith 검사가 잡는다)
     "/api/v1/qa/judge",
+    # 네 모델 Q&A (2026-10-17, QA_ENSEMBLE) — 묶음은 모델마다 1~2콜 + 서로 평가, 다음 질문은 음성 4콜 + 선택 1콜
+    "/api/v1/qa/pool",
+    "/api/v1/qa/next",
     "/api/v1/strategy",
     # F-24 는 학술 검색 API(+검색어 번역 LLM 1콜)를 부른다
     "/api/v1/papers",
@@ -1329,6 +1332,17 @@ class _Flights:
 
 
 _FLIGHTS = _Flights()
+#: 질문 요청이 앙상블 묶음을 기다리는 상한(초). 미리 만들기(prefetch)가 먼저 띄우므로 보통은 이미 있다. 넘기면 지금 방식 질문.
+ENSEMBLE_POOL_WAIT_SEC = float(os.environ.get("QA_ENS_POOL_WAIT_SEC", "45"))
+#: 다음 질문 요청이 음성 후보를 기다리는 상한(초) — 넘기면 묶음에서 바로 낸다 (PLAN 3단계: 2번 답 끝 → 3번 p95 ≤ 3초)
+NEXT_WAIT_SEC = float(os.environ.get("QA_ENS_NEXT_WAIT_SEC", "0.5"))
+#: 다음 질문 요청의 앞 질문 문장 상한 (본문에서 올 때)
+QA_QUESTION_MAX = 400
+
+
+def _store_put(key: str, value):
+    STORE.set_triage(key, value)
+    return value
 #: 실시간 받아쓰기 세션 칸 (main/server/live_stt.py — 전체 · 팀 몫 · IP 칸)
 LIVE_SLOTS = live_stt.Slots()
 
@@ -2358,6 +2372,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         if parsed.path == "/api/v1/qa/judge":
             return self._handle_qa_judge(raw)
+        if parsed.path == "/api/v1/qa/pool":
+            return self._handle_qa_pool(raw)
+        if parsed.path == "/api/v1/qa/next":
+            return self._handle_qa_next(raw)
         # 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다
         if parsed.path.endswith("/qa/reframe") and "/api/v1/sessions/" in parsed.path:
             return self._handle_qa_reframe(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
@@ -4001,7 +4019,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             f"기억={remembered if memory else '-'} 주장={len(claims.claims) if claims else '-'}"
             f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
         )
+        doc = self._ensemble_questions(doc, body, found, slidedoc, claims, transcript)
         payload = _with_degraded(with_hint_ladders(doc.to_dict(), doc.questions), degraded)
+        if getattr(doc, "_ensemble", None):
+            payload["ensemble"] = doc._ensemble        # 화면엔 작은 표시만 (client_questions 가 뺀다) · 후보 판은 보관본
         # 폴백 재료로 만든 묶음은 짧게만 든다 — 미리 만들기 → 시작 한 쌍은 나눠 쓰고, 그 뒤 요청은 재료부터 다시 시도한다 (B-03)
         transient = [c for c in degraded if c in TRANSIENT_DEGRADED]
         STORE.set_triage(q_key, payload, ttl=FALLBACK_TTL_SEC if transient else None)
@@ -4011,6 +4032,122 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self._index_questions(body, track, payload)
         self._archive(body, "question_doc", payload)
         return self._json(200, client_questions(payload))
+
+    # ── 네 모델 Q&A (2026-10-17, docs/qa-ensemble/PLAN.md) ──────────────────────────────────────────────
+    # QA_ENSEMBLE=1 일 때만. 묶음(f08_ensemble.build_pool)은 세션마다 한 번 — /qa/pool 로 자료 올릴 때 먼저 띄울 수 있고, 아니면
+    # 질문 미리 만들기(/questions prefetch)가 띄운다. 묶음이 없거나 2개 못 고르면 지금 방식 질문 그대로(QuestionDoc) 간다.
+
+    def _ensemble_pool(self, sid: str, graph_raw, slidedoc, claims, *, wait: float | None = None):
+        """세션 묶음 (캐시 → 만드는 중이면 기다림 → 새로). wait=0 이면 띄우기만 하고 None."""
+        from pipeline import f08_ensemble as FE
+
+        key = "ens_pool:" + fingerprint(graph_raw, fingerprint(slidedoc) if slidedoc else None, FE.model_names(), sid)
+        hit = STORE.get_triage(key)
+        if hit is not None:
+            return hit
+        claims_raw = claims.to_dict() if hasattr(claims, "to_dict") else claims
+
+        def work():
+            pool = FE.build_pool(graph_raw, slidedoc, claims_raw)
+            STORE.set_triage(key, pool)
+            if sid:
+                STORE.set_triage("ens_sid:" + sid, key)
+            return pool
+
+        fut = _FLIGHTS.run(key, work)
+        if wait == 0:
+            return None
+        try:
+            return fut.result(timeout=wait)
+        except Exception as e:  # noqa: BLE001 — 묶음이 늦거나 넘어지면 지금 방식으로 간다
+            sys.stderr.write(f"[bridge] F-08 앙상블 묶음 실패·늦음 — 지금 방식으로: {type(e).__name__}: {str(e)[:120]}\n")
+            return None
+
+    def _ensemble_questions(self, doc, body, found, slidedoc, claims, transcript):
+        from pipeline import f08_ensemble as FE
+        from pipeline.contracts import QA_TRACK_LIMITS
+
+        if not FE.enabled() or not slidedoc or _mock():
+            return doc
+        sid = str(_session_id_of(body) or "")
+        pool = self._ensemble_pool(sid, found["graph"], slidedoc, claims, wait=ENSEMBLE_POOL_WAIT_SEC)
+        if pool is None:
+            return doc
+        n = max(2, QA_TRACK_LIMITS.get(doc.track, 3))
+        picked = FE.pick_session(pool, transcript, n)
+        if len(picked) < 2:
+            return doc
+        doc.questions = [FE.to_question(c, i + 1) for i, c in enumerate(picked)]
+        doc.model = "ensemble:" + "+".join(pool.models)
+        doc._ensemble = {"active": True, "models": pool.models, "n_candidates": len(pool.candidates),
+                         "timings": pool.timings, "next": "/api/v1/qa/next"}
+        self._archive(body, "qa_ensemble_board", {**pool.to_dict(), "picked": [c["uid"] for c in picked]})
+        sys.stderr.write(f"[bridge] F-08 앙상블 n={len(picked)} 후보={len(pool.candidates)} 버림={len(pool.dropped)} "
+                         f"작성={[c['model'] for c in picked]} {pool.timings}\n")
+        return doc
+
+    def _handle_qa_pool(self, raw: bytes):
+        """{session_id, graph?} → 묶음 만들기를 뒤에서 띄운다 (자료 올릴 때 · 발표 중). 202 로 바로 돌아온다."""
+        from pipeline import f08_ensemble as FE
+
+        body = json.loads(raw or b"{}")
+        if not FE.enabled():
+            return self._json(200, {"ensemble": False})
+        found = self._resolve(body, "graph")
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        if not found["graph"] or not slidedoc:
+            return self._json(409, {"error": "not_ready", "message": "자료 분석이 끝나야 후보를 만들 수 있어요."})
+        self._ensemble_pool(str(_session_id_of(body) or ""), found["graph"], slidedoc, body.get("claims"), wait=0)
+        return self._json(202, {"ensemble": True, "started": True})
+
+    def _handle_qa_next(self, raw: bytes):
+        """
+        {session_id, asked:[{question_id, answer, verdict}], prefetch?} → 다음 질문 (3번 이후).
+
+        prefetch=true 면 음성 후보(네 모델, 발표 받아쓰기 + 앞 답)를 뒤에서 만들기 시작하고 바로 돌아온다 — 프런트는 1번 질문을 낼 때,
+        그리고 답마다 부른다. 실제 요청은 NEXT_WAIT_SEC 만 음성 후보를 기다리고, 없으면 묶음의 남은 후보를 바로 낸다(substituted).
+        """
+        from pipeline import f08_ensemble as FE
+
+        body = json.loads(raw or b"{}")
+        sid = _store_sid(body.get("session_id"))
+        if not FE.enabled() or not sid:
+            return self._json(409, {"error": "ensemble_off", "message": "지금은 다음 질문을 미리 고르지 않아요."})
+        pool_key = STORE.get_triage("ens_sid:" + str(_session_id_of(body) or ""))
+        pool = STORE.get_triage(pool_key) if pool_key else None
+        if pool is None:
+            return self._json(409, {"error": "pool_missing", "message": "후보 묶음이 없어요. 질문을 먼저 만들어 주세요."})
+        found = self._resolve(body, "graph", "alignment", "transcript")
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        asked = []
+        for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
+            q = next(iter(STORE.find_questions(sid, str(a.get("question_id") or ""))), None) or {}
+            asked.append({"question": q.get("question") or str(a.get("question") or "")[:QA_QUESTION_MAX],
+                          "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
+                          "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3]})
+        vkey = "ens_voice:" + fingerprint(pool_key, [(a["question"], a["verdict"]) for a in asked])
+        fut = _FLIGHTS.run(vkey, lambda: STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
+            pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked)))
+        if body.get("prefetch"):
+            return self._json(202, {"started": True})
+        try:
+            vr = fut.result(timeout=float(body.get("wait_sec") or NEXT_WAIT_SEC))
+        except Exception:  # noqa: BLE001 — 늦으면 묶음에서
+            vr = None
+        t0 = time.monotonic()
+        nxt = FE.choose_next(pool, vr, asked)
+        if not nxt:
+            return self._json(200, {"question": None, "done": True})
+        q = FE.to_question(nxt, len(asked) + 1)
+        payload = {"questions": [q.to_dict()]}
+        STORE.remember_questions(sid, f"ens:{q.id}", payload)
+        STORE.put_questions(sid, f"ens:{q.id}", payload)
+        out = client_questions(with_hint_ladders(payload, [q]))["questions"][0]
+        sys.stderr.write(f"[bridge] F-08 앙상블 다음 q={q.id} 작성={nxt.get('model')} 대신냄={nxt.get('substituted')} "
+                         f"신호={nxt.get('signal_kind')} 고르기 {time.monotonic() - t0:.2f}s\n")
+        return self._json(200, {"question": out, "substituted": bool(nxt.get("substituted")),
+                                "pick_reason": nxt.get("pick_reason", ""), "signal": nxt.get("signal_kind") or "",
+                                "by": nxt.get("model", "")})
 
     def _memory_for(self, body: dict):
         """

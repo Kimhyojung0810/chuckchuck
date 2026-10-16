@@ -3204,6 +3204,7 @@ SESSION_ARTIFACT_KINDS = (
     "rubric_score",    # F-14
     "report_doc",      # F-19
     "question_doc",    # F-08
+    "qa_ensemble_board",  # F-08 앙상블 후보 판 (10-17 — 슬롯 · 후보 · 서로 평가 · 버림 · 고른 것, 4단계 리포트가 읽는다)
     "paper_doc",       # F-24 (09-23: 브리지가 쓰는데 목록에 없어 조용히 버려지고 있었다)
     "memory_doc",      # F-25 — 이 세션이 만들어 쓴 지난 리허설 기억 (재생·리포트용)
     "claim_doc",       # F-26 — 주장 그래프 (paper_doc 처럼 목록에 없으면 조용히 버려진다)
