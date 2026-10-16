@@ -62,6 +62,7 @@ import os
 import re
 import sys
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import dataclass, replace
 
@@ -2463,6 +2464,8 @@ _COACH_REACT_FALLBACK = "괜찮아요. 여기서 같이 짚어 볼게요."
 #: 「식사 순서만으로 혈당 스파이크를 완전히 막을 수 없다는 점을 짚어 줘서 감사해요」 — 하지 않은 말을 칭찬하며 1단에서 정답을 흘렸다).
 #: 막힌 사람은 아무 말도 안 했다 — 칭찬·「짚었다」·답의 내용이 들어갈 자리가 없다. 안심 한 마디와 다음 걸음만 말한다.
 #: 예전 칭찬 낱말 거름(「잘 짚」「정확해요」 — 2026-09-10 「핵심을 잘 짚으셨어요」)으로는 「짚어 줘서 감사해요」 같은 공 돌리기를 다 못 막았다.
+#: 「모르겠어요」 1단의 안심 한 마디 — 세 꼴.
+_NARROW_REACTS = ("괜찮아요. 여기서 같이 짚어 볼게요.", "괜찮아요. 자료에서 한 걸음씩 짚어 가요.", "괜찮아요. 쉬운 데서부터 같이 가요.")
 _COACH_REACT = {
     "narrow": _COACH_REACT_FALLBACK,
     "clarify": "제가 어렵게 물었어요. 같은 질문을 쉽게 다시 물어볼게요.",
@@ -2576,6 +2579,8 @@ def coach_stuck(
     else:
         followup, choices = _narrow_followup(data, question, graph, deck_text, hide_quote=hidden)
         explanation = ""
+        # 「모르겠어요」 첫 반응은 질문마다 꼴을 바꾼다 — 한 세션에서 같은 문장이 되풀이되지 않게 (R9, 2026-10-17)
+        react = _NARROW_REACTS[int(hashlib.sha1((question.id or question.question).encode()).hexdigest(), 16) % len(_NARROW_REACTS)]
         if not hidden:
             react = _with_quote(react, question)
 
@@ -3603,6 +3608,7 @@ def judge_answer(
     talk_futs = DLG.start(ti) if ti is not None else []
 
     key_extra = f"{question.id}|{_deck_fingerprint(slidedoc)}"
+    t_judge = time.monotonic()
     try:
         data = _call(engine, user, extra_system=tier_brief, key_extra=key_extra)
     except JudgeError:
@@ -3633,10 +3639,13 @@ def judge_answer(
         judged = replace(judged, closed=True, coach_stage="explain", followup="",
                          explanation=_explain_text(question, "", prep.deck),
                          evidence_quote=_quote_of(question), evidence_slide_no=_quote_slide_of(question))
+    judge_sec = round(time.monotonic() - t_judge, 2)
     if ti is None or not talk_futs:
         return judged
     # 늦거나 실패하면 다시 말하기 · 코드 틀로 (판정은 그대로). 기다리는 상한은 판정이 끝난 뒤부터 QA_DIALOGUE_WAIT_SEC.
-    return DLG.apply(judged, ti, talk_futs, closing=closing)
+    out = DLG.apply(judged, ti, talk_futs, closing=closing)
+    # 턴 시각 — 판정 LLM 몫과 엔진이 판정 뒤에 더한 몫을 나눠 남긴다 (지연 기준표: 앙상블 · 엔진 몫 vs 상수 몫)
+    return replace(out, dialogue={**(out.dialogue or {}), "judge_sec": judge_sec})
 
 
 #: 외운 답(자료 문장 옮기기)의 점수 상한 — 통과(70) 아래.

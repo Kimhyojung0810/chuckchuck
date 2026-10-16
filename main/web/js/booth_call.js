@@ -501,8 +501,16 @@ function bcSpeak(text) {
    - 실시간 받아쓰기가 없는 브라우저 · 마이크 거부 · 망 오류(liveDictationDead)면 켜지 않는다 — 버튼 · 타이핑 그대로
    받아쓴 글은 답 칸(textarea)의 값만 바뀌어 감시(MutationObserver)에 안 걸리므로 짧은 주기로 돈다 — 화상판이 사라지면 스스로 멈춘다 */
 const BC_AUTO_TICK_MS = 300;
-const BC_AUTO_SILENCE_MS = 2200;
-const BC_AUTO_SEND_MS = 3000;
+// 말 끝 판단 상수 (음성UX 조사 R2·R3) — 기본은 그대로, 실험실은 주소 ?qa_silence_ms= · ?qa_send_ms= 로 바꿔 잰다 (2026-10-17 5단계).
+// 실기기 확인 없이 기본을 바꾸지 않는다.
+function bcTimingParam(name, fallback) {
+  try {
+    const v = Number(new URLSearchParams(window.location.search).get(name));
+    return Number.isFinite(v) && v >= 300 && v <= 8000 ? v : fallback;
+  } catch (_) { return fallback; }
+}
+const BC_AUTO_SILENCE_MS = bcTimingParam('qa_silence_ms', 2200);
+const BC_AUTO_SEND_MS = bcTimingParam('qa_send_ms', 3000);
 
 function bcAutoLoop() {
   const host = document.getElementById('bcHost');

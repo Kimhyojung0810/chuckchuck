@@ -4535,6 +4535,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
             f"수={judgement.move or '-'}/{(judgement.dialogue or {}).get('source') or '-'} 시도={len(body.get('history') or []) + 1} "
+            f"판정={(judgement.dialogue or {}).get('judge_sec', '-')}s 엔진+={(judgement.dialogue or {}).get('sec_after_judge', '-')}s "
             f"passed={judgement.passed} stage={judgement.coach_stage!r} 질문={qsrc} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"

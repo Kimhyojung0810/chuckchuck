@@ -86,7 +86,8 @@ MOVE_SHAPES = {
     "clarify": "흐린 말이 정확히 무엇을 뜻하는지 묻는다 — 「(흐린 말)이라고 했는데, 무엇이 어떻게 다르다는 뜻이에요?」 꼴. 구체적인 조건 하나를 떠올리게 한다.",
     "challenge": "어긋난 말과 자료가 부딪히는 지점을 보여 주고 직접 견주게 한다 — 「(그 말)이라고 했는데, 자료 N장은 어떻게 말해요?」 꼴. 자료의 값 · 정답은 말하지 마라.",
     "explore": "반대 의견을 존중하고 그렇게 본 이유를 묻는다. 자료의 어느 결과와 견줘 볼지 묻는다 — 정답을 들이밀지 마라.",
-    "recite": "자료 문장을 옮기기만 했다는 것을 짚고, 그 문장이 질문이 묻는 「왜 · 충분한가 · 어떻게 이어지나」 에 어떻게 답이 되는지 자기 말로 잇게 묻는다.",
+    "refocus": "답이 질문과 다른 이야기다. 그 말을 짧게 받고(무시하지 마라), 질문이 묻는 핵심(질문의 대상)으로 돌아오는 쉬운 질문 하나 — 정답은 말하지 마라.",
+    "recite": "옮긴 자료 문장의 한 마디를 인용하고, 자료 문장을 옮기기만 했다는 것을 짚고, 그 문장이 질문이 묻는 「왜 · 충분한가 · 어떻게 이어지나」 에 어떻게 답이 되는지 자기 말로 잇게 묻는다.",
     "hint": "괜찮다고 짧게 말하고, 볼 곳 하나(자료 몇 장)만 가리킨 뒤 예/아니오로도 답할 수 있는 아주 쉬운 질문 하나.",
     "deepen": "맞힌 답이다. react 둘째 문장은 그 말이 결론을 **어떻게 받치는지**(답에 있는 근거 있는 강점)만 — 빠진 것을 지적하지 마라. ask 는 그 생각이 어디까지 통하는지(적용 범위) 한 걸음.",
 }
@@ -103,16 +104,16 @@ TALK_SYSTEM = """당신은 발표 Q&A 의 심사위원 교수다. 방금 발표�
 - skipped: 답이 **건너뛴 고리** 한 구절 — 아래 「꼭 이어져야 하는 논리」 중 답에 없는 연결(무엇이 무엇을 왜 받치는지). 다 이었으면 빈 문자열. 이 칸은 발표자에게 안 보인다.
 
 2) 수 고르기 — 위에서부터 처음 맞는 것 하나:
-unknown → "hint" · conflict → "challenge" · disagree → "explore" · recite → "recite" · (idea 가 없고 vague) → "clarify" · skipped → "connect" · vague → "clarify" · 그 밖 → "deepen"
+unknown → "hint" · (답이 질문과 다른 이야기) → "refocus" · conflict → "challenge" · disagree → "explore" · recite → "recite" · (idea 가 없고 vague) → "clarify" · skipped → "connect" · vague → "clarify" · 그 밖 → "deepen"
 
 3) 말하기 — 고른 수의 모양으로. **짧게** — 말로 듣는 한 마디다.
 - anchor: react 에서 인용할 답 원문 구절 (20자 안, 낱말 그대로, 뜻이 서는 마디). 수가 challenge 면 conflict, explore 면 disagree, clarify 면 vague, 그 밖엔 idea.
-- react: **두 문장**. 첫 문장은 인용만 — 「「anchor」라고 했죠.」 「「anchor」, 그 말이 중요해요.」 처럼 짧게. 둘째 문장은 그 말에 대한
+- react: **두 문장**. 첫 문장은 인용만, 짧게 — 꼴은 매번 바꾼다(「「anchor」라고 했죠.」 「「anchor」, 이 부분을 볼게요.」 「「anchor」라는 말에서 시작해요.」 등). 둘째 문장은 그 말에 대한
   **구체적인 평가 한 줄**(그 말이 받치는 것, 또는 그 말에서 빠진 것 하나) — **어절 7개 안**, 쉼표로 잇지 마라.
 - ask: **인용한 그 말에서 나온** 질문 한 문장 — **어절 8개 안**, 물음표로 끝, 묻는 것 하나(「A예요, B예요?」 금지). 「그 말」 「그렇다면」 으로 받거나 그 낱말을 쓴다.
-- 가린 수치(N)는 쓰지 마라 — 「그 수치」 「그 편차」 처럼 가리킨다.
+- 가린 수치((수치))는 쓰지 마라 — 「그 수치」 「그 편차」 처럼 가리킨다.
 예) react: 「실험실에서 한 거라서」라고 했죠. 어떤 조건이 다른지는 아직 빠졌어요.  ask: 그 실험실 조건은 실사용과 어디서 달라요?
-예) react: 「표본이 얇아서」, 그 말이 핵심이에요. 그게 결론을 어디까지 흔드는지는 안 나왔어요.  ask: 그렇다면 결론은 어디까지 말할 수 있어요?
+예) react: 「표본이 얇아서」, 이 부분을 볼게요. 그게 결론을 어디까지 흔드는지는 안 나왔어요.  ask: 그렇다면 결론은 어디까지 말할 수 있어요?
 
 {style}
 
@@ -126,7 +127,7 @@ unknown → "hint" · conflict → "challenge" · disagree → "explore" · reci
 RESPEAK_SYSTEM = """당신은 발표 Q&A 의 심사위원 교수다. 이번 한 마디의 수는 이미 정해졌다: {move} — {shape}
 **짧게** — 말로 듣는 한 마디다.
 - react: 두 문장. 첫 문장은 인용만 — 「「{anchor}」라고 했죠.」 처럼.{anchor_note} 둘째 문장은 그 말에 대한 구체적인 평가 한 줄, 어절 7개 안, 쉼표로 잇지 마라.
-- ask: 인용한 그 말에서 나온 질문 한 문장, 어절 8개 안, 물음표로 끝, 묻는 것 하나. 가린 수치(N)는 쓰지 마라.
+- ask: 인용한 그 말에서 나온 질문 한 문장, 어절 8개 안, 물음표로 끝, 묻는 것 하나. 가린 수치((수치))는 쓰지 마라.
 
 {style}
 
@@ -185,9 +186,9 @@ _MASK_NUM_RE = re.compile(r"[±+-]?\d+(?:[.,]\d+)?\s*(?:%p|%|°C|℃|배|개|명
 
 
 def mask_numbers(text: str, keep: str = "") -> str:
-    """자료 · 모범답의 수치를 「N」 으로 가린다 — 말하기 콜이 못 본 수치는 흘릴 수 없다(발표자가 먼저 말한 수치는 둔다)."""
+    """자료 · 모범답의 수치를 「(수치)」 로 가린다 — 말하기 콜이 못 본 수치는 흘릴 수 없다(발표자가 먼저 말한 수치는 둔다)."""
     def sub(m: re.Match) -> str:
-        return m.group(0) if m.group(0).strip() and m.group(0).strip() in keep else "N"
+        return m.group(0) if m.group(0).strip() and m.group(0).strip() in keep else "(수치)"
     return _MASK_NUM_RE.sub(sub, text or "")
 
 
@@ -195,11 +196,11 @@ def talk_user(ti: TalkInput) -> str:
     keep = f"{ti.answer} {ti.question} {' '.join(ti.prior)}"
     parts = [f"## 질문\n{ti.question}", f"## 질문의 대상\n{ti.label or '(없음)'}"]
     if ti.gist:
-        parts.append(f"## 꼭 이어져야 하는 논리 (모범답 — 발표자에게 말해 주지 마라 · 수치는 N 으로 가림)\n{mask_numbers(ti.gist, keep)}")
+        parts.append(f"## 꼭 이어져야 하는 논리 (모범답 — 발표자에게 말해 주지 마라 · 수치는 가림)\n{mask_numbers(ti.gist, keep)}")
     if ti.neighbors:
         parts.append("## 그래프에서 이 주장의 이웃\n" + "\n".join(f"- {n}" for n in ti.neighbors))
     if ti.evidence:
-        parts.append("## 근거 자료 줄 (수치는 N 으로 가림 — 수치를 말하지 마라)\n"
+        parts.append("## 근거 자료 줄 (수치는 가림 — 수치를 말하지 마라)\n"
                      + "\n".join(f"- {mask_numbers(x, keep)}" for x in ti.evidence))
     if ti.prior:
         parts.append("## 이 질문에 앞서 한 답\n" + "\n".join(f"- {p}" for p in ti.prior))
@@ -402,7 +403,7 @@ _MICRO_RE = re.compile(r"몇\s*(?:장|개|명|퍼센트|%|도|배|번|사이클|
                        r"|값(?:은|이)\s*(?:얼마|몇|무엇)|정의(?:는|가)\s*(?:무엇|뭐)|뜻이\s*뭐|무슨\s*뜻인가|몇\s*장")
 _NUM_RE = re.compile(r"\d+(?:[.,]\d+)?")
 _ASK_RE = re.compile(r"[?？]\s*$")
-_PLACEHOLDER_N_RE = re.compile(r"(?<![A-Za-z0-9])N(?![A-Za-z0-9])")
+_PLACEHOLDER_N_RE = re.compile(r"(?<![A-Za-z0-9])N(?![A-Za-z0-9])|\(수치\)")
 
 
 def sentences_of(text: str) -> list[str]:
@@ -511,16 +512,20 @@ CONFLICT_GUARDS = frozenset({"deck", "trap", "trap_misfixed", "number_unsupporte
                              "contra_dispute"})
 #: 반응을 코드 가드가 쓰는 가드 — 대화 엔진이 덮지 않는다 (함정 · 모순의 정답 단서 누설 막기 · 채점 지시 · 언어).
 KEEP_GUARDS = frozenset({"trap", "trap_misfixed", "trap_open", "contra_said", "contra_dispute", "injection", "language"})
+#: 판정 가드 중 「질문과 다른 이야기」 — refocus.
+REFOCUS_GUARDS = frozenset({"off_topic", "focus_miss"})
 #: 판정 가드 중 「자료 문장 옮기기 · 결론 되읊기」 — recite.
 RECITE_GUARDS = frozenset({"recital", "restated", "echo", "reason"})
 
 
-def policy(verdict: str, guard: str, read: dict, *, gave_up: bool = False, closing: bool = False) -> str:
+def policy(verdict: str, guard: str, read: dict, *, gave_up: bool = False, closing: bool = False, passed: bool = False) -> str:
     """수 — 판정 · 가드 · 읽기 신호에서. 순서가 곧 우선순위다 (LLM 이 아니라 코드가 정한다)."""
     if closing:
         return "explain"
     if gave_up or read.get("unknown"):
         return "hint"
+    if guard in REFOCUS_GUARDS:
+        return "refocus"
     if guard in CONFLICT_GUARDS or (read.get("conflict") and verdict != "good"):
         return "challenge"
     if read.get("disagree") and verdict != "good":
@@ -535,7 +540,8 @@ def policy(verdict: str, guard: str, read: dict, *, gave_up: bool = False, closi
         return "connect"
     if read.get("vague"):
         return "clarify"
-    return "connect"
+    # 통과(70+)했는데 빈 곳 신호가 없다 — 한 걸음 더(적용 범위). 10/17 dev: 읽기 콜 deepen ↔ 코드 connect 가 다시 말하기의 1위 까닭
+    return "deepen" if passed else "connect"
 
 
 def _anchor_for(move: str, read: dict, fallback: str) -> str:
@@ -558,6 +564,8 @@ _TEMPLATES = {
                ("「{a}」는 자료의 말 그대로예요.", "그 말이 결론을 어떻게 받치는지 내 말로 해 볼래요?")],
     "hint": [("괜찮아요. 자료 {n}장부터 같이 봐요.", "그 장에서 결론을 받치는 줄이 어디예요?"),
              ("괜찮아요. 한 걸음씩 가요.", "자료 {n}장의 결론 줄은 무엇을 말하나요?")],
+    "refocus": [("「{a}」는 다른 이야기예요.", "이 질문의 대상으로 돌아오면, 자료는 무엇을 말하나요?"),
+                ("그 이야기는 잠시 두고 질문으로 돌아와요.", "질문이 묻는 결론의 까닭부터 말해 볼래요?")],
     "deepen": [("「{a}」로 근거와 결론을 이었어요.", "그 논리는 어디까지 통할까요?"),
                ("「{a}」라는 연결이 답의 뼈대예요.", "조건이 바뀌면 그 결론은 어떻게 될까요?")],
 }
@@ -566,7 +574,8 @@ _TEMPLATES = {
 #: 붙잡을 구절이 없을 때의 반응 (수별).
 _NO_ANCHOR = {"connect": "결론과 잇는 고리가 아직 비어요.", "clarify": "말의 기준이 아직 흐려요.",
               "challenge": "자료와 다르게 읽히는 부분이 있어요.", "explore": "다른 쪽으로 본 의견이네요.",
-              "recite": "자료 문장을 옮겨 왔어요.", "hint": "괜찮아요. 한 걸음씩 가요.", "deepen": "근거와 결론을 이었어요."}
+              "recite": "자료 문장을 옮겨 왔어요.", "hint": "괜찮아요. 한 걸음씩 가요.", "deepen": "근거와 결론을 이었어요.",
+              "refocus": "질문과 다른 이야기예요."}
 
 
 def template_turn(move: str, anchor: str, ti: TalkInput, seed: str = "") -> tuple[str, str]:
@@ -655,7 +664,7 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     def accept(t: TalkResult) -> bool:
         if not (t and t.ok):
             return False
-        if t.move != policy(judgement.verdict, judgement.guard, t.read, gave_up=gave_up, closing=closing):
+        if t.move != policy(judgement.verdict, judgement.guard, t.read, gave_up=gave_up, closing=closing, passed=judgement.passed):
             return False
         return closing or not candidate(t)[2]
 
@@ -670,7 +679,7 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     ok_talks = [t for t in got if t and t.ok]
     base = chosen or (ok_talks[0] if ok_talks else None)
     read = dict(base.read) if base else {}
-    move = policy(judgement.verdict, judgement.guard, read, gave_up=gave_up, closing=closing)
+    move = policy(judgement.verdict, judgement.guard, read, gave_up=gave_up, closing=closing, passed=judgement.passed)
     meta: dict = {"read": read, "llm_move": base.move if base else "", "talk_sec": base.sec if base else None,
                   "talk_model": base.model if base else "", "talk_ok": bool(base), "talk_n": len(got),
                   "talk_moves": [[t.model, t.move, (candidate(t)[2] if t.ok else [t.error])] for t in got],

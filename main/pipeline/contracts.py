@@ -1691,8 +1691,9 @@ QA_GIVEUP_CLOSE = 2
 #:   recite     자료 문장을 옮기기만 한 답 — 그 문장이 질문의 「왜·충분한가」 에 어떻게 답이 되는지
 #:   hint       모른다·빈 답 — 볼 곳 하나와 아주 쉬운 질문
 #:   deepen     맞힌 답 — 원리나 적용 범위 한 걸음 (닫히는 질문은 꼬리질문 없이 반응만)
+#:   refocus    질문과 다른 이야기 — 그 말은 받아 주고 질문이 묻는 핵심으로 돌아오게 한다
 #:   explain    갇힘 출구 — 근거 장을 짚고 닫는다
-DIALOGUE_MOVES = ("", "connect", "clarify", "challenge", "explore", "recite", "hint", "deepen", "explain")
+DIALOGUE_MOVES = ("", "connect", "clarify", "challenge", "explore", "recite", "hint", "deepen", "refocus", "explain")
 
 #: 해설 길이 상한. QA_TEXT_MAX 보다 길다 — 해설은 말풍선 한 마디가 아니라
 #: "이렇게 답했어야 한다" 를 근거까지 붙여 설명하는 문단이기 때문이다.
