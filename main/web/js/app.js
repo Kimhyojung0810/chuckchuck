@@ -5293,9 +5293,10 @@ let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
 let rv2Failed = false;
+// 옛 판(10-16 오전)이 탭에 남긴 「옛 리포트로」 표시 — 그 탭은 새로고침해도 옛 리포트였고, 그 옛 화면엔 위 05~09 단추가 옮겨 갈 리포트가 없었다(사용자 「6~9 는 안 됨」). 지운다
+try { sessionStorage.removeItem('cheokcheok:report-v1'); } catch (_) { /* 저장소 막힘 */ }
 function reportV2On() {
   if (rv2Failed) { rv2Failed = false; return false; }
-  try { if (sessionStorage.getItem('cheokcheok:report-v1') === '1') return false; } catch (_) { /* 저장소 막힘 — 아래로 */ }
   if (typeof rhShowcase === 'function' && rhShowcase()) return true;
   try { return localStorage.getItem('cheokcheok:report-v2') === '1'; } catch (_) { return false; }
 }
