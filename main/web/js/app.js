@@ -21,6 +21,7 @@ const loadSession = key => {
   catch (_) { return null; }
 };
 const saveSession = (key, value) => {
+  if (key === 'new-flow' && value && value.__demo) return;   // 리포트 2.0 샘플(데모) 동안의 nf — 내 진행 기록을 덮지 않는다
   try {
     // SlideDoc / blob 결과는 용량이 커서 sessionStorage에서 제외
     const slim = { ...value };
@@ -5094,6 +5095,8 @@ function saveLastReport() {
       },
       // 리포트 2.0 (D-005, 10-16 승인) — 다시 연 리포트에서도 Q&A 전환점 · 녹음 다시 듣기(부스 덱)가 되게
       qa: rv2QaSnapshot(),
+      // 미리 찍은 장 그림 주소(부스 덱 assets/deck-slides/…)만 — base64 렌더는 크기 때문에 빼고, 다시 열면 미리보기 PDF 로 그린다
+      slideImages: (nf.slideImages || []).length && (nf.slideImages || []).every((u) => typeof u === 'string' && /^assets\//.test(u)) ? nf.slideImages : null,
       // 부스 덱 녹음으로 한 발표면 그 덱 이름 — 저장은 리포트 2.0 갈래보다 먼저라 take 에서 바로 읽는다
       deckAudio: nf.deckAudio || (ccLastTake && ccLastTake._blob && ccLastTake._blob.deckAudio ? String(ccLastTake._blob.deckAudio) : ''),
     };
@@ -5145,6 +5148,7 @@ function restoreLastReport() {
     // 복원해 놓고 「샘플이에요」나 지난 오류 배너가 뜬다
     useSample: false, pipelineError: null, pipelineDetail: '',
     rv2Qa: snap.qa || null, deckAudio: snap.deckAudio || '',
+    ...(Array.isArray(snap.slideImages) && snap.slideImages.length ? { slideImages: snap.slideImages } : {}),
   });
   return snap.at || 0;
 }
@@ -5284,12 +5288,16 @@ function reportVerdict() {
    같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
-const RV2_FILES = { css: 'css/report_v2.css?v=rv3', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv3'] };
+const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
+const RV2_FILES = { css: 'css/report_v2.css?v=rv11', js: ['js/report_graph.js?v=rg1', 'js/report_v2.js?v=rv11'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
+let rv2Failed = false;
+// 옛 판(10-16 오전)이 탭에 남긴 「옛 리포트로」 표시 — 그 탭은 새로고침해도 옛 리포트였고, 그 옛 화면엔 위 05~09 단추가 옮겨 갈 리포트가 없었다(사용자 「6~9 는 안 됨」). 지운다
+try { sessionStorage.removeItem('cheokcheok:report-v1'); } catch (_) { /* 저장소 막힘 */ }
 function reportV2On() {
-  try { if (sessionStorage.getItem('cheokcheok:report-v1') === '1') return false; } catch (_) { /* 저장소 막힘 — 아래로 */ }
+  if (rv2Failed) { rv2Failed = false; return false; }
   if (typeof rhShowcase === 'function' && rhShowcase()) return true;
   try { return localStorage.getItem('cheokcheok:report-v2') === '1'; } catch (_) { return false; }
 }
@@ -5319,8 +5327,9 @@ async function renderReportV2(restoredAt) {
   try {
     await loadRv2Files();
   } catch (err) {
+    // 받지 못하면 이번만 옛 리포트 — 탭 전체를 옛 화면에 묶지 않는다(sessionStorage 에 남기면 새로고침해도 계속 옛 화면이었다)
     console.warn('[chuckchuck] report v2', err);
-    try { sessionStorage.setItem('cheokcheok:report-v1', '1'); } catch (_) { /* 이번만 옛 화면 */ }
+    rv2Failed = true;
     renderReport();
     return;
   }
@@ -5351,11 +5360,17 @@ async function renderReportV2(restoredAt) {
     saved: restoredAt ? ` (${stampText(restoredAt)})` : '',
   });
   if (rv2Handle) rv2Handle.destroy();
+  const inStudio = document.documentElement.classList.contains('sx-studio');
   rv2Handle = window.ReportV2.mount(app, input, {
     mode: 'app',
+    // /VRShow 에선 리포트 뿌리 화면 다섯이 스튜디오 정거장 다섯(결과 · 다시 보기 · 청중석 · 코칭 · 연습) — 10-16 사용자 「리포트 탭을 여러 개로 분리」
+    tabs: inStudio ? ['home', 'replay', 'audience', 'coach', 'practice'] : null,
+    onRoot: (root) => { app.dataset.rv2Root = root; },
     slideImage: (n) => (uploadedPdf && uploadedPdf.pdf ? slideThumb(n) : null),
     onLegacy: () => {
-      try { sessionStorage.setItem('cheokcheok:report-v1', '1'); } catch (_) { /* 이번만 */ }
+      // 「이전 리포트」 — 이번 한 번만 옛 화면(새로고침하면 다시 리포트 2.0). 탭에 묶어 두면 돌아올 길이 없었다
+      rv2Failed = true;
+      delete app.dataset.rv2Root;
       if (rv2Handle) { rv2Handle.destroy(); rv2Handle = null; }
       renderReport();
     },
@@ -5368,10 +5383,75 @@ async function renderReportV2(restoredAt) {
     }).catch(() => { /* 청중석은 「기록이 없어요」 로 남는다 */ });
   }
 }
-// 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게
+/** 공개 샘플 리포트 — js/report_sample.js(실측 부스 시연 발표 묶음)를 처음 쓸 때만 받는다. 스튜디오가 고른 탭(__rv2WantTab)으로 연다 */
+async function renderReportV2Demo() {
+  app.className = 'rv2-host';
+  app.innerHTML = '<p class="note" role="status" style="padding:56px 24px">샘플 리포트를 준비하고 있어요…</p>';
+  try {
+    await loadRv2Files();
+    if (!window.__RV2_SAMPLE) {
+      await new Promise((ok, fail) => { const el = document.createElement('script'); el.src = RV2_SAMPLE_JS; el.onload = ok; el.onerror = () => fail(new Error('샘플을 받지 못했어요')); document.head.appendChild(el); });
+    }
+  } catch (err) {
+    app.className = 'narrow';
+    app.innerHTML = `<div class="card empty-card"><h2 class="section-title">샘플 리포트를 열지 못했어요</h2><p class="note">연결을 확인하고 다시 눌러요.</p></div>`;
+    return;
+  }
+  if (!/report\/demo/.test(location.hash)) return;
+  rv2DemoSwapIn(window.__RV2_SAMPLE);
+  const want = Number.isInteger(window.__rv2WantTab) ? window.__rv2WantTab : 0;
+  window.__rv2WantTab = null;
+  const tabs = ['home', 'replay', 'audience', 'coach', 'practice'];
+  if (rv2Handle) rv2Handle.destroy();
+  try { sessionStorage.removeItem('cheokcheok:rv2-stack'); } catch (_) { /* 처음부터 */ }
+  rv2Handle = window.ReportV2.mount(app, window.__RV2_SAMPLE, {
+    mode: 'app',
+    tabs: document.documentElement.classList.contains('sx-studio') ? tabs : null,
+    onRoot: (root) => { app.dataset.rv2Root = root; },
+  });
+  if (want > 0) rv2Handle.tab(want);
+}
+
+/* 샘플(데모) 리포트 동안 옛 분석 탭(슬라이드로 보는 발표 · 말하기 · 개념 전달 …)도 샘플을 그리도록 nf · 자료 · 청중석을 잠시 바꾼다.
+   내 것은 따로 들고 있다가 데모 주소를 떠나면 되돌린다. 샘플 nf 는 저장하지 않는다(saveSession __demo) */
+let rv2DemoBackup = null;
+function rv2DemoSwapIn(S) {
+  if (!S) return;
+  if (!rv2DemoBackup) rv2DemoBackup = { nf, nfSlideDoc, uploadedPdf, chatterCache };
+  const t = S.transcript || {};
+  nf = { __demo: true, fileName: (S.deck && (S.deck.file_name || S.deck.title)) || '', slideTitles: ((S.deck && S.deck.slides) || []).map((x) => x.title),
+    slideImages: (S.deck && S.deck.slide_images) || [], sec: Math.round(t.duration_sec || 0), min: (S.context && S.context.min) || 0, occ: (S.context && S.context.occ) || '',
+    marks: t.marks || null, pipelinePhase: 'done', deckAudio: S.deck && S.deck.key,
+    pipelineOut: { graph: S.graph, alignment: S.alignment, flow: S.flow, score: S.score, pace: S.pace, habits: S.habits, report: S.report, transcript: t } };
+  nfSlideDoc = null; uploadedPdf = null; chatterCache = S.chatter || null;
+}
+function rv2DemoSwapOut() {
+  if (!rv2DemoBackup) return;
+  ({ nf, nfSlideDoc, uploadedPdf, chatterCache } = rv2DemoBackup);
+  rv2DemoBackup = null;
+}
+/** 리포트 2.0 이 옛 리포트의 분석 탭 하나를 한 화면으로 품는다 (10-16 사용자 「#/rehearsal 리포트 기능을 삭제하면 안 되는데」) — i 는 R_TAB_VIEWS 순서 */
+window.__rv2Legacy = (i, host) => {
+  document.querySelectorAll('#rbody').forEach((el) => { if (el !== host) el.removeAttribute('id'); });
+  host.id = 'rbody';
+  rTab = i;
+  try {
+    R_TAB_VIEWS[i]();
+    wireSessionDelete(host); wireFeedback(host); animateViz(host);
+    if (typeof paintDeckThumbs === 'function') paintDeckThumbs(host);
+    if (typeof paintDeckStage === 'function') paintDeckStage(host);
+  } catch (err) {
+    console.warn('[chuckchuck] legacy view', i, err);
+    host.innerHTML = '<p class="note">이 분석을 그리지 못했어요. 「이전 리포트」 에서 볼 수 있어요.</p>';
+  }
+};
+// 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게. 샘플 동안 바꿔 둔 내 것도 되돌린다
 window.addEventListener('hashchange', () => {
-  if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; }
+  if (!/report\/demo/.test(location.hash)) rv2DemoSwapOut();
+  if (rv2Handle && !/report/.test(location.hash)) { rv2Handle.destroy(); rv2Handle = null; delete app.dataset.rv2Root; }
 });
+/** 스튜디오(ui/Frame.jsx)가 리포트 탭을 옮길 때 부른다 — 0 결과 · 1 다시 보기 · 2 청중석 · 3 코칭 · 4 연습 */
+window.__rv2Tab = (i) => { if (rv2Handle) rv2Handle.tab(i); };
 
 async function renderReport() {
   await ensureVoicePipelineOut();
@@ -5380,6 +5460,9 @@ async function renderReport() {
      행과 실측이 같은 주소를 나눠 쓰고 있었다: 자료를 한 번이라도 올리면
      라벨은 샘플인데 열면 내 발표 리포트가 떴다 */
   let reportId = routeParts()[1] || '';
+  /* #/rehearsal/report/demo — /VRShow 에서 발표를 안 해도 리포트 정거장(05~09)을 둘러보는 공개 샘플 (10-16 사용자 「미리 돌린 샘플 자료로
+     왔다 갔다」). 내 결과(nf)는 건드리지 않고, 화면이 「샘플 리포트」 로 표시한다. 그래서 팀 샘플 문(sampleOpen)보다 앞에 둔다 */
+  if (reportId === 'demo') { renderReportV2Demo(); return; }
   /* 공개 방문자는 샘플 리포트(sample-*·DATA.reportProfiles)를 못 연다 — 자기 결과(#/report)와
      이 브라우저에 저장한 마지막 리포트(#/report/last)만 */
   if (reportId && reportId !== 'last' && !sampleOpen()) {
@@ -5706,6 +5789,8 @@ const R_TAB_VIEWS = [rSummary, rDelivery, rJudge, rLogic, rRubric, rTools, rStra
  */
 function switchReportTab(i) {
   const btns = $$('#rtabs button');
+  // 리포트 2.0 이 옛 분석 탭을 품고 있으면(탭 막대 없음) 그 화면을 리포트 2.0 안에서 밀어 넣는다 — 옛 리포트를 통째로 다시 그리지 않게
+  if (!btns.length && rv2Handle && typeof rv2Handle.open === 'function') { rv2Handle.open(`legacy:${i}`); return; }
   if (!btns.length || !$('#rbody')) { rTab = i; renderReport(); return; }
   rTab = i;
   btns.forEach((b, k) => b.classList.toggle('on', k === i));

@@ -22,6 +22,12 @@
 - [x] `/report-v2` 클릭 가능한 프로토타입 (구버전 그대로)
 - [x] `DECISIONS.md` OPEN 항목 정리 → 사용자 승인 요청
 
+## 2026-10-16 — iOS + 토스 리포트 (D-011)
+- 사용자: 「iOS + 토스 · 리포트 하나로 만들지 마라 · 화면 전환 여러 개 · 기능은 죽이지 말고 강약 · 와우 포인트 · 디테일」
+- `js/report_v2.js` 화면 층을 다시 씀(그래프 · 데이터 · inputFromApp · mount API 그대로): 스택 9화면(home · issue · coach · replay · audience · chick · practice · qa · scores), push/pop(iOS 곡선) · 왼쪽 가장자리 밀기(1:1 · 속도) · 아래 시트(끌어 닫기) · 큰 제목 접힘 · 주소에 스택(page) / sessionStorage(app)
+- `css/report_v2.css` 새로(.rv2 범위 그대로). 스튜디오 안에선 zoom 때문에 vh 가 모자라 `html.sx-studio #app.rv2-host` 를 창에 고정
+- 검증: 헤드리스 1440 · 390 아홉 화면 · 뒤로 · 새로고침 · rehearsal_flow --report-v2(앱 · /VRShow) 통과
+
 ## 2026-10-16 — 승인 · Phase 3 구현 (/VRShow 반영)
 - 사용자: 「네 가지 다 승인, 구현 시작해. 원래 그 /VRShow 에 반영」 → D-004 · 005 · 006 · 009 DECIDED
 - [x] P3-1 앱 진입점 — /VRShow 정면 창은 자동, 그 밖엔 팀 플래그 `localStorage cheokcheok:report-v2=1`, 「이전 리포트」 로 옛 화면

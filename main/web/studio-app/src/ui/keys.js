@@ -1,7 +1,11 @@
 /* 스튜디오 ↔ 앱 흐름 — 순수 함수 (etc/tests/js/studio_flow.smoke.mjs 가 브라우저 없이 검사한다). SPACE §6 · §7 */
 
-/** 정거장 번호 — 0 자료 올리기 · 1 발표 · 2 분석 · 3 질의응답 · 4 리포트 (config.STATIONS 와 같은 순서) */
-export const ST = { upload: 0, present: 1, analysis: 2, qa: 3, report: 4 }
+/** 정거장 번호 — 0 자료 올리기 · 1 발표 · 2 분석 · 3 질의응답 · 4~8 리포트(결과 · 다시 보기 · 청중석 · 코칭 · 연습) (config.STATIONS 와 같은 순서)
+ *  10-16 사용자 「리포트 탭을 하나만 만드는 게 아니라 여러 개로 분리」 — 리포트 2.0(js/report_v2.js)의 뿌리 화면 하나 = 정거장 하나 */
+export const ST = { upload: 0, present: 1, analysis: 2, qa: 3, report: 4, replay: 5, audience: 6, coach: 7, practice: 8 }
+/** 리포트 정거장 ↔ 리포트 2.0 뿌리 화면 (report_v2.js tabs 와 같은 순서) */
+export const REPORT_TABS = ['home', 'replay', 'audience', 'coach', 'practice']
+export const isReport = (k) => k >= ST.report
 
 /** 앱 주소 → 정거장. 흐름 밖(#/home · #/)이면 -1. 분석 기다림은 발표와 같은 주소(#/rehearsal/new)라 stationOf 가 화면으로 가른다 */
 export function stationOfHash(hash) {
@@ -13,10 +17,11 @@ export function stationOfHash(hash) {
   return -1
 }
 
-/** 주소 + 지금 떠 있는 층 → 정거장. wait: 분석 기다림 층(#bqStage[data-screen=wait])이 떠 있나 */
-export function stationOf({ hash, wait = false }) {
+/** 주소 + 지금 떠 있는 층 → 정거장. wait: 분석 기다림 층(#bqStage[data-screen=wait])이 떠 있나 · rv2Root: 리포트 2.0 이 지금 보이는 뿌리 화면 */
+export function stationOf({ hash, wait = false, rv2Root = '' }) {
   const k = stationOfHash(hash)
   if (k === ST.present && wait) return ST.analysis
+  if (k === ST.report) { const i = REPORT_TABS.indexOf(rv2Root); return i > 0 ? ST.report + i : ST.report }
   return k
 }
 
@@ -35,6 +40,12 @@ export function keyAction({ key, station, typing = false, onControl = false, mod
     if (inApp) return null
     if (key === 'ArrowRight' || key === 'PageDown') return 'slideNext'
     if (key === 'ArrowLeft' || key === 'PageUp') return 'slidePrev'
+    return null
+  }
+  // 리포트 정거장끼리는 → ← 가 옆 탭(결과 ↔ 다시 보기 ↔ 청중석 ↔ 코칭 ↔ 연습). 리포트 안엔 「다음」 주 버튼이 없다
+  if (isReport(station)) {
+    if (key === 'ArrowRight') return station < ST.report + REPORT_TABS.length - 1 ? 'tabNext' : null
+    if (key === 'ArrowLeft') return station > ST.report ? 'tabPrev' : null
     return null
   }
   if (key === 'ArrowRight') return 'next'

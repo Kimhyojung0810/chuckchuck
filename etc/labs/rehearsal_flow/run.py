@@ -774,11 +774,14 @@ def run(args) -> Path:
                                 "listening": page.evaluate("window.__fakeListening()"), "history": page.evaluate("(JSON.parse(localStorage.getItem('cheokcheok:qa-history')||'[]')).length"),
                                 "title": page.evaluate("(document.querySelector('#app h1, #app .page-title')||{}).textContent||''")[:80]})
             if args.report_v2:
-                R["report_v2"] = page.evaluate("""() => ({ on: !!document.querySelector('#app.rv2'), screen: (document.querySelector('.rv2 .rv-nav [aria-current]')||{}).textContent || '',
-                  issues: document.querySelectorAll('.rv2 .rr-item').length, title: (document.querySelector('.rv2 .rr-title')||{}).textContent || '' })""")
+                R["report_v2"] = page.evaluate("""() => ({ on: !!document.querySelector('#app.rv2'), screens: document.querySelectorAll('.rv2 .nv-screen').length,
+                  issues: document.querySelectorAll('.rv2 .nv-screen:last-child .nv-row[data-push^="issue:"]').length, title: (document.querySelector('.rv2 .nv-headline')||{}).textContent || '' })""")
                 print("  report_v2   ", R["report_v2"], flush=True)
-                for scr in ("audience", "replay", "coach", "practice"):
-                    page.click(f".rv2 .rv-nav [data-go='{scr}']"); page.wait_for_timeout(700); shot(f"rv2_{scr}")
+                # iOS 스택 — 홈에서 화면을 밀어 넣고(push) ‹ 로 돌아온다
+                for route in ("issue", "replay", "audience", "practice"):
+                    sel = ".rv2 .nv-screen:last-child [data-push^='issue:']" if route == "issue" else f".rv2 .nv-screen:last-child [data-push='{route}']"
+                    page.click(sel); page.wait_for_timeout(800); shot(f"rv2_{route}")
+                    page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
                 # /VRShow 갈래 — 플래그 없이도 정면 창 안에선 리포트 2.0 인가 (마지막 리포트로 연다)
                 vr = page.context.new_page()
                 vr.set_viewport_size({"width": 1512, "height": 860})
@@ -789,7 +792,7 @@ def run(args) -> Path:
                 if fr:
                     fr.evaluate("location.hash = '#/rehearsal/report/last'")
                     vr.wait_for_timeout(5000)
-                    R["vrshow_v2"] = fr.evaluate("() => ({ on: !!document.querySelector('#app.rv2'), qa: document.querySelectorAll('.rv2 .rr-item').length, legacy: !!document.querySelector('.rv2 [data-legacy]') })")
+                    R["vrshow_v2"] = fr.evaluate("""() => ({ on: !!document.querySelector('#app.rv2'), issues: document.querySelectorAll('.rv2 .nv-screen:last-child .nv-row[data-push^="issue:"]').length, legacy: !!document.querySelector('.rv2 [data-legacy]') })""")
                     vr.screenshot(path=str(out / "vrshow_report_v2.png"))
                 print("  vrshow_v2   ", R.get("vrshow_v2"), flush=True)
                 vr.close()

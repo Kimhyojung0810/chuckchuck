@@ -38,9 +38,9 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta:disabled { background:
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cta.pulse { animation: none; box-shadow: none; }
 /* 보조 버튼 — 중성 면 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-ghost {
-  background: rgba(29, 29, 31, .05); border: 1px solid var(--sx-border); color: var(--sx-ink-2); transition: background-color .15s, color .15s;
+  background: #FFFFFF; border: 1px solid var(--sx-border); color: var(--sx-ink); transition: background-color .15s, color .15s, border-color .15s;
 }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-ghost:hover { background: rgba(29, 29, 31, .1); color: var(--sx-ink); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-ghost:hover { background: #FFFFFF; border-color: rgba(29, 29, 31, .32); color: var(--sx-ink); }
 
 /* ── ① 고르기 · 발표 상황 · 내 자료 올리기 (업로드 장면) — 창은 스튜디오가 내용 크기로 맞춘다(.bq-pick 높이) ── */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"]:is([data-screen="pick"], [data-screen="occ"]) .bq-top { display: none; }
@@ -55,11 +55,13 @@ html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-foot { color: var(--sx-ink
 /* 발표 고르기 — 덱 카드: 한 줄 셋(창이 내용 크기라 짧게) · 중성 면 · 얇은 선, 고르면 에메랄드 테두리 하나 */
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-pick .bq-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck {
-  background: rgba(29, 29, 31, .035); border: 1px solid var(--sx-line); border-radius: 18px; padding: 10px 10px 14px; box-shadow: none;
+  background: #FFFFFF; border: 1px solid rgba(29, 29, 31, .08); border-radius: 18px; padding: 10px 10px 14px; box-shadow: none;
   transition: border-color .18s, background-color .18s, transform .18s;
 }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck:hover:not(:disabled) { border-color: rgba(111, 181, 154, .45); background: rgba(29, 29, 31, .06); transform: translateY(-2px); }
-html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cover { border-radius: 10px; box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .7); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck:hover:not(:disabled) { border-color: rgba(11, 122, 87, .5); background: #FFFFFF; transform: translateY(-2px); }
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-cover { border-radius: 10px; box-shadow: 0 0 0 1px rgba(29, 29, 31, .06), 0 8px 18px -12px rgba(0, 0, 0, .22); }
+/* 「내 자료 올리기」 — 덱 카드 줄에 붙어 있었다(10-16 밝은 스튜디오 점검). 한 칸 띄운다 */
+html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-pick > .bq-ghost { margin-top: 18px; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck-title { color: var(--sx-ink); font-size: 15px; font-weight: 600; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck-go { color: var(--sx-accent); font-size: 13px; font-weight: 600; }
 html.sx-studio #bqStage.bq[data-flow="rehearsal"] .bq-deck-kind { color: var(--sx-ink-3); font-size: 12px; font-weight: 500; letter-spacing: .02em; }   /* 초록은 「리허설하기」 하나만 */
@@ -152,7 +154,7 @@ html.sx-studio #vrCall.vr-call[data-flow="rehearsal"] { background: var(--sx-bg)
 html.sx-studio #vrCall.vr-call[data-flow="rehearsal"] .vr-self { background: var(--sx-bg); }
 
 /* ── 리포트 — 읽기 우선. 머리 띠의 짙은 초록 면을 따뜻한 차콜로(글자 · 판정 색은 그대로) ── */
-html.sx-studio main#app.wide > section.verdict { background: #FFFFFF; }
+html.sx-studio main#app.wide > section.verdict { background: #1D1D1F; }   /* 옛 리포트(「이전 리포트」) 판정 판은 밝은 글자용 — 밝은 스튜디오에서도 어두운 판을 지킨다(10-16 흰 판에 흰 글자로 사라졌다) */
 
 /* 폰 — 덱 카드는 한 줄에 하나, 표지는 왼쪽 작게 (세 칸이 너무 좁았다) */
 @media (max-width: 720px) {

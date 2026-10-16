@@ -12,7 +12,11 @@ export const STATIONS = [
   { key: 'present', name: '발표',       line: '카메라 앞에서 발표해요 — 삐약이들이 들어요' },
   { key: 'analysis', name: '발표 채점',  line: '내 말을 자료의 개념과 맞춰 채점해요' },
   { key: 'qa',      name: '질의응답',    line: '심사위원 삐약이들의 질문에 답해요' },
-  { key: 'report',  name: '리포트',      line: '발표와 답을 돌아봐요' },
+  { key: 'report',  name: '결과',        line: '이번 발표의 진단과 고칠 것 셋' },
+  { key: 'replay',  name: '다시 보기',   line: '실제 녹음으로 근거 구간을 다시 들어요' },
+  { key: 'audience', name: '청중석',     line: '삐약이 넷의 반응과 그 근거' },
+  { key: 'coach',   name: '코칭',        line: '원래 말 → 까닭 → 이렇게 바꿔 말해요' },
+  { key: 'practice', name: '연습',       line: '고칠 곳만 다시 · Q&A 전환점 돌아보기' },
 ]
 
 /* 정거장별 조명 (SPACE §3 · DESIGN_SYSTEM v3-3) — 따뜻한 중성 빛만(10-13 리뉴얼: 초록 빛 없음, 조용한 스튜디오).
@@ -22,6 +26,10 @@ export const LIGHT = [
   { color: '#FFFFFF', spot: 180, angle: .55, cove: .35, amb: 2.3, fog: 28 },
   { color: '#FFFFFF', spot: 150, angle: .75, cove: .7, amb: 2.5, fog: 30 },
   { color: '#FFFFFF', spot: 170, angle: .6, cove: .5, amb: 2.4, fog: 28 },
+  { color: '#FFFFFF', spot: 170, angle: .8, cove: .9, amb: 2.8, fog: 32 },
+  { color: '#FFFFFF', spot: 170, angle: .8, cove: .9, amb: 2.8, fog: 32 },
+  { color: '#FFFFFF', spot: 150, angle: .8, cove: .7, amb: 2.4, fog: 30 },
+  { color: '#FFFFFF', spot: 170, angle: .8, cove: .9, amb: 2.8, fog: 32 },
   { color: '#FFFFFF', spot: 170, angle: .8, cove: .9, amb: 2.8, fog: 32 },
 ]
 
