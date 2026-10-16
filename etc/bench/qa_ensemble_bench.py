@@ -352,7 +352,7 @@ def main() -> int:
     rel = rec.get("release") or {}
     if ens.get("opening") and art.get("transcript"):
         rec["flows"] = {}
-        for fl in args.flows.split(","):
+        for fl in [f for f in args.flows.split(",") if f]:
             try:
                 rec["flows"][fl] = run_flow(fl, ens, art, args, seed)
             except Exception as e:  # noqa: BLE001
