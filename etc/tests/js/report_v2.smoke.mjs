@@ -69,6 +69,30 @@ check('장 구간 · 추정 표시도 남긴다', ex.marks[0].start_sec === 1.23
 check('transcript 가 없으면 빈 묶음', JSON.stringify(box.f(null)) === '{}');
 check('Q&A 기록이 실제 질문의 node_id · slide_nos 를 읽는다(빈 개념 · 장 버그)', /src\.node_id/.test(cut('recordQaHistory')) && /src\.slide_nos/.test(cut('recordQaHistory')));
 
+// ─── Q&A 돌아보기 화면(js/report_v2_qa.js, 10-17) — 그래프 뷰모델 → 화면 글. 지어낸 칸 · 개발 용어 · 자리표시자가 없는가 ───
+const gctx = { window: {} };
+vm.runInNewContext(readFileSync(path.join(WEB, 'js/report_graph.js'), 'utf8'), gctx);
+const qctx = { window: {} };
+vm.runInNewContext(readFileSync(path.join(WEB, 'js/report_v2_qa.js'), 'utf8'), qctx);
+const sample = JSON.parse(readFileSync(path.join(WEB, 'js/report_sample.js'), 'utf8').replace(/^[\s\S]*?window\.__RV2_SAMPLE = /, '').replace(/;\s*$/, ''));
+const RG = gctx.window.ReportGraph;
+const SV = RG.buildViewModel(RG.buildGraph({ ...sample, reportId: 's' }), sample);
+const esc2 = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const QS = qctx.window.ReportV2Qa.screens({ esc: esc2, I: { chev: '', check: '', bang: '', q: '', redo: '', chat: '' }, asset: (x) => x, V: () => SV, D: () => sample, QB: () => null, QBS: null,
+  slideTag: (n) => `<i data-slide="${n}"></i>`, EMBED: false });
+const cardHtml = QS.card();
+check('홈 Q&A 카드: 질문마다 한 줄 · 판정 3단계 나눔', (cardHtml.match(/data-push="qa:/g) || []).length === SV.qa.filter((q) => q.result).length && /스스로 설명/.test(cardHtml) && /넘김/.test(cardHtml));
+const screensHtml = SV.qa.filter((q) => q.result).map((q) => QS.qa(q.id).html).join('');
+check('질문 화면: 30초 뼈대(결론 → 근거 → 잇기) · 판정 · 내 답', /30초 뼈대/.test(screensHtml) && /결론 먼저/.test(screensHtml) && /근거 하나/.test(screensHtml) && /내 답/.test(screensHtml));
+check('공개 샘플 Q&A 에 자리표시자 · 개발 용어가 없다', !/어느 정도|decided_by|F-0\d|rehearsal_flow|\/api\//.test(screensHtml + cardHtml + JSON.stringify(sample.qa) + Object.values(sample.provenance).join(' ')));
+check('공개 샘플: Q&A 와 「질문은 이렇게 골랐어요」 판이 같은 판(질문 글이 판 후보 · 3번+ 에 있다)', (() => {
+  const b = JSON.parse(readFileSync(path.join(WEB, 'js/report_qaboard_sample.js'), 'utf8').replace(/^[\s\S]*?window\.__RV2_QA_BOARD = /, '').replace(/;\s*$/, ''));
+  const qs = [...b.candidates.map((c) => c.question), ...(b.rounds || []).map((r) => r.question)];
+  return sample.qa.results.every((r) => qs.includes(r.question));
+})());
+const emptyQS = qctx.window.ReportV2Qa.screens({ esc: esc2, I: {}, asset: (x) => x, V: () => ({ qa: [] }), D: () => ({}), QB: () => null, QBS: null, slideTag: () => '', EMBED: false });
+check('Q&A 를 안 했으면 빈 상태 + 「Q&A 연습하기」', /Q&A를 하면/.test(emptyQS.card()) && /Q&A 연습하기/.test(emptyQS.card()));
+
 // 하네스 자가 검사 — 범위 밖 규칙을 넣으면 잡는가
 const badLoose = ['body', '.rv2 .ok'].filter((x) => !/^(\.rv2\b|body\.rv2-page\b|#app\.rv2-host\b)/.test(x));
 check('하네스가 회귀를 잡는다', badLoose.length === 1);

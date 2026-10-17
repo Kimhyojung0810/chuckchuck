@@ -31,6 +31,7 @@
       // 네 모델 Q&A 후보 판 (js/report_qaboard.js) — 판이 없을 때의 까닭: loading · single(한 모델) · missing(이 탭에 없음)
       qa_board: raw.qaBoard || null, qa_board_state: raw.qaBoardState || '',
       qa: raw.qa && Array.isArray(raw.qa.results) && raw.qa.results.length ? { questions: raw.qa.questions || [], results: raw.qa.results } : null,
+      behavior: raw.behavior || null,   // 발표 태도(베타) — 그리기는 js/behavior_report.js
     };
   }
 
@@ -66,7 +67,7 @@
   };
   /** 옛 리포트 분석 탭 (app.js R_TAB_VIEWS 순서 그대로) */
   const LEGACY = [
-    { name: '슬라이드로 보는 발표', short: '슬라이드', line: '장마다 판정 · 그 장에서 한 말 · 이렇게 말해 봐요', icon: 'doc', ico: 'i-blue' },
+    { name: '슬라이드로 보는 발표', short: '슬라이드', line: '장마다 판정 · 그 장에서 한 말', icon: 'doc', ico: 'i-blue' },
     { name: '말하기', short: '말하기', line: '말 속도 · 시간 배분 · 말버릇 · 청중 반응', icon: 'wave', ico: 'i-orange' },
     { name: '개념 전달', short: '개념 전달', line: '개념마다 설명했는지 · 판정 근거', icon: 'check', ico: 'i-green' },
     { name: '흐름', short: '흐름', line: '설명 순서 · 빠진 고리 · 잘 이은 곳', icon: 'chart', ico: 'i-gray' },
@@ -152,14 +153,17 @@
     /* ── 스택 ── */
     /* 「질문은 이렇게 골랐어요」 — 네 모델 후보 판 (js/report_qaboard.js). 파일이 없으면 진입점도 없다 */
     const QBS = window.ReportQaBoard ? window.ReportQaBoard.screens({ esc, I, asset, Q: () => QB }) : null;
-    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy,
+    /* Q&A 돌아보기 (10-17 개편 §3) — js/report_v2_qa.js. 파일이 없으면 옛 전환점 화면(qaChat)으로 */
+    const QAS = window.ReportV2Qa ? window.ReportV2Qa.screens({ esc, I, asset, V: () => V, D: () => D, QB: () => QB, QBS, slideTag, EMBED }) : null;
+    const qa = QAS ? QAS.qa : qaChat;
+    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy, issues, strengths, unsure, details, attitude,
       ...(QBS ? { board: QBS.board, slot: QBS.slot, round: QBS.round } : {}) };
     const parse = (r) => { const k = r.indexOf(':'); return k < 0 ? [r, ''] : [r.slice(0, k), r.slice(k + 1)]; };
     function renderScreen(route) {
       const [name, arg] = parse(route);
       const sc = (ROUTES[name] || home)(arg);
       const el = document.createElement('section');
-      el.className = `nv-screen nv-${ROUTES[name] ? name : 'home'}${sc.wide ? ' is-wide' : ''}`;
+      el.className = `nv-screen nv-${ROUTES[name] ? name : 'home'}${sc.wide ? ' is-wide' : ''}${sc.home ? ' is-home' : ''}`;
       el.setAttribute('aria-label', sc.title);
       const prev = stack[stack.length - 1];
       const backWord = prev ? prev.short : '';
@@ -172,9 +176,9 @@
         <div class="nv-scroll">
           ${sc.top || ''}
           ${sc.eyebrow ? `<p class="nv-eyebrow">${esc(sc.eyebrow)}</p>` : ''}
-          <h1 class="nv-large" tabindex="-1">${esc(sc.title)}</h1>
+          <h1 class="nv-large${sc.size ? ` is-${sc.size}` : ''}" tabindex="-1">${esc(sc.title)}</h1>
           ${sc.html}
-          <footer class="nv-foot">${Object.values(D.provenance || {}).map((t) => `<p>${esc(t)}</p>`).join('')}</footer>
+          ${name === 'home' ? `<footer class="nv-foot">${Object.values(D.provenance || {}).map((t) => `<p>${esc(t)}</p>`).join('')}</footer>` : ''}
         </div>
         ${sc.cta ? `<div class="nv-cta"><button type="button" class="nv-pill" ${sc.cta.attr}>${sc.cta.icon || ''}<span>${esc(sc.cta.label)}</span></button></div>` : ''}`;
       const scroller = el.querySelector('.nv-scroll');
@@ -192,7 +196,7 @@
       el.querySelectorAll('[data-href]').forEach((b) => b.addEventListener('click', () => { if (!EMBED) location.href = b.dataset.href; }));
     }
     const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';   // iOS 밀기 곡선 — 빠르게 출발해 부드럽게 멈춘다
+    const EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';   // iOS 밀기 곡선 — 빠르게 출발해 부드럽게 멈춘다. 길이는 200ms(10-17 기조 R18 · 설계 §6)
     function animate(el, from, to, ms) {
       return new Promise((done) => {
         if (reduced() || !el.animate) { el.style.transform = to; done(); return; }
@@ -218,7 +222,7 @@
       stack.push(next);
       if (prev) { prev.el.setAttribute('inert', ''); prev.el.setAttribute('aria-hidden', 'true'); }
       NV.classList.add('is-moving');
-      await Promise.all([animate(next.el, 'translateX(100%)', 'translateX(0)', 500), prev ? animate(prev.el, 'translateX(0)', 'translateX(-28%)', 500) : null]);
+      await Promise.all([animate(next.el, 'translateX(100%)', 'translateX(0)', 200), prev ? animate(prev.el, 'translateX(0)', 'translateX(-28%)', 200) : null]);
       NV.classList.remove('is-moving');
       if (prev) prev.el.classList.add('is-under');
       const h = next.el.querySelector('.nv-large'); if (h) h.focus({ preventScroll: true });
@@ -237,7 +241,7 @@
       NV.classList.add('is-moving');
       const fromX = top.el.style.transform || 'translateX(0)';
       const underFrom = under.el.style.transform || 'translateX(-28%)';
-      await Promise.all([animate(top.el, fromX, 'translateX(100%)', 420), animate(under.el, underFrom, 'translateX(0)', 420)]);
+      await Promise.all([animate(top.el, fromX, 'translateX(100%)', 200), animate(under.el, underFrom, 'translateX(0)', 200)]);
       NV.classList.remove('is-moving');
       top.el.remove();
       saveStack();
@@ -289,57 +293,144 @@
       drag = null;
       if (go) { if (MODE === 'page') history.back(); else back({ fromHistory: true }); return; }
       const top = stack[stack.length - 1].el; const under = stack[stack.length - 2].el;
-      await Promise.all([animate(top, `translateX(${dx}px)`, 'translateX(0)', 300), animate(under, `translateX(${-28 + 28 * (dx / w)}%)`, 'translateX(-28%)', 300)]);
+      await Promise.all([animate(top, `translateX(${dx}px)`, 'translateX(0)', 200), animate(under, `translateX(${-28 + 28 * (dx / w)}%)`, 'translateX(-28%)', 200)]);
     };
     NV.addEventListener('pointerup', endDrag); NV.addEventListener('pointercancel', endDrag);
 
     /* ═══ 화면들 ═══════════════════════════════════════════════════════ */
 
-    /* 홈 — 토스식 큰 숫자 하나 + iOS 묶음 목록. 고칠 것이 주인공, 나머지는 입구 */
+    /* 홈 (10-17 리포트 개편 §2) — 총점 하나 · 가장 먼저 고칠 한 가지 · Q&A 돌아보기 · 발표 태도(베타) · 청중석, 나머지는 입구 한 줄씩.
+       헤드라인 = 근거 있는 1번 진단 제목(D1). 판정이 흔들린 진단은 위 셋에서 빼서 「판정을 못 한 것」 으로(D2). 옛 분석은 「자세한 분석」 한 줄(D4) */
+    const GRADE_WORD = { 'A+': '아주 잘했어요', A: '잘했어요', 'B+': '괜찮아요', B: '괜찮아요', 'C+': '고칠 곳이 보여요', C: '고칠 곳이 보여요', D: '다시 연습해 봐요' };
+    const fixesOf = () => V.fixes || V.issues;
+    const unsureOf = () => [...(V.shaky || []), ...V.unknown];
+    function proofChips(x) {
+      const out = [];
+      x.proofs.forEach((p, k) => {
+        if (p.kind === 'said' && p.status === 'supported' && p.anchor.start_sec != null && out.length < 3) {
+          out.push(`<button type="button" class="hm-chip is-play" data-play="h${k}" data-a="${p.anchor.start_sec}" data-b="${p.anchor.end_sec == null ? '' : p.anchor.end_sec}" ${audio ? '' : 'disabled'}><span class="nv-pi">${I.play}</span><span><b>${fmt(p.anchor.start_sec)}</b>${p.anchor.slide_no ? ` · ${esc(p.anchor.slide_no)}장` : ''} · 실제 목소리</span></button>`);
+        } else if (p.kind === 'deck' && p.anchor.slide_no && out.length < 3) out.push(`<span class="hm-chip">자료 <b>${esc(p.anchor.slide_no)}</b>장 원문</span>`);
+        else if (p.kind === 'time' && p.anchor.slide_no && out.length < 3 && !out.some((o) => o.includes('data-t'))) {
+          out.push(`<button type="button" class="hm-chip is-play" data-t="1" data-play="h${k}" data-a="${p.anchor.start_sec}" data-b="${p.anchor.end_sec == null ? '' : p.anchor.end_sec}" ${audio && p.anchor.start_sec != null ? '' : 'disabled'}><span class="nv-pi">${I.play}</span><span>${esc(p.text)}</span></button>`);
+        }
+      });
+      return out.join('');
+    }
+    function behaviorRow() {
+      const BR = window.BehaviorReport;
+      if (!BR || !D.behavior || typeof BR.headline !== 'function') return '';
+      let h = null;
+      try { h = BR.headline(D.behavior); } catch (_) { return ''; }
+      if (!h || h.status === 'none') return '';   // D5 — 카메라 분석이 없으면 줄 자체를 숨긴다
+      const line = h.status === 'ok' ? h.oneLine : `이번엔 잴 수 없었어요 — ${h.oneLine}`;
+      return `<div class="nv-group hm-beh"><button type="button" class="nv-row" data-push="attitude"><span class="nv-ico i-gray">${I.people}</span>
+        <span class="nv-row-main"><span class="hm-beta">베타 · 총점에 안 들어가요</span><b>발표 태도</b><small>${esc(line)}</small></span><i class="nv-chev">${I.chev}</i></button></div>`;
+    }
     function home() {
       const sc = V.score;
-      const val = sc ? sc.value : null;
+      const val = sc ? Math.round(sc.value) : null;
       const C = 2 * Math.PI * 46;
-      const top = V.issues.slice(0, 3);
+      const fixes = fixesOf();
+      const first = fixes[0] || null;
+      const more = fixes.slice(1, 3);
+      const thesisNa = V.unknown.find((u) => u.impact === 'high');
+      const unsure = unsureOf();
       const real = V.evaluators.filter((e) => !e.absent);
       const remarks = V.evaluators.reduce((n, e) => n + e.remarks.filter((r) => !r.filler).length, 0);
-      const row = (x, k) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}">
-          <span class="nv-num t-${tone(x)}">${k + 1}</span><span class="nv-row-main"><b>${esc(x.title)}</b><small>${esc(EV[x.evidence])}${x.status === 'conflicting' ? ' · 판정이 흔들려요' : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`;
-      return {
-        title: '리포트', short: '리포트', eyebrow: `${D.sample ? '샘플 · ' : ''}${D.deck.title}`,
-        html: `
-        ${D.sample ? '<div class="nv-callout nv-samplenote"><b>샘플 리포트예요</b><p>미리 돌려 둔 부스 시연 발표의 실제 분석이에요. 직접 발표를 마치면 이 자리에 내 리포트가 떠요.</p></div>' : ''}
-        <section class="nv-hero">
-          ${val != null ? `<div class="nv-score">
+      const wk = sc && sc.weakest;
+      const row = (push, ico, icon, title, sub, val2) => `<button type="button" class="nv-row" data-push="${esc(push)}"><span class="nv-ico ${ico}">${I[icon]}</span><span class="nv-row-main"><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>${val2 != null && val2 !== '' ? `<span class="nv-val">${esc(val2)}</span>` : ''}<i class="nv-chev">${I.chev}</i></button>`;
+      const hero = `<section class="hm-hero" aria-label="총점">
+          ${val != null ? `<div class="hm-score" role="img" aria-label="총점 ${esc(val)}점, 100점 만점">
             <svg class="nv-ring" viewBox="0 0 108 108" aria-hidden="true"><circle cx="54" cy="54" r="46" class="bg"/><circle cx="54" cy="54" r="46" class="fg" style="--c:${C.toFixed(1)};--off:${(C * (1 - Math.max(0, Math.min(100, val)) / 100)).toFixed(1)}"/></svg>
-            <div class="nv-score-in"><b>${esc(grade(val))}</b><span>${esc(val)}점</span></div></div>` : ''}
-          <div class="nv-hero-txt"><p class="nv-cap">발표 완성도${sc && sc.situation ? ` · ${esc(sc.situation)}` : ''}</p>
-            <p class="nv-headline">${esc(V.headline || (top[0] ? top[0].title : '분석 결과를 정리했어요'))}</p>
-            ${V.duration_sec ? `<p class="nv-meta">${fmt(V.duration_sec)} 발표 · ${(V.slides || []).length}장</p>` : ''}</div>
-        </section>
-        <h3 class="nv-sec">먼저 고칠 것</h3>
-        <div class="nv-group">${top.map(row).join('') || '<p class="nv-empty">근거가 있는 문제를 찾지 못했어요.</p>'}</div>
-        ${top.length && top.length < 3 ? `<p class="nv-note">근거가 있는 문제는 ${top.length}개예요. 개수를 채우려고 지어내지 않았어요.</p>` : ''}
-        ${V.unknown.length ? `<div class="nv-group">${V.unknown.map((u) => `<button type="button" class="nv-row" data-push="issue:${esc(u.id)}">${badge(u)}<span class="nv-row-main"><b>${esc(u.title)}</b><small>분석이 대체값으로 끝났어요</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` : ''}
-        ${V.strengths.length ? `<h3 class="nv-sec">잘한 점</h3><div class="nv-group">${V.strengths.slice(0, 4).map((x) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}">${badge(x)}<span class="nv-row-main"><b>${esc(x.title)}</b></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` : ''}
-        <h3 class="nv-sec">더 살펴보기</h3>
-        <div class="nv-group">
-          <button type="button" class="nv-row" data-push="replay"><span class="nv-ico i-blue">${I.wave}</span><span class="nv-row-main"><b>발표 다시 보기</b><small>${D.deck.audio_url ? '실제 녹음 · 받아쓰기 · 장 그림을 같이' : '받아쓰기 · 장 그림을 같이'}</small></span><span class="nv-val">${fmt(V.duration_sec)}</span><i class="nv-chev">${I.chev}</i></button>
-          <button type="button" class="nv-row" data-push="audience"><span class="nv-ico i-orange">${I.people}</span><span class="nv-row-main"><b>삐약이 청중석</b><small>${real.length ? `${real.length}마리가 ${remarks}마디 했어요` : V.evaluators.length ? '이번엔 다 못 왔어요' : '청중 반응을 불러오고 있어요'}</small></span>
-            <span class="nv-faces">${V.evaluators.map((e) => `<img src="${esc(asset(`assets/chick-${e.key}-neutral.svg`))}" alt="" class="${e.absent ? 'off' : ''}">`).join('')}</span><i class="nv-chev">${I.chev}</i></button>
-          <button type="button" class="nv-row" data-push="practice"><span class="nv-ico i-green">${I.chat}</span><span class="nv-row-main"><b>Q&A 돌아보기</b><small>${V.qa.length ? `질문 ${V.qa.length}개 · 내 어느 말에서 꼬리질문이 나왔나` : 'Q&A 기록이 없어요'}</small></span><i class="nv-chev">${I.chev}</i></button>
-          ${QBS && QB ? QBS.entry() : ''}
-          ${sc ? `<button type="button" class="nv-row" data-push="scores"><span class="nv-ico i-gray">${I.chart}</span><span class="nv-row-main"><b>기준별 점수</b><small>39개 항목을 7개 기준으로</small></span><span class="nv-val">${esc(val)}점</span><i class="nv-chev">${I.chev}</i></button>` : ''}
-        </div>
-        ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">자세한 분석</h3>
-        <div class="nv-group">${LEGACY.map((L, k) => `<button type="button" class="nv-row" data-push="legacy:${k}"><span class="nv-ico ${L.ico}">${I[L.icon]}</span><span class="nv-row-main"><b>${esc(L.name)}</b><small>${esc(L.line)}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` : ''}`,
+            <p class="hm-num"><b>${esc(val)}</b><span>점</span></p></div>` : ''}
+          <div class="hm-hero-txt">
+            <p class="hm-cap">발표 완성도${sc && sc.situation ? ` · ${esc(sc.situation)}` : ''}</p>
+            ${val != null ? `<p class="hm-grade"><b>${esc(grade(val))}</b> ${esc(GRADE_WORD[grade(val)] || '')}</p>` : '<p class="hm-grade">점수를 매기지 못했어요</p>'}
+            ${V.duration_sec ? `<p class="hm-meta">${fmt(V.duration_sec)} 발표 · ${(V.slides || []).length}장</p>` : ''}
+          </div>
+          ${wk ? `<button type="button" class="hm-weak" data-push="scores"><span>가장 약한 기준</span><b>${esc(wk.name)} <em>${esc(Math.round(wk.average))}점</em></b><i class="nv-chev">${I.chev}</i></button>` : ''}
+        </section>`;
+      const firstCard = first ? `<section class="hm-first" aria-label="가장 먼저 고칠 한 가지">
+          <p class="hm-label">가장 먼저 고칠 한 가지</p>
+          <button type="button" class="hm-first-title" data-push="issue:${esc(first.id)}"><span class="nv-headline">${esc(first.title)}</span><i class="nv-chev">${I.chev}</i></button>
+          ${first.why ? `<p class="hm-why">${esc(first.why)}</p>` : ''}
+          <div class="hm-chips">${proofChips(first)}</div>
+          <p class="hm-ev">${esc(EV[first.evidence])}</p>
+          <button type="button" class="hm-fix" data-push="coach:${esc(first.id)}">고쳐 보기</button>
+        </section>` : `<section class="hm-first is-none"><p class="hm-label">가장 먼저 고칠 한 가지</p><p class="nv-headline">근거가 있는 고칠 점은 찾지 못했어요</p>
+          <p class="hm-why">분석이 근거까지 남긴 문제만 고칠 것으로 보여 줘요. 잘한 점과 Q&A 돌아보기를 먼저 봐요.</p></section>`;
+      const moreRows = more.length ? `<p class="hm-sub">그다음 고칠 것</p><div class="nv-group">${more.map((x, k) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}"><span class="nv-num t-${tone(x)}">${k + 2}</span><span class="nv-row-main"><b>${esc(x.title)}</b><small>${esc(EV[x.evidence])}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` : '';
+      const audienceRow = `<div class="nv-group"><button type="button" class="nv-row hm-aud" data-push="audience"><span class="nv-ico i-orange">${I.people}</span><span class="nv-row-main"><b>삐약이 청중석</b><small>${real.length ? `${real.length}마리가 ${remarks}마디 했어요` : V.evaluators.length ? '이번엔 다 못 왔어요' : '청중 반응을 불러오고 있어요'}</small></span>
+            <span class="nv-faces">${V.evaluators.map((e) => `<img src="${esc(asset(`assets/chick-${e.key}-neutral.svg`))}" alt="" class="${e.absent ? 'off' : ''}">`).join('')}</span><i class="nv-chev">${I.chev}</i></button></div>`;
+      const entries = `<h3 class="hm-sec">더 살펴보기</h3><div class="nv-group hm-entries">
+          ${row('issues', 'i-orange', 'bang', '진단 전체', '고칠 것을 근거 순서로', `${fixes.length}개`)}
+          ${sc ? row('scores', 'i-gray', 'chart', '기준별 점수', '39개 항목을 7개 기준으로 · 약한 순', `${val}점`) : ''}
+          ${first ? row(`coach:${first.id}`, 'i-green', 'redo', '이렇게 고쳐요', '원래 발표 → 까닭 → 바꿔 말하기') : ''}
+          ${row('replay', 'i-blue', 'wave', '발표 다시 보기', D.deck.audio_url ? '실제 녹음 · 받아쓰기 · 장 그림' : '받아쓰기 · 장 그림', fmt(V.duration_sec))}
+          ${V.strengths.length ? row('strengths', 'i-green', 'check', '잘한 점', V.strengths[0].title, `${V.strengths.length}개`) : ''}
+          ${unsure.length ? row('unsure', 'i-gray', 'q', '판정을 못 한 것', '믿기 어려워서 고칠 것에서 뺀 판정', `${unsure.length}개`) : ''}
+          ${typeof window.__rv2Legacy === 'function' ? row('details', 'i-gray', 'doc', '자세한 분석', '슬라이드 · 말하기 · 개념 전달 · 흐름 · 채점 근거 · 연습 도구 · 발표 구성') : ''}
+        </div>`;
+      return {
+        title: D.deck.title || '발표 리포트', short: '리포트', size: 'md', home: true, eyebrow: D.sample ? '샘플 리포트' : '발표 리포트',
+        html: `
+        ${D.sample ? '<p class="hm-sample">미리 돌려 둔 부스 시연 발표의 실제 분석이에요. 직접 발표를 마치면 이 자리에 내 리포트가 떠요.</p>' : ''}
+        <div class="hm-grid">
+          <div class="hm-main">
+            ${hero}
+            ${thesisNa ? `<button type="button" class="hm-na" data-push="issue:${esc(thesisNa.id)}">${I.q}<span>${esc(thesisNa.title)}</span><i class="nv-chev">${I.chev}</i></button>` : ''}
+            ${firstCard}
+            ${moreRows}
+          </div>
+          <div class="hm-side">
+            ${QAS ? QAS.card() : ''}
+            ${behaviorRow()}
+            ${audienceRow}
+          </div>
+          <div class="hm-rest">${entries}</div>
+        </div>`,
         cta: { label: '다시 연습하기', attr: 'data-push="practice"', icon: I.redo },
       };
     }
 
+    /* 진단 전체 · 잘한 점 · 판정을 못 한 것 · 자세한 분석 — 홈 「더 살펴보기」 의 한 줄 입구가 여는 화면 (10-17 §2-7) */
+    function issues() {
+      const fixes = fixesOf();
+      return { title: '진단 전체', short: '진단',
+        html: `<div class="nv-group">${fixes.map((x, k) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}"><span class="nv-num t-${tone(x)}">${k + 1}</span><span class="nv-row-main"><b>${esc(x.title)}</b><small>${esc(EV[x.evidence])}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('') || '<p class="nv-empty">근거가 있는 문제를 찾지 못했어요.</p>'}</div>
+          <p class="nv-note">순서는 영향 → 근거 → 바로 고칠 수 있는가 순이에요. 개수를 채우려고 지어내지 않았어요.</p>
+          ${unsureOf().length ? `<div class="nv-group" style="margin-top:12px"><button type="button" class="nv-row" data-push="unsure"><span class="nv-ico i-gray">${I.q}</span><span class="nv-row-main"><b>판정을 못 한 것</b><small>믿기 어려워서 위 목록에서 뺐어요</small></span><span class="nv-val">${unsureOf().length}개</span><i class="nv-chev">${I.chev}</i></button></div>` : ''}` };
+    }
+    function strengths() {
+      return { title: '잘한 점', short: '잘한 점',
+        html: `<div class="nv-group">${V.strengths.map((x) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}">${badge(x)}<span class="nv-row-main"><b>${esc(x.title)}</b><small>${esc(EV[x.evidence])}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('') || '<p class="nv-empty">근거가 있는 잘한 점이 아직 없어요.</p>'}</div>` };
+    }
+    function unsure() {
+      const list = unsureOf();
+      return { title: '판정을 못 한 것', short: '판정 못 함',
+        html: `<div class="nv-callout"><b>믿기 어려운 판정은 고칠 것에서 뺐어요</b><p>근거끼리 어긋나거나 분석이 끝까지 판정하지 못한 것이에요. 자료 장을 보며 한 번 더 설명해 보면 다음 분석에서 판정할 수 있어요.</p></div>
+          <div class="nv-group" style="margin-top:12px">${list.map((x) => `<button type="button" class="nv-row" data-push="issue:${esc(x.id)}">${badge(x)}<span class="nv-row-main"><b>${esc(x.title)}</b><small>${x.status === 'conflicting' ? '판정과 근거 글이 어긋나요' : '분석이 끝까지 판정하지 못했어요'}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` };
+    }
+    function details() {
+      return { title: '자세한 분석', short: '자세히',
+        html: `<div class="nv-group">${LEGACY.map((L, k) => `<button type="button" class="nv-row" data-push="legacy:${k}"><span class="nv-ico ${L.ico}">${I[L.icon]}</span><span class="nv-row-main"><b>${esc(L.name)}</b><small>${esc(L.line)}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>
+          <p class="nv-note">「이전 리포트」 의 분석 탭을 그대로 담았어요. 같은 분석 결과를 다른 모양으로 보여 줘요.</p>` };
+    }
+    /* 발표 태도(베타) — 그리기는 js/behavior_report.js(behavior-cv 브랜치). 없으면 빈 상태. 맨 위에 베타 안내 한 번(기조 R6) */
+    function attitude() {
+      const BR = window.BehaviorReport;
+      const banner = '<div class="nv-callout hm-betabanner"><b>시험 기능(베타)</b><p>총점에 안 들어가요. 카메라 각도와 조명에 따라 달라져요.</p></div>';
+      if (!BR || !D.behavior || typeof BR.rv2Screen !== 'function') {
+        return { title: '발표 태도', short: '발표 태도', html: `${banner}<div class="rq-empty"><span class="nv-ico i-gray">${I.people}</span><div><b>카메라를 켜고 발표하면 시선과 자세를 볼 수 있어요</b><p>영상은 이 기기 안에서만 분석해요.</p></div></div>` };
+      }
+      let sc = null;
+      try { sc = BR.rv2Screen(D.behavior, { titles: (D.deck.slides || []).map((x) => x.title) }); } catch (_) { sc = null; }
+      return { title: '발표 태도', short: '발표 태도', html: `${banner}${(sc && sc.html) || '<p class="nv-empty">카메라 분석을 그리지 못했어요.</p>'}` };
+    }
+
     /* 진단 하나 — 무엇이 · 왜 · 근거(실제 음성으로) · 청중 반응, 아래 「고쳐 보기」 */
     function issue(id) {
-      const x = insight(id) || V.issues[0] || all()[0];
+      const x = insight(id) || fixesOf()[0] || all()[0];
       if (!x) return { title: '진단', html: '<p class="nv-empty">진단이 없어요.</p>' };
       const t = timeOf(x);
       const cards = []; const rows = [];
@@ -366,7 +457,7 @@
 
     /* 코칭 — 원래 → 까닭 → 바꿔 말하기 를 옆으로 넘기는 카드 */
     function coach(id) {
-      const x = insight(id) || V.issues[0];
+      const x = insight(id) || fixesOf()[0];
       if (!x) return { title: '코칭', html: '<p class="nv-empty">고칠 것이 없어요.</p>' };
       const said = x.proofs.find((p) => p.kind === 'said' && p.status === 'supported');
       const times = x.proofs.filter((p) => p.kind === 'time');
@@ -443,7 +534,7 @@
           tr.addEventListener('click', (e) => { if (e.target.closest('.nv-mark')) return; const r = tr.getBoundingClientRect(); play(((e.clientX - r.left) / r.width) * dur, null, 'scrub'); });
           tr.addEventListener('keydown', (e) => { if (!audio) return; if (e.key === 'ArrowRight') audio.currentTime += 5; if (e.key === 'ArrowLeft') audio.currentTime -= 5; });
           const sheet = el.querySelector('.nv-sheet'); const body = el.querySelector('.nv-sheet-body'); const card = el.querySelector('.nv-sheet-card');
-          const close = () => { sheet.classList.remove('is-open'); setTimeout(() => { sheet.hidden = true; }, 320); };
+          const close = () => { sheet.classList.remove('is-open'); setTimeout(() => { sheet.hidden = true; }, 200); };
           const openSheet = (id) => {
             const x = insight(id); if (!x) return;
             const tt = timeOf(x);
@@ -463,7 +554,7 @@
           const up = (e) => { if (!sd || e.pointerId !== sd.id) return; const dy = e.clientY - sd.y0; sd = null; card.style.transition = ''; card.style.transform = ''; if (dy > 90) close(); };
           card.addEventListener('pointerup', up); card.addEventListener('pointercancel', up);
           const h = el.querySelector('.nv-line.is-hit');
-          if (h) setTimeout(() => { const sc = el.querySelector('.nv-scroll'); sc.scrollTo({ top: h.offsetTop - sc.clientHeight / 2, behavior: reduced() ? 'auto' : 'smooth' }); }, 540);
+          if (h) setTimeout(() => { const sc = el.querySelector('.nv-scroll'); sc.scrollTo({ top: h.offsetTop - sc.clientHeight / 2, behavior: reduced() ? 'auto' : 'smooth' }); }, 240);
         },
       };
     }
@@ -507,28 +598,25 @@
       };
     }
 
-    /* 다시 연습 — 갈 곳 + Q&A 전환점 목록(누르면 그 질문 화면) */
+    /* 다시 연습 — 갈 곳. Q&A 돌아보기 목록은 홈 카드로 옮겼다(10-17 §5-4) — 여기엔 「질문 다시 받기」 행동만 */
     function practice(id) {
-      const x = insight(id) || V.issues[0];
+      const x = insight(id) || fixesOf()[0];
       const targets = [];
       (x ? x.actions : []).forEach((a) => { if (a.practice && !targets.some((p) => p.label === a.practice.label)) targets.push(a.practice); });
+      if (V.qa.some((q) => q.result) && !targets.some((p) => p.kind === 'qa')) targets.push({ label: '질문 다시 받기', route: '#/rehearsal/qa', kind: 'qa' });
       targets.push({ label: '처음부터 다시 발표하기', route: '#/rehearsal', kind: 'full' });
-      const why = (p) => (p.kind === 'qa' ? '이 개념 질문을 Q&A 에서 다시 받아요' : p.kind === 'slide' ? '리허설에서 그 장부터 다시 말해요' : '리허설을 새로 시작해요');
-      const state = (r) => (r.setAside === 'concept' ? '다른 개념으로 넘김' : r.setAside === 'skip' ? '건너뜀' : r.setAside === 'perspective' ? '관점 바꿈' : r.verdict === 'good' ? '스스로 설명함' : r.verdict ? '도움 받아 설명함' : '안 물음');
+      const why = (p) => (p.kind === 'qa' ? '받았던 질문을 Q&A 에서 다시 받아요' : p.kind === 'slide' ? '리허설에서 그 장부터 다시 말해요' : '리허설을 새로 시작해요');
       return {
         title: '다시 연습', short: '연습', eyebrow: x ? x.title : '',
         html: `
         <h3 class="nv-sec">어디부터 할까요</h3>
         <div class="nv-group">${targets.map((p) => `<button type="button" class="nv-row" data-href="index.html${esc(p.route)}"><span class="nv-ico i-green">${I.redo}</span><span class="nv-row-main"><b>${esc(p.label)}</b><small>${why(p)}${EMBED ? ' — 앱에서 열려요' : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>
         <p class="nv-note">다시 연습한 결과는 아직 이 진단에 이어지지 않아요. 그래서 나아졌는지는 보여 주지 않아요.</p>
-        ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">연습 도구</h3><div class="nv-group"><button type="button" class="nv-row" data-push="legacy:5"><span class="nv-ico i-green">${I.doc}</span><span class="nv-row-main"><b>개념도 · 펀치라인 · 용어 카드</b><small>발표 직전에 챙길 것</small></span><i class="nv-chev">${I.chev}</i></button><button type="button" class="nv-row" data-push="legacy:6"><span class="nv-ico i-blue">${I.chart}</span><span class="nv-row-main"><b>발표 구성 다시 짜기</b><small>순서 · 클라이맥스 · 덧붙일 장</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
-        <h3 class="nv-sec">Q&A 돌아보기</h3>
-        ${QBS && (QB || V.qa.length) && QBS.entry(D.qa_board_state) ? `<div class="nv-group">${QBS.entry(D.qa_board_state)}</div>` : ''}
-        <div class="nv-group">${V.qa.length ? V.qa.map((q) => `<button type="button" class="nv-row" data-push="qa:${esc(q.id)}"><span class="nv-ico i-${q.result && q.result.verdict === 'good' ? 'green' : q.result && q.result.setAside ? 'gray' : 'orange'}">${I.chat}</span><span class="nv-row-main"><b>${esc(q.text)}</b><small>${esc(state(q.result || {}))}${q.steps.length > 1 ? ` · 꼬리질문 ${q.steps.length - 1}번` : ''}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('') : '<p class="nv-empty">이 리포트엔 Q&A 기록이 없어요.</p>'}</div>`,
+        ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">연습 도구</h3><div class="nv-group"><button type="button" class="nv-row" data-push="legacy:5"><span class="nv-ico i-green">${I.doc}</span><span class="nv-row-main"><b>개념도 · 펀치라인 · 용어 카드</b><small>발표 직전에 챙길 것</small></span><i class="nv-chev">${I.chev}</i></button><button type="button" class="nv-row" data-push="legacy:6"><span class="nv-ico i-blue">${I.chart}</span><span class="nv-row-main"><b>발표 구성 다시 짜기</b><small>누르면 순서 · 클라이맥스 · 덧붙일 장을 제안해요</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}`,
       };
     }
-    /* Q&A 한 질문 — 메신저처럼 다 늘어놓지 않고 전환점만: 내 답 → AI 가 주목한 말 → 꼬리질문 */
-    function qa(qid) {
+    /* Q&A 한 질문 — 메신저처럼 다 늘어놓지 않고 전환점만: 내 답 → AI 가 주목한 말 → 꼬리질문 (report_v2_qa.js 가 없을 때만) */
+    function qaChat(qid) {
       const q = V.qa.find((x) => x.id === qid);
       if (!q) return { title: 'Q&A', html: '<p class="nv-empty">이 질문의 기록이 없어요.</p>' };
       const hl = (text, claim) => { const k = claim ? text.indexOf(claim) : -1; return k < 0 ? esc(text) : `${esc(text.slice(0, k))}<mark>${esc(claim)}</mark>${esc(text.slice(k + claim.length))}`; };
@@ -555,12 +643,27 @@
         // 옛 탭은 문서에서 #rbody 를 찾는다 — 화면이 문서에 붙은 뒤에 그린다
         wire(el) { const host = el.querySelector('.nv-legacyhost'); const run = () => (host.isConnected ? window.__rv2Legacy(i, host) : requestAnimationFrame(run)); run(); } };
     }
+    /* 기준별 점수 — 약한 순 · 비중 · 못 잰 항목 · 안 본 항목 · 항목별 근거 · AI 총평(접힘) (10-17 §4-1) */
     function scores() {
       const sc = V.score;
+      if (!sc) return { title: '기준별 점수', short: '점수', html: '<p class="nv-empty">점수가 없어요.</p>' };
+      const list = sc.criteria.slice().sort((a, b) => (a.scored === b.scored ? a.average - b.average : a.scored ? -1 : 1));
+      const ai = V.ai || {};
+      const aiList = (t, xs) => (xs && xs.length ? `<p class="sc-ai-k">${t}</p><ul>${xs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '');
       return {
-        title: '기준별 점수', short: '점수', eyebrow: sc ? `${sc.situation} 기준` : '',
-        html: sc ? `<div class="nv-group">${sc.criteria.map((k) => `<div class="nv-row is-static nv-crit"><span class="nv-row-main"><b>${esc(k.name)}</b><span class="nv-meter"><i style="--w:${k.scored ? Math.round(k.average) : 0}%"></i></span></span><span class="nv-val">${k.scored ? Math.round(k.average) : '못 잼'}</span></div>`).join('')}</div>
-          <p class="nv-note">기존 채점(39개 항목 → 7개 기준) 그대로예요. 리포트 2.0 은 점수를 새로 매기지 않아요.</p>` : '<p class="nv-empty">점수가 없어요.</p>',
+        title: '기준별 점수', short: '점수', eyebrow: sc.situation ? `${sc.situation} 기준` : '',
+        html: `<div class="sc-total"><b>${esc(Math.round(sc.value))}</b><span>점</span><small>${esc(grade(sc.value))} 등급 · 기준마다 비중을 곱해 더했어요</small></div>
+          <div class="nv-group sc-list">${list.map((k, i) => `<div class="nv-row is-static nv-crit${i === 0 && k.scored ? ' is-weak' : ''}"><span class="nv-row-main"><b>${esc(k.name)}${i === 0 && k.scored ? ' <em class="sc-weak">가장 약해요</em>' : ''}</b>
+            <span class="nv-meter"><i style="--w:${k.scored ? Math.round(k.average) : 0}%"></i></span>${k.weight != null ? `<small>비중 ${esc(Math.round(k.weight))}%</small>` : ''}</span>
+            <span class="sc-val">${k.scored ? `<b>${Math.round(k.average)}</b><span>점</span>` : '<span>못 잼</span>'}</span></div>`).join('')}</div>
+          ${sc.unmeasured.length || sc.excluded.length ? `<details class="nv-card sc-fold"><summary>못 잰 항목 <b>${sc.unmeasured.length}</b>개 · 안 본 항목 <b>${sc.excluded.length}</b>개</summary>
+            ${sc.unmeasured.length ? `<p class="sc-ai-k">못 잰 항목 — 재료가 없어서 점수에서 뺐어요</p><ul>${sc.unmeasured.map((u) => `<li><b>${esc(u.name)}</b>${u.why ? ` — ${esc(u.why)}` : ''}</li>`).join('')}</ul>` : ''}
+            ${sc.excluded.length ? `<p class="sc-ai-k">안 본 항목 — 이 발표 상황엔 맞지 않아요</p><ul>${sc.excluded.map((u) => `<li>${esc(u.name)}</li>`).join('')}</ul>` : ''}</details>` : ''}
+          <p class="nv-note">39개 항목 → 7개 기준 채점 그대로예요. 같은 녹음도 채점할 때마다 조금씩 달라서 소수점은 보이지 않아요.</p>
+          ${typeof window.__rv2Legacy === 'function' ? `<div class="nv-group" style="margin-top:16px"><button type="button" class="nv-row" data-push="legacy:4"><span class="nv-ico i-gray">${I.doc}</span><span class="nv-row-main"><b>항목별 근거</b><small>39개 항목의 점수와 근거 · 이 점수는 아닌 것 같을 때</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
+          ${ai.one_liner || (ai.strengths || []).length ? `<details class="nv-card sc-fold"><summary>AI 총평 보기</summary>
+            ${ai.one_liner ? `<p class="nv-body">${esc(ai.one_liner)}</p>` : ''}${aiList('강점', ai.strengths)}${aiList('약점', ai.weaknesses)}${aiList('할 일', ai.actions)}
+            <p class="nv-cap">근거와 잇지 않은 자유 글이라 홈 첫 줄에서 내렸어요.</p></details>` : ''}`,
       };
     }
 

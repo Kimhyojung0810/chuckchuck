@@ -5310,10 +5310,10 @@ function reportVerdict() {
    같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
    「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
-const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
+const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs2';
 // 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
-const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs1';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv13', js: ['js/report_graph.js?v=rg2', 'js/report_qaboard.js?v=qb3', 'js/report_v2.js?v=rv12'] };
+const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs2';
+const RV2_FILES = { css: 'css/report_v2.css?v=rv14', js: ['js/report_graph.js?v=rg2', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq1', 'js/report_v2.js?v=rv14'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';

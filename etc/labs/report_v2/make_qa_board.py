@@ -4,6 +4,7 @@
 재료는 둘 중 하나:
   --run    1~3단계 실험 산출(/data/models/_runs/qa-ensemble/runs/*/<덱>.json) + --flow(답 유형) + --bundle(그 덱의 그래프)
   --board  개발 브리지의 /api/v1/qa/board 응답 그대로(실험실 리허설 한 판)
+  --state  rehearsal_flow 한 판의 state.json — 그 판 리포트 저장본에 든 판(lastReport.qaBoard). 샘플 Q&A(make_fixture --swap-qa)와 같은 판으로 맞출 때
 
     .venv/bin/python etc/labs/report_v2/make_qa_board.py \
         --run /data/models/_runs/qa-ensemble/runs/dev3p4/C1-r1-p4.json --flow good-good \
@@ -49,10 +50,17 @@ def main() -> None:
     ap.add_argument("--flow", default="good-good")
     ap.add_argument("--bundle", default="")
     ap.add_argument("--board", default="")
+    ap.add_argument("--state", default="")
     ap.add_argument("--note", default="")
     ap.add_argument("--out", default=str(OUT))
     a = ap.parse_args()
-    if a.board:
+    if a.state:
+        st = json.loads(Path(a.state).read_text(encoding="utf-8"))
+        b = (st.get("lastReport") or {}).get("qaBoard")
+        if not b:
+            sys.exit("이 state.json 의 리포트 저장본에 판(qaBoard)이 없어요")
+        src = a.note or "부스 시연 덱(배달앱 별점)으로 10/17 실 API 리허설 한 판에서 네 모델이 고른 묶음이에요. 위 Q&A 기록과 같은 판이에요."
+    elif a.board:
         raw = json.loads(Path(a.board).read_text(encoding="utf-8"))
         b = raw.get("board") or raw
         src = a.note or "개발 브리지에서 실제 리허설 한 판(부스 시연 덱 · 실 API)을 돌린 묶음이에요."
@@ -62,7 +70,8 @@ def main() -> None:
         b = from_run(run, a.flow, graph)
         src = a.note or ("부스 시연 덱(배달앱 별점)으로 10/17 실험에서 실제로 돌린 네 모델 묶음이에요. "
                          "위 Q&A 기록과는 다른 판이라, 질문 순서는 판이 고른 순서로 보여 줘요.")
-    b = {**b, "source": {"kind": "sample", "note": src, "from": Path(a.board or a.run).name, "flow": "" if a.board else a.flow}}
+    b = {**b, "source": {"kind": "sample", "note": src, "from": Path(a.state).parent.name if a.state else Path(a.board or a.run).name,
+                         "flow": "" if (a.board or a.state) else a.flow}}
     text = json.dumps(b, ensure_ascii=False, separators=(",", ":"))
     if PII.search(text):
         sys.exit("개인정보로 보이는 문자열이 있어 쓰지 않았어요: " + PII.search(text).group(0)[:4] + "…")

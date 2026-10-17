@@ -782,8 +782,13 @@ def run(args) -> Path:
                     sel = ".rv2 .nv-screen:last-child [data-push^='issue:']" if route == "issue" else f".rv2 .nv-screen:last-child [data-push='{route}']"
                     page.click(sel); page.wait_for_timeout(800); shot(f"rv2_{route}")
                     page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
-                # 「질문은 이렇게 골랐어요」 (네 모델 후보 판, 10-17) — 연습 → 고른 과정 → 자리 · 3번+ 질문. 판은 /api/v1/qa/board 로 늦게 온다
-                page.click(".rv2 .nv-screen:last-child [data-push='practice']"); page.wait_for_timeout(800)
+                # Q&A 돌아보기 (10-17 리포트 개편) — 홈 카드의 첫 질문 화면: 질문 주제 · 내 답 · 판정 근거 · 30초 뼈대
+                if page.query_selector(".rv2 .nv-screen:last-child [data-push^='qa:']"):
+                    page.click(".rv2 .nv-screen:last-child [data-push^='qa:']"); page.wait_for_timeout(800); shot("rv2_qa")
+                    R["report_v2"]["qa"] = page.evaluate("""() => ({ better: !!document.querySelector('.rv2 .nv-screen:last-child .rq-better'),
+                      grounds: document.querySelectorAll('.rv2 .nv-screen:last-child .rq-ground').length, turns: document.querySelectorAll('.rv2 .nv-screen:last-child .rq-t').length })""")
+                    page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                # 「질문은 이렇게 골랐어요」 (네 모델 후보 판, 10-17) — 홈 Q&A 카드 → 고른 과정 → 자리 · 3번+ 질문. 판은 /api/v1/qa/board 로 늦게 온다
                 try:
                     page.wait_for_selector(".rv2 .nv-screen:last-child [data-push='board']", timeout=8000)
                     page.click(".rv2 .nv-screen:last-child [data-push='board']"); page.wait_for_timeout(1500); shot("rv2_board")
