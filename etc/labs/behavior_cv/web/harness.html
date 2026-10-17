@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>behavior lab harness</title>
+<!-- 행동 실험실 하네스 — browser_adapter.py 가 엔진 worktree 의 main/web 루트에 /behavior_lab_harness.html 로 끼워 내준다.
+     그래서 엔진의 상대 경로(js/behavior_cv_worker.js · js/vendor/opencv.js)가 앱과 똑같이 풀린다.
+     순서: 어댑터 스크립트 로드 → prepare(도구 받기) → 가짜 카메라 열기 → 영상 0번 프레임 기다림 → start → 장 넘김 → 끝 프레임/되감김에서 stop → 결과 -->
+<style>body{margin:0;background:#111;color:#ccc;font:12px monospace}video{width:640px;height:auto;display:block}</style>
+</head><body>
+<video id="v" autoplay muted playsinline></video>
+<pre id="log"></pre>
+<script src="/__lab/adapter.js"></script>
+<script>
+'use strict';
+const logEl = document.getElementById('log');
+const say = (s) => { logEl.textContent += s + '\n'; };
+const loadScript = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error('스크립트 못 읽음 ' + src)); document.head.appendChild(s); });
+const waitFor = (fn, ms, every = 30) => new Promise((ok, no) => { const t0 = performance.now(); const iv = setInterval(() => {
+  let v = false; try { v = fn(); } catch (_) { v = false; }
+  if (v) { clearInterval(iv); ok(v); } else if (performance.now() - t0 > ms) { clearInterval(iv); no(new Error('시간 넘김')); } }, every); });
+
+window.labRun = async (cfg) => {
+  const A = window.LabAdapter;
+  const out = { notes: [] };
+  if (!A) throw new Error('LabAdapter 가 없어요');
+  for (const s of A.scripts || []) await loadScript(s);
+  const tl = performance.now();
+  if (A.prepare) await A.prepare(cfg);
+  out.loadMs = Math.round(performance.now() - tl);
+  say('prepare ' + out.loadMs + 'ms');
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { width: cfg.w, height: cfg.h, frameRate: cfg.fps }, audio: false });
+  const v = document.getElementById('v');
+  v.srcObject = stream;
+  await v.play();
+  LabTap.videoW = cfg.w;
+  LabTap.watch(v);
+  await waitFor(() => LabTap.cur, 15000);
+  // 첫 프레임 근처에서 시작 — 이미 지났으면 되감길 때까지 기다린다 (크롬 가짜 카메라는 파일을 되풀이한다)
+  if (LabTap.cur.frame > 3) {
+    say('되감김 기다림 (지금 ' + LabTap.cur.frame + ')');
+    let last = LabTap.cur.frame;
+    await waitFor(() => { const f = LabTap.cur.frame; const wrapped = f < last - 5; last = Math.max(last, f); return wrapped && f <= 6; }, cfg.durMs + 20000, 10);
+  }
+  const slideOf = (f) => { const t = f / cfg.fps; let k = 0; cfg.slides.forEach((s, i) => { if (t >= s.t0) k = i; }); return k; };
+  const ctx = { video: v, stream, cfg, frameNow: () => (LabTap.cur ? LabTap.cur.frame : -1),
+    seg: () => 's' + (slideOf(LabTap.cur ? LabTap.cur.frame : 0) + 1), sinceId: Math.max(0, ...LabTap.rows.map((r) => r.id)), startPerf: performance.now() };
+  out.startFrame = LabTap.cur.frame;
+  await A.start(ctx);
+  let maxF = LabTap.cur.frame; let curSlide = slideOf(maxF);
+  await new Promise((ok) => { const iv = setInterval(() => {
+    const f = LabTap.cur.frame;
+    if (f >= maxF - 30) {
+      const s = slideOf(f);
+      if (s !== curSlide) { curSlide = s; if (A.markSlide) A.markSlide(s, f / cfg.fps, ctx); }
+    }
+    if (f > maxF) maxF = f;
+    if (f >= cfg.nFrames - 2 || (maxF > 30 && f < maxF - 30)) { clearInterval(iv); ok(); }
+  }, 20); });
+  out.endFrame = maxF;
+  const res = await A.stop(ctx);
+  stream.getTracks().forEach((t) => t.stop());
+  Object.assign(out, res || {});
+  out.tap = { sent: LabTap.sent.size, rows: LabTap.rows.length, badBar: LabTap.badBar, clockSamples: LabTap.samples.length, other: LabTap.other.slice(0, 10) };
+  return out;
+};
+say('harness ready');
+</script>
+</body></html>
