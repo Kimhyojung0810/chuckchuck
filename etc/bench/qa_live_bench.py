@@ -216,6 +216,16 @@ def report(out_dir: Path) -> int:
     print(f"발표 중 라운드 {ready['rounds']}번 · 발표 끝까지 준비 {ready['by_end']}/{ready['rounds']} · 3번 전까지 {ready['by_q3']}/{ready['rounds']} · "
           f"호출 {ready['calls']}(성공 {ready['ok']}) · 덱당 후보 {ready['cands']}")
     print(f"1·2번 자료 묶음 {open12['deck']}/{open12['n']}")
+    # 반복마다 — 잡음 폭(같은 방식 판끼리 흔들림)을 본다
+    for rep in sorted({r["rep"] for r in rows}):
+        line = []
+        for m in ("base", "live"):
+            xs = [x for r in rows if r["rep"] == rep for x in r["modes"][m]]
+            late = sum(1 for r in rows if r["rep"] == rep for x in r["modes"][m] if x["slide_no"] > r["slides"] * 2 / 3)
+            cores = [it["core"] for r in rows if r["rep"] == rep for it in _scores(r).get(m, [])]
+            line.append(f"{m} 뒷1/3 {late / max(1, len(xs)):.2f} 핵심성 {statistics.mean(cores) if cores else float('nan'):.2f} "
+                        f"대신 {sum(1 for x in xs if x['substituted'])} 발표중 {sum(1 for x in xs if x['origin'] == 'live')}")
+        print(f"  r{rep}: " + " | ".join(line))
     return 0
 
 

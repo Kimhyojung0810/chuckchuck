@@ -282,3 +282,15 @@ def test_고르기_판에_장_표시와_아직_안_물은_부분(monkeypatch):
     monkeypatch.setenv("QA_PICK_SPREAD", "0")
     FE.ens_pick("solar4", llms["solar4"], opts, [], [])
     assert "발표 4장" not in [u for u in llms["solar4"].users if "qa-ensemble-pick" in u][-1]
+
+
+def test_3번_음성_질문의_외운_것_꺼내기는_버리고_수를_맥락으로_쓴_핵심_질문은_남긴다():
+    bad = ["농도만 다르게 하고 나머지 사육 조건을 모두 고정했다고 했는데, 구체적으로 어떤 조건들을 동일하게 유지했는지 말해 주세요.",
+           "보정 후에도 Q4의 위험이 Q1보다 낮다는 근거는 표의 어떤 수치에서 확인되나요?",
+           "충전 속도 2C에서 온도가 25°C에서 45°C로 바뀌면 용량 유지율이 어떻게 달라지나요?",
+           "그 결론을 뒷받침하는 핵심 근거로 재주문율 변화와 별점 차이를 함께 말해 줄 수 있을까요?"]
+    good = ["별점이 4.5~5.0 구간에 82% 몰려 있다는 분포만으로 '4.7은 수집 방식의 결과'라고 말할 수 없는 이유는 무엇인가요?",
+            "충전 속도를 0.5C, 1C, 2C 세 수준으로 나눈 이유는 무엇인가요?",
+            "살아 있는 개체의 번식 자체가 줄었다는 주장을 뒷받침하려면 사망률과 번식력을 어떻게 분리해야 하나요?"]
+    assert all(FE.recall_ask(q) for q in bad)
+    assert not any(FE.recall_ask(q) for q in good)

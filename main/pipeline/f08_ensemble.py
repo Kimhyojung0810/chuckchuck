@@ -788,6 +788,25 @@ def live_round(deck: "Deck", signals: list[dict], speech_of: dict[int, str], *, 
 _SLIDE_REF_RE = re.compile(r"(?:(?<=^)|(?<=\s))(?:발표\s*)?\d{1,3}\s*장(?:에서는|에서|의|에|\s)\s*(?=[가-힣A-Za-z'‘「\"])")
 
 
+#: 3번+ 음성 · 발표 중 후보의 「외운 것 꺼내기」 질문 — 10-17 r2 가린 라벨에서 핵심이 아닌 3번+ 질문 12개 중 9개가 이 꼴이었다
+#: (「구체적으로 어떤 조건들을 고정했는지」 · 「표의 어떤 수치에서」 · 「유지율이 어떻게 달라졌는지」 · 「함께 말해 줄」). 수를 맥락으로 쓴 핵심 질문(「82% 몰린 분포만으로 결론이 서나」)은 남긴다.
+#: 묶음(1·2번) 거르기는 그대로 둔다 — 음성 질문만 (QA_VOICE_RECALL=0 이면 끔)
+_RECALL_RE = re.compile(
+    r"구체적으로\s*어떤\s*[가-힣]{0,6}(?:조건|항목|수치|값|성분|변수|단계|목록)|"
+    r"어떤\s*(?:조건|항목|수치|값|성분|변수)들?(?:을|를|이|가)?\s*.{0,12}(?:고정했|유지했|묶었|사용했|썼|나열했|통제했|맞췄)는지|"
+    r"(?:표|그래프|그림)의?\s*어떤\s*(?:수치|값|숫자)|어떤\s*(?:수치|숫자)에서|"
+    r"(?:유지율|수치|값|비율|오즈비|OR|점수|퍼센트)(?:이|가|는)?\s*(?:어떻게|얼마나)\s*달라(?:졌|지|져)|"
+    r"(?:을|를)\s*함께\s*말해|어떤\s*성분")
+
+
+def recall_ask(question: str) -> bool:
+    """외운 항목 · 수치를 꺼내게 하는 3번+ 질문인가 (§0-1 — 숫자 · 목록 확인은 핵심 간파가 아니다)."""
+    if (os.environ.get("QA_VOICE_RECALL") or "1").strip().lower() in ("0", "false", "off", "no"):
+        return False
+    q = question or ""
+    return bool(_RECALL_RE.search(q))
+
+
 def _voice_candidates(deck: "Deck", signals: list[dict], speech_of: dict[int, str], asked: list[dict], names: list[str],
                       llms: dict, calls: list, temperature: float, *, live: bool) -> tuple[list, list]:
     text = " ".join(speech_of.get(n, "") for n in sorted(speech_of))
@@ -827,6 +846,9 @@ def _voice_candidates(deck: "Deck", signals: list[dict], speech_of: dict[int, st
                                      sources=deck.sources + [text, spoken], extra_vocab=speech_vocab)
         if any(ES.question_tokens_overlap(c.get("question", ""), a.get("question", "")) >= DUP_OVERLAP for a in asked):
             why = [*why, "repeats_asked"]
+            ok = None
+        if ok is not None and recall_ask(c.get("question", "")):
+            why = [*why, "recall"]
             ok = None
         if ok is None:
             dropped.append({"uid": c["uid"], "model": c["model"], "signal": c["signal"], "reasons": why,
