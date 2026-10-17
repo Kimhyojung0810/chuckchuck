@@ -151,6 +151,24 @@ test('흔들림 — 0.6Hz 좌우 반복은 잡고, 가만히 · 천천히 자리
   eq(c.metrics.sway.value, 0, '천천히 옮김');
 });
 
+test('3fps 로 느려지면 흔들림은 「잴 수 없었어요」(1.4Hz 가 대역 위끝 0.45×fps 를 넘음) · 품질 보고에 속도와 까닭 코드', () => {
+  const at = (step, secs, make) => Array.from({ length: Math.round((secs * 1000) / step) }, (_, k) => ({ ...make(k * step), seg: 's1' }));
+  const sway14 = (t) => front(t, { box: [0.41 + 0.06 * Math.sin((2 * Math.PI * 1.4 * t) / 1000), 0.2, 0.18, 0.24] });
+  const slow = L.analyze(at(333, 60, sway14));
+  eq(slow.metrics.sway.ok, false, '3fps 흔들림');
+  eq(slow.metrics.sway.gate, 'sway_fps', '까닭 코드');
+  ok(/1초에 3장/.test(slow.metrics.sway.why), slow.metrics.sway.why);
+  eq(slow.metrics.gaze.ok, true, '시선은 3fps 에서도 잰다');
+  const qs = L.summaryOf(slow).qreport;
+  ok(qs && Math.abs(qs.fps - 3) < 0.1 && qs.target === 5 && qs.processed < 0.65 && qs.slow > 0.9 && qs.sway_lowfps > 20, JSON.stringify(qs));
+  eq(qs.gates.sway, 'sway_fps', '보고 까닭');
+  const fast = L.summaryOf(L.analyze(at(200, 60, sway14)));
+  ok(fast.qreport.processed > 0.98 && fast.qreport.slow === 0 && fast.qreport.sway_lowfps === 0 && !fast.qreport.gates.sway, JSON.stringify(fast.qreport));
+  ok(fast.metrics.sway.ok && fast.metrics.sway.value > 0.8, `5fps 1.4Hz 흔들림 ${JSON.stringify(fast.metrics.sway)}`);
+  // 옛 키는 그대로 (서버 BehaviorSummary 와 리포트가 읽는 이름)
+  ['v', 'phase', 'status', 'why', 'dur', 'frames', 'fps', 'ms_p50', 'ms_p90', 'quality', 'metrics', 'areas', 'first', 'segs', 'events'].forEach((k) => ok(k in fast, `키 ${k}`));
+});
+
 test('역광(얼굴이 화면보다 많이 어두움)이면 방향 지표는 까닭과 함께 빠진다', () => {
   const r = L.analyze(script([[30, (t) => front(t, { br: 170, fb: 60 })]]));
   ok(!r.metrics.gaze.ok && /역광/.test(r.metrics.gaze.why), r.metrics.gaze.why);
