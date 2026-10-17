@@ -10,7 +10,7 @@ import difflib
 import functools
 import re
 import unicodedata
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 
@@ -3156,6 +3156,9 @@ class RubricScore:
     #: 치명 결함 상한 — 없으면 None. 있으면 score 는 이 값을 넘지 않는다 (까닭은 faults 의 RUBRIC_CAP_KINDS 줄).
     cap: int | None = None
     faults: list[RubricFault] = field(default_factory=list)
+    #: 베타 항목(카메라 분석 「발표 태도」, rubric_v3.BETA_ITEMS 40~42) — 가중치 0 이라 score · clusters 에 들어가지 않는다.
+    #: 카메라 분석이 없었던 발표는 status "unmeasured" 와 까닭(note)으로 남는다. 빈 목록이면 이 기능 전의 응답이다.
+    beta: list[RubricItemScore] = field(default_factory=list)
 
     def item(self, no: int) -> "RubricItemScore | None":
         for it in self.items:
@@ -3184,6 +3187,7 @@ class RubricScore:
             "note": self.note,
             "cap": self.cap,
             "faults": [f.to_dict() for f in self.faults],
+            "beta": [i.to_dict() for i in self.beta],
         }
 
     @classmethod
@@ -3213,7 +3217,167 @@ class RubricScore:
             cap=cap,
             faults=[f for f in ensure_dict_list(d.get("faults", []) or [], RubricFault.from_dict)
                     if f.kind in RUBRIC_FAULT_KINDS],
+            # 베타 항목은 가중치가 언제나 0 이다 — 저장본이 뭐라 하든 0 으로 읽는다 (총점에 섞여 들어갈 길을 막는다)
+            beta=[replace(i, weight=0) for i in ensure_dict_list(d.get("beta", []) or [], RubricItemScore.from_dict)],
         )
+
+
+# ---------------------------------------------------------------------------
+# 카메라 분석 「발표 태도」 요약 (베타) — 브라우저 → 서버는 이 숫자 요약뿐이다
+# ---------------------------------------------------------------------------
+#
+# 만드는 곳: main/web/js/behavior_cv_logic.js summaryOf(). 영상 · 프레임 · 얼굴 그림은 서버로 오지 않는다.
+# 서버는 다시 재지 않고 **모양과 크기만 거른다** — 아는 키만 · 숫자는 범위 안으로 · 글은 짧게 · 목록은 상한까지.
+# 브라우저가 무엇을 보내든 로그 · 보관소에 긴 글이나 모르는 키를 심지 못하게 한다.
+
+BEHAVIOR_PHASES = ("present", "qa")
+BEHAVIOR_STATUSES = ("ok", "unmeasured", "none")
+BEHAVIOR_METRICS = ("gaze", "lookaway", "down", "sway", "movement", "gesture", "framing")
+BEHAVIOR_AREAS = ("gaze", "body", "hands", "frame")
+BEHAVIOR_EVENTS = ("lookaway", "down", "sway")
+BEHAVIOR_CONF = ("높음", "보통", "낮음")
+#: 목록 · 글 상한 (behavior_cv_logic.js CFG.maxSegs · maxEvents 와 같다)
+BEHAVIOR_MAX_SEGS = 60
+BEHAVIOR_MAX_EVENTS = 40
+BEHAVIOR_TEXT_MAX = 160
+#: 직렬화한 크기 상한 — 브라우저 쪽 상한(24KB)에 여유를 둔다. 넘으면 장면 · 장 목록을 버린다
+BEHAVIOR_MAX_BYTES = 48 * 1024
+_BEHAVIOR_SEG_RE = re.compile(r"^[sq]\d{1,3}$")
+
+
+def _bnum(v: Any, lo: float, hi: float, nd: int = 3) -> float | None:
+    """숫자면 범위 안으로 자르고 반올림, 아니면 None (NaN · 문자열 · bool 도 None)."""
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    f = float(v)
+    if f != f or f in (float("inf"), float("-inf")):
+        return None
+    return round(max(lo, min(hi, f)), nd)
+
+
+def _btext(v: Any, n: int = BEHAVIOR_TEXT_MAX) -> str:
+    return " ".join(str(v or "").split())[:n]
+
+
+def _bint(v: Any, lo: int, hi: int) -> int | None:
+    f = _bnum(v, lo, hi, 0)
+    return None if f is None else int(f)
+
+
+def _bseg(v: Any) -> str:
+    s = str(v or "")
+    return s if _BEHAVIOR_SEG_RE.match(s) else ""
+
+
+def _behavior_metric(d: Any) -> dict | None:
+    if not isinstance(d, dict):
+        return None
+    if d.get("ok") is not True:
+        return {"ok": False, "why": _btext(d.get("why"), 120)}
+    conf = d.get("conf")
+    out: dict[str, Any] = {
+        "ok": True,
+        "value": _bnum(d.get("value"), 0, 1000),
+        "level": _bint(d.get("level"), 0, 2),
+        "conf": conf if conf in BEHAVIOR_CONF else "낮음",
+    }
+    for k, lo, hi in (("n", 0, 10000), ("windows", 0, 10000)):
+        if k in d:
+            out[k] = _bint(d.get(k), lo, hi)
+    for k, lo, hi in (("total", 0, 36000), ("longest", 0, 36000), ("amp", 0, 100), ("speak", 0, 1), ("silent", 0, 1), ("off", 0, 1)):
+        if k in d:
+            out[k] = _bnum(d.get(k), lo, hi)
+    sides = d.get("sides")
+    if isinstance(sides, dict):
+        out["sides"] = {k: _bnum(sides.get(k), 0, 1) for k in ("left", "right", "down", "away")}
+    return out
+
+
+@dataclass
+class BehaviorSummary:
+    """
+    카메라 분석 숫자 요약 한 판(발표 또는 Q&A). from_dict 가 거른 값만 담는다 — to_dict 는 그 값을 그대로 낸다.
+    status: ok(잰 지표가 하나라도 있음) · unmeasured(기록은 있는데 모든 지표가 게이트에 걸림) · none(기록 없음 — why 에 까닭).
+    """
+
+    phase: str = "present"
+    status: str = "none"
+    why: str = ""
+    v: int = 1
+    dur: float | None = None
+    frames: int | None = None
+    fps: float | None = None
+    ms_p50: float | None = None
+    ms_p90: float | None = None
+    quality: dict = field(default_factory=dict)
+    metrics: dict = field(default_factory=dict)
+    areas: list = field(default_factory=list)
+    first: dict | None = None
+    segs: list = field(default_factory=list)
+    events: list = field(default_factory=list)
+
+    def metric(self, key: str) -> dict | None:
+        m = self.metrics.get(key)
+        return m if isinstance(m, dict) and m.get("ok") else None
+
+    def to_dict(self) -> dict:
+        return {
+            "v": self.v, "phase": self.phase, "status": self.status, "why": self.why,
+            "dur": self.dur, "frames": self.frames, "fps": self.fps, "ms_p50": self.ms_p50, "ms_p90": self.ms_p90,
+            "quality": dict(self.quality), "metrics": dict(self.metrics), "areas": list(self.areas),
+            "first": dict(self.first) if self.first else None,
+            "segs": list(self.segs), "events": list(self.events),
+        }
+
+    @classmethod
+    def from_dict(cls, d: Any) -> "BehaviorSummary | None":
+        """모양이 아니면 None. 아는 키만 남기고 숫자는 범위 안으로, 목록은 상한까지 자른다."""
+        if not isinstance(d, dict):
+            return None
+        phase = d.get("phase") if d.get("phase") in BEHAVIOR_PHASES else "present"
+        status = d.get("status") if d.get("status") in BEHAVIOR_STATUSES else "none"
+        q = d.get("quality") if isinstance(d.get("quality"), dict) else {}
+        quality = {k: _bnum(q.get(k), 0, 1) for k in ("presence", "dark", "face", "eyes", "track", "body")}
+        quality["bright"] = _bnum(q.get("bright"), 0, 255, 1)
+        quality["blur"] = _bnum(q.get("blur"), 0, 100000, 1)
+        mm = d.get("metrics") if isinstance(d.get("metrics"), dict) else {}
+        metrics = {k: m for k in BEHAVIOR_METRICS if (m := _behavior_metric(mm.get(k))) is not None}
+        areas = []
+        for a in (d.get("areas") or [])[: len(BEHAVIOR_AREAS)] if isinstance(d.get("areas"), list) else []:
+            if isinstance(a, dict) and a.get("key") in BEHAVIOR_AREAS:
+                areas.append({"key": a["key"], "ok": a.get("ok") is True, "level": _bint(a.get("level"), 0, 2), "word": _btext(a.get("word"), 40)})
+        f = d.get("first")
+        first = None
+        if isinstance(f, dict) and _btext(f.get("text")):
+            first = {"kind": _btext(f.get("kind"), 20), "area": f.get("area") if f.get("area") in BEHAVIOR_AREAS else "",
+                     "text": _btext(f.get("text")), "slide": _bint(f.get("slide"), 1, 999), "q": _bint(f.get("q"), 1, 99),
+                     "sec": _bnum(f.get("sec"), 0, 36000, 1)}
+        segs = []
+        for x in (d.get("segs") or [])[:BEHAVIOR_MAX_SEGS] if isinstance(d.get("segs"), list) else []:
+            if isinstance(x, dict) and _bseg(x.get("seg")):
+                segs.append({"seg": x["seg"], "dur": _bnum(x.get("dur"), 0, 36000, 1), "present": _bnum(x.get("present"), 0, 1),
+                             "gaze": _bnum(x.get("gaze"), 0, 1), "down": _bnum(x.get("down"), 0, 1), "gesture": _bnum(x.get("gesture"), 0, 1),
+                             "move": _bnum(x.get("move"), 0, 100), "lookaway": _bint(x.get("lookaway"), 0, 10000)})
+        events = []
+        for x in (d.get("events") or [])[:BEHAVIOR_MAX_EVENTS] if isinstance(d.get("events"), list) else []:
+            if isinstance(x, dict) and x.get("k") in BEHAVIOR_EVENTS:
+                events.append({"k": x["k"], "seg": _bseg(x.get("seg")), "t": _bnum(x.get("t"), 0, 36000, 1), "d": _bnum(x.get("d"), 0, 36000, 1)})
+        out = cls(
+            phase=phase, status=status, why=_btext(d.get("why"), 120), v=_bint(d.get("v"), 0, 99) or 1,
+            dur=_bnum(d.get("dur"), 0, 36000, 1), frames=_bint(d.get("frames"), 0, 10_000_000), fps=_bnum(d.get("fps"), 0, 120, 2),
+            ms_p50=_bnum(d.get("ms_p50"), 0, 100000, 1), ms_p90=_bnum(d.get("ms_p90"), 0, 100000, 1),
+            quality=quality, metrics=metrics, areas=areas, first=first, segs=segs, events=events,
+        )
+        if out.status == "ok" and not any(m.get("ok") for m in metrics.values()):
+            out.status = "unmeasured"
+        # 상한 — 아는 키만 남겼어도 크면 장면 → 장 순으로 버린다
+        import json as _json
+        while len(_json.dumps(out.to_dict(), ensure_ascii=False).encode()) > BEHAVIOR_MAX_BYTES and (out.events or out.segs):
+            if out.events:
+                out.events = out.events[: len(out.events) // 2]
+            else:
+                out.segs = out.segs[: len(out.segs) // 2]
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -3245,6 +3409,7 @@ SESSION_ARTIFACT_KINDS = (
     "paper_doc",       # F-24 (09-23: 브리지가 쓰는데 목록에 없어 조용히 버려지고 있었다)
     "memory_doc",      # F-25 — 이 세션이 만들어 쓴 지난 리허설 기억 (재생·리포트용)
     "claim_doc",       # F-26 — 주장 그래프 (paper_doc 처럼 목록에 없으면 조용히 버려진다)
+    "behavior_doc",    # 카메라 분석 「발표 태도」 숫자 요약 (베타, 10-17) — {"present": BehaviorSummary, "qa": BehaviorSummary}
 )
 
 #: 동의 없이도 남기는 캐시. 나머지는 동의한 세션에만 쓴다.
