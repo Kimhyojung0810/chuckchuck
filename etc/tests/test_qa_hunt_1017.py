@@ -194,3 +194,18 @@ def test_앙상블_모범답은_자료로_다듬어졌으면_해설에_쓴다(mo
 ])
 def test_앙상블_질문의_높임을_푼다(raw, want):
     assert FE.tidy({"question": raw, "answer": "모범답이에요."})["question"] == want
+
+
+def test_꼬리질문_틀의_인용_뒤_조사는_받침에_맞춘다():
+    from pipeline import f09_dialogue as DLG
+    assert DLG._quote_josa("「리뷰 수집 방법」는 다른 이야기예요.", "리뷰 수집 방법") == "「리뷰 수집 방법」은 다른 이야기예요."
+    assert DLG._quote_josa("「표본이 작음」로 근거와 결론을 이었어요.", "표본이 작음") == "「표본이 작음」으로 근거와 결론을 이었어요."
+    assert DLG._quote_josa("「그 말」로 이었어요.", "그 말") == "「그 말」로 이었어요."                       # ㄹ 받침은 「로」
+    assert DLG._quote_josa("「축구 보셨어요」는 다른 이야기예요.", "축구 보셨어요") == "「축구 보셨어요」는 다른 이야기예요."
+
+
+def test_꼬리질문_틀이_다_쓰였는데_구절이_없으면_그_말을_지어내지_않는다():
+    from pipeline import f09_dialogue as DLG
+    ti = SimpleNamespace(slide_no=0, asked=[], avoid=[q for _, q in DLG._TEMPLATES["refocus"]])
+    react, _ = DLG.template_turn("refocus", "", ti)
+    assert "그 말" not in react
