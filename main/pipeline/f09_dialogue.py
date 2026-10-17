@@ -616,7 +616,7 @@ def policy(verdict: str, guard: str, read: dict, *, gave_up: bool = False, closi
         return "refocus"
     # 읽기 콜이 자료와 어긋난 구절을 찾았으면 판정이 good 이어도 짚는다 (10-17 tune: dev 3판 · 5단계 판 합쳐 모범답 · 자기 말 답 304개에서
     # 읽기 콜 conflict 0건, 틀린 전제 답 153개에서 93% — 판정 LLM 이 방향을 뒤집은 답에 good 85 를 준 판이 남았다). 판정은 apply 가 내린다.
-    if guard in CONFLICT_GUARDS or read.get("conflict"):
+    if guard in CONFLICT_GUARDS or read.get("conflict") or read.get("judge_conflict"):
         return "challenge"
     if read.get("disagree") and verdict != "good":
         return "explore"
@@ -773,10 +773,16 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     t0 = time.monotonic()
     numbers_ok = " ".join(str(g.slide_no) for g in judgement.grounds) + f" {judgement.evidence_slide_no}"
     checked: dict[int, tuple[str, str, list[str]]] = {}
+    # 판정 LLM 이 근거 줄에 「답과 어긋나는 줄」(role conflict)을 달았으면 그것도 어긋남 신호다 (10-17 tune) — 읽기 콜이 놓치거나
+    # 늦어도(요청 제한) 틀린 전제를 짚는다. dev 3판: 틀린 전제 답 85% 에 달렸고 모범답 · 자기 말 답 0/250.
+    jc = any(getattr(g, "role", "") == "conflict" for g in (judgement.grounds or []))
+
+    def rd(r: dict | None) -> dict:
+        return {**(r or {}), "judge_conflict": True} if jc else dict(r or {})
 
     def needs_ask(t: TalkResult | None) -> bool:
         # 닫히는 질문(mastered)은 꼬리질문이 없다 — 단 읽기 콜이 어긋남을 찾아 판정을 내릴 판(`_read_conflict_cap`)이면 묻는다
-        return (not judgement.mastered) or (t is not None and t.ok and _reader_conflict(judgement, t.read, closing))
+        return (not judgement.mastered) or (t is not None and t.ok and _reader_conflict(judgement, rd(t.read), closing))
 
     def candidate(t: TalkResult) -> tuple[str, str, list[str]]:
         if id(t) not in checked:
@@ -789,7 +795,7 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     def accept(t: TalkResult) -> bool:
         if not (t and t.ok):
             return False
-        if t.move != policy(judgement.verdict, judgement.guard, t.read, gave_up=gave_up, closing=closing, passed=judgement.passed):
+        if t.move != policy(judgement.verdict, judgement.guard, rd(t.read), gave_up=gave_up, closing=closing, passed=judgement.passed):
             return False
         return closing or not candidate(t)[2]
 
@@ -803,7 +809,7 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
         chosen = next((t for t in got if accept(t)), None)
     ok_talks = [t for t in got if t and t.ok]
     base = chosen or (ok_talks[0] if ok_talks else None)
-    read = dict(base.read) if base else {}
+    read = rd(base.read if base else None)
     move = policy(judgement.verdict, judgement.guard, read, gave_up=gave_up, closing=closing, passed=judgement.passed)
     capped = _reader_conflict(judgement, read, closing)
     if capped:
@@ -875,7 +881,7 @@ READ_CONFLICT_SCORE_MAX = 60
 
 def _reader_conflict(j: QaJudgement, read: dict, closing: bool = False) -> bool:
     """통과한 판정인데 읽기 콜이 자료와 어긋난 구절을 찾았나 (코드 가드가 이미 잡은 어긋남 · 갇힘 출구 · 모름은 빼고)."""
-    return bool(j.passed and not closing and read.get("conflict") and not read.get("unknown")
+    return bool(j.passed and not closing and (read.get("conflict") or read.get("judge_conflict")) and not read.get("unknown")
                 and j.guard not in CONFLICT_GUARDS and j.guard not in REFOCUS_GUARDS)
 
 
@@ -885,7 +891,7 @@ def _read_conflict_cap(j: QaJudgement, read: dict) -> QaJudgement:
     dev 틀린 전제 답의 4~9% 였다. 읽기 콜(판정과 동시에 도는 F-09-talk)이 그 답에서 자료와 어긋난 구절을 낱말 그대로 뽑았으면 통과를 막는다
     — 같은 읽기 콜이 모범답 · 자기 말 답 304개에서 어긋남을 0건 찾았다(거짓 경보 0). 질문은 닫지 않고 challenge 로 견주게 한다.
     """
-    phrase = str(read.get("conflict") or "")[:40]
+    phrase = str(read.get("conflict") or read.get("idea") or "그 말")[:40]
     return replace(j, verdict="partial", score=min(j.score, READ_CONFLICT_SCORE_MAX), closed=False,
                    guard="read_conflict", guard_reason=f"답의 「{phrase}」 가 자료와 어긋나 보여요",
                    summary_sentence=f"「{phrase}」 부분이 자료와 다르게 읽혀요. 근거 장과 다시 견줘 봐요."[:200])

@@ -273,3 +273,13 @@ def test_가벼운_판정은_엔진이_켜진_판정에만_react_followup_을_�
     assert J.judge_lean_on()
     monkeypatch.setenv("QA_JUDGE_LEAN", "0")
     assert not J.judge_lean_on()
+
+
+def test_판정이_근거_줄에_어긋남을_달면_읽기_콜이_없어도_challenge():
+    from pipeline.contracts import JudgeGround
+    t = ti(answer=PREMISE)
+    j = judged(verdict="wrong", score=30, grounds=[JudgeGround(slide_no=2, quote="실사용 열화는 더 느리다", role="conflict", note="n")])
+    out = DLG.apply(j, t, DLG.TalkResult(error="429"), respeak=False)
+    assert out.move == "challenge" and out.dialogue["read"].get("judge_conflict") is True
+    ok = DLG.apply(judged(verdict="wrong", score=30), t, DLG.TalkResult(error="429"), respeak=False)
+    assert ok.move != "challenge"
