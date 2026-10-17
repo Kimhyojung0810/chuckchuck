@@ -233,6 +233,11 @@ test('흔들림 → 멎기까지(4초 창 기준, ±1초) · 역광 · 멂은 �
   eq(C.backAfter(L.states(rows), 5000, 'backlit', L), 'na', '역광');
 });
 
+test('화면 밖 — 그동안 옆얼굴 전체 보기가 옆얼굴을 봤으면(ps) 알리지 않는다 (바퀴 7 · 처음부터 옆을 본 사람)', () => {
+  eq(types(play(script([[8, front], [6, (t, k) => lost(t, k % 4 === 3 ? { ps: 1 } : {})], [6, front]]))), '', '옆얼굴을 본 빈 줄');
+  eq(types(play(script([[8, front], [6, lost], [6, front]]))), 'frame', '정말 빈 줄');
+});
+
 test('간격 규칙을 빼면 20초 간격 시험이 깨진다', () => {
   if (!SRC.includes(GAP_LINE)) throw new Error(`decide 의 간격 줄이 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${GAP_LINE}`);
   const B = load(SRC.replace(GAP_LINE, '')).C;

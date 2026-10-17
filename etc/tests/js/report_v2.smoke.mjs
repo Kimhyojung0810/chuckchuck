@@ -143,9 +143,9 @@ const rv2SrcEarly = readFileSync(path.join(WEB, 'js/report_v2.js'), 'utf8');
   const pres = (x) => ({ present: { status: 'ok', metrics: {}, areas: [], first: null, cards: [], t0: 0, liveCues: x } });
   const h = BRp.rv2Html(pres(lc));
   check('발표 중 알림: 종류별 횟수 · 돌아오기 평균 · late · 못 보인 알림(cut)은 안 셈', /발표 중 알림<small>5번 알렸어요/.test(h)
-    && /「화면 쪽으로 돌아와요」<\/span><b class="bh-aword">2번/.test(h) && /화면 쪽으로 돌아오기까지 평균 1\.8초/.test(h)
+    && /「화면 쪽으로 돌아와요」<span class="bh-cn"> · 2번<\/span>/.test(h) && /화면 쪽으로 돌아오기까지 평균 1\.8초/.test(h)
     && /15초 안에 고개를 들지 않았어요/.test(h) && !/1번은 15초/.test(h) && /흔들림이 멎기까지 약 6초/.test(h)
-    && /「카메라에 조금 다가와요」<\/span><b class="bh-aword">1번<\/b><\/span>/.test(h));
+    && /「카메라에 조금 다가와요」<span class="bh-cn"> · 1번<\/span><\/span><\/span>/.test(h) && !/bh-aword">\d+번/.test(h));
   check('발표 중 알림: 꺼 두었거나 · 보인 알림이 없으면 칸째 없음 · 판정 · 감정 낱말 없음',
     !/발표 중 알림/.test(BRp.rv2Html(pres({ on: false, list: lc.list }))) && !/발표 중 알림/.test(BRp.rv2Html(pres({ on: true, list: [] })))
     && !/발표 중 알림/.test(BRp.rv2Html(pres({ on: true, list: [lc.list[5]] }))) && !/발표 중 알림/.test(BRp.rv2Html(pres(undefined)))

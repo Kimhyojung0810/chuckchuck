@@ -391,8 +391,9 @@
   function cuesHtml(p) {
     const sm = cueSummary(p && p.liveCues);
     if (!sm) return '';
+    // 한 줄 = 「문구」 · N번 (횟수는 머리글처럼 키우지 않는다 — 바퀴 7), 아래 곁말 = 돌아오기
     const rows = sm.rows.map((r) => `<div class="nv-row is-static bh-arow bh-cue" data-cue="${esc(r.type)}">
-        <span class="nv-row-main"><span class="bh-aname">「${esc(r.text)}」</span><b class="bh-aword">${r.n}번</b>${cueBackLine(r) ? `<small class="bh-aline">${esc(cueBackLine(r))}</small>` : ''}</span></div>`).join('');
+        <span class="nv-row-main"><span class="bh-cline">「${esc(r.text)}」<span class="bh-cn"> · ${r.n}번</span></span>${cueBackLine(r) ? `<small class="bh-aline">${esc(cueBackLine(r))}</small>` : ''}</span></div>`).join('');
     return `<h3 class="nv-sec">발표 중 알림<small>${sm.total}번 알렸어요</small></h3>
       <div class="nv-group bh-cues">${rows}</div>
       <p class="nv-note">알림 뒤 카메라가 본 자세로 쟀어요. 시험 기능이라 1초쯤 어긋날 수 있어요.</p>`;

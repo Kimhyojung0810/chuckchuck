@@ -31,6 +31,10 @@
     // 정면이 잡힌 장 profCheckEvery 마다 그 상자를 profCheckPad 씩 넓힌 자리에서만 옆얼굴(양쪽)을 찾아, 이웃 수가 정면보다 profCheckMargin 넘게 많으면 옆(0 이면 흐린 영상 d3 에서 정면 3장이 옆으로 — 두 이탈이 하나로 붙었다 → 1).
     // 사이 장은 지난 확인을 profCheckHoldMs 동안 이어 쓴다(같은 자리일 때). 0 이면 끔
     profCheckEvery: 3, profCheckPad: 0.2, profCheckMargin: 1, profCheckHoldMs: 1000,
+    // 옆얼굴 전체 보기 (바퀴 7) — 얼굴을 profScanAfterMs 넘게 못 봤으면(처음부터 옆을 본 사람 · c01 첫 7초) 처리 장 profScanEvery 마다 화면 전체에서
+    // 옆얼굴(양쪽)을 찾는다. 헛잡음(책장 · 포스터)을 막으려고 상자 안이 살아 있고(차분 ≥ staticChange) 다음 확인에서도 같은 자리면(profScanConfirm 번) 받는다.
+    // 받은 뒤로는 지난 얼굴 둘레 옆얼굴 찾기가 장마다 잇는다. 0 이면 끔
+    profScanEvery: 4, profScanAfterMs: 1000, profScanConfirm: 2,
     minFaceFrac: 0.06,    // 화면 폭의 이 비율보다 작은 얼굴은 찾지 않는다 — 320px 에서 19px. 0.08 아래는 logic 이 「너무 멀어요」 로 게이트
     fullScanEvery: 5,     // 이 프레임마다 한 번은 화면 전체를 본다 — 나머지는 지난 얼굴 둘레만 (속도). 두 번째 사람 · 갈아타기를 1초 안에 안다
     roiPad: 0.9,          // 지난 얼굴 둘레 찾기 창 — 얼굴 폭의 이만큼씩 사방으로
@@ -116,7 +120,7 @@
         n: 0, last: null, lastSeenAt: -Infinity, lastAnyAt: -Infinity, spots: [], cand: null,
         trackOk: false, trackWin: null, skin: false, frontN: 0,
         prevFlow: false, prevFlowT: null, prevDark: false, prevMea: false, diff: null, skinEma: null, camLost: 0,
-        fN: 0, profWin: null,
+        fN: 0, profWin: null, scanN: 0, scanHit: null,
       });
     }
     resetState();
@@ -562,6 +566,21 @@
           const tb = trackHead(rgba, anchor.w);
           if (tb) { face = tb; src = 'T'; }
         }
+        let ps = 0;
+        if (!face && profile && cfg.profScanEvery > 0 && t - st.lastAnyAt > cfg.profScanAfterMs && !picked.dropped) {
+          st.scanN += 1;
+          if (st.scanN % cfg.profScanEvery === 0) {
+            const p = findProfile(M.eq, { x: 0, y: 0, width: w, height: h }, minSide, Math.min(w, h));
+            const ch = p ? changeIn(p, w, h) : null;
+            if (p && (ch === null || ch >= cfg.staticChange)) {
+              const prevHit = st.scanHit;
+              const same = prevHit && Math.hypot(prevHit.x - p.x, prevHit.y - p.y) < 0.6 * p.w && t - prevHit.at < 3000;
+              st.scanHit = { x: p.x, y: p.y, w: p.w, at: t, k: same ? prevHit.k + 1 : 1 };
+              ps = st.scanHit.k;
+              if (st.scanHit.k >= cfg.profScanConfirm) { face = p; src = 'P'; side = p.side; fn = p.n; st.scanHit = null; }
+            } else st.scanHit = null;
+          }
+        } else if (face) { st.scanN = 0; st.scanHit = null; }
         if (face) {
           if (src === 'F' || src === 'P') { st.lastSeenAt = t; }
           st.lastAnyAt = t;
@@ -586,6 +605,7 @@
         if (q && face && src !== 'T') row.fb = r1(q.fb);
         if (picked.switched) row.sw = 1;
         if (pk) row.pk = pk;   // 이 장에 정면 상자 안 옆얼굴 확인을 했다 — 옆얼굴 이웃 수(못 찾음 -1). 속도 · 실험실 확인용
+        if (ps) row.ps = ps;   // 옆얼굴 전체 보기가 옆얼굴을 봤다(확인 횟수) — 자세 알림 「화면 밖」 은 이 줄이 있으면 안 낸다
         if (faces.some((f) => f.dead)) row.dead = faces.filter((f) => f.dead).length;
         if (eyes.n === 2) { row.roll = r1(eyes.roll); row.ey = r3(eyes.ey); row.ex = r3(eyes.ex); row.sep = r3(eyes.sep); }
         addMotion(row, mea, g);

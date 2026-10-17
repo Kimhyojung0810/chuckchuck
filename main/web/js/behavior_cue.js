@@ -111,7 +111,9 @@
     // (실험실 c01: 11초 숙임 → 아래 6.5 · 다른 곳 0.8 · 없음 1.0 · 아래 2.7초). 그래서 정면이 아닌 채 이어진 구간 중 아래가 대부분이면 그 길이로 센다
     const bent = tailSpan(seq, (x) => x.state !== 'front' && x.state !== 'face');
     const down = bent.ms && (bent.by.down || 0) / bent.ms >= cfg.downShare ? bent.ms : 0;
-    const none = tailRun(seq, (x) => x.state === 'none');
+    // 화면 밖 — 사람 없음이 이어지되, 그동안 옆얼굴 전체 보기가 옆얼굴을 한 번도 안 봤을 때만(row.ps · src P). 처음부터 옆을 본 사람은 사람 없음이 아니다 (바퀴 7 · c01 첫 7초)
+    const none0 = tailRun(seq, (x) => x.state === 'none');
+    const none = none0 && recent.some((r) => r.t >= tEnd - none0 && (r.ps || r.src === 'P')) ? 0 : none0;
     // 흔들림 — 엔진의 8초 창(대역 몫 · 순도 규칙까지)이 지금 켜져 있고, 짧은 4초 창(1초 걸음)이 끊김 없이 켜진 폭이 얼마나 되나.
     // 8초 창만 이으면 센 흔들림은 4초만 흔들어도 창 다섯이 켜져(창 하나에 2초만 들어도 켜짐) 16초로 셌고, 멎은 뒤 몇 초까지 켜져 있었다
     let sway = 0;
