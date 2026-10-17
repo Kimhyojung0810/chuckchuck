@@ -424,18 +424,20 @@ def test_1단은_인용을_react_에_붙이고_선택지_둘을_준다():
     j = coach_stuck(question(**EVQ), graph=GRAPH, llm=llm)
     assert j.coach_stage == "narrow"
     assert "자료 2장은 이렇게 말해요: «주의 전환은" in j.react
-    assert j.choices == ["확인하는 순간", "돌아오는 과정"]
+    assert sorted(j.choices) == sorted(["확인하는 순간", "돌아오는 과정"])   # 보기 순서는 가나다 — LLM 이 정답을 앞에 두는 버릇을 숨긴다 (10-17 tune)
     assert "2장" in j.followup                      # 화면이 장 그림을 붙일 번호
     assert j.evidence_quote == EVQ["evidence_quote"] and j.evidence_slide_no == 2
     # 프롬프트에도 인용·발화가 실렸다
     assert "자료 인용: 자료 2장 — «" in llm.prompts[0] and "발표 때 한 말: «5초만" in llm.prompts[0]
 
 
-def test_1단에서_LLM_이_선택형을_안_쓰면_코드가_둘_중_하나를_만든다():
+def test_1단에서_LLM_이_선택형을_안_쓰면_낱말_빈칸_대신_근거_장에서_이유를_떠올리게_한다():
+    # 10-17 tune: 예전엔 골자 낱말 빈칸(mask_gist)으로 「'64%' 쪽인가요, '80%' 쪽인가요?」 같은 낱말 · 숫자 보기를 만들었다 —
+    # 핵심 간파가 아니라 기억 확인이다. 이제 논리 보기를 못 세우면 보기 없이 근거 장을 가리킨다
     llm = ScriptedLLM({"react": "괜찮아요.", "followup": "주의 전환이 왜 문제인지 설명해 보세요"})
     j = coach_stuck(question(**EVQ), graph=GRAPH, llm=llm)
-    assert len(j.choices) == 2
-    assert "쪽인가요" in j.followup and "«주의 전환은" in j.followup
+    assert j.choices == []
+    assert "쪽인가요" not in j.followup and "2장" in j.followup
 
 
 def test_2단은_LLM_없이_빈칸과_선택지를_준다(monkeypatch):
