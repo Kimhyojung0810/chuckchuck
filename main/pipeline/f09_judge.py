@@ -2905,7 +2905,21 @@ def _logic_choice_ok(choices: list[str], question: Question) -> bool:
             return False
         if c == (question.label or "").strip():
             return False
-    return a != b and DLG.similar(a, b) < 0.75
+    if a == b or DLG.similar(a, b) >= 0.75:
+        return False
+    # 둘 다 골자에서 나온 말이면(둘 다 맞는 설명) 고를 수 없다 — dev 라벨 18개 중 5개가 그랬다(10-17 tune)
+    return not (_gist_cover(a, question) >= GIST_COVER_BOTH and _gist_cover(b, question) >= GIST_COVER_BOTH)
+
+
+#: 보기의 글자 두 개 조각 중 골자에 든 비율이 이만큼이면 「골자에서 나온 말」 이다.
+GIST_COVER_BOTH = 0.5
+
+
+def _gist_cover(choice: str, question: Question) -> float:
+    c = re.sub(r"[\s\W_]+", "", choice or "")
+    g = re.sub(r"[\s\W_]+", "", question.answer_gist or "")
+    grams = {c[i:i + 2] for i in range(len(c) - 1)}
+    return (sum(1 for x in grams if x in g) / len(grams)) if grams and g else 0.0
 
 
 def _logic_followup(followup: str, shown: list[str], question: Question) -> str:
@@ -2960,9 +2974,11 @@ def _repair_choices(engine: LLMProvider, question: Question, data: dict) -> dict
     choices = [_clip(str(c)) for c in (data.get("choices") or []) if str(c).strip()][:2]
     if _logic_choice_ok(choices, question):
         return data
+    both = len(choices) == 2 and all(_gist_cover(c, question) >= GIST_COVER_BOTH for c in choices)
+    why = "둘 다 골자에서 나온 맞는 말이라 고를 수 없다 — 하나는 자료가 받치지 않는 설명으로" if both else "너무 길거나 숫자 · 골자 문장을 그대로 옮겼다"
     user = "\n".join([f"질문: {question.question}", f"질문의 대상: {question.label or '(없음)'}",
                       f"기대하는 답의 골자: {question.answer_gist or '(없음)'}",
-                      f"앞서 쓴 보기(너무 길거나 골자를 그대로 옮겼다): {json.dumps(choices, ensure_ascii=False)}"])
+                      f"앞서 쓴 보기({why}): {json.dumps(choices, ensure_ascii=False)}"])
     try:
         raw = engine.complete(system=CHOICE_REPAIR_SYSTEM, user=user, temperature=COACH_TEMPERATURE, max_tokens=200, json_mode=True)
         fixed = [_clip(str(c)) for c in (extract_json_object(raw).get("choices") or []) if str(c).strip()][:2]
@@ -3014,9 +3030,13 @@ def _open_narrow_ok(followup: str, question: Question) -> bool:
         return False
     if _PLACEHOLDER_RE.search(f) or _HONORIFIC_RE.search(f) or "«" in f:
         return False
+    # 정답 절반을 먼저 말하는 되물음(「평균 별점만 보지 말고 무엇을 …?」) · 원래 질문 되풀이는 쓰지 않는다 (10-17 tune dev 라벨)
+    g, sq = re.sub(r"[\s\W_]+", "", question.answer_gist or ""), re.sub(r"[\s\W_]+", "", f)
+    if g and any(g[i:i + 10] in sq for i in range(0, max(0, len(g) - 9), 2)):
+        return False
     if any(n not in set(_choice_nums(question.question)) for n in _choice_nums(re.sub(r"\d+\s*장", " ", f))):
         return False   # 장 번호(「3장에서」)는 수치가 아니다
-    return DLG.similar(f, question.question) < 0.62
+    return DLG.similar(f, question.question) < 0.5
 
 
 def _usable_contrast(question: Question) -> tuple[tuple[str, str], ClaimQuote] | None:
