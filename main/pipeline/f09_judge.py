@@ -2559,7 +2559,7 @@ def coach_stuck(
         stage = "explain"
     said = "(질문을 못 알아들어 되물었다)" if stage == "clarify" else "(모르겠다고 했다)"
 
-    engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
+    engine = llm if isinstance(llm, LLMProvider) else _judge_timeouts(get_llm(llm, **(llm_kwargs or {})))
     user = "\n".join([
         f"[단계] {stage}",
         _build_user_prompt(
@@ -3546,7 +3546,7 @@ def judge_answer(
     else:
         ctx = context
 
-    engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
+    engine = llm if isinstance(llm, LLMProvider) else _judge_timeouts(get_llm(llm, **(llm_kwargs or {})))
     prep = _judge_inputs(question, slidedoc, graph, transcript)
     question, deck, judge_deck, probed = prep.question, prep.deck, prep.judge_deck, prep.probed
     sample_gist, gist_grounded = prep.sample_gist, prep.gist_grounded
@@ -4155,3 +4155,23 @@ def _deck_line_block(answer: str, prior_answers: list[str] | None, deck: Deck, l
         + "<deck>\n" + body + "\n</deck>"
         + "\n답변의 수치·크기 순서·방향·긍정/부정이 이 줄들과 어긋나면 규칙 8 의 단서를 따른다."
     )
+
+
+#: 판정 · 코칭 한 콜의 읽기 시한(초). 제공자 기본(LLM_TIMEOUT_SEC 180)은 판정에 너무 길다 — 10-17 버그 사냥 오류 주입: Upstage 가 응답 없이
+#: 붙잡고 있으면 판정 한 번이 180초 × 재시도 × 예비(solar)로 수 분이 걸렸다(화면은 60초에 포기). 시한을 넘기면 예비 회사로 넘어간다.
+JUDGE_TIMEOUT_SEC = float(os.environ.get("QA_JUDGE_TIMEOUT_SEC", "20"))
+
+
+def _judge_timeouts(engine):
+    """이름으로 만든 판정 엔진(예비 사슬 포함)의 읽기 시한을 JUDGE_TIMEOUT_SEC 로 줄인다. 시한이 더 짧게 잡혀 있으면 그대로."""
+    seen, stack = set(), [engine]
+    while stack:
+        e = stack.pop()
+        if e is None or id(e) in seen:
+            continue
+        seen.add(id(e))
+        if isinstance(e, FallbackLLM):
+            stack += [e.primary, e.secondary]
+        elif JUDGE_TIMEOUT_SEC > 0 and isinstance(getattr(e, "timeout", None), (int, float)) and e.timeout > JUDGE_TIMEOUT_SEC:
+            e.timeout = JUDGE_TIMEOUT_SEC
+    return engine

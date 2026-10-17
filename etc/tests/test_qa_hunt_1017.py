@@ -229,3 +229,21 @@ def test_네_모델_묶음이_늦은_판의_질문은_짧게만_든다(monkeypat
 def test_항목_늘어놓기는_미시_확인으로_거른다(q, is_micro):
     from pipeline import _ens_slots as ES
     assert ES.micro(q) is is_micro
+
+
+def test_판정_모델은_다른_회사까지_사슬로_넘길_수_있다():
+    from pipeline.providers.llm_impl import FallbackLLM, get_llm
+    llm = get_llm("solar4+solar+ax")
+    assert isinstance(llm, FallbackLLM) and isinstance(llm.secondary, FallbackLLM)
+    assert [llm.primary.name, llm.secondary.primary.name, llm.secondary.secondary.name] == ["solar4", "solar", "ax"]
+    assert isinstance(get_llm("solar4+solar"), FallbackLLM)                      # 두 단은 예전 그대로
+
+
+def test_판정_엔진의_읽기_시한은_사슬_끝까지_줄인다(monkeypatch):
+    from pipeline.providers.llm_impl import get_llm
+    monkeypatch.setattr(J, "JUDGE_TIMEOUT_SEC", 20.0)
+    e = J._judge_timeouts(get_llm("solar4+solar+ax"))
+    assert [e.primary.timeout, e.secondary.primary.timeout, e.secondary.secondary.timeout] == [20.0, 20.0, 20.0]
+    short = get_llm("ax")
+    short.timeout = 5
+    assert J._judge_timeouts(short).timeout == 5                                   # 더 짧으면 그대로
