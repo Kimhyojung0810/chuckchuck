@@ -170,7 +170,7 @@ def run_flow(flow: str, ens: dict, art: dict, args, seed: int) -> dict:
     ready_10 = vr1.sec <= 2 * 10 + judge_sec
     pick_calls: list = []
     t0 = time.monotonic()
-    nxt3 = FE.choose_next(pool, vr1, asked, picker=args.picker, seed=seed, calls=pick_calls)
+    nxt3 = FE.choose_next(pool, vr1, asked, picker=args.picker, seed=seed, calls=pick_calls, pick_wait=0)
     pick3 = time.monotonic() - t0
     out = {"flow": flow, "turns": turns, "voice1": _vr_dict(vr1), "ready_30": ready_30, "ready_10": ready_10,
            "pick3_sec": round(pick3, 2), "q3": _brief(nxt3), "pick_calls": [c.to_dict() for c in pick_calls]}
@@ -185,7 +185,7 @@ def run_flow(flow: str, ens: dict, art: dict, args, seed: int) -> dict:
         vr2 = FE.voice_round(pool, art["concept_graph"], art["slide_doc"], art.get("transcript"),
                              alignment=art.get("alignment_doc"), asked=asked, claims=art.get("claims"), models=args.models)
         t0 = time.monotonic()
-        nxt4 = FE.choose_next(pool, vr2, asked, picker=args.picker, seed=seed + 1, calls=pick_calls)
+        nxt4 = FE.choose_next(pool, vr2, asked, picker=args.picker, seed=seed + 1, calls=pick_calls, pick_wait=0)
         out.update({"voice2": _vr_dict(vr2), "ready4_30": vr2.sec <= 30 + v3.get("sec", 0),
                     "pick4_sec": round(time.monotonic() - t0, 2), "q4": _brief(nxt4)})
     out["flow_sec"] = round(time.monotonic() - t_flow, 2)

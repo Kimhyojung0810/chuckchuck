@@ -379,14 +379,25 @@ def tidy(c: dict) -> dict:
 
 _LINE_ID_PAREN_RE = re.compile(r"\s*[(（\[]\s*S\d{1,3}\.\d{1,3}(?:\s*[~,·–-]\s*S?\d{1,3}(?:\.\d{1,3})?)*\s*[)）\]]")
 _LINE_ID_HEAD_RE = re.compile(r"(?<![A-Za-z0-9])S\d{1,3}\.\d{1,3}(?:\s*[~–-]\s*S?\d{1,3}\.\d{1,3})?\s*(?:의|에서|에|은|는|을|를)?\s*")
+#: 줄 번호가 주어 · 짝 자리(「S8.19가 말하는 …」「S3.2와 S4.1을 …」)에 선 꼴 — 떼면 조사만 남는다(「가 말하는 …」, 10-17 버그 사냥: 3번 질문으로
+#: 그대로 나갔다). 그 장(「자료 8장이」)으로 바꿔 쓴다. 조사는 「장」 의 받침에 맞춘다.
+_LINE_ID_SUBJ_RE = re.compile(r"(?<![A-Za-z0-9])S(\d{1,3})\.\d{1,3}(?:\s*[~–-]\s*S?\d{1,3}\.\d{1,3})?(이|가|와|과|으로|로|도|만|까지)(?![가-힣])")
+_JANG_JOSA = {"가": "이", "와": "과", "로": "으로"}
 
 
 def _strip_line_ids(text: str) -> str:
     """프롬프트 줄 번호(「(S3.2)」「S3.4의 차트에서」)를 문장에서 뗀다 — 근거 표시일 뿐 발표자는 모르는 표기다(10-17 dev2: 후보 39·음성 51개가
-    이것 하나로 버려졌다). 근거 줄은 lines 칸이 따로 든다. 떼고 나서도 남으면 거르기가 버린다(line_id_leak)."""
+    이것 하나로 버려졌다). 근거 줄은 lines 칸이 따로 든다. 떼고 나서도 남으면 거르기가 버린다(line_id_leak).
+    주어 · 짝 자리의 번호(「S8.19가」)는 떼면 조사만 남으므로 「자료 8장이」 로 바꾼다."""
     t = _LINE_ID_PAREN_RE.sub("", text or "")
+    t = _LINE_ID_SUBJ_RE.sub(lambda m: f"자료 {int(m.group(1))}장{_JANG_JOSA.get(m.group(2), m.group(2))}", t)
     t = _LINE_ID_HEAD_RE.sub("", t)
+    t = _DANGLING_HEAD_RE.sub("", t)
     return re.sub(r"\s{2,}", " ", t).strip()
+
+
+#: 떼고 난 문장 맨 앞에 남은 조사 — 모델이 줄 번호 말고 다른 표기(「[S8]가」)를 썼을 때의 안전망
+_DANGLING_HEAD_RE = re.compile(r"^(?:가|이|은|는|을|를|의|와|과)\s+")
 
 
 #: 질문 문장(맥락 문장 뒤 마지막 문장) 길이 — 시장조사 §5-1 B3: 「맥락 한 문장 + 질문 한 문장, 질문 25~70자」 (dev3: 76% 만 지켰다)
@@ -708,8 +719,14 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
     return VoiceRound(signals, kept, dropped, calls, round(time.monotonic() - t0, 2))
 
 
+#: 최종 선택(3번+)을 기다리는 상한 — 화면의 다음 질문 요청 상한(6초)보다 넉넉히 짧게. 0 이면 끝까지 기다린다(벤치).
+PICK_WAIT_SEC = float(os.environ.get("QA_ENS_PICK_WAIT_SEC", "3.5"))
+_PICK_EXEC = ThreadPoolExecutor(max_workers=4, thread_name_prefix="ens-pick")
+
+
 def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker: str | None = None,
-                llm: LLMProvider | None = None, seed: int = 0, calls: list | None = None) -> dict:
+                llm: LLMProvider | None = None, seed: int = 0, calls: list | None = None,
+                pick_wait: float | None = None) -> dict:
     """
     다음 질문 하나. 음성 후보가 있으면 그 후보 + 묶음의 남은 상위 2개를 최종 선택 모델이 고른다(이유 한 줄).
     음성 후보가 없거나 선택이 실패하면 묶음의 남은 1등(「묶음에서 대신 냄」, substituted=True).
@@ -725,12 +742,30 @@ def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker:
         return {**rest[0], "substituted": True, "pick_reason": "음성 후보가 아직 없어 묶음에서 냈어요"} if rest else {}
     options = voice + rest[:2]
     calls = calls if calls is not None else []
-    with _ai_calllog.feature_scope("F-08-pick"):
-        got = ens_pick(picker or picker_name(), llm or make_llm(picker or picker_name()), options, asked, calls, seed)
+    name = picker or picker_name()
+
+    def run_pick() -> dict:
+        with _ai_calllog.feature_scope("F-08-pick"):
+            return ens_pick(name, llm or make_llm(name), options, asked, calls, seed)
+
+    # 최종 선택은 상한 안에서만 기다린다 — 화면은 다음 질문 요청을 6초(ENSEMBLE_NEXT_TIMEOUT_MS)만 기다리고 준비한 질문으로 간다.
+    # 10-17 버그 사냥: 선택 모델이 21.6초 · 44초 걸린 판이 있었다 — 화면은 준비한 질문을 냈는데 서버는 늦게 고른 질문을 판(리포트)에
+    # 「이번에 물은 질문」 으로 남겼다. 늦으면 음성 후보 1등을 낸다(선택은 뒤에서 마저 끝나도 쓰지 않는다).
+    wait = PICK_WAIT_SEC if pick_wait is None else pick_wait
+    if wait and wait > 0:
+        fut = _PICK_EXEC.submit(_ai_calllog.carry(run_pick, "F-08-pick"))
+        try:
+            got = fut.result(timeout=wait)
+        except Exception as e:  # noqa: BLE001 — 늦음 · 실패 모두 1등으로
+            sys.stderr.write(f"[f08-ens] 최종 선택 {wait:.1f}초 안에 안 옴 — 음성 후보 1등으로: {type(e).__name__}\n")
+            got = {"late": True}
+    else:
+        got = run_pick()
     c = next((o for o in options if o["uid"] == got.get("uid")), None)
     if c is None:
         c = max(voice, key=lambda o: o.get("peer", 0))
-        return {**c, "substituted": False, "pick_reason": "선택 모델이 답하지 않아 첫 음성 후보를 냈어요", "pick_failed": True}
+        why = "선택 모델이 늦어 음성 후보 1등을 냈어요" if got.get("late") else "선택 모델이 답하지 않아 첫 음성 후보를 냈어요"
+        return {**c, "substituted": False, "pick_reason": why, "pick_failed": True}
     return {**c, "substituted": False, "pick_reason": got.get("reason", "")}
 
 
