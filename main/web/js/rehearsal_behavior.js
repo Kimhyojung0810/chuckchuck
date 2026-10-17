@@ -31,6 +31,7 @@ function rhBehVisionVideo() {
 /** vision_rehearsal.js nfStep3Vision 이 리허설 탭에서 부른다 — 녹음이 켜지면 기록을 시작하는 작은 시계(0.4초). 층이 사라지면 스스로 멈춘다 */
 function rhBehaviorVisionMount() {
   if (!rhBehOn()) return;
+  if (window.BehaviorCue) window.BehaviorCue.mount();   // 발표 중 자세 알림 (js/behavior_cue.js) — 위 띠 스위치 · 알림 알약
   if (window.BehaviorCV.status() === 'idle') window.BehaviorCV.load();   // 녹음 전에 받아 둔다 (워커 안 · 화면은 안 언다)
   if (rhBeh.timer) return;
   rhBeh.timer = setInterval(() => {
@@ -75,11 +76,14 @@ function rhBehPrev(view) {
 /** app.js finishRecAndPrepare 가 녹음을 닫기 전에 부른다. 리허설 탭이 아니면 아무것도 안 한다 */
 function rhBehaviorFinishPresent() {
   if (!rhBehOn() || typeof nf === 'undefined' || !nf) return;
+  // 이번 테이크에 뜬 자세 알림 — 이 탭에만 둔다(BehaviorSummary 계약은 모르는 키를 버린다). 리포트가 읽을 자리: nf.behavior.present.liveCues
+  const liveCues = window.BehaviorCue ? window.BehaviorCue.take() : null;
   try {
     const view = window.BehaviorCV.finish('present', { why: rhBehWhyNone() })
       || window.BehaviorCvLogic.none(rhBehWhyNone() || '카메라 분석을 하지 못했어요');
     if (!view.summary) view.summary = window.BehaviorCvLogic.summaryOf(view);
     rhBehPrev(view);
+    if (liveCues) view.liveCues = liveCues;
     nf.behavior = { present: view, qa: null };
   } catch (err) {
     console.warn('[chuckchuck] 발표 태도 요약', err);
@@ -93,6 +97,7 @@ function rhBehaviorFinishPresent() {
 function rhBehaviorDiscardPresent(why) {
   if (!rhBehOn() || typeof nf === 'undefined' || !nf) return;
   window.BehaviorCV.discard('present');
+  if (window.BehaviorCue) window.BehaviorCue.reset();
   rhBeh.presentOn = false;
   nf.behavior = { present: window.BehaviorCvLogic.none(why || '녹음 파일로 발표를 대신해서 카메라 분석은 없어요'), qa: null };
   nf.behavior.present.summary = window.BehaviorCvLogic.summaryOf(nf.behavior.present);
@@ -102,6 +107,7 @@ function rhBehaviorDiscardPresent(why) {
 /** 다시 발표(app.js discardTakeKeepDeck) — 지난 테이크의 태도를 버린다 */
 function rhBehaviorReset() {
   if (window.BehaviorCV) window.BehaviorCV.discard('');
+  if (window.BehaviorCue) window.BehaviorCue.reset();
   rhBeh.presentOn = false; rhBeh.qaOn = false;
   if (typeof nf !== 'undefined' && nf) nf.behavior = null;
 }

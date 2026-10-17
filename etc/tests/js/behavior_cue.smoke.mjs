@@ -93,6 +93,12 @@ test('아래를 9초 — 「고개를 들고 말해 봐요」', () => {
   ok(cues[0].s >= 16 && cues[0].s <= 17, `알린 때 ${cues[0].s}초 (아래는 8초부터)`);
 });
 
+test('숙인 동안 얼굴을 잠깐 놓쳐도(머리 추적이 6초에 끊김) 아래로 이어 센다 — 실험실 c01 모양', () => {
+  const cues = play(script([[8, front], [6.5, down], [0.8, (t) => lost(t)], [1, lost], [3, down], [6, front]]));
+  eq(types(cues), 'down', '아래 6.5 · 놓침 1.8 · 아래 3');
+  eq(types(play(script([[8, front], [4, down], [8, lost], [6, front]]))), 'frame', '숙였다가 자리를 떠나면 아래가 아니라 화면 밖');
+});
+
 test('20초 간격 — 10초 사이 두 번 옆을 보면 첫 번째만, 25초 뒤 세 번째는 다시', () => {
   const cues = play(script([[6, front], [5, side], [5, front], [5, side], [20, front], [5, side], [5, front]]));
   eq(types(cues), 'away,away', '첫째 · 셋째');
@@ -109,6 +115,19 @@ test('목소리 반응이 떠 있으면 미룬다 — 걷히고 자세가 이어
   eq(types(cues), 'away', '미룬 뒤');
   ok(cues[0].s >= 14, `목소리가 걷힌 14초 뒤에 (${cues[0].s}초)`);
   eq(types(play(script([[6, front], [5, side], [6, front]]), { voice: () => true })), '', '목소리가 계속이면 안 알림');
+});
+
+test('목소리 말풍선 — 새로 뜨거나 바뀌면 3초 미루고, 같은 말풍선이 오래 떠 있으면 막지 않는다', () => {
+  let g = { text: '', at: -Infinity };
+  const at = (text, now) => { const r = C.voiceGate(g, text, now); g = r.g; return r; };
+  const a = at('하암~', 1000);
+  ok(a.busy && a.fresh, '막 떴다 — 미루고 떠 있던 자세 알림은 걷는다');
+  ok(at('하암~', 3500).busy && !at('하암~', 3600).fresh, '3초 안 — 아직 미룸 · 새로 뜬 건 아님');
+  ok(!at('하암~', 4200).busy, '3초 지나 같은 말풍선 — 막지 않는다');
+  const b = at('잘 안 들려', 9000);
+  ok(b.busy && b.fresh, '다른 반응으로 바뀜 — 다시 미룸');
+  ok(at('', 12500).busy, '사라진 직후 1.5초 — 미룸');
+  ok(!at('', 14100).busy, '사라지고 1.5초 지나면 — 됨');
 });
 
 test('끄면 아무것도 안 알린다', () => {

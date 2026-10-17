@@ -4,7 +4,8 @@
  *
  * 원칙 (계획 2026-10-17 §1 · 바퀴 4):
  *  - 관찰만 · 감정 낱말 없음 · 「많을수록 좋다」 없음. 손짓은 알리지 않는다(묘사 손짓과 만지작거림을 못 가른다 — 근거조사 §1-6).
- *  - 드물게: 알림은 20초에 하나, 2.5초 뒤 사라짐, 같은 자세가 끝나기 전엔 다시 안 알림, 삐약이 목소리 반응이 떠 있으면 미룬다.
+ *  - 드물게: 알림은 20초에 하나, 2.5초 뒤 사라짐, 같은 자세가 끝나기 전엔 다시 안 알림, 삐약이 목소리 반응이 막 뜨거나 바뀌었으면 미룬다
+ *    (그 반대로 목소리 반응이 새로 뜨면 떠 있던 자세 알림을 걷는다 — 한꺼번에 둘이 눈을 끌지 않게).
  *    즉시 피드백 도구(Presentation Trainer · Schneider 외 2015)가 여러 피드백을 한꺼번에 띄우지 않고 하나씩 보여 준 것과 같은 쪽 — 세부 문턱은 공개된 것이 없다(근거조사 §1-8).
  *  - 「화면 쪽」: Haar 는 카메라와 노트북 화면(자료)을 가르지 못한다 — 눈 맞춤이라고 부르지 않는다.
  *  - 「아래」 는 다른 곳과 따로 센다: 대본 · 자료를 잠깐 보는 건 자연스럽다 — 8초 넘게 이어질 때만.
@@ -21,6 +22,7 @@
     awayMs: 4000,       // 화면 쪽이 아닌 「다른 곳」(옆 · 방향 모름)이 이만큼 이어지면 — 리포트(3초)보다 느긋하게. 실시간은 드물어야 한다.
                         // 엔진은 이탈을 실제보다 0.1~0.7초 짧게 잰다(실험실 s03: 5.0 · 4.3 · 4.1초 → 4.9 · 4.0 · 3.4초) — 4초 ≈ 실제 4.3~4.7초
     downMs: 8000,       // 아래를 본 채 이만큼 — 대본 한두 줄 읽는 건(1~5초, 실험실 s04) 알리지 않는다
+    downShare: 0.7,     // 정면이 아닌 채 이어진 구간 중 「아래」 가 이 몫 넘을 때만 아래로 센다 (나머지는 숙인 동안 얼굴을 놓친 시간)
     swayMs: 8000,       // 흔들리는 중(아래 conditions)이 이만큼 이어지면 — 짧은 창이 부푸는 몫(최대 ≈ 2~3초)을 더해 실제로 ≈ 10초 흔들림.
                         // 8초 창만 이었을 때는 7초 흔들림을 멎고 2.6초 뒤에 알렸다 (실험실 d6 · d9 · s06, 엔진 줄 다시 돌리기)
     swayShortMs: 4000,  // 「아직 흔들리는 중」 을 보는 짧은 창 · 걸음 — 0.3~0.45Hz 의 아주 느린 흔들림은 4초 창이 못 본다(알림 없음 쪽으로 틀림)
@@ -32,7 +34,11 @@
     gapMs: 20000,       // 알림 사이 최소 간격 (모든 종류 합쳐서)
     showMs: 2500,       // 보이는 시간
     bufMs: 24000,       // 판단에 넘기는 최근 줄 — 흔들림 창(8초) 여럿 + 아래 8초가 들어가게
-    voiceQuietMs: 1500, // 삐약이 목소리 반응이 사라진 뒤 이만큼은 더 기다린다 (겹쳐 보이지 않게)
+    voiceFreshMs: 3000, // 삐약이 목소리 반응(말풍선)이 새로 뜨거나 바뀐 뒤 이만큼은 자세 알림을 미룬다 — 둘이 한꺼번에 눈을 끌지 않게
+    cutMs: 1200,        // 목소리 말풍선에 이만큼도 못 보이고 걷힌 알림은 안 본 것으로 — 「한 번만」 · 「같은 자세 한 번」 표시는 되돌린다(다시 뜰 수 있게).
+                        // 20초 간격은 그대로 센다 — 간격까지 되돌렸더니 같은 알림이 4~6초마다 세 번 깜박였다 (실험실 d7, 녹음 첫 몇 초에 「하암~」 · 「잘 안 들려」)
+    voiceQuietMs: 1500, // 말풍선이 사라진 뒤에도 이만큼은 더 기다린다
+                        // 같은 말풍선이 오래 떠 있는 것(느린 말에 「하암~」 이 수십 초)은 막지 않는다 — 막으면 자세 알림이 아예 안 떴다(실험실 c01: 말풍선이 표본 92%)
   };
 
   /** 해요체 · 짧게 · 할 행동으로 (CLAUDE.md §3-1). 감정 · 평가 낱말 없음 */
@@ -64,6 +70,16 @@
     return last.t + last.dt - start;
   }
 
+  /** tailRun 과 같되 그 구간 안 상태별 시간도 — { ms, by: { down: ms, … } } */
+  function tailSpan(seq, pred) {
+    const by = {};
+    if (!seq.length || !pred(seq[seq.length - 1])) return { ms: 0, by };
+    const last = seq[seq.length - 1];
+    let start = last.t;
+    for (let i = seq.length - 1; i >= 0 && pred(seq[i]); i -= 1) { start = seq[i].t; by[seq[i].state] = (by[seq[i].state] || 0) + seq[i].dt; }
+    return { ms: last.t + last.dt - start, by };
+  }
+
   /** 맨 끝 흔들림 창부터 이어 켜진 창들의 폭(ms). 끝 창이 꺼졌거나 지금과 멀면 0 */
   function swayRun(wins, tEnd, cfg) {
     if (!wins.length) return 0;
@@ -89,7 +105,10 @@
     const recent = list.filter((r) => r.t >= tEnd - cfg.bufMs);
     const seq = logic.states(recent);
     const away = tailRun(seq, (x) => AWAY_STATES.has(x.state));
-    const down = tailRun(seq, (x) => x.state === 'down');
+    // 아래 — 고개를 숙이면 정면 Haar 가 얼굴을 놓치고 머리 추적(CamShift)도 6초에 끊겨 「아래」 가 6.5초에서 끊기고 놓침 · 다른 곳이 섞인다
+    // (실험실 c01: 11초 숙임 → 아래 6.5 · 다른 곳 0.8 · 없음 1.0 · 아래 2.7초). 그래서 정면이 아닌 채 이어진 구간 중 아래가 대부분이면 그 길이로 센다
+    const bent = tailSpan(seq, (x) => x.state !== 'front' && x.state !== 'face');
+    const down = bent.ms && (bent.by.down || 0) / bent.ms >= cfg.downShare ? bent.ms : 0;
     const none = tailRun(seq, (x) => x.state === 'none');
     // 흔들림 — 엔진의 8초 창(대역 몫 · 순도 규칙까지)이 지금 켜져 있고, 짧은 4초 창(1초 걸음)이 끊김 없이 켜진 폭이 얼마나 되나.
     // 8초 창만 이으면 센 흔들림은 4초만 흔들어도 창 다섯이 켜져(창 하나에 2초만 들어도 켜짐) 16초로 셌고, 멎은 뒤 몇 초까지 켜져 있었다
@@ -152,7 +171,19 @@
     return { meter: m, cue };
   }
 
-  const api = { CUE, COPY, SETUP, POSTURE, ORDER, createMeter, tailRun, swayRun, conditions, decide };
+  /**
+   * 목소리 반응과 겹치지 않게 — 말풍선 글자(text, 안 보이면 '')를 0.1초마다 넣는다.
+   * 돌려주는 것: { g(새 상태), busy(지금 자세 알림을 미룰까), fresh(말풍선이 방금 새로 떴나 — 떠 있던 자세 알림을 걷는다) }
+   */
+  function voiceGate(g, text, now, cfg = CUE) {
+    const t = text || '';
+    const changed = t !== g.text;
+    const at = changed ? now : g.at;
+    const busy = t ? now - at < cfg.voiceFreshMs : now - at < cfg.voiceQuietMs;
+    return { g: { text: t, at }, busy, fresh: changed && !!t };
+  }
+
+  const api = { CUE, COPY, SETUP, POSTURE, ORDER, createMeter, tailRun, tailSpan, swayRun, conditions, decide, voiceGate };
 
   /* ─── 화면 (브라우저에서만) ──────────────────────────────────────────────── */
   if (root.document) {
@@ -160,7 +191,7 @@
     const POLL_MS = 120;      // 엔진이 줄을 0.2~0.33초마다 낸다 — 그보다 자주 엿봐야 줄을 안 놓친다
     const EVAL_MS = 500;
     const ui = { timer: 0, rows: [], lastT: null, lastN: 0, meter: createMeter(), t0: null, lastEval: 0,
-      hideTimer: 0, showing: null, voiceSeenAt: -Infinity, list: [] };
+      hideTimer: 0, showing: null, shownAt: 0, before: null, voice: { text: '', at: -Infinity }, voiceBusy: false, list: [] };
 
     const prefOn = () => { try { return root.localStorage.getItem(PREF_KEY) !== '0'; } catch (_) { return true; } };
     const prefSet = (on) => { try { root.localStorage.setItem(PREF_KEY, on ? '1' : '0'); } catch (_) { /* 사생활 모드 — 이번 화면만 */ } };
@@ -179,10 +210,10 @@
     function paintSwitch() {
       const b = switchEl();
       if (!b) return;
-      b.setAttribute('aria-checked', String(enabled));
-      const s = b.querySelector('.vr-bc-state');
-      if (s) s.textContent = enabled ? '켜짐' : '꺼짐';
-      b.hidden = recording();   // 시작 전에만 — 발표 중엔 위 띠를 비운다
+      // 0.12초마다 불리므로 값이 다를 때만 쓴다 (vision_rehearsal.js visionSetIf 와 같은 까닭)
+      if (b.getAttribute('aria-checked') !== String(enabled)) b.setAttribute('aria-checked', String(enabled));
+      const live = recording();   // 시작 전에만 — 발표 중엔 위 띠를 비운다
+      if (b.hidden !== live) b.hidden = live;
     }
 
     function ensureDom(layer) {
@@ -203,7 +234,7 @@
         b.id = 'vrBcueSwitch';
         b.setAttribute('role', 'switch');
         b.title = '발표하는 동안 오래 이어진 자세를 20초에 한 번까지 짧게 알려 줘요';
-        b.innerHTML = '<span class="vr-bc-label">발표 중 자세 알림</span><span class="vr-bc-state"></span><i class="vr-bc-knob" aria-hidden="true"></i>';
+        b.innerHTML = '<span class="vr-bc-label"><span class="vr-bc-long">발표 중 </span>자세 알림</span><i class="vr-bc-knob" aria-hidden="true"></i>';
         b.addEventListener('click', () => { enabled = !enabled; prefSet(enabled); paintSwitch(); if (!enabled) hide(); });
         const cam = top.querySelector('#vrCamToggle');
         top.insertBefore(b, cam || null);
@@ -229,11 +260,22 @@
       ui.hideTimer = setTimeout(hide, CUE.showMs);
     }
 
-    /** 삐약이 목소리 반응(#vrLine — vision_rehearsal.js visionPaintCue)이 떠 있나, 막 사라졌나 */
-    function voiceBusy(now) {
+    /** 삐약이 목소리 반응(#vrLine — vision_rehearsal.js visionPaintCue)을 엿본다. 말풍선이 새로 뜨면 떠 있던 자세 알림은 걷는다(목소리가 먼저) */
+    function watchVoice(now) {
       const line = document.getElementById('vrLine');
-      if (line && !line.hidden && line.textContent) { ui.voiceSeenAt = now; return true; }
-      return now - ui.voiceSeenAt < CUE.voiceQuietMs;
+      const text = line && !line.hidden ? (line.textContent || '') : '';
+      const r = voiceGate(ui.voice, text, now);
+      ui.voice = r.g;
+      ui.voiceBusy = r.busy;
+      if (r.fresh && ui.showing) {
+        // 목소리가 먼저 — 걷는다. 거의 못 보였으면 「한 번만」 표시를 띄우기 전으로 되돌린다(간격은 그대로)
+        if (now - ui.shownAt < CUE.cutMs && ui.before) {
+          ui.meter = { ...ui.meter, shown: { ...ui.before.shown }, armed: { ...ui.before.armed } };
+          const last = ui.list[ui.list.length - 1];
+          if (last) last.cut = true;
+        }
+        hide();
+      }
     }
 
     function slideNo() { const n = nfRef(); return (n && Number(n.slide)) || 1; }
@@ -247,7 +289,7 @@
       if (!layer) { stop(); return; }
       ensureDom(layer);
       const now = performance.now();
-      if (voiceBusy(now) && ui.showing) hide();   // 목소리 반응이 먼저 — 겹치면 자세 알림을 걷는다
+      watchVoice(now);
       const CV = root.BehaviorCV;
       const L = root.BehaviorCvLogic;
       if (!CV || !L || typeof CV.snapshot !== 'function') return;
@@ -271,10 +313,13 @@
       ui.lastEval = now;
       let r;
       try {
-        r = decide(ui.meter, conditions(ui.rows, L), { enabled, voiceBusy: voiceBusy(now), t0: ui.t0 });
+        r = decide(ui.meter, conditions(ui.rows, L), { enabled, voiceBusy: ui.voiceBusy, t0: ui.t0 });
       } catch (err) { console.warn('[chuckchuck] 자세 알림', err); return; }
+      const before = ui.meter;
       ui.meter = r.meter;
       if (!r.cue) return;
+      ui.before = before;
+      ui.shownAt = now;
       const rec = { type: r.cue.type, text: r.cue.text, t: Math.round(r.cue.t / 100) / 10, sec: recSec(), slide: slideNo() };
       ui.list.push(rec);
       show(r.cue);
@@ -297,7 +342,8 @@
 
     /**
      * 이번 테이크에 뜬 알림을 꺼내고 비운다 — rhBehaviorFinishPresent 가 nf.behavior.present.liveCues 로 둔다(이 탭만, 서버로 안 감:
-     * BehaviorSummary 계약은 모르는 키를 버린다). { on: 켜 두었나, list: [{ type, text, t(기록 시작부터 초), sec(녹음 초), slide }] }
+     * BehaviorSummary 계약은 모르는 키를 버린다). { on: 켜 두었나, list: [{ type, text, t(기록 시작부터 초), sec(녹음 초), slide, cut? }] }
+     * cut: true = 목소리 말풍선에 밀려 1.2초도 못 보이고 걷힌 알림(20초 뒤 다시 뜰 수 있다) — 「몇 번 알렸나」 를 셀 때는 뺀다
      */
     function take() {
       const out = { on: enabled, list: ui.list.slice() };
