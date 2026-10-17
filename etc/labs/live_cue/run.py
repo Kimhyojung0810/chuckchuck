@@ -6,8 +6,13 @@
 삐약이 목소리 반응도 같이 떠서 「겹치지 않는가」 를 본다. 받아쓰기는 rehearsal_flow 의 가짜 WebSocket(__fakeSay). 과금 없음:
 브리지는 mock(MOCK_EXTERNAL_APIS=true)으로 띄운다 — 이 실험은 발표 화면까지만 쓰고 분석 결과는 보지 않는다.
 
-    # 브리지 (mock · 이 worktree 의 main/web)
-    cd main && MOCK_EXTERNAL_APIS=true DEMO_PORT=8851 DEMO_DATA_DIR=/data/models/_runs/live-cue/var/data python -m server.bridge
+    # 준비 — mock 브리지는 시연 덱을 미리 파싱하지 않아서 고르기 화면에 덱이 안 뜬다: 실 브리지가 남긴 파싱본 보관소를 복사해 쓴다.
+    #        덱 녹음(가짜 마이크)은 main/decks/<덱> 이 있어야 한다 — 본 저장소 것을 링크하고, 커밋 전엔 지운다
+    #        (링크가 있으면 etc/tests/test_booth_qa_1006.py 가 덱 녹음을 찾아 다른 길로 가서 깨진다)
+    cp -r /data/models/_runs/behavior-cv/var/data /data/models/_runs/live-cue/var/data
+    ln -s ~/project/chuckchuck/main/decks/배달앱별점인플레이션A main/decks/
+    # 브리지 (mock · 이 worktree 의 main/web · 팀 경로 열기)
+    cd main && MOCK_EXTERNAL_APIS=true DEMO_DEV_ROUTES=1 DEMO_PORT=8851 DEMO_DATA_DIR=/data/models/_runs/live-cue/var/data python -m server.bridge
     # 한 편
     LD_LIBRARY_PATH=$HOME/.local/lib/pwlibs ~/project/chuckchuck/.venv/bin/python etc/labs/live_cue/run.py \
         --clip /data/models/_runs/live-cue/clips/c01_live_cue.y4m --tag c01
