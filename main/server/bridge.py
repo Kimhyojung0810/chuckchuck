@@ -26,7 +26,7 @@ import zipfile
 from collections import deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 DEMO_DIR = ROOT / "main" / "web"
@@ -54,7 +54,8 @@ from pipeline.providers.stt_impl import media_tool  # noqa: E402
 from server.learning_jobs import refresh_learning_assets  # noqa: E402
 from server.rate_limit import RateLimiter  # noqa: E402
 from server import shield  # noqa: E402
-from server import live_stt  # noqa: E402
+from server import live_stt
+from server import qa_spec  # noqa: E402
 from server import tour_events  # noqa: E402
 from server import qa_board  # noqa: E402 — 네 모델 Q&A 후보 판 (4단계 리포트)
 from server.session_archive import SessionArchive, git_sha  # noqa: E402
@@ -1742,6 +1743,16 @@ def standalone_page_for(url_path: str) -> str | None:
     return None
 
 
+_QA_QUERY_RE = re.compile(r"^qa_[a-z_]{2,20}$")
+
+
+def _qa_query(query: str) -> str:
+    """화면 주소를 해시로 돌려보낼 때 Q&A 실험 설정(`qa_turn` · `qa_eot` · `qa_send_ms` … js/qa_turn.js)만 실어 간다 (10-17 tune) —
+    예전엔 쿼리를 버려서 /booth/call?qa_turn=fast 가 기본값으로 열렸다. 값은 짧은 영숫자만."""
+    keep = [(k, v) for k, v in parse_qsl(query or "") if _QA_QUERY_RE.match(k) and re.fullmatch(r"[A-Za-z0-9_.-]{1,12}", v)]
+    return ("?" + urlencode(keep[:8])) if keep else ""
+
+
 def hash_route_for(url_path: str, locate) -> str | None:
     """
     주소창 경로 → 앱 해시 주소(``#/booth/call``). 화면 주소가 아니면 None.
@@ -2258,7 +2269,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             hash_route = hash_route_for(parsed.path, STATIC.locate)
             if hash_route:
                 self.send_response(302)
-                self.send_header("Location", "/index.html" + hash_route)
+                self.send_header("Location", "/index.html" + _qa_query(parsed.query) + hash_route)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return None
@@ -4712,8 +4723,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         memory = self._memory_for(body)
         if memory is None and _memory_failed(_session_id_of(body)):
             degraded.append("memory_failed")
-        try:
-            judgement = judge_answer(
+        avoid = _dialogue_said(run_key(store_sid, qa_run_of(body)) if store_sid else None)
+
+        def run_judge():
+            return judge_answer(
                 question,
                 str(body.get("answer", "") or ""),
                 graph=graph,
@@ -4731,8 +4744,19 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 # 지난 리허설 기억 (F-25) — 지난번에 빠졌던 점이 이번엔 나왔는지 본다. 포기하면 코칭 단계도 이것이 정한다
                 memory=memory,
                 # 세션에서 이미 한 반응 · 꼬리질문 — 꼬리질문 엔진이 되풀이하지 않는다 (2026-10-17 5단계 R9)
-                avoid=_dialogue_said(run_key(store_sid, qa_run_of(body)) if store_sid else None),
+                avoid=avoid,
             )
+        # 미리 판정 (2026-10-17 tune, server/qa_spec.py) — 화면이 말 끝을 짐작한 순간 같은 본문을 speculative 로 보낸다. 판정만 뒤에서
+        # 돌리고 바로 202. 진짜 요청은 같은 열쇠의 판정을 받아 쓰고 기록 · 대화 상태는 그때 남긴다(아래 그대로)
+        spec_key = qa_spec.key(store_sid, qa_run_of(body), question.to_dict(), body.get("answer"), body.get("history"),
+                               prior_answers_from(body), body.get("hints_shown"), bool(body.get("give_up")), llm, avoid,
+                               _session_id_of(body), bool(slidedoc))
+        if body.get("speculative") is True:
+            started = qa_spec.enabled() and qa_spec.start(spec_key, run_judge)
+            return self._json(202, {"speculative": True, "started": bool(started)})
+        spec_hit = qa_spec.take(spec_key) if qa_spec.enabled() else None
+        try:
+            judgement, spec_age = spec_hit if spec_hit is not None else (run_judge(), None)
         except JudgeError as e:
             sys.stderr.write(f"[bridge] F-09 judge failed: {e}\n")
             return self._json(502, {"error": "judge_failed",
@@ -4748,7 +4772,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             f"passed={judgement.passed} stage={judgement.coach_stage!r} 질문={qsrc} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"
-            f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
+            f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}"
+            f"{(f' 미리판정={spec_age}s전') if spec_age is not None else ''}\n"
         )
         # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
         # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
@@ -4756,6 +4781,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         payload = _with_degraded(
             {**client_judgement(question, judgement), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)},
             degraded)
+        if spec_age is not None:
+            payload["speculative_hit"] = spec_age   # 미리 판정을 쓴 응답 — 미리 보낸 뒤 지난 초 (턴 시각 계측)
         # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
         # **서버가 만든 질문으로 채점한 턴만** 남긴다 — 본문 질문으로 채점한 턴은 기준을 믿을 수 없고, 남기면 F-25 기억과
         # 학습 묶음(learning_jobs)으로 흘러가 다음 리허설의 질문·판정 프롬프트에 실린다.

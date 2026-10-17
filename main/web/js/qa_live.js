@@ -1069,6 +1069,31 @@ function liveFirstCue(answer) {
   return pick.length >= LIVE_CUE_MIN ? `「${pick}」라고 했죠. 자료와 맞춰 볼게요` : '';
 }
 
+/**
+ * 미리 판정 (2026-10-17 tune · 음성UX 조사 R3) — 화상판이 말 끝을 짐작한 순간(초읽기 시작 · 종결어미 문장 확정) 지금 답 칸의 글로
+ * **보낼 때와 같은 본문**을 speculative 로 보낸다(브리지 server/qa_spec.py). 판정만 뒤에서 돌고 기록은 진짜 보내기가 남긴다.
+ * 같은 물음 · 같은 답은 한 번만. 더 말해 답이 바뀌면 다시 보낸다(앞의 것은 서버가 버린다).
+ */
+let liveSpecKey = '';
+function liveSpeculate(answer) {
+  const L = qa.live;
+  const text = String(answer || '').trim();
+  if (!L || L.busy || L.retell || L.awaitEnd || !text) return false;
+  const q = L.questions[L.qi];
+  const br = window.ChuckchuckBridge;
+  if (!q || !br || typeof br.prejudgeQaAnswer !== 'function') return false;
+  const key = `${L.sessionId}|${L.qi}|${L.turn || 0}|${text}`;
+  if (liveSpecKey === key) return false;
+  liveSpecKey = key;
+  if (window.QaTurn) window.QaTurn.mark('spec');
+  // submitLiveAnswer 의 judgeQaAnswer 와 **같은 재료** — 서버가 본문 지문으로 짝을 찾는다
+  br.prejudgeQaAnswer(L.sessionId, {
+    questionId: q.id, answer: text, history: liveHistory(), question: q, giveUp: false,
+    priorAnswers: liveScoredAnswers(), hintsShown: liveHintsShown(),
+  });
+  return true;
+}
+
 /** 판정이 5초를 넘으면 무엇을 하는지 말한다 (R4) — 「자료 N장과 맞춰 보고 있어요」. */
 function liveSlowCue(q) {
   const no = (q && (q.evidence_slide_no || (q.slide_nos || [])[0])) || 0;
@@ -1419,6 +1444,7 @@ function startDictationMic() {
         // A.X 는 문장이 끝나야 글을 준다 — interim(확정 전 조각)은 없다. 부스 자동 보내기가 「말이 멈췄나」 를
         // 마지막 글 시각 · 말하는 중(speaking)으로 본다 (booth_call.js bcAutoSend)
         mic.lastTextAt = Date.now(); mic.final = final; mic.speaking = false;
+        if (liveMic === mic && window.QaTurn) window.QaTurn.mark('final');   // 턴 시각 — 문장 확정 (js/qa_turn.js)
         // 멈춘 뒤엔 버린다 — 비운 답 칸을 다시 채워 같은 답이 또 나갈 수 있었다 (사냥 2 #2). 「다 말했어요」로 마지막 문장을 받는 중만 예외
         if (liveMic !== mic && !mic.finishing) return;
         paintLiveAnswer(pen, final);
@@ -1427,6 +1453,8 @@ function startDictationMic() {
       onSpeech: (on) => {
         // 서버가 말소리를 들었다(bos) · 그쳤다(eos) — 글자가 오기 전까지 「듣고 있어요…」 를 보인다. 더 말하면 자동 보내기를 접는다
         mic.speaking = !!on; mic.lastTextAt = Date.now();
+        if (liveMic === mic && window.QaTurn) window.QaTurn.mark(on ? 'speech_on' : 'speech_off');
+        if (liveMic === mic && on && window.QaTurn) window.QaTurn.mark('speech_on_last');
         if (liveMic === mic) paintHearing(!!on);
       },
       onError: (msg, info) => {
@@ -1687,6 +1715,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   // 첫 박자 반응 (R4 — 말 끝 → 0.7초 안): 판정을 기다리는 동안 방금 한 말의 구절을 먼저 받아 준다(LLM 없이). 5초를 넘으면 무엇을 하는지 말한다
   const cue = giveUp ? '' : liveFirstCue(answer);
   if (cue) setCoachThinkingText(cue);
+  if (window.QaTurn) { window.QaTurn.mark('send'); window.QaTurn.mark('ack', { ackCue: !!cue }); }
   const slowCue = typeof setTimeout === 'function' ? setTimeout(() => {
     if (qa.live === L && L.busy) setCoachThinkingText(liveSlowCue(q));
   }, LIVE_SLOW_CUE_MS) : 0;
@@ -1716,6 +1745,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 다음 사람 질문을 닫고 대화에 붙었다 (10-02 버그 사냥 P0-A). 아래의 모든 쓰기(pushTurn · finishLiveQuestion 이 qa.live 를 다시 읽는다)보다 먼저
     if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
+    if (window.QaTurn) window.QaTurn.mark('judged', { specHit: v.speculative_hit != null ? v.speculative_hit : null });
     // 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에 대한 답인가 — 바로 앞 응답이 그 단계였다 (liveRevealsHalf)
     const prevJudgement = L.lastJudgement;
     L.turn += 1;
@@ -1784,6 +1814,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       });
     }
 
+    // 턴 시각 — 다음 말(반응 · 꼬리질문) 첫 글자가 화면에 붙었다. 이 턴을 닫는다 (다음 물음은 화상판이 새로 연다)
+    if (window.QaTurn) { window.QaTurn.mark('next'); window.QaTurn.finish('judged'); }
+
     // 닫는 기준은 **서버의 mastered 하나**다. passed 로 닫으면 요지만 맞힌 72점
     // 답이 곧바로 넘어가 되묻기가 아예 안 돈다 — 그게 이 화면이 밋밋했던 이유다.
     const done = v.mastered === undefined ? v.passed : v.mastered;
@@ -1804,6 +1837,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     }
   } catch (err) {
     if (slowCue) clearTimeout(slowCue);
+    if (window.QaTurn) window.QaTurn.finish('error');
     if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }   // 옛 방문객의 실패도 지금 화면에 안 쓴다 (P0-A)
     hideCoachThinking();
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.

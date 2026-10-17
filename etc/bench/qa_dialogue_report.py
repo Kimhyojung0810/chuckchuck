@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import statistics as st
 import sys
@@ -32,7 +33,7 @@ from pipeline import _ai_calllog  # noqa: E402
 from pipeline import f09_dialogue as DLG  # noqa: E402
 from pipeline._json_text import extract_json_object  # noqa: E402
 
-OUT = Path("/data/models/_runs/qa-dialogue")
+OUT = Path(os.environ.get("QA_DLG_OUT") or "/data/models/_runs/qa-dialogue")   # 실험 폴더 — 에이전트마다 따로 (10-17 tune)
 DEIXIS_RE = re.compile(r"그\s*말|그렇다면|그게|그건|그 점|그 차이|그 조건|그 수치|그 근거|그 논리|그 생각|그 부분|그 연결|그 문장|그 편차|그 이유|그 의견|그 애매")
 
 LJ_SYSTEM = """당신은 발표 Q&A 코칭 품질 심사관이다. 발표자의 답과, 그 답에 대한 심사위원의 반응 · 꼬리질문을 본다. 작성자는 가려져 있다.
