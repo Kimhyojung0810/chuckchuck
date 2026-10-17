@@ -294,3 +294,10 @@ def test_3번_음성_질문의_외운_것_꺼내기는_버리고_수를_맥락�
             "살아 있는 개체의 번식 자체가 줄었다는 주장을 뒷받침하려면 사망률과 번식력을 어떻게 분리해야 하나요?"]
     assert all(FE.recall_ask(q) for q in bad)
     assert not any(FE.recall_ask(q) for q in good)
+
+
+def test_발표_중_후보는_이미_물은_장에서_먼_장부터_판에_올린다():
+    live = [{"uid": f"u{sl}", "model": "solar4", "node_id": f"n{sl}", "slide_no": sl, "question": f"{sl}번 주장의 근거는 결론을 받치나요 {sl}?",
+             "origin": "live"} for sl in (3, 4, 9, 14)]
+    asked = [{"question": "q1", "node_id": "a", "slide_no": 2}, {"question": "q2", "node_id": "b", "slide_no": 3}]
+    assert [o["slide_no"] for o in FE.live_options(live, asked)] == [14, 9, 4]

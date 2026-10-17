@@ -867,29 +867,31 @@ LIVE_OPTIONS = 3
 
 def live_options(live: list[dict], asked: list[dict], limit: int = LIVE_OPTIONS) -> list[dict]:
     """
-    발표 중 후보 중 고르기 판에 올릴 것 — 이미 물은 노드 · 겹치는 문장은 빼고, **아직 안 물은 장**을 먼저, 장마다 하나씩.
-    3번+ 가 발표 앞쪽 장에만 몰리지 않게(뒷장도 고르게) 장 번호가 겹치지 않는 순서로 고른다.
+    발표 중 후보 중 고르기 판에 올릴 것 — 겹치는 문장 · 두 번 물은 노드는 빼고, 장마다 하나(형태 · 모델 순 1등)씩 둔 뒤
+    **이미 물은 장에서 가장 먼 장부터**(먼 점 고르기) 고른다. 3번+ 가 발표 앞쪽에만 몰리지 않게 — 10-17 r1~r3: 발표 중 후보가
+    1~15장에 다 있어도 판에 올리는 셋이 앞 장 순서로 잘려 invest_long 의 11~15장 후보가 한 번도 판에 못 올랐다.
+    안 물은 노드가 물은 노드보다 먼저다(한 번 물은 노드도 발표 신호면 다른 각도라 남긴다).
     """
     asked_nodes = [a.get("node_id") for a in asked]
     asked_q = [a.get("question", "") for a in asked]
-    asked_slides = {int(a.get("slide_no") or 0) for a in asked if a.get("slide_no")}
-    # 이미 물은 노드도 발표 신호(건너뜀 · 흐림)라면 다른 각도라 남긴다 — 음성 후보(answer)와 같은 규칙. 단 두 번 물은 노드는 빼고,
-    # 안 물은 노드를 먼저 (10-17 C1: 핵심 노드 둘을 1·2번이 다 써서 발표 중 후보가 하나도 못 올라갔다)
+    asked_slides = [int(a.get("slide_no") or 0) for a in asked if a.get("slide_no")]
     ok = [c for c in live or [] if asked_nodes.count(c.get("node_id")) < 2
           and all(ES.question_tokens_overlap(c.get("question", ""), q) < DUP_OVERLAP for q in asked_q)]
-    ok.sort(key=lambda c: (c.get("node_id") in asked_nodes, int(c.get("slide_no") or c.get("signal_slide") or 0) in asked_slides,
-                           -form_factor(c), _model_rank(c.get("model", ""))))
+    best: dict[int, dict] = {}
+    for c in sorted(ok, key=lambda c: (c.get("node_id") in asked_nodes, -form_factor(c), _model_rank(c.get("model", "")))):
+        best.setdefault(int(c.get("slide_no") or c.get("signal_slide") or 0), c)
     out: list[dict] = []
-    seen_slides, seen_nodes = set(), set()
-    for c in ok:
-        sl = int(c.get("slide_no") or c.get("signal_slide") or 0)
-        if sl in seen_slides or c.get("node_id") in seen_nodes:
+    taken = list(asked_slides)
+    pool_ = dict(best)
+    while pool_ and len(out) < limit:
+        def gap(sl: int) -> int:
+            return min((abs(sl - t) for t in taken), default=sl)
+        sl = max(pool_, key=lambda x: (pool_[x].get("node_id") not in asked_nodes, gap(x), x))
+        c = pool_.pop(sl)
+        if any(o.get("node_id") == c.get("node_id") for o in out):
             continue
         out.append(c)
-        seen_slides.add(sl)
-        seen_nodes.add(c.get("node_id"))
-        if len(out) >= limit:
-            break
+        taken.append(sl)
     return out
 
 

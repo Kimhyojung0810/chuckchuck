@@ -158,7 +158,14 @@ def _scores(res: dict) -> dict[str, list[dict]]:
         rows = [j["rows"].get(kid) for j in ev["judges"].values() if j["rows"].get(kid)]
         if not rows:
             continue
-        mean = lambda f: statistics.mean([float(r.get(f) or 0) for r in rows if r.get(f) is not None]) if rows else None  # noqa: E731
+        def mean(f):
+            vals = []
+            for r in rows:
+                try:
+                    vals.append(float(r.get(f)))
+                except (TypeError, ValueError):      # 심판이 칸을 깨뜨려 보낸 줄은 뺀다
+                    continue
+            return statistics.mean(vals) if vals else None
         rate = lambda f: sum(1 for r in rows if r.get(f) is True) / len(rows)  # noqa: E731
         out.setdefault(meta["set"], []).append({"core": mean("core"), "micro": rate("micro"), "transplant": rate("transplant"),
                                                 "open_book": rate("open_book"), "summary_ok": ev["summary"]["rows"].get(kid)})
@@ -187,6 +194,8 @@ def report(out_dir: Path) -> int:
             a["live"] += sum(1 for x in rs if x["origin"] == "live")
         for s, items in _scores(r).items():
             for it in items:
+                if it["core"] is None:
+                    continue
                 agg[s]["core"].append(it["core"])
                 agg[s]["micro"].append(it["micro"])
                 agg[s]["transplant"].append(it["transplant"])
@@ -222,7 +231,7 @@ def report(out_dir: Path) -> int:
         for m in ("base", "live"):
             xs = [x for r in rows if r["rep"] == rep for x in r["modes"][m]]
             late = sum(1 for r in rows if r["rep"] == rep for x in r["modes"][m] if x["slide_no"] > r["slides"] * 2 / 3)
-            cores = [it["core"] for r in rows if r["rep"] == rep for it in _scores(r).get(m, [])]
+            cores = [it["core"] for r in rows if r["rep"] == rep for it in _scores(r).get(m, []) if it["core"] is not None]
             line.append(f"{m} 뒷1/3 {late / max(1, len(xs)):.2f} 핵심성 {statistics.mean(cores) if cores else float('nan'):.2f} "
                         f"대신 {sum(1 for x in xs if x['substituted'])} 발표중 {sum(1 for x in xs if x['origin'] == 'live')}")
         print(f"  r{rep}: " + " | ".join(line))
