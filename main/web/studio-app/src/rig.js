@@ -9,6 +9,7 @@ export const rig = {
   hold: false,      // ③ 발표 채점 연출 중 — 앱이 질의응답으로 넘어가도 끝날 때까지(최대 8초) 기다린다 (ui/ScoreBoard)    // 멈춰 있나 — 멈췄을 때만 실제 앱(iframe)을 정면 창에 띄운다
   drag: 0,          // 끌기 중 덧붙이는 칸 수(소수)
   dragging: false,
+  px: 0, py: 0,     // 포인터 자리 −1..1 (화면 가운데 0) — 강연장 시차 (Hall). 앱 창(iframe) 위에서도 Frame 이 채운다
   motion: 0,        // 움직이는 정도 0..1 — 이동 중 줌 아웃 · 멈추면 집중 (10-13 사용자)
   reduced: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
 }

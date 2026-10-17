@@ -148,6 +148,8 @@ export function Hall({ readLevel }) {
   const house = useRef()
   const cove = useRef([])
   const hop = useRef(0)
+  const room = useRef()
+  const look = useMemo(() => ({ x: 0, y: 0, bx: 0, by: 0 }), [])
   const seatGeo = useMemo(seatGeometry, [])
 
   // 부드러운 실내 반사광 — 재질이 납작한 CG 처럼 보이지 않게 (three RoomEnvironment)
@@ -243,7 +245,22 @@ export function Hall({ readLevel }) {
     m.instanceMatrix.needsUpdate = true
   }, [audience])
 
+  // 그림자는 한 번만 — 의자가 자리 잡은 뒤 굽고, 다음부터는 다시 그리지 않는다(유리 패스가 장면을 두 번 그려도 가볍게)
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false
+    const id = setTimeout(() => { gl.shadowMap.needsUpdate = true }, 60)
+    return () => { clearTimeout(id); gl.shadowMap.autoUpdate = true }
+  }, [gl])
+
   useFrame((state, dt) => {
+    // 시선 시차 — 포인터 쪽으로 머리를 살짝 옮긴 것처럼 홀이 반대로 움직인다. 가까운 줄은 많이 · 먼 벽은 적게 → 깊이.
+    // 사람이 일으킨 작은 움직임만(최대 30cm · 부드럽게), 움직임 줄이기를 고르면 가만히
+    const k = rig.reduced ? 0 : 1
+    easing.damp(look, 'x', -rig.px * 0.32 * k, 0.35, dt)
+    easing.damp(look, 'y', rig.py * 0.14 * k, 0.35, dt)
+    if (room.current) room.current.position.set(look.x, look.y, 0)
+    // 홀이 움직였으면 그림자도 다시 굽는다 (그림자 행렬은 구울 때만 갱신된다 — 안 그러면 그림자가 미끄러진다)
+    if (Math.abs(look.x - look.bx) + Math.abs(look.y - look.by) > 0.002) { look.bx = look.x; look.by = look.y; gl.shadowMap.needsUpdate = true }
     const perform = ENV_OF[rig.at] === 1 ? 1 : 0
     easing.damp(hall, 'perform', perform, rig.reduced ? 0.0001 : 0.5, dt)
     const u = chickMat.uniforms
@@ -260,8 +277,8 @@ export function Hall({ readLevel }) {
   })
 
   return (
-    <group>
-      {shell.map(([mat, geo], i) => <mesh key={i} geometry={geo} material={mats[mat]} />)}
+    <group ref={room}>
+      {shell.map(([mat, geo], i) => <mesh key={i} geometry={geo} material={mats[mat]} receiveShadow />)}
       {/* 무대 바닥 · 앞 끝의 얇은 빛줄 */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0.4]} material={mats.stage}>
         <planeGeometry args={[40, 6]} />
@@ -278,9 +295,15 @@ export function Hall({ readLevel }) {
         <cylinderGeometry args={[WALL_R - 0.05, WALL_R - 0.05, 0.05, 160, 1, true, Math.PI - 100 * D2R, 200 * D2R]} />
         <meshBasicMaterial ref={(m) => { cove.current[1] = m }} color="#FFF4E2" toneMapped={false} side={THREE.BackSide} />
       </mesh>
-      <instancedMesh ref={seatMesh} args={[seatGeo, mats.seat, seats.length]} frustumCulled={false} />
+      <instancedMesh ref={seatMesh} args={[seatGeo, mats.seat, seats.length]} frustumCulled={false} castShadow receiveShadow />
       <instancedMesh ref={chickMesh} args={[chickGeo, chickMat, audience.length]} frustumCulled={false} />
-      <directionalLight ref={house} position={[2, 12, 4]} intensity={1.25} color="#FFF8F0" />
+      {/* 홀 조명 — 객석 뒤 오른쪽 위에서. 의자 그림자가 앞줄 바닥으로 떨어져 보인다(입체감). 정적 장면이라 그림자는 한 번만 굽는다 */}
+      <directionalLight ref={house} position={[9, 15, -26]} intensity={0.9} color="#FFF8F0" castShadow
+        shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.03} shadow-radius={5}
+        shadow-camera-left={-24} shadow-camera-right={24} shadow-camera-top={24} shadow-camera-bottom={-24}
+        shadow-camera-near={1} shadow-camera-far={70}>
+        <object3D attach="target" position={[0, -1, -8]} />
+      </directionalLight>
     </group>
   )
 }

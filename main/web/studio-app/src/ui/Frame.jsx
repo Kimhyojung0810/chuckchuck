@@ -159,6 +159,13 @@ export function AppFrame({ rect, onStation, api, onFit }) {
     win.addEventListener('resize', refit)
     win.addEventListener('hashchange', sync)
     doc.addEventListener('keydown', (e) => onKey(e, doc.activeElement, true))
+    // 앱 창 위의 포인터도 강연장 시차에 — iframe 이 이벤트를 삼키므로 창 자리만큼 옮겨 바깥 좌표로
+    doc.addEventListener('pointermove', (e) => {
+      const r = frame.current?.getBoundingClientRect()
+      if (!r) return
+      rig.px = ((r.left + e.clientX * (r.width / win.innerWidth)) / innerWidth) * 2 - 1
+      rig.py = ((r.top + e.clientY * (r.height / win.innerHeight)) / innerHeight) * 2 - 1
+    }, { passive: true })
     stack.current = []
     sync()
   }

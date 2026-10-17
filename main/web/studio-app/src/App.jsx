@@ -60,6 +60,13 @@ export default function App() {
   // 실험실 · 헤드리스용 — 상태를 읽고, 전환 중간 자세로 멈춰 찍는다
   useEffect(() => { window.studioDebug = { rig, go, frame: frameApi } }, [go])
 
+  // 시선 시차 — 마우스가 있는 쪽으로 고개를 살짝 돌린 듯 강연장이 반대로 조금 움직인다 (scene/Hall.jsx). 창은 그대로
+  useEffect(() => {
+    const on = (e) => { rig.px = (e.clientX / innerWidth) * 2 - 1; rig.py = (e.clientY / innerHeight) * 2 - 1 }
+    addEventListener('pointermove', on)
+    return () => removeEventListener('pointermove', on)
+  }, [])
+
   // 키보드 — → · Enter 주 버튼, ← 이전 화면 (SPACE §7). iframe 안에서 누른 키는 Frame 이 같은 규칙으로 받는다
   useEffect(() => {
     const onKey = (e) => frameApi.current?.key(e)
@@ -132,7 +139,7 @@ export default function App() {
 
   return (
     <div className="sx-root ds-root" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-      <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.0 }}
+      <Canvas className="sx-canvas" shadows="soft" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.0 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
         <color attach="background" args={['#EEEAE4']} />
         <Scene stations={stations} at={at} readLevel={readAppLevel} portal={htmlLayer} W={W} H={H} Ls={Ls} />
