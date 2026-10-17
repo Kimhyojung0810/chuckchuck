@@ -1372,6 +1372,7 @@ function rehearsalWaitSync() {
     // 「화상판으로 들어가요」 0.9초 사이에 뒤로 갔다 오면 그 타이머는 rhMount 의 bqClearTimers 로 지워져 rhEntering 이 true 로 남았고,
     // 다시 세운 기다림이 저절로 들어가지도 「질문에 이어서 답하기」 를 띄우지도 않아 「나가기」 만 남았다 (10-08). 새 층은 새로 센다
     bq.rhEntering = false;
+    bq.rhEarly = false;
     rhMount('wait', rhWaitHtml(), { keepApp: true }).dataset.take = take;
     // 화상판에 들어가 본 적이 있으면(화상판에서 뒤로 가기) 저절로 되돌려 보내지 않는다 — 뒤로 가기가 막힌 것처럼 된다. 버튼으로만.
     // 질문이 있다는 것만으로는 아니다 — 들어가기 직전(「화상판으로 들어가요」 0.9초)에 새로고침하거나 기다림에서 뒤로 갔다 오면
@@ -1467,13 +1468,16 @@ function rhWatchCamAlive() {
  */
 let rhPoolPoll = { sid: '', at: 0, busy: false, early: false };
 function rhEarlyQaGraph() {
-  if (typeof nf === 'undefined' || !nf || !nf.sessionId || !nf.pipelineStartedAt) return null;
+  // 기다림 화면에서만 불린다(rhWaitTick) — 녹음은 끝났다. 녹음 중이면(되돌아온 경우) 열지 않는다
+  if (typeof nf === 'undefined' || !nf || !nf.sessionId || nf.mic === 'on') return null;
   const pre = (typeof precompute !== 'undefined' && precompute && typeof precomputeKey === 'function'
     && precompute.key === precomputeKey() && precompute.state) ? precompute.state.graph : null;
   const graph = (nf.pipelineOut && nf.pipelineOut.graph) || pre;
   const bridge = window.ChuckchuckBridge;
   if (!graph || !bridge || typeof bridge.qaPoolStatus !== 'function') return null;
   if (rhPoolPoll.sid !== nf.sessionId) rhPoolPoll = { sid: nf.sessionId, at: 0, busy: false, early: false };
+  // 발표하는 동안 이미 준비됐다고 들었으면(js/qa_listen.js) 서버에 다시 묻지 않는다 — 발표 끝 → 1번 질문의 1~3초가 여기였다
+  if (!rhPoolPoll.early && typeof qaListenPoolEarly === 'function' && qaListenPoolEarly(nf.sessionId)) rhPoolPoll.early = true;
   if (rhPoolPoll.early) return graph;
   if (!rhPoolPoll.busy && Date.now() - rhPoolPoll.at > 1500) {
     rhPoolPoll.busy = true;
@@ -1486,6 +1490,34 @@ function rhEarlyQaGraph() {
   return null;
 }
 
+/**
+ * 발표를 마친 순간(박수 화면 전, app.js finishRecAndPrepare) — 발표 중에 묶음이 준비됐다고 들었으면 바로 질문을 받기 시작한다.
+ * 받는 동안 박수 화면이 돌고, 기다림 화면이 서면 이미 질문이 있다. 시작했으면 true (박수를 짧게).
+ */
+function rhKickEarly() {
+  if (!rehearsalFlowOn() || typeof nf === 'undefined' || !nf || !nf.sessionId) return false;
+  if (typeof qaListenPoolEarly !== 'function' || !qaListenPoolEarly(nf.sessionId)) return false;
+  if (qaLiveActive() || qaBuilding) return false;
+  rhKickQuestions();
+  return !!(qaBuilding || qaLiveActive());
+}
+
+/** 발표 중엔 아직 몰랐다 — 마친 순간 한 번 묻고(1.5초 상한) 준비됐으면 바로 질문을 받는다. 박수 화면과 같이 돈다 */
+async function rhKickEarlyAsync() {
+  const bridge = window.ChuckchuckBridge;
+  if (!rehearsalFlowOn() || typeof nf === 'undefined' || !nf || !nf.sessionId || !bridge || typeof bridge.qaPoolStatus !== 'function') return false;
+  const sid = nf.sessionId;
+  try {
+    const r = await Promise.race([bridge.qaPoolStatus(sid), new Promise((res) => setTimeout(() => res(null), 1500))]);
+    if (!r || !r.early || !nf || nf.sessionId !== sid) return false;
+  } catch (_) { return false; }
+  if (rhPoolPoll.sid !== sid) rhPoolPoll = { sid, at: 0, busy: false, early: false };
+  rhPoolPoll.early = true;
+  if (qaLiveActive() || qaBuilding) return true;
+  rhKickQuestions();
+  return !!(qaBuilding || qaLiveActive());
+}
+
 /** 질문 재료(그래프 · 정합 · 흐름)가 모였으면 질문을 만든다 — 일반 앱 #/qa 와 같은 함수 · 같은 3개 트랙. 묶음이 준비됐으면 그래프만으로(일찍 시작) */
 function rhKickQuestions() {
   if (typeof pipelineQaReady !== 'function') return;
@@ -1495,6 +1527,7 @@ function rhKickQuestions() {
     if (!graph) return;
     if (!(nf.pipelineOut && nf.pipelineOut.graph)) nf.pipelineOut = { ...(nf.pipelineOut || {}), graph };
     if (typeof qaListenEnd === 'function') qaListenEnd();     // 발표의 마지막 장까지 보낸다 — 3번+ 재료
+    bq.rhEarly = true;
     console.info('[chuckchuck] 자료 질문이 준비돼 분석을 기다리지 않고 질문을 시작해요');
   }
   qa.mode = REHEARSAL_QA_TRACK;
@@ -1562,7 +1595,7 @@ function rhWaitTick() {
       bq.rhEntering = false;
       if (document.getElementById('bqSheet')) { rhWaitTick(); return; }   // 그 사이 「나가기」 를 눌렀다 — 「닫기」 하면 그때 들어간다
       if (rhRouteKey() === 'new' && nf.step === 3) location.hash = rhHash('qa');
-    }, 900));
+    }, bq.rhEarly ? 350 : 900));   // 일찍 시작이면 「준비했어요」 는 짧게 — 분석 줄은 뒤에서 계속 돈다
   }
   rhWaitFail(st, qaReady);
 }

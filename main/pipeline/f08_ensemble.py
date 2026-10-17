@@ -612,7 +612,8 @@ def speech_context(speech_of: dict[int, str], deck: "Deck", signals: list[dict])
 
 
 def voice_prompt(signals: list[dict], deck: Deck, asked: list[dict], transcript_text: str, *, task: str = "qa-ensemble-voice") -> str:
-    head = "## 발표 받아쓰기 (장별 요지 + 신호 장 원문)" if digest_on() else "## 발표 받아쓰기 (앞부분)"
+    head = ("## 발표 받아쓰기 (장별 요지 + 신호 장 원문 — 장 번호는 위치 표시일 뿐, 질문 문장에 「N장」 을 쓰지 말고 그 장의 개념 이름으로 가리킨다)"
+            if digest_on() else "## 발표 받아쓰기 (앞부분)")
     parts = [f"[TASK] {task}", "", f"## 발표의 핵심 주장\n{deck.thesis}", "", "## 자료", ES.deck_block(deck.lines, 180),
              "", head, transcript_text[:2600], "", "## 이미 물은 질문과 답"]
     if not asked:
@@ -668,6 +669,15 @@ def _voice_items(data, signals: list[dict], name: str, calls: list) -> list[dict
     return out
 
 
+#: 3번+ 가 발표 앞쪽에만 몰리지 않게 — 고르기 판에 장 표시와 「아직 안 물은 부분」 을 붙이고 기준에 한 줄 (QA_PICK_SPREAD=1 기본)
+PICK_SPREAD_ADDENDUM = """
+⑤ 핵심성이 비슷하면 「아직 안 물은 부분」 표시가 붙은 후보(발표의 다른 부분 — 뒷부분 포함)를 먼저 고른다. 장 번호는 위치 표시일 뿐 고르는 이유가 아니다."""
+
+
+def pick_spread_on() -> bool:
+    return (os.environ.get("QA_PICK_SPREAD") or "1").strip().lower() not in ("0", "false", "off", "no")
+
+
 def ens_pick(name: str, llm: LLMProvider, options: list[dict], asked: list[dict], calls: list, seed: int = 0) -> dict:
     """최종 선택 — 작성자 가림·순서 섞음. {"uid", "reason"} 또는 {} (실패면 호출자가 점수 1등을 낸다)."""
     if not options:
@@ -675,12 +685,20 @@ def ens_pick(name: str, llm: LLMProvider, options: list[dict], asked: list[dict]
     order = options[:]
     random.Random(f"pick:{seed}:{len(asked)}").shuffle(order)
     keyed = [(f"C{i}", c) for i, c in enumerate(order, 1)]
+    spread = pick_spread_on()
+    asked_slides = {int(a.get("slide_no") or 0) for a in asked if a.get("slide_no")}
     lines = ["[TASK] qa-ensemble-pick", "", "## 이미 물은 질문"]
-    lines += [f"- {a.get('question', '')} (판정 {a.get('verdict', '?')})" for a in asked] or ["- (없음)"]
+    lines += [f"- {a.get('question', '')} (판정 {a.get('verdict', '?')})" + (f" [발표 {a['slide_no']}장]" if spread and a.get("slide_no") else "")
+              for a in asked] or ["- (없음)"]
     lines += ["", "## 후보"]
-    lines += [f"{k}: {c['question']}" + (f"  [신호: {c.get('signal_note', '')}]" if c.get("signal_note") else "")
-              for k, c in keyed]
-    data = _complete(llm, "pick", calls, system=PICK_SYSTEM, user="\n".join(lines), temperature=0.0, max_tokens=400)
+    for k, c in keyed:
+        sl = int(c.get("slide_no") or c.get("signal_slide") or 0)
+        tag = ""
+        if spread and sl:
+            tag = f"  [발표 {sl}장{' · 아직 안 물은 부분' if sl not in asked_slides else ''}]"
+        lines.append(f"{k}: {c['question']}" + (f"  [신호: {c.get('signal_note', '')}]" if c.get("signal_note") else "") + tag)
+    system = PICK_SYSTEM + (PICK_SPREAD_ADDENDUM if spread else "")
+    data = _complete(llm, "pick", calls, system=system, user="\n".join(lines), temperature=0.0, max_tokens=400)
     pick = str((data or {}).get("pick", "")).strip()
     c = dict(keyed).get(pick)
     return {"uid": c["uid"], "reason": str(data.get("reason", ""))[:160]} if c else {}
@@ -733,6 +751,10 @@ def live_round(deck: "Deck", signals: list[dict], speech_of: dict[int, str], *, 
     return VoiceRound(signals, kept, dropped, calls, round(time.monotonic() - t0, 2))
 
 
+#: 질문 앞머리의 「6장에서 」 「3장에서는 」 — 장별 요지의 위치 표시가 질문으로 샌 것(10-17 r1: 발표 중 후보 6개 중 4개)
+_SLIDE_REF_RE = re.compile(r"^(?:발표\s*)?\d{1,3}\s*장(?:에서는|에서|의|에)\s*")
+
+
 def _voice_candidates(deck: "Deck", signals: list[dict], speech_of: dict[int, str], asked: list[dict], names: list[str],
                       llms: dict, calls: list, temperature: float, *, live: bool) -> tuple[list, list]:
     text = " ".join(speech_of.get(n, "") for n in sorted(speech_of))
@@ -766,6 +788,8 @@ def _voice_candidates(deck: "Deck", signals: list[dict], speech_of: dict[int, st
                        lines=[sig["deck_line"]] if sig.get("deck_line") else [],
                        partner_label=" ".join(sig.get("neighbors") or []))
         c = tidy({**c, "uid": f"{c['model']}:{c['signal']}:{tag}{i}"})
+        if digest_on():
+            c = {**c, "question": _SLIDE_REF_RE.sub("", c.get("question") or "").strip()}
         ok, why = ES.check_candidate(c, slot, lines_by_id=deck.lines_by_id, idx=deck.idx, deck_tokens=deck.deck_tokens,
                                      sources=deck.sources + [text, spoken], extra_vocab=speech_vocab)
         if any(ES.question_tokens_overlap(c.get("question", ""), a.get("question", "")) >= DUP_OVERLAP for a in asked):

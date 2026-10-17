@@ -82,6 +82,7 @@ def _asked_from(c: dict, q, ans: str, v: dict) -> dict:
 def run_after(mode: str, pool, art: dict, opening_asked: list[dict], live: list[dict], seed: int) -> list[dict]:
     """3·4·5번 — prod 처럼 앞 답 하나 뒤처진 음성 라운드(n번을 고를 땐 n-2번까지의 답) + 고르기."""
     os.environ["QA_ENS_DIGEST"] = "1" if mode == "live" else "0"
+    os.environ["QA_PICK_SPREAD"] = "1" if mode == "live" else "0"
     asked = list(opening_asked)
     out = []
     for n in range(3, 3 + N_AFTER):

@@ -51,7 +51,22 @@ function qaListenReduce(state, ev) {
 
 /* ─── 화면 쪽 (비전 리허설) ──────────────────────────────────────────────────── */
 
-const qaListen = { on: false, sid: '', talk: '', state: null, baseFinal: '' };
+const qaListen = { on: false, sid: '', talk: '', state: null, baseFinal: '', pool: { sid: '', early: false, at: 0 } };
+
+/** 발표하는 동안 1·2번 자료 묶음이 준비됐는지 미리 본다 — 발표를 마치는 순간 기다림 화면이 서버에 다시 묻지 않고 바로 Q&A 를 연다 */
+function qaListenPeekPool() {
+  const bridge = window.ChuckchuckBridge;
+  if (!bridge || typeof bridge.qaPoolStatus !== 'function' || !qaListen.sid) return;
+  if (qaListen.pool.sid === qaListen.sid && (qaListen.pool.early || Date.now() - qaListen.pool.at < 4000)) return;
+  const sid = qaListen.sid;
+  qaListen.pool = { sid, early: false, at: Date.now() };
+  bridge.qaPoolStatus(sid).then((r) => { if (qaListen.pool.sid === sid) qaListen.pool.early = !!(r && r.early); }).catch(() => {});
+}
+
+/** 기다림 화면(js/rehearsal.js)이 묻는다 — 이 세션의 묶음이 발표 중에 준비됐다고 들었나 */
+function qaListenPoolEarly(sessionId) {
+  return !!(sessionId && qaListen.pool.sid === String(sessionId) && qaListen.pool.early);
+}
 
 /** 녹음이 시작된 뒤 처음 받은 확정문 — 이번 발표의 시작. 그 전에 쌓인 확정문(녹음 전 말)은 빼고 센다 */
 function qaListenBegin(sessionId, finalSoFar = '') {
@@ -88,12 +103,15 @@ function qaListenTick(final, slide, recording, sessionId) {
 }
 
 function qaListenTurn(to, from) {
-  if (qaListen.on) qaListenStep({ type: 'turn', from, to });
+  if (!qaListen.on) return;
+  qaListenStep({ type: 'turn', from, to });
+  qaListenPeekPool();
 }
 
 function qaListenEnd() {
   if (!qaListen.on) return;
   qaListenStep({ type: 'end' });
+  qaListenPeekPool();
   qaListen.on = false;          // talk 은 남긴다 — 질문 요청 · 다음 질문이 talk_id 로 이 발표를 찾는다
 }
 

@@ -3145,6 +3145,8 @@ function startSampleWithoutRecording() {
    따르는 박수는 커튼콜이 따로 맡는다. 둘을 합치면 박수가 성적표가 된다. */
 
 const CURTAIN_CALL_MS = 3000;
+/** 리허설에서 질문이 이미 준비됐을 때 박수 화면 — 「발표 끝 → 1번 질문」 3초 안 (10-17 실측: 박수 3.1초가 그 대기의 대부분) */
+const CURTAIN_EARLY_MS = 900;
 
 function curtainCallCopy(slides, durationSec) {
   const sec = Math.max(0, Math.round(Number(durationSec) || 0));
@@ -3155,7 +3157,7 @@ function curtainCallCopy(slides, durationSec) {
 }
 
 /** 3초 뒤(또는 아무 데나 누르면 바로) 해소되는 약속을 돌려준다. */
-function showCurtainCall(slides, durationSec) {
+function showCurtainCall(slides, durationSec, ms = CURTAIN_CALL_MS, ctl = null) {
   // Chatter 가 아직 안 붙었으면 연출을 건너뛴다 — 연출 때문에 흐름이 막히면 안 된다
   if (!window.Chatter) return Promise.resolve();
 
@@ -3184,7 +3186,8 @@ function showCurtainCall(slides, durationSec) {
       resolve();
     };
     veil.addEventListener('click', finish);
-    setTimeout(finish, CURTAIN_CALL_MS);
+    setTimeout(finish, ms);
+    if (ctl) ctl.finish = finish;   // 질문이 준비되면 부르는 쪽이 일찍 걷는다 (rhKickEarly)
   });
 }
 
@@ -3219,7 +3222,14 @@ async function finishRecAndPrepare() {
   // 「발표 중」 시계로 다시 그려지고, 단계 표시줄도 녹음 중인 줄 알고 잠긴다
   nf.mic = 'idle';
   const curtainSec = (ccLastTake && ccLastTake.durationSec) || nf.sec;
-  await showCurtainCall(slides, curtainSec);
+  // 리허설: 1·2번 자료 질문이 준비됐으면 박수 화면 동안 질문을 받아 두고 박수는 짧게 (js/rehearsal.js rhKickEarly · 10-17)
+  const early = typeof rhKickEarly === 'function' && rhKickEarly();
+  const ctl = {};
+  const t0 = Date.now();
+  if (!early && typeof rhKickEarlyAsync === 'function') {
+    rhKickEarlyAsync().then((ok) => { if (ok && ctl.finish) setTimeout(ctl.finish, Math.max(0, CURTAIN_EARLY_MS - (Date.now() - t0))); });
+  }
+  await showCurtainCall(slides, curtainSec, early ? CURTAIN_EARLY_MS : CURTAIN_CALL_MS, ctl);
   nf.step = 3;
   renderNew();
   if (!nf.useSample && !rhFlowOn()) showF11Reveal();

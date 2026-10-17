@@ -28,7 +28,10 @@ KEY_CANDS = "live_cands:"
 #: 한 발표(talk)에서 장 단위 후보를 만드는 라운드 상한 — 20장 발표여도 호출이 장 수 × 모델 수로 불지 않게
 MAX_ROUNDS = int(os.environ.get("QA_LIVE_MAX_ROUNDS", "8"))
 #: 한 라운드에 싣는 신호 상한 (넘는 신호는 다음 라운드)
-SIGS_PER_ROUND = int(os.environ.get("QA_LIVE_SIGS", "3"))
+SIGS_PER_ROUND = int(os.environ.get("QA_LIVE_SIGS", "4"))
+#: 발표 중엔 새 신호가 이만큼 모이면 라운드를 돌린다(장마다 하나씩이면 라운드 상한에 일찍 닿아 뒷장이 빠진다 — r1 invest_long 9장에서 멈춤).
+#: 발표를 마치면(final) 남은 것을 다 돌린다
+MIN_SIGS = int(os.environ.get("QA_LIVE_MIN_SIGS", "2"))
 #: 서버 전체에서 동시에 도는 발표 중 라운드 상한 (부스에서 여러 사람이 동시에 발표해도 429 폭주를 막는다)
 GLOBAL_ROUNDS = int(os.environ.get("QA_LIVE_GLOBAL", "4"))
 #: 쌓는 후보 상한 (판 하나)
@@ -148,7 +151,7 @@ class Listener:
                 al = raw.get("alignment")
                 al = AlignmentDoc.from_dict(al) if isinstance(al, dict) else None
                 sigs = new_signals(t, deck.graph, deck.slides, deck.lines, al)[:SIGS_PER_ROUND]
-                if not sigs:
+                if not sigs or (len(sigs) < MIN_SIGS and not t.final):
                     return done
                 # 고른 신호는 바로 「썼다」 로 — 같은 신호로 두 라운드가 동시에 돌지 않게 (실패하면 아래에서 되돌린다)
                 t.done_sigs = [*t.done_sigs, *(sig_key(s) for s in sigs)]

@@ -161,7 +161,7 @@ def test_발표_중_후보는_발표_단위로_나뉜다_같은_덱_세션의_�
     L = _listener(store, graph, sd, llms)
     sid = "20261017T000000Z_deadbeef"                      # 부스 덱 — 두 사람이 같은 세션
     for n in (1, 2, 3, 4):
-        L.put(sid, "tAAAA1111", slide_no=n, text=SAID[n], closed=True)
+        L.put(sid, "tAAAA1111", slide_no=n, text=SAID[n], closed=True, final=(n == 4))
     a = L.candidates(sid, "tAAAA1111")
     assert a and all(c["origin"] == "live" and c["uid"].split(":")[-1].startswith("lv") for c in a)
     assert L.candidates(sid, "tBBBB2222") == [] and L.speech_of(sid, "tBBBB2222") == {}
@@ -217,7 +217,7 @@ def test_브리지_3번은_내_발표의_후보만_쓰고_남의_발표_후보�
     h._resolve = lambda body, *keys: bridge.Handler._resolve(h, body, *keys)
     for n in (1, 2, 3, 4):                                   # A 만 발표했다 (B 는 같은 덱 세션 · 다른 발표)
         code, body = bridge.Handler._handle_qa_live(h, json.dumps({"session_id": sid, "talk_id": "tAAAA1111", "slide_no": n,
-                                                                    "text": SAID[n], "closed": True}).encode())
+                                                                    "text": SAID[n], "closed": True, "final": n == 4}).encode())
         assert code == 202 and body["live"] is True
     assert L.candidates(sid, "tAAAA1111")
     opening = FE.pick_opening(pool)
@@ -261,3 +261,22 @@ def test_브리지_묶음이_있으면_질문_요청이_지금_방식을_건너�
         assert "ensemble" in checks and any(c.startswith("pattern:P") for c in checks)
         assert "live" not in checks and not any(c.startswith("signal:") for c in checks)
     assert bridge.STORE.get_triage(bridge._RUN_TALK + bridge.run_key(sid, "rAAAA1111")) == "tAAAA1111"
+
+
+def test_음성_후보_질문_앞머리의_장_번호는_뗀다():
+    assert FE._SLIDE_REF_RE.sub("", "6장에서 회전율 구간별 수익률이 왜 줄어드나요?") == "회전율 구간별 수익률이 왜 줄어드나요?"
+    assert FE._SLIDE_REF_RE.sub("", "발표 3장에서는 결론을 왜 그렇게 냈나요?") == "결론을 왜 그렇게 냈나요?"
+    assert FE._SLIDE_REF_RE.sub("", "결론은 왜 그렇게 나왔나요?") == "결론은 왜 그렇게 나왔나요?"
+
+
+def test_고르기_판에_장_표시와_아직_안_물은_부분(monkeypatch):
+    graph, sd, pool, llms = _pool()
+    opts = [{"uid": "a", "question": "가속 조건 한계가 결론을 어디까지 흔드나요?", "slide_no": 4},
+            {"uid": "b", "question": "설계가 결론을 받치나요?", "slide_no": 2}]
+    monkeypatch.setenv("QA_PICK_SPREAD", "1")
+    FE.ens_pick("solar4", llms["solar4"], opts, [{"question": "q", "slide_no": 2, "verdict": "good"}], [])
+    user = [u for u in llms["solar4"].users if "qa-ensemble-pick" in u][-1]
+    assert "[발표 4장 · 아직 안 물은 부분]" in user and "[발표 2장]" in user
+    monkeypatch.setenv("QA_PICK_SPREAD", "0")
+    FE.ens_pick("solar4", llms["solar4"], opts, [], [])
+    assert "발표 4장" not in [u for u in llms["solar4"].users if "qa-ensemble-pick" in u][-1]

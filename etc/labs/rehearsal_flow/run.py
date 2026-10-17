@@ -499,6 +499,19 @@ def run(args) -> Path:
             if args.until == "rehearse":
                 raise _Until()
             R["talk_end_at"] = time.time()
+            # 발표 끝 → 1번 질문 사이를 브라우저 안에서 50ms 마다 기록한다 (어디서 기다리나)
+            page.evaluate("""() => { const t0 = performance.now(); const seen = {}; window.__qaTrace = [];
+              const mark = (k) => { if (!seen[k]) { seen[k] = 1; window.__qaTrace.push([k, Math.round(performance.now() - t0)]); } };
+              const iv = setInterval(() => { try {
+                if (typeof nf !== 'undefined' && nf.mic !== 'on') mark('rec_stopped');
+                if (typeof bq !== 'undefined' && bq.screen === 'wait') mark('wait_screen');
+                if (typeof nf !== 'undefined' && nf.pipelineStartedAt) mark('pipeline_started');
+                if (typeof rhPoolPoll !== 'undefined' && rhPoolPoll.early) mark('pool_early');
+                if (typeof qaBuilding !== 'undefined' && qaBuilding) mark('questions_building');
+                if (typeof qaLiveActive === 'function' && qaLiveActive()) mark('questions_ready');
+                if (location.hash === '#/rehearsal/qa') mark('qa_hash');
+                if (document.querySelector("#bqStage[data-screen='qa'] #stream .msg.q")) { mark('q1_shown'); clearInterval(iv); }
+              } catch (_) {} }, 50); }""")
             page.click("#recEnd")
 
         def finish_with_recording(live: bool) -> None:
@@ -681,7 +694,9 @@ def run(args) -> Path:
             R["first_q_at"] = time.time()
             if R.get("talk_end_at"):
                 R["end_to_q1_sec"] = round(R["first_q_at"] - R["talk_end_at"], 1)
-                print(f"  발표 끝 → 1번 질문 {R['end_to_q1_sec']}s", flush=True)
+                page.wait_for_timeout(200)
+                R["end_trace"] = page.evaluate("window.__qaTrace || []")
+                print(f"  발표 끝 → 1번 질문 {R['end_to_q1_sec']}s · {R['end_trace']}", flush=True)
             page.wait_for_timeout(3000)
             sweep("qa_ask1", settle=1200)
             mark("qa_enter", t0, {"hash": page.evaluate("location.hash"), "flags": page.evaluate(FLAGS_JS),
