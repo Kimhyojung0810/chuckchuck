@@ -282,6 +282,21 @@ test('리포트 카드 — 카메라 분석 없음이면 까닭 한 줄, 리포�
 
 /* 자기검사 — 히스테리시스를 빼면 「한 장짜리 헛잡음」 시험이 깨져야 한다 */
 const DWELL_LINE = 'if (seq[i].t - seq[candStart].t + seq[i].dt >= cfg.minDwellMs) {';
+test('조사 — 낱말 받침을 보고 을/를 · 이/가 · 은/는 · 으로/로 (「아래을」 금지)', () => {
+  eq(L.josa('아래', '을'), '아래를', '아래');
+  eq(L.josa('다른 곳', '을'), '다른 곳을', '다른 곳');
+  eq(L.josa('화면 쪽', '을'), '화면 쪽을', '화면 쪽');
+  eq(L.josa('아래', '이'), '아래가', '이/가');
+  eq(L.josa('화면 쪽', '은'), '화면 쪽은', '은/는');
+  eq(L.josa('아래', '으로'), '아래로', '으로/로 받침 없음');
+  eq(L.josa('다른 곳', '으로'), '다른 곳으로', '으로/로 받침');
+  eq(L.josa('길', '으로'), '길로', 'ㄹ 받침은 로');
+  // 근거 카드 문장 — 아래를 오래 본 이탈 구간
+  const rows = script([[10, front, 1], [5, (t) => front(t, { box: [0.41, 0.2 + 0.1, 0.18, 0.24] }), 2], [10, front, 2], [5, (t) => lost(t), 2], [10, front, 3]]);
+  const all = L.analyze(rows).cards.map((c) => c.observation).join(' / ');
+  ok(!/아래을|다른 곳를|쪽를/.test(all), all);
+});
+
 test('히스테리시스를 빼면 한 장짜리 헛잡음 시험이 깨진다', () => {
   if (!SRC.includes(DWELL_LINE)) throw new Error(`hysteresis 가 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${DWELL_LINE}`);
   const B = loadLogic(SRC.replace(DWELL_LINE, 'if (true) {'));

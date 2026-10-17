@@ -606,6 +606,21 @@
   // 왼쪽 · 오른쪽은 화면에 따로 쓰지 않는다 — 옆얼굴 검출이 약해 대부분 「방향 모름」 이라 가를 수 있는 때가 드물다 (실험실 권고 3). 안의 상태 이름은 실험실 채점용으로 둔다
   const SIDE_WORD = { left: '다른 곳', right: '다른 곳', down: '아래', away: '다른 곳' };
 
+  /**
+   * 조사 붙이기 — 앞 낱말 끝 글자의 받침을 보고 을/를 · 이/가 · 은/는 · 으로/로 · 과/와 중 하나 (「아래을」 같은 틀린 문장 막기).
+   * 받침 ㄹ 뒤 「으로」 는 「로」(「길로」). 한글이 아니면(숫자 · 영문) 받침 없음으로 본다
+   */
+  const JOSA = { 을: ['을', '를'], 를: ['을', '를'], 이: ['이', '가'], 가: ['이', '가'], 은: ['은', '는'], 는: ['은', '는'], 으로: ['으로', '로'], 로: ['으로', '로'], 과: ['과', '와'], 와: ['과', '와'] };
+  function josa(word, p) {
+    const w = String(word || '');
+    const pair = JOSA[p] || [p, p];
+    const c = w.charCodeAt(w.length - 1);
+    if (!(c >= 0xac00 && c <= 0xd7a3)) return w + pair[1];
+    const jong = (c - 0xac00) % 28;
+    if (pair[0] === '으로' && jong === 8) return w + '로';
+    return w + (jong ? pair[0] : pair[1]);
+  }
+
   function mainDir(states) {
     const ms = { 다른곳: 0, 아래: 0 };
     Object.entries(states || {}).forEach(([k, v]) => { if (k === 'down') ms.아래 += v; else if (k !== 'front') ms.다른곳 += v; });
@@ -619,7 +634,7 @@
     const scene = (seg, t, dur) => ({ seg, where: where(seg), sec: sec(t - t0), dur: sec(dur) });
     if (M.lookaway.ok) {
       res.raw.look.slice().sort((a, b) => b.dur - a.dur).slice(0, 3).forEach((r) => {
-        out.push({ kind: 'lookaway', observation: `${where(r.seg) || '발표 중'}에서 ${sec(r.dur)}초 동안 화면 쪽이 아니라 ${mainDir(r.states)}을 향했어요`,
+        out.push({ kind: 'lookaway', observation: `${where(r.seg) || '발표 중'}에서 ${sec(r.dur)}초 동안 화면 쪽이 아니라 ${josa(mainDir(r.states), '을')} 향했어요`,
           value: `${sec(r.dur)}초 · 주로 ${mainDir(r.states)}`, basis: `${cfg.lookAwayMs / 1000}초 넘게 이어지면 짚어요 (설계값 · 검증 전)`,
           scene: scene(r.seg, r.start, r.dur), conf: M.lookaway.conf, tip: WORDS.lookaway.tip });
       });
@@ -844,7 +859,7 @@
     return { v: VERSION, phase, status: 'none', why: String(why || '카메라 분석이 없었어요'), metrics: {}, segs: [], cards: [] };
   }
 
-  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, excludedWhy, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, gateCode, GATE_TEXT, confidence, measure, bySeg, cards, analyze, summaryOf, none, where };
+  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, excludedWhy, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, gateCode, GATE_TEXT, confidence, measure, bySeg, cards, analyze, summaryOf, none, where, josa };
   root.BehaviorCvLogic = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));
