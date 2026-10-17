@@ -1172,6 +1172,9 @@ function liveSwitchTo(how, next, line, extra = {}) {
     const at = L.questions.indexOf(next);
     if (at >= L.qi) L.questions.splice(at, 1);
     L.questions.splice(L.qi, 0, next);
+    // 사용자가 고른 질문이다 — 3번부터의 네 모델 고르기(liveEnsembleAdvance)가 이 자리를 갈아 끼우지 않게 (10-17 버그 사냥:
+    // 2번 이후 「다른 관점 · 반례」 를 고르면 고른 질문 대신 다른 질문이 떴다)
+    L.ensDone = { ...(L.ensDone || {}), [L.qi]: true };
   }
   pushTurn({ who: 'sys', kind: 'switch', how, text: line });
   saveSession('qa-flow', qa);
@@ -1231,7 +1234,7 @@ function liveWarmConceptPool() {
   const bridge = window.ChuckchuckBridge;
   const out = typeof nf !== 'undefined' && nf && nf.pipelineOut;
   if (!bridge || !bridge.buildQuestions || !out || !out.graph || typeof liveQuestionArgs !== 'function') return null;
-  const promise = bridge.buildQuestions(liveQuestionArgs(out, '10'))
+  const promise = bridge.buildQuestions({ ...liveQuestionArgs(out, '10'), newRun: false })
     .then((doc) => {
       const qs = (doc && doc.questions) || [];
       L.conceptPool = typeof attachQuestionPapers === 'function' ? attachQuestionPapers(qs, doc.papers) : qs;
@@ -1824,8 +1827,9 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
  */
 /** 다음 질문 고르기에 보낼 앞 답들 — 서버 색인의 질문 id · 답 · 판정 (CONTRACT §3) */
 function liveEnsembleAsked(L) {
-  return (L.results || []).map((r) => ({ question_id: String(r.id || ''), answer: String(r.answer || '').slice(0, 1200),
-    verdict: r.verdict || '' }));
+  // 문장도 싣는다 — 질문 id(e03-<노드>)는 준비한 3번 · 고른 3번 · 같은 덱을 쓴 남의 판이 같이 쓸 수 있어 서버가 문장으로 고른다 (10-17)
+  return (L.results || []).map((r) => ({ question_id: String(r.id || ''), question: String(r.question || '').slice(0, 400),
+    answer: String(r.answer || '').slice(0, 1200), verdict: r.verdict || '' }));
 }
 
 /** 질문을 낼 때마다 — 지금까지의 답으로 음성 후보 만들기를 뒤에서 시작한다 (기다리지 않는다) */
@@ -1841,7 +1845,9 @@ function liveEnsemblePrefetch(L) {
  * 표시는 작게만 — 「네 모델이 발표를 다시 듣는 중이에요」 (자세한 후보 판은 리포트).
  */
 async function liveEnsembleAdvance(L) {
-  L.ensDone = { ...(L.ensDone || {}), [L.qi]: true };
+  const qi = L.qi;
+  let picked = false;
+  L.ensDone = { ...(L.ensDone || {}), [qi]: true };
   showCoachThinking();
   setCoachThinkingText('네 모델이 발표를 다시 듣는 중이에요');
   try {
@@ -1849,6 +1855,9 @@ async function liveEnsembleAdvance(L) {
     if (!bridge || !bridge.ensembleNextQuestion) throw new Error('bridge 없음');
     const res = await bridge.ensembleNextQuestion(L.sessionId, { asked: liveEnsembleAsked(L) });
     if (qa.live !== L) return;
+    // 기다리는 사이 이 자리 질문이 이미 화면에 떴거나(다른 화면에 갔다 오면 renderQaLive 가 준비한 질문을 띄운다) 건너뛰기 · 다른 주제로
+    // 자리가 옮겨 갔으면 갈아 끼우지 않는다 — 화면엔 준비한 질문, 판정은 늦게 온 질문으로 채점되던 길 (10-17 버그 사냥)
+    if (L.qi !== qi || L.asked === qi) return;
     const nq = res && res.question;
     if (nq && nq.question) {
       const same = (q) => q && (q.id === nq.id || q.question === nq.question);
@@ -1856,6 +1865,7 @@ async function liveEnsembleAdvance(L) {
         const later = L.questions.findIndex((q, i) => i > L.qi && same(q));
         if (later > L.qi) L.questions.splice(later, 1);
         L.questions.splice(L.qi, 1, { ...nq, ensembleBy: res.by || '', ensembleSubstituted: !!res.substituted });
+        picked = true;
       }
     }
   } catch (err) {
@@ -1863,7 +1873,15 @@ async function liveEnsembleAdvance(L) {
   } finally {
     if (qa.live === L) hideCoachThinking();
   }
-  if (qa.live === L) advanceLiveStream();
+  if (qa.live !== L || L.qi !== qi || L.asked === qi) return;
+  if (!picked) liveDropAskedNodes(L);
+  advanceLiveStream();
+}
+
+/** 준비한 질문으로 갈 때 — 앞에서 이미 물은 개념(네 모델이 고른 3번+ 질문이 다룬 것)이면 건너뛴다. 마지막 하나는 남긴다 */
+function liveDropAskedNodes(L) {
+  const asked = new Set(L.questions.slice(0, L.qi).map((q) => q && q.node_id).filter(Boolean));
+  while (L.qi < L.questions.length - 1 && asked.has((L.questions[L.qi] || {}).node_id)) L.questions.splice(L.qi, 1);
 }
 
 function advanceLiveStream() {

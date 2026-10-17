@@ -99,6 +99,7 @@ def round_record(n: int, nxt: dict, vr, pick_calls, sec: float, *, paths_from: l
         "uid": nxt.get("uid", ""),
         "by": nxt.get("model", ""),
         "question": nxt.get("question", ""),
+        "question_id": nxt.get("question_id", ""),   # 세션 질문 id (e03-…) — 판정 받은 질문만 판에 남길 때 맞춘다 (bridge.board_asked_only)
         "node_id": nxt.get("node_id", ""),
         "label": nxt.get("label", ""),
         "pattern": nxt.get("pattern", ""),

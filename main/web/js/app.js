@@ -5111,6 +5111,11 @@ function saveLastReport() {
       // 부스 덱 녹음으로 한 발표면 그 덱 이름 — 저장은 리포트 2.0 갈래보다 먼저라 take 에서 바로 읽는다
       deckAudio: nf.deckAudio || (ccLastTake && ccLastTake._blob && ccLastTake._blob.deckAudio ? String(ccLastTake._blob.deckAudio) : ''),
     };
+    // 같은 판의 리포트를 다시 저장할 때(리포트 새로고침) 받아 둔 후보 판을 지우지 않는다 — 예전엔 판 없이 덮어쓴 뒤 판 요청이 404 면 저장본에서도 사라졌다
+    try {
+      const prev = JSON.parse(localStorage.getItem(LAST_REPORT_KEY) || 'null');
+      if (prev && prev.qaBoard && prev.qa && snap.qa && prev.qa.sessionId === snap.qa.sessionId && (prev.qa.runId || '') === (snap.qa.runId || '')) snap.qaBoard = prev.qaBoard;
+    } catch (_) { /* 옛 저장본을 못 읽으면 판 없이 */ }
     try {
       localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snap));
     } catch (_) {
@@ -5142,7 +5147,7 @@ function rv2QaSnapshot() {
     results: L.results.map((r) => ({ id: r.id, label: r.label, question: r.question, answer: r.answer || '', verdict: r.verdict,
       setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0, trail: r.trail || [] })),
     // 네 모델이 고른 질문이었나 · 그 판을 다시 받을 세션 (리포트 「질문은 이렇게 골랐어요」)
-    ensemble: !!(L.ensemble && L.ensemble.active), sessionId: L.sessionId || '',
+    ensemble: !!(L.ensemble && L.ensemble.active), sessionId: L.sessionId || '', runId: L.runId || '',
   };
 }
 
@@ -5339,14 +5344,17 @@ function loadRv2Files() {
 /* ── 네 모델 Q&A 후보 판 (4단계 리포트 「질문은 이렇게 골랐어요」, docs/qa-ensemble/CONTRACT.md §1) ──
    브리지 세션 메모리에서 받는다(POST /api/v1/qa/board) — 동의와 무관하게 내 리포트에선 보이고, 서버 보관은 동의 세션만(보관소 규칙 그대로).
    다시 열 리포트를 위해 이 브라우저의 마지막 리포트 저장본에만 같이 둔다. LLM 을 부르지 않는다 */
-let rv2BoardMem = { sid: '', board: null };
+let rv2BoardMem = { key: '', board: null };
 /* 판은 Q&A 한 판(qa_run_id) 단위다 — 같은 덱 세션을 나눠 쓴 남의 3번+ 기록이 안 보이게 (CONTRACT §6). 방금 한 판의 값 */
-function rv2QaRun(sid) {
+/* 판 값은 Q&A 상태 · 저장본에 든 것이 먼저, 없으면 이 탭의 지금 판을 **읽기만** 한다 — 예전엔 qaRunId(sid) 를 불러 다른 세션의 리포트를 열면
+   진행 중인 판 값이 새로 갈렸다 (10-17 버그 사냥) */
+function rv2QaRun(sid, run) {
+  if (run) return run;
   const b = window.ChuckchuckBridge;
-  return (b && typeof b.qaRunId === 'function') ? b.qaRunId(sid) : '';
+  return (b && typeof b.qaRunPeek === 'function') ? b.qaRunPeek(sid) : '';
 }
-async function rv2FetchQaBoard(sid) {
-  const res = await fetch('/api/v1/qa/board', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sid, qa_run_id: rv2QaRun(sid) }) });
+async function rv2FetchQaBoard(sid, run) {
+  const res = await fetch('/api/v1/qa/board', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: sid, qa_run_id: rv2QaRun(sid, run) }) });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`qa board ${res.status}`);
   const j = await res.json();
@@ -5390,7 +5398,10 @@ async function renderReportV2(restoredAt) {
   const qaSaved = !qaLive && nf.rv2Qa ? nf.rv2Qa : null;
   const ensOn = !!((qaLive && qaLive.ensemble && qaLive.ensemble.active) || (qaSaved && qaSaved.ensemble));
   const boardSid = (qaLive && qaLive.sessionId) || (qaSaved && qaSaved.sessionId) || '';
-  let board = qaLive ? (rv2BoardMem.sid && rv2BoardMem.sid === boardSid ? rv2BoardMem.board : null) : (nf.rv2Board || null);
+  const boardRun = rv2QaRun(boardSid, (qaLive && qaLive.runId) || (qaSaved && qaSaved.runId) || '');
+  // 메모리 판은 세션 + 판으로 — 같은 탭에서 「다시 하기」 · 같은 부스 덱의 다음 방문객이 앞 판(남의 3번+ 기록)을 받지 않게 (10-17 버그 사냥)
+  const boardKey = boardSid ? `${boardSid}|${boardRun}` : '';
+  let board = qaLive ? (rv2BoardMem.key && rv2BoardMem.key === boardKey ? rv2BoardMem.board : null) : (nf.rv2Board || null);
   const boardMiss = ensOn ? 'missing' : 'single';
   const boardState = board || !(qaLive || qaSaved) ? '' : (boardSid ? 'loading' : boardMiss);
   const input = window.ReportV2.inputFromApp({
@@ -5427,8 +5438,8 @@ async function renderReportV2(restoredAt) {
   // 네 모델이 고른 과정 — 판은 가볍다(LLM 없음). 받으면 얹고, 없으면 까닭(한 모델이 골랐어요 · 기록 없음)을 남긴다
   if (boardState === 'loading') {
     const handle = rv2Handle;
-    rv2FetchQaBoard(boardSid).catch(() => null).then((b) => {
-      if (b) { if (qaLive) rv2BoardMem = { sid: boardSid, board: b }; else nf.rv2Board = b; rv2PersistBoard(b); }
+    rv2FetchQaBoard(boardSid, boardRun).catch(() => null).then((b) => {
+      if (b) { if (qaLive) rv2BoardMem = { key: boardKey, board: b }; else nf.rv2Board = b; rv2PersistBoard(b); }
       if (rv2Handle === handle && app.classList.contains('rv2-host')) rv2Handle.update(b ? { qa_board: b, qa_board_state: '' } : { qa_board_state: boardMiss });
     });
   }
@@ -9033,6 +9044,8 @@ function ensureLiveQuestions() {
       qa.live.notes = typeof liveEntryNotes === 'function' ? liveEntryNotes(doc) : [];
       // 네 모델 Q&A (서버 QA_ENSEMBLE=1) — 3번부터 발표 음성 · 앞 답으로 다음 질문을 고른다 (qa_live liveEnsembleAdvance)
       qa.live.ensemble = (doc && doc.ensemble && doc.ensemble.active) ? { active: true, models: doc.ensemble.models || [] } : null;
+      // 이 판의 구분 값 — 리포트 「질문은 이렇게 골랐어요」 가 다시 열 때(새로고침 · 저장본) 이 값으로 판을 받는다 (10-17 버그 사냥)
+      qa.live.runId = (bridge.qaRunPeek && bridge.qaRunPeek(buildSid)) || '';
       qa.turns = [];
       qa.sub = 'answer';
       qa.ended = false;

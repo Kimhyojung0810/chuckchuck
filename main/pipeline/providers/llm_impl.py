@@ -841,6 +841,14 @@ def get_llm(name: str | None = None, **kwargs) -> LLMProvider:
         backend, secondary = (x.strip() for x in backend.split("+", 1))
     elif not name:
         secondary = (os.environ.get("REASONING_FALLBACK") or "").strip().lower()
+    if "+" in secondary:
+        # 「solar4+solar+ax」 — 예비의 예비. 10-17 버그 사냥: 판정이 solar4+solar 로 둘 다 Upstage 라, Upstage 가 503 이면 판정 · 「모르겠어요」
+        # 가 전부 502 였다(같은 회사 요청 한도 429 도 같이 맞는다). 세 번째로 다른 회사를 둘 수 있게 사슬로 잇는다
+        if backend not in REGISTRY:
+            raise ConceptError(f"모르는 LLM: {backend}. 가능한 값: {', '.join(REGISTRY)}")
+        rest = get_llm(secondary, **kwargs)
+        primary = REGISTRY[backend](**kwargs)
+        return primary if backend == "mock" or rest.name == primary.name else FallbackLLM(primary, rest)
     for key in (backend, secondary):
         if key and key not in REGISTRY:
             raise ConceptError(

@@ -891,7 +891,7 @@ export async function registerSessionArtifacts(sessionId, artifacts) {
 }
 
 /** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
-export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId, prefetch, fresh }) {
+export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId, prefetch, fresh, newRun }) {
   // apiBase() 를 빼면 안 된다 — fetchWithTimeout 은 URL 을 그대로 쓴다.
   // 같은 오리진에서는 멀쩡히 돌지만 프론트/백엔드를 나눠 올리면 404 로 죽는다.
   const res = await fetchWithTimeout(apiBase() + '/api/v1/questions', {
@@ -900,7 +900,8 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
     body: JSON.stringify({
       session_id: sessionId || null,
       // 질문을 새로 받는 때가 곧 Q&A 한 판의 시작이다 — 판 값을 새로 (미리 만들기 prefetch 는 지금 판을 그대로)
-      qa_run_id: qaRunId(sessionId, { fresh: !prefetch }),
+      // newRun=false — 진행 중인 판에서 더 받는 질문(「다른 주제로」 묶음)은 판을 바꾸지 않는다 (10-17: 메뉴만 열어도 판이 갈렸다)
+      qa_run_id: qaRunId(sessionId, { fresh: newRun === undefined ? !prefetch : !!newRun }),
       // 이 판 앞의 발표(비전 리허설이 장마다 보낸 발화 · 음성 후보) — 3번+ 가 이 발표를 찾는다. 발표가 없었으면 빈 값
       talk_id: talkRunId(sessionId) || undefined,
       graph,
@@ -939,7 +940,18 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
  * 세션이 아니라 이 판 단위로 나눈다 — 같은 파일(부스 덱)을 올린 사람끼리 세션이 같아도 기록이 섞이지 않게.
  * 세션이 바뀌면 새로 만든다. 화면이 Q&A 를 새로 시작할 때 fresh=true 로 부른다.
  */
-let qaRun = { sid: null, id: '' };
+/* 판 값은 이 탭의 sessionStorage 에도 둔다 (10-17 버그 사냥) — 메모리에만 두면 Q&A 중 새로고침 · 리포트 새로고침 때 새 값이 생겨
+   서버의 판(앞 답 · 이해 상태 · 이미 한 말 · 3번+ 기록 · 판의 받아쓰기)과 끊기고, 리포트 「질문은 이렇게 골랐어요」 가 404 였다. */
+const QA_RUN_KEY = 'cheokcheok:qa-run';
+const QA_RUN_RE = /^[A-Za-z0-9_-]{4,48}$/;
+function loadQaRun() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(QA_RUN_KEY) || 'null');
+    if (v && typeof v.sid === 'string' && QA_RUN_RE.test(String(v.id || ''))) return { sid: v.sid, id: v.id };
+  } catch (_) { /* 저장소를 못 쓰면 메모리만 */ }
+  return { sid: null, id: '' };
+}
+let qaRun = loadQaRun();
 export function qaRunId(sessionId, { fresh = false } = {}) {
   const sid = sessionId || 'flat';
   if (fresh || qaRun.sid !== sid || !qaRun.id) {
@@ -947,8 +959,14 @@ export function qaRunId(sessionId, { fresh = false } = {}) {
       ? globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 20)
       : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
     qaRun = { sid, id: `r${rnd}` };
+    try { sessionStorage.setItem(QA_RUN_KEY, JSON.stringify(qaRun)); } catch (_) { /* 넘치면 메모리만 */ }
   }
   return qaRun.id;
+}
+/** 지금 판 값을 바꾸지 않고 읽기만 — 그 세션의 판이 없으면 "" (리포트가 다른 세션을 열 때 진행 중인 판을 갈아 끼우지 않게) */
+export function qaRunPeek(sessionId) {
+  const sid = sessionId || 'flat';
+  return qaRun.sid === sid ? qaRun.id : '';
 }
 
 /**
@@ -1056,7 +1074,7 @@ export async function reframeQaQuestion(sessionId, { questionId, question, persp
   const sid = sessionId || 'flat';
   return qaApi(`/api/v1/sessions/${sid}/qa/reframe`, {
     method: 'POST',
-    json: { session_id: sid, question_id: questionId, question: question || null, perspective },
+    json: { session_id: sid, question_id: questionId, question: question || null, perspective, qa_run_id: qaRunId(sid) },
     timeoutMs: JUDGE_TIMEOUT_MS,
   });
 }
@@ -1212,6 +1230,7 @@ window.ChuckchuckBridge = {
   talkRunId,
   qaLiveFeed,
   qaPoolStatus,
+  qaRunPeek,
   suggestContext,
   attachRehearsalRuntime,
   deleteSession,

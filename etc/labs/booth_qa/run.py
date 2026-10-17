@@ -253,7 +253,7 @@ def run(args) -> Path:
             # ── S2 훑어보기 + 질문 준비 ─────────────────────────────────
             t0 = time.time()
             page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
-            page.wait_for_selector("#bqStage #bqSkimCanvas")
+            page.wait_for_selector("#bqStage #bqSkimCanvas:not([hidden]), #bqStage #bqSkimImg:not([hidden])")
             page.wait_for_timeout(4000)
             shot("prep_skim")
             steps_seen = []
@@ -716,7 +716,7 @@ def run_full(args) -> Path:
             mark("pick", t0)
             t0 = time.time()
             page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
-            page.wait_for_selector("#bqStage #bqSkimCanvas")
+            page.wait_for_selector("#bqStage #bqSkimCanvas:not([hidden]), #bqStage #bqSkimImg:not([hidden])")
             while time.time() - t0 < args.prep_timeout:
                 if page.evaluate("!document.getElementById('bqGo').disabled") or page.evaluate("!!document.querySelector('#bqPrepFail .bq-fail')"):
                     break
@@ -897,7 +897,7 @@ def run_reload(args) -> Path:
             page.click("#bqStart")
             page.wait_for_selector("#bqStage .bq-deck", timeout=30000)
             page.click(f'#bqStage .bq-deck[data-deck="{args.deck}"]')
-            page.wait_for_selector("#bqStage #bqSkimCanvas")
+            page.wait_for_selector("#bqStage #bqSkimCanvas:not([hidden]), #bqStage #bqSkimImg:not([hidden])")
             page.wait_for_function("!document.getElementById('bqGo').disabled", timeout=args.prep_timeout * 1000)
             check("prep_ready")
             # 다시 준비해서 질문 화면으로

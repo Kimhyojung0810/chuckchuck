@@ -2051,6 +2051,22 @@ def _clip(text: str) -> str:
     return stripped[: QA_TEXT_MAX - 1].rstrip() + "…"
 
 
+def _why_needed(question: Question) -> str:
+    """
+    되물음 재료가 없을 때의 마지막 되물음 — 「{개념}이 왜 필요했는지부터 떠올려 볼까요?」.
+    10-17 버그 사냥: 앙상블 질문은 힌트가 없고 개념 이름이 **주장 문장**(루트=주장 문장, 10-01)이라 예전 틀이
+    「…따로 표시해야 한다 이 왜 필요했는지부터」 로 나갔다(받침을 안 보고 「 이」 를 띄어 붙였다). 문장 이름은 인용으로 싸고 「이 말이」 로 받는다.
+    """
+    label = (question.label or "").strip()
+    if not label:
+        return "이 개념이 왜 필요했는지부터 떠올려 볼까요?"
+    if len(label) > 24 or _is_claim_sentence(label) or re.search(r"(?:다|요)[.!]?$", label):
+        where = f"자료 {question.evidence_slide_no}장의 " if question.evidence_slide_no else ""
+        shown = label if len(label) <= 110 else label[:109].rstrip() + "…"
+        return f"{where}「{shown}」 — 이 말이 왜 필요했는지부터 떠올려 볼까요?"
+    return f"{label}{josa_of(label, '이', '가')} 왜 필요했는지부터 떠올려 볼까요?"
+
+
 def _where_slide(question: Question) -> str:
     """「자료 N장을」 — 근거 장이 없으면 「자료를」."""
     no = question.evidence_slide_no or (question.slide_nos[0] if question.slide_nos else 0)
@@ -2543,7 +2559,7 @@ def coach_stuck(
         stage = "explain"
     said = "(질문을 못 알아들어 되물었다)" if stage == "clarify" else "(모르겠다고 했다)"
 
-    engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
+    engine = llm if isinstance(llm, LLMProvider) else _judge_timeouts(get_llm(llm, **(llm_kwargs or {})))
     user = "\n".join([
         f"[단계] {stage}",
         _build_user_prompt(
@@ -2767,7 +2783,7 @@ def _narrow_followup(
     if not question.evidence_quote:
         # 인용이 없는 옛 질문 — 선택형을 강제할 재료가 없다. 예전 그대로 LLM 되물음이고,
         # 선택지는 둘 다 왔을 때만 싣는다.
-        fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
+        fallback = _clip(question.hint or _why_needed(question))
         if _PLACEHOLDER_RE.search(followup) or _HONORIFIC_RE.search(followup):
             return fallback, []
         return (followup or fallback), (choices if len(choices) == 2 and followup else [])
@@ -2785,7 +2801,7 @@ def _narrow_followup(
         pair = sorted([answer, distractor])
         text = f"{where} «{question.evidence_quote}» 라고 해요. 이 장이 말하는 건 '{pair[0]}' 쪽인가요, '{pair[1]}' 쪽인가요?"
         return _clip(text), pair
-    fallback = _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?")
+    fallback = _clip(question.hint or _why_needed(question))
     return fallback, []
 
 
@@ -2815,7 +2831,7 @@ def _narrow_hidden(question: Question, graph: ConceptGraph | None, deck_text: st
     if answer and distractor:
         shown = sorted([answer, distractor])
         return _clip(f"{where} 말하는 건 '{shown[0]}' 쪽인가요, '{shown[1]}' 쪽인가요?"), shown
-    return _clip(question.hint or f"{question.label or '이 개념'} 이 왜 필요했는지부터 떠올려 볼까요?"), []
+    return _clip(question.hint or _why_needed(question)), []
 
 
 def _locate_narrow(question: Question, *, hidden: bool = False) -> str:
@@ -2863,6 +2879,35 @@ _AGREE_CLAIM_RE = re.compile(r"일치|안심|정확히\s*(?:말|설명|인용|�
 _CHOICE_ECHO_RE = re.compile(r"['‘][^'’\s]{1,8}['’]")
 
 
+#: 해설 끝에 붙이는 근거 인용의 최소 길이(공백 뺀 글자) — 10-17 버그 사냥: 앙상블 후보가 근거 줄로 장 제목 「제언」 을 달아
+#: 갇힘 출구 해설이 「자료 3장: «제언»」 한 줄이었다.
+EXPLAIN_QUOTE_MIN = 6
+_TABLE_PIPE_RE = re.compile(r"\s*\|\s*")
+
+
+def _explain_quote(quote: str) -> str:
+    """해설에 싣는 자료 줄 — 표 한 줄(「| 리뷰 이벤트가 … | 지지 | … |」)은 칸 사이를 「 · 」 로 잇는다 (10-17 버그 사냥: 표 줄이 파이프째 나갔다)."""
+    q = (quote or "").strip()
+    if "|" not in q:
+        return q
+    cells = [c for c in _TABLE_PIPE_RE.split(q) if c.strip() and not set(c.strip()) <= set("-:")]
+    return " · ".join(c.strip() for c in cells)
+
+
+def _gist_explainable(question: Question, gist: str, deck: Deck) -> bool:
+    """
+    해설 문장으로 모범답을 써도 되는가 — 자료로 받쳐지거나, 네 모델 앙상블이 절마다 자료로 받친 모범답(`gist_polished`)이고 자료와
+    어긋나는 짝 · 자료에 없는 수가 없을 때. 10-17 버그 사냥: 앙상블 모범답은 자료 줄을 풀어 말해 `support().grounded` 를 자주 못 넘어
+    갇힘 출구 해설이 인용 한 줄로만 나갔다 (판정의 `ens_gist` 와 같은 기준).
+    """
+    sup = support(gist, deck, question.question)
+    if sup.grounded:
+        return True
+    checks = _checks_of(question)
+    return ("ensemble" in checks and "gist_polished" in checks and not sup.conflicts and not sup.missing_numbers
+            and not question.trap)
+
+
 def _explain_text(question: Question, llm_text: str, deck: Deck | None) -> str:
     """
     3단 해설 — **코드가 조립한다** (held-out H-09): LLM 문장은 자료와 어긋나지 않고·발표가 맞았다고 단언하지 않고·보기 낱말을
@@ -2879,12 +2924,14 @@ def _explain_text(question: Question, llm_text: str, deck: Deck | None) -> str:
     core = " ".join(kept[:2]).strip()
     if not core:
         gist = (question.answer_gist or "").strip()
-        if gist and (deck is None or deck.empty or support(gist, deck, question.question).grounded):
+        if gist and (deck is None or deck.empty or _gist_explainable(question, gist, deck)):
             # 자료 줄로 조립한 골자(「자료는 이렇게 말해요 — …넓었습니다」)는 합쇼체 자료 말투를 그대로 싣는다 — 해설은 우리 말이라 해요체로
             # (09-30 WP-J2 · verify guard.tone 2건). 인용 «…»·「…」 안은 그대로다.
             core = to_haeyo(gist)
     # 함정의 근거 인용은 사실 줄이다(WP-Q 뒤 evidence_quote 는 비어 있다) — 해설에서는 연다.
-    quote, quote_no = _quote_of(question), _quote_slide_of(question)
+    quote, quote_no = _explain_quote(_quote_of(question)), _quote_slide_of(question)
+    if core and len(quote.replace(" ", "")) < EXPLAIN_QUOTE_MIN:
+        quote = ""        # 제목 한 낱말(「제언」)은 근거 인용이 아니다 — 해설 문장이 있으면 싣지 않는다
     if not core and not quote:
         core = f"{question.label or '이 개념'}은 자료의 근거 장을 다시 보면 좋아요."
     tails: list[str] = []
@@ -3499,7 +3546,7 @@ def judge_answer(
     else:
         ctx = context
 
-    engine = llm if isinstance(llm, LLMProvider) else get_llm(llm, **(llm_kwargs or {}))
+    engine = llm if isinstance(llm, LLMProvider) else _judge_timeouts(get_llm(llm, **(llm_kwargs or {})))
     prep = _judge_inputs(question, slidedoc, graph, transcript)
     question, deck, judge_deck, probed = prep.question, prep.deck, prep.judge_deck, prep.probed
     sample_gist, gist_grounded = prep.sample_gist, prep.gist_grounded
@@ -4108,3 +4155,23 @@ def _deck_line_block(answer: str, prior_answers: list[str] | None, deck: Deck, l
         + "<deck>\n" + body + "\n</deck>"
         + "\n답변의 수치·크기 순서·방향·긍정/부정이 이 줄들과 어긋나면 규칙 8 의 단서를 따른다."
     )
+
+
+#: 판정 · 코칭 한 콜의 읽기 시한(초). 제공자 기본(LLM_TIMEOUT_SEC 180)은 판정에 너무 길다 — 10-17 버그 사냥 오류 주입: Upstage 가 응답 없이
+#: 붙잡고 있으면 판정 한 번이 180초 × 재시도 × 예비(solar)로 수 분이 걸렸다(화면은 60초에 포기). 시한을 넘기면 예비 회사로 넘어간다.
+JUDGE_TIMEOUT_SEC = float(os.environ.get("QA_JUDGE_TIMEOUT_SEC", "20"))
+
+
+def _judge_timeouts(engine):
+    """이름으로 만든 판정 엔진(예비 사슬 포함)의 읽기 시한을 JUDGE_TIMEOUT_SEC 로 줄인다. 시한이 더 짧게 잡혀 있으면 그대로."""
+    seen, stack = set(), [engine]
+    while stack:
+        e = stack.pop()
+        if e is None or id(e) in seen:
+            continue
+        seen.add(id(e))
+        if isinstance(e, FallbackLLM):
+            stack += [e.primary, e.secondary]
+        elif JUDGE_TIMEOUT_SEC > 0 and isinstance(getattr(e, "timeout", None), (int, float)) and e.timeout > JUDGE_TIMEOUT_SEC:
+            e.timeout = JUDGE_TIMEOUT_SEC
+    return engine

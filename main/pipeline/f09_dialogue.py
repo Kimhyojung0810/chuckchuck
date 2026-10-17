@@ -628,12 +628,41 @@ def template_turn(move: str, anchor: str, ti: TalkInput, seed: str = "") -> tupl
             r = _NO_ANCHOR.get(move, "답을 들었어요.")
         if "{n}" in r + q and not n:
             r, q = r.replace("자료 {n}장", "근거 장"), q.replace("자료 {n}장", "근거 장")
-        react = r.format(a=anchor, n=n)
+        react = _quote_josa(r.format(a=anchor, n=n), anchor)
         ask = q.format(a=anchor, n=n)
         if not any(similar(ask, p) >= REPEAT_SIM for p in [*ti.asked, *ti.avoid]):
             return react, ask
     r, q = opts[start_i]
-    return r.format(a=anchor or "그 말", n=n or ""), q.format(a=anchor or "그 말", n=n or "")
+    if "{a}" in r and not anchor:
+        r = _NO_ANCHOR.get(move, "답을 들었어요.")      # 「그 말」는 다른 이야기예요 (10-17 버그 사냥) — 붙잡을 구절이 없으면 구절 없이
+    return _quote_josa(r.format(a=anchor, n=n or ""), anchor), q.format(a=anchor or "그 말", n=n or "")
+
+
+_QUOTE_JOSA_RE = re.compile(r"」(은|는|이|가|을|를|으로|로)(?=\s|[.,?!]|$)")
+_JOSA_PAIR = {"은": ("은", "는"), "는": ("은", "는"), "이": ("이", "가"), "가": ("이", "가"),
+              "을": ("을", "를"), "를": ("을", "를"), "으로": ("으로", "로"), "로": ("으로", "로")}
+
+
+def _quote_josa(text: str, anchor: str) -> str:
+    """틀의 「{a}」 뒤 조사를 구절의 받침에 맞춘다 — 틀은 「…」는 · 「…」로 로 박혀 있어 「…말」는 · 「…결과」로 가 아니라 「…방법」로 가 나갔다."""
+    if not anchor:
+        return text
+    head = f"「{anchor}」"
+    i = text.find(head)
+    if i < 0:
+        return text
+    j = i + len(head)
+    m = _QUOTE_JOSA_RE.match(text, j - 1)
+    if not m:
+        return text
+    with_b, without = _JOSA_PAIR[m.group(1)]
+    if with_b == "으로":
+        last = anchor.rstrip()[-1:]
+        # ㄹ 받침은 「로」(「…말로」) — josa_of 는 받침 유무만 본다
+        fix = "로" if (last and "가" <= last <= "힣" and (ord(last) - 0xAC00) % 28 in (0, 8)) else josa_of(anchor, "으로", "로")
+    else:
+        fix = josa_of(anchor, with_b, without)
+    return text[:j] + fix + text[m.end():]
 
 
 # ─── 판정에 입히기 ────────────────────────────────────────────────────────────────────────────

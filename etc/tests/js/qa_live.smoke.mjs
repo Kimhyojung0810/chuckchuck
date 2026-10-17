@@ -45,6 +45,7 @@ const EXPORT_LINE = `
   liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
   liveEntryNotes, liveContradiction, liveGroundsView, liveGroundSlides,
   liveRankConceptSwitch, liveSkipQuestion, liveSwitchConcept, liveSwitchPerspective, liveCanSwitch, liveStreak,
+  liveEnsembleAdvance, liveEnsembleAsked,
 };`;
 
 /**
@@ -971,6 +972,41 @@ test('같은 주제, 다른 관점 — 서버 질문을 지금 자리에 넣는�
   eq([b.ctx.qa.live.qi, b.ctx.qa.live.results.length, b.ctx.qa.live.busy], [0, 0, false], '실패하면 질문이 그대로');
   b.ctx.qa.live.questions[0].trap = true;
   eq(await b.api.liveSwitchPerspective('example'), null, '함정 질문은 바꾸지 않는다');
+});
+
+/* ── 네 모델 3번+ 질문 (10-17 버그 사냥) ───────────────────────────────────── */
+test('3번+ — 기다리는 사이 이 자리 질문이 이미 떴으면 늦게 온 질문으로 갈아 끼우지 않는다', async () => {
+  const { ctx, api } = weaveContext();
+  let advanced = 0;
+  let release;
+  ctx.advanceLiveStream = () => { advanced += 1; };
+  ctx.window = { ChuckchuckBridge: { ensembleNextQuestion: () => new Promise((r) => { release = r; }) } };
+  const qs = [{ id: 'e01', question: 'a?' }, { id: 'e02', question: 'b?' }, { id: 'e03', node_id: 'n3', question: '준비한 3번?' }];
+  ctx.qa.live = liveState(api, qs, { qi: 2, ensemble: { active: true } });
+  const p = api.liveEnsembleAdvance(ctx.qa.live);
+  ctx.qa.live.asked = 2;                 // 다른 화면에 갔다 오며 renderQaLive 가 준비한 질문을 띄웠다
+  release({ question: { id: 'e03', node_id: 'n9', question: '늦게 온 3번?' }, by: 'ax' });
+  await p;
+  eq([ctx.qa.live.questions[2].question, advanced], ['준비한 3번?', 0], '화면에 뜬 질문이 채점 기준이다');
+});
+test('3번+ — 고르기가 실패하면 앞에서 물은 개념의 준비한 질문은 건너뛴다', async () => {
+  const { ctx, api } = weaveContext();
+  ctx.window = { ChuckchuckBridge: { ensembleNextQuestion: async () => { throw new Error('timeout'); } } };
+  const qs = [{ id: 'e01', node_id: 'n1', question: 'a?' }, { id: 'e02', node_id: 'n2', question: 'b?' },
+    { id: 'e03', node_id: 'n1', question: '같은 개념 또?' }, { id: 'e04', node_id: 'n4', question: 'd?' }];
+  ctx.qa.live = liveState(api, qs, { qi: 2, ensemble: { active: true } });
+  await api.liveEnsembleAdvance(ctx.qa.live);
+  eq(ctx.qa.live.questions.map((q) => q.id), ['e01', 'e02', 'e04']);
+});
+test('3번+ — 다른 관점으로 고른 질문은 네 모델 고르기가 덮어쓰지 않는다 · 앞 답에 질문 문장을 싣는다', async () => {
+  const { ctx, api } = weaveContext();
+  ctx.window = { ChuckchuckBridge: { reframeQaQuestion: async () => ({ question: { id: 'e02~counter', node_id: 'n2', question: '반례는?' }, perspective: 'counter', perspective_name: '반례' }) } };
+  ctx.qa.live = liveState(api, [{ id: 'e01', node_id: 'n1', question: 'a?' }, { id: 'e02', node_id: 'n2', label: 'B', question: 'b?' }, { id: 'e03', node_id: 'n3' }],
+    { qi: 1, ensemble: { active: true } });
+  await api.liveSwitchPerspective('counter');
+  eq([ctx.qa.live.qi, ctx.qa.live.questions[2].id, !!(ctx.qa.live.ensDone || {})[2]], [2, 'e02~counter', true]);
+  ctx.qa.live.results = [{ id: 'e01', question: 'a?', answer: '답', verdict: 'good' }];
+  eq(api.liveEnsembleAsked(ctx.qa.live), [{ question_id: 'e01', question: 'a?', answer: '답', verdict: 'good' }]);
 });
 
 let failed = 0;
