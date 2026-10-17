@@ -58,6 +58,19 @@
       else b = false;
       return b ? withB : withoutB;
     };
+    /** 「…」 뒤 조사 앞 빈칸을 붙인다 — 「가설 A」 를 → 「가설 A」를 */
+    const tidy = (t) => String(t || '').replace(/」\s+(을|를|이|가|은|는|와|과|의|에|로|으로|도|만)(?=\s|$)/g, '」$1');
+    /** 진단 까닭을 사람 말로 — 분석 내부 값(decided_by · 상관 +0.10 · 600초)이 그대로 보이던 것을 (10-17 「AI 말투」) */
+    const plainWhy = (x) => {
+      if (!x) return '';
+      const slide = x.anchor && x.anchor.slide_no;
+      if (x.id === 'I:pace:short' && pace) return `${human(pace.target_sec)} 목표에 ${human(pace.actual_sec)}만 말했어요. 장마다 설명을 더 채워야 해요.`;
+      if (x.id === 'I:pace:long' && pace) return `${human(pace.target_sec)} 목표인데 ${human(pace.actual_sec)}이 걸렸어요. 덜 중요한 장을 줄여 봐요.`;
+      if (x.id.startsWith('I:concept:')) return `자료${slide ? ` ${slide}장` : ''}에 있는 개념인데 발표에서 나오지 않았어요.`;
+      if (x.id.startsWith('I:unjudged:')) return '분석이 이 개념을 말했는지 끝까지 가리지 못했어요. 녹음에서 직접 확인해 봐요.';
+      if (x.id.startsWith('I:cluster:')) return '채점 기준 가운데 점수가 낮은 편이에요. 무엇이 깎였는지는 「채점 근거」에서 볼 수 있어요.';
+      return tidy(String(x.why || '').replace(/\s*\((?:decided_by|basis)[^)]*\)/g, ''));
+    };
     const sampleTag = D.sample ? '<span class="dk-tag">미리 돌린 샘플 리포트예요</span>' : '';
     const more = (k, label) => (c.hasLegacy ? `<button type="button" class="dk-more" data-push="legacy:${k}">${esc(label)} <i>${I.chev}</i></button>` : '');
     const go = (key, label) => `<button type="button" class="dk-go" data-root="${esc(key)}">${esc(label)} <i>${I.chev}</i></button>`;
@@ -71,6 +84,17 @@
       const C = 2 * Math.PI * 52;
       const top = V.issues.slice(0, 3);
       const fillers = habits ? (habits.filler_cnt || 0) + (habits.repeat_cnt || 0) : null;
+      // 큰 문장 — 분석 모델의 한 줄 요약(「핵심 슬라이드에 시간을 너무 짧게 써서 내용이 부족했고, …」)은 같은 말을 되풀이하고 추상적이라
+      // 쓰지 않는다(10-17 「진짜 AI 말투」). 가장 급한 진단 하나를 코치처럼 짧게 말하고, 이유 · 할 일은 아래 줄로
+      const homeTitle = (() => {
+        const x = top[0];
+        if (!x) return { t: '자료대로 잘 전했어요', lead: V.strengths[0] ? tidy(V.strengths[0].title) : '' };
+        const c0 = (x.concepts || [])[0];
+        if (x.id === 'I:pace:short' && pace) return { t: '발표가 너무 일찍 끝났어요', lead: `${human(pace.target_sec)} 발표를 ${human(pace.actual_sec)} 만에 마쳤어요. 장마다 예시나 설명을 한두 문장씩 더해 보세요.` };
+        if (x.id === 'I:pace:long' && pace) return { t: '정해진 시간을 넘겼어요', lead: `${human(pace.target_sec)} 발표에 ${human(pace.actual_sec)}이 걸렸어요. 덜 중요한 장부터 줄여 보세요.` };
+        if (x.id.startsWith('I:concept:') && c0) return { t: `「${c0.label}」${josa(c0.label, '을', '를')} 말하지 않았어요`, lead: plainWhy(x) + ' 다음엔 꼭 말로 꺼내 보세요.' };
+        return { t: tidy(x.title), lead: plainWhy(x) };
+      })();
       const kpis = [
         judged ? { k: '개념 전달', v: `${counts.ok || 0}`, u: `/ ${judged}개`, sub: counts.no ? `안 나온 개념 ${counts.no}개` : '판정한 개념을 다 설명했어요', t: (counts.ok || 0) / judged >= 0.8 ? 'ok' : 'mid', go: 'coach' } : null,
         pace ? { k: '발표 시간', v: fmt(pace.actual_sec), u: `/ ${fmt(pace.target_sec)}`, sub: pace.actual_sec < pace.target_sec * 0.8 ? '목표보다 많이 짧아요' : pace.actual_sec > pace.target_sec * 1.15 ? '목표보다 길어요' : '목표에 맞췄어요', t: Math.abs(pace.actual_sec / pace.target_sec - 1) <= 0.2 ? 'ok' : 'mid', bar: Math.min(1, pace.actual_sec / pace.target_sec), go: 'audience' } : null,
@@ -82,7 +106,7 @@
       return {
         title: '결과', short: '결과', desk: true,
         html: `<div class="dk dk-home">
-          ${head('home', V.headline || (top[0] ? top[0].title : '분석 결과를 정리했어요'), sampleTag)}
+          ${head('home', homeTitle.t, sampleTag, homeTitle.lead)}
           <div class="dk-body">
             <section class="dk-col dk-score">
               <div class="dk-card dk-ring">
@@ -99,10 +123,10 @@
               <h2 class="dk-sec">먼저 고칠 것</h2>
               <div class="dk-group dk-fixlist">${top.map((x, k) => `<div class="dk-fixrow" data-push="issue:${esc(x.id)}" role="button" tabindex="0">
                   <span class="dk-rank">${k + 1}</span>
-                  <div class="dk-fixmain"><b>${esc(x.title)}</b><p>${esc(x.why || '')}</p></div>
+                  <div class="dk-fixmain"><b>${esc(tidy(x.title))}</b><p>${esc(plainWhy(x))}</p></div>
                   ${go(STATION_OF[x.criterion] || 'coach', STATION_NAME[STATION_OF[x.criterion] || 'coach'].slice(3))}
                 </div>`).join('') || '<p class="dk-empty">근거가 있는 문제를 찾지 못했어요.</p>'}</div>
-              ${V.strengths.length ? `<h2 class="dk-sec">잘한 점</h2><div class="dk-group dk-goodlist">${V.strengths.slice(0, 2).map((x) => `<div class="dk-goodrow" data-push="issue:${esc(x.id)}" role="button" tabindex="0"><span class="dk-okico">${I.check}</span><span>${esc(x.title)}</span><i class="dk-chev">${I.chev}</i></div>`).join('')}</div>` : ''}
+              ${V.strengths.length ? `<h2 class="dk-sec">잘한 점</h2><div class="dk-group dk-goodlist">${V.strengths.slice(0, 2).map((x) => `<div class="dk-goodrow" data-push="issue:${esc(x.id)}" role="button" tabindex="0"><span class="dk-okico">${I.check}</span><span>${esc(tidy(x.title))}</span><i class="dk-chev">${I.chev}</i></div>`).join('')}</div>` : ''}
             </section>
           </div>
           ${foot()}
@@ -259,7 +283,7 @@
       const title = !first ? '근거가 있는 고칠 곳을 찾지 못했어요'
         : first.criterion === 'time' ? '가장 급한 건 발표 시간이에요 — 장마다 할 말을 더 채워야 해요'
         : first.criterion === 'content' && firstConcept ? `가장 급한 건 「${firstConcept.label}」${josa(firstConcept.label, '을', '를')} 말로 전하지 않은 거예요`
-        : `가장 먼저 고칠 것 — ${first.title}`;
+        : `가장 먼저 고칠 것 — ${tidy(first.title)}`;
       const lead = list.length ? `고칠 곳은 모두 ${list.length}개예요. 왼쪽에서 하나씩 골라 무엇을 어떻게 바꿀지 봐요.` : '';
       const detail = (id) => {
         const x = list.find((y) => y.id === id); if (!x) return '';
@@ -269,11 +293,11 @@
         const slide = (deckP && deckP.anchor.slide_no) || (x.anchor && x.anchor.slide_no);
         return `
           <p class="dk-eyebrow">${esc(CRIT[x.criterion] || '종합')} · ${esc(EV[x.evidence] || '')}</p>
-          <h2 class="dk-dtitle">${esc(x.title)}</h2>
+          <h2 class="dk-dtitle">${esc(tidy(x.title))}</h2>
           <div class="dk-steps">
             <div class="dk-step"><span class="dk-stepn">1</span><div><h3 class="dk-h3">지금은</h3>
-              ${said ? `<blockquote>${esc(said.text)}</blockquote>${said.anchor.start_sec != null ? c.playBtn('cs', said.anchor.start_sec, said.anchor.end_sec, `${fmt(said.anchor.start_sec)} 들어 보기`) : ''}` : `<p>${esc(x.why || '분석이 까닭을 남기지 않았어요.')}</p>`}</div></div>
-            ${said && x.why ? `<div class="dk-step"><span class="dk-stepn">2</span><div><h3 class="dk-h3">왜 문제인가요</h3><p>${esc(x.why)}</p></div></div>` : ''}
+              ${said ? `<blockquote>${esc(said.text)}</blockquote>${said.anchor.start_sec != null ? c.playBtn('cs', said.anchor.start_sec, said.anchor.end_sec, `${fmt(said.anchor.start_sec)} 들어 보기`) : ''}` : `<p>${esc(plainWhy(x) || '분석이 까닭을 남기지 않았어요.')}</p>`}</div></div>
+            ${said && x.why ? `<div class="dk-step"><span class="dk-stepn">2</span><div><h3 class="dk-h3">왜 문제인가요</h3><p>${esc(plainWhy(x))}</p></div></div>` : ''}
             <div class="dk-step is-accent"><span class="dk-stepn">${said && x.why ? 3 : 2}</span><div><h3 class="dk-h3">이렇게 해 봐요</h3>
               ${acts.length ? `<ul>${acts.slice(0, 3).map((a) => `<li>${esc(a.text)}</li>`).join('')}</ul>` : '<p>자료 원문을 보며 이 부분을 말로 다시 설명해 봐요.</p>'}</div></div>
           </div>
@@ -285,7 +309,7 @@
           ${head('coach', title, `<div class="dk-headacts">${more(2, '개념 전달 전체')}${more(4, '채점 근거')}</div>`, lead)}
           <div class="dk-body">
             <nav class="dk-card dk-list" aria-label="고칠 곳">
-              ${list.map((x, k) => `<button type="button" class="dk-item${x.id === pick ? ' is-on' : ''}" data-pick="${esc(x.id)}"><span class="dk-n t-${tone(x)}">${k + 1}</span><span><b>${esc(x.title)}</b><small>${esc(CRIT[x.criterion] || '종합')}</small></span></button>`).join('')}
+              ${list.map((x, k) => `<button type="button" class="dk-item${x.id === pick ? ' is-on' : ''}" data-pick="${esc(x.id)}"><span class="dk-n t-${tone(x)}">${k + 1}</span><span><b>${esc(tidy(x.title))}</b><small>${esc(CRIT[x.criterion] || '종합')}</small></span></button>`).join('')}
               ${misses.length ? `<p class="dk-listcap">말로 안 나온 개념</p>${misses.map((x) => `<div class="dk-concept"><span class="dk-v t-${x.v.t}">${esc(x.v.w)}</span><span>${esc(x.label)}</span></div>`).join('')}` : ''}
               <p class="dk-listcap">개념 ${judged}개 판정</p>
               <div class="dk-tally">${['ok', 'no', 'ct', 'om', 'na'].filter((t) => counts[t]).map((t) => `<span class="dk-v t-${t}">${esc(Object.values(VERDICT).find((v) => v.t === t).w)} ${counts[t]}</span>`).join('')}</div>
