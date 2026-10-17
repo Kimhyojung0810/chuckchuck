@@ -350,6 +350,54 @@
       ${rows ? `<div class="nv-group bh-qrows">${rows}</div>` : `<p class="nv-note">${g.ok ? '질문마다 8초 넘게 답한 곳이 없어서 질문별로는 나누지 않았어요.' : esc(whyFix(g.why))}</p>`}`;
   }
 
+  /* ─── 발표 중 알림 (js/behavior_cue.js 가 남긴 present.liveCues, 바퀴 6) — 몇 번 · 무엇을 · 알림 뒤 돌아오기까지 ─── */
+  const CUE_ORDER = ['away', 'down', 'sway', 'frame', 'far', 'backlit'];
+  const CUE_BACK = { away: '화면 쪽으로 돌아오기까지', down: '고개를 들기까지', sway: '흔들림이 멎기까지', frame: '화면 안으로 들어오기까지' };
+  const CUE_LATE = { away: '15초 안에 화면 쪽으로 돌아오지 않았어요', down: '15초 안에 고개를 들지 않았어요', sway: '15초 안에 멎지 않았어요', frame: '15초 안에 들어오지 않았어요' };
+  /**
+   * liveCues → { total, rows: [{ type, text, n, avg(초 | null), nBack, late, end }] } · 꺼 두었거나 보인 알림이 없으면 null.
+   * 목소리 말풍선에 밀려 거의 못 보인 알림(cut)은 안 센다. 돌아오기 평균은 숫자(back)만 — late · end 는 따로 센다
+   */
+  function cueSummary(lc) {
+    if (!lc || lc.on === false || !Array.isArray(lc.list)) return null;
+    const seen = lc.list.filter((c) => c && !c.cut && c.type);
+    if (!seen.length) return null;
+    const rows = CUE_ORDER.concat([...new Set(seen.map((c) => c.type))].filter((k) => !CUE_ORDER.includes(k)))
+      .map((type) => {
+        const cs = seen.filter((c) => c.type === type);
+        if (!cs.length) return null;
+        const nums = cs.map((c) => c.back).filter((b) => typeof b === 'number' && isFinite(b));
+        return { type, text: cs[0].text || '', n: cs.length, nBack: nums.length, avg: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null,
+          late: cs.filter((c) => c.back === 'late').length, end: cs.filter((c) => c.back === 'end').length };
+      }).filter(Boolean);
+    return { total: seen.length, rows };
+  }
+
+  /** 돌아오기 한 줄 — 「화면 쪽으로 돌아오기까지 평균 1.8초」 · 흔들림은 4초 창이라 「약 N초」. 숫자가 없으면 late · end 만 */
+  function cueBackLine(r) {
+    const head = CUE_BACK[r.type];
+    if (!head) return '';
+    const parts = [];
+    if (r.avg !== null) {
+      const v = r.type === 'sway' ? `약 ${Math.max(1, Math.round(r.avg))}초` : `${(Math.round(r.avg * 10) / 10).toFixed(1)}초`;
+      parts.push(`${head} ${r.nBack > 1 ? '평균 ' : ''}${v}`);
+    }
+    const pre = (k) => (r.n > 1 || parts.length ? `${k}번은 ` : '');
+    if (r.late) parts.push(`${pre(r.late)}${CUE_LATE[r.type]}`);
+    if (r.end) parts.push(`${pre(r.end)}그 전에 발표가 끝났어요`);
+    return parts.join(' · ');
+  }
+
+  function cuesHtml(p) {
+    const sm = cueSummary(p && p.liveCues);
+    if (!sm) return '';
+    const rows = sm.rows.map((r) => `<div class="nv-row is-static bh-arow bh-cue" data-cue="${esc(r.type)}">
+        <span class="nv-row-main"><span class="bh-aname">「${esc(r.text)}」</span><b class="bh-aword">${r.n}번</b>${cueBackLine(r) ? `<small class="bh-aline">${esc(cueBackLine(r))}</small>` : ''}</span></div>`).join('');
+    return `<h3 class="nv-sec">발표 중 알림<small>${sm.total}번 알렸어요</small></h3>
+      <div class="nv-group bh-cues">${rows}</div>
+      <p class="nv-note">알림 뒤 카메라가 본 자세로 쟀어요. 시험 기능이라 1초쯤 어긋날 수 있어요.</p>`;
+  }
+
   /** 리포트 2.0 「발표 태도」 화면 본문. opts = { titles: 장 제목[], questions: 질문 글[] }. 베타 배너는 리포트 쪽(attitude())이 한 번 그린다 */
   function rv2Html(b, { titles = null, questions = null } = {}) {
     if (!b || (!b.present && !b.qa)) return '';
@@ -370,6 +418,7 @@
       <h3 class="nv-sec">네 갈래로 본 것<small>점이 찰수록 많았어요</small></h3>
       <div class="nv-group bh-areas2">${(p.areas || []).map((a) => rowHtml(areaView(a, M))).join('')}</div>
       ${scenesHtml(p, titles)}
+      ${cuesHtml(p)}
       ${qaSection(b.qa, questions)}
       ${detailHtml(p, b, titles).replace('<details class="bh-fold">', '<details class="bh-fold bh-fold2">')}
     </div>`;
@@ -401,7 +450,7 @@
       </details>`;
   }
 
-  const api = { headline, html, rv2Row, rv2Screen, rv2Html, qaFact, foldHtml, whyFix, valueText };
+  const api = { headline, html, rv2Row, rv2Screen, rv2Html, qaFact, foldHtml, whyFix, valueText, cueSummary, cueBackLine };
   root.BehaviorReport = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

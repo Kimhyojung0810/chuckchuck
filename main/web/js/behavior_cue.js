@@ -37,6 +37,8 @@
     voiceFreshMs: 3000, // 삐약이 목소리 반응(말풍선)이 새로 뜨거나 바뀐 뒤 이만큼은 자세 알림을 미룬다 — 둘이 한꺼번에 눈을 끌지 않게
     cutMs: 1200,        // 목소리 말풍선에 이만큼도 못 보이고 걷힌 알림은 안 본 것으로 — 「한 번만」 · 「같은 자세 한 번」 표시는 되돌린다(다시 뜰 수 있게).
                         // 20초 간격은 그대로 센다 — 간격까지 되돌렸더니 같은 알림이 4~6초마다 세 번 깜박였다 (실험실 d7, 녹음 첫 몇 초에 「하암~」 · 「잘 안 들려」)
+    backHoldMs: 600,    // 리포트 「발표 중 알림」 — 알림 뒤 기대한 자세(화면 쪽 · 화면 안)가 이만큼 이어져야 「돌아왔다」 로 센다 (깜박임 무시)
+    backMaxMs: 15000,   // 이만큼 안에 안 돌아오면 「15초 안에 안 돌아옴」(late)
     voiceQuietMs: 1500, // 말풍선이 사라진 뒤에도 이만큼은 더 기다린다
                         // 같은 말풍선이 오래 떠 있는 것(느린 말에 「하암~」 이 수십 초)은 막지 않는다 — 막으면 자세 알림이 아예 안 떴다(실험실 c01: 말풍선이 표본 92%)
   };
@@ -183,7 +185,49 @@
     return { g: { text: t, at }, busy, fresh: changed && !!t };
   }
 
-  const api = { CUE, COPY, SETUP, POSTURE, ORDER, createMeter, tailRun, tailSpan, swayRun, conditions, decide, voiceGate };
+  /* ─── 알림 뒤 돌아오기 (리포트 「발표 중 알림」, 바퀴 6) ─────────────────────── */
+  /** 알림마다 기대한 자세 — 화면 쪽(정면 · 얼굴만 잡힘) · 화면 안(사람 있음). 흔들림은 아래 backAfter 가 창으로 본다. 너무 멂 · 역광은 재지 않는다 */
+  const BACK_OK = {
+    away: (st) => st === 'front' || st === 'face',
+    down: (st) => st === 'front' || st === 'face',
+    frame: (st) => st !== 'none',
+  };
+
+  /**
+   * 알림(tMs, 엔진 줄 시각) 뒤 기대한 자세로 돌아오기까지 ms. seq = BehaviorCvLogic.states(rows), logic = BehaviorCvLogic(흔들림 창).
+   * 돌려주는 것: 숫자(ms ≥ 0) · 'late'(backMaxMs 안에 안 돌아옴) · 'end'(그 전에 기록이 끝남, final 일 때만) · 'na'(재지 않는 종류) ·
+   * null(아직 모름 — 줄이 더 와야 한다).
+   * - 화면 쪽 · 아래 · 화면 밖: 기대한 상태가 backHoldMs 넘게 이어진 첫 줄의 시각 − tMs.
+   * - 흔들림: 짧은 4초 창(1초 걸음)이 처음 꺼진 창의 시작 + 1초 − tMs (4초 창 안에 1~2초 흔들림이면 아직 켜진다 — 멎은 때는 그 언저리, ±1초)
+   */
+  function backAfter(seq, tMs, type, logic, { final = false } = {}, cfg = CUE) {
+    const list = (seq || []).filter((x) => x && Number.isFinite(x.t));
+    const lastT = list.length ? list[list.length - 1].t + (list[list.length - 1].dt || 0) : -Infinity;
+    const undecided = () => (lastT - tMs >= cfg.backMaxMs ? 'late' : final ? 'end' : null);
+    if (type === 'sway') {
+      if (!logic || typeof logic.swayWindows !== 'function') return 'na';
+      let wins = [];
+      try { wins = logic.swayWindows(list, { ...logic.CFG, swayWinMs: cfg.swayShortMs, swayStepMs: cfg.swayShortStepMs }); } catch (_) { return 'na'; }
+      const off = wins.find((w) => w.end > tMs && !w.on);
+      if (off) { const ms = Math.max(0, off.start + 1000 - tMs); return ms > cfg.backMaxMs ? 'late' : ms; }
+      return undecided();
+    }
+    const ok = BACK_OK[type];
+    if (!ok) return 'na';
+    for (let i = 0; i < list.length; i += 1) {
+      const x = list[i];
+      if (x.t + (x.dt || 0) <= tMs || !ok(x.state)) continue;
+      const from = Math.max(x.t, tMs);
+      let j = i; let until = x.t + (x.dt || 0);
+      while (j + 1 < list.length && ok(list[j + 1].state)) { j += 1; until = list[j].t + (list[j].dt || 0); }
+      if (until - from >= cfg.backHoldMs) { const ms = from - tMs; return ms > cfg.backMaxMs ? 'late' : ms; }
+      if (j === list.length - 1) return final ? (until - from > 0 && from - tMs <= cfg.backMaxMs ? from - tMs : 'end') : null;   // 끝에서 돌아오는 중 — 줄을 더 본다
+      i = j;
+    }
+    return undecided();
+  }
+
+  const api = { CUE, COPY, SETUP, POSTURE, ORDER, createMeter, tailRun, tailSpan, swayRun, conditions, decide, voiceGate, backAfter };
 
   /* ─── 화면 (브라우저에서만) ──────────────────────────────────────────────── */
   if (root.document) {
@@ -191,7 +235,7 @@
     const POLL_MS = 120;      // 엔진이 줄을 0.2~0.33초마다 낸다 — 그보다 자주 엿봐야 줄을 안 놓친다
     const EVAL_MS = 500;
     const ui = { timer: 0, rows: [], lastT: null, lastN: 0, meter: createMeter(), t0: null, lastEval: 0,
-      hideTimer: 0, showing: null, shownAt: 0, before: null, voice: { text: '', at: -Infinity }, voiceBusy: false, list: [] };
+      hideTimer: 0, showing: null, shownAt: 0, before: null, voice: { text: '', at: -Infinity }, voiceBusy: false, list: [], pend: [] };
 
     const prefOn = () => { try { return root.localStorage.getItem(PREF_KEY) !== '0'; } catch (_) { return true; } };
     const prefSet = (on) => { try { root.localStorage.setItem(PREF_KEY, on ? '1' : '0'); } catch (_) { /* 사생활 모드 — 이번 화면만 */ } };
@@ -201,7 +245,7 @@
     const recording = () => { const n = nfRef(); return !!n && n.mic === 'on'; };
 
     function resetTake() {
-      ui.rows = []; ui.lastT = null; ui.lastN = 0; ui.t0 = null; ui.meter = createMeter(); ui.list = [];
+      ui.rows = []; ui.lastT = null; ui.lastN = 0; ui.t0 = null; ui.meter = createMeter(); ui.list = []; ui.pend = [];
       hide();
     }
 
@@ -311,6 +355,7 @@
       }
       if (now - ui.lastEval < EVAL_MS || !ui.rows.length) return;
       ui.lastEval = now;
+      settleBacks(false);
       let r;
       try {
         r = decide(ui.meter, conditions(ui.rows, L), { enabled, voiceBusy: ui.voiceBusy, t0: ui.t0 });
@@ -322,8 +367,24 @@
       ui.shownAt = now;
       const rec = { type: r.cue.type, text: r.cue.text, t: Math.round(r.cue.t / 100) / 10, sec: recSec(), slide: slideNo() };
       ui.list.push(rec);
+      ui.pend.push({ rec, tMs: r.cue.t });
       show(r.cue);
       try { root.dispatchEvent(new CustomEvent('chuck:behavior-cue', { detail: rec })); } catch (_) { /* 옛 브라우저 */ }
+    }
+
+    /** 알림 뒤 돌아오기를 지금 줄로 매긴다(back: 초 · 'late' · 'end' · 'na'). 줄 버퍼(24초)가 15초 상한보다 길어 알림 줄이 안 밀린다 */
+    function settleBacks(final) {
+      if (!ui.pend.length) return;
+      const L = root.BehaviorCvLogic;
+      let seq = [];
+      try { seq = L ? L.states(ui.rows) : []; } catch (_) { seq = []; }
+      ui.pend = ui.pend.filter((p) => {
+        let b = null;
+        try { b = backAfter(seq, p.tMs, p.rec.type, L, { final }); } catch (_) { b = final ? 'na' : null; }
+        if (b === null) return true;
+        p.rec.back = typeof b === 'number' ? Math.round(b / 100) / 10 : b;
+        return false;
+      });
     }
 
     function stop() {
@@ -344,8 +405,10 @@
      * 이번 테이크에 뜬 알림을 꺼내고 비운다 — rhBehaviorFinishPresent 가 nf.behavior.present.liveCues 로 둔다(이 탭만, 서버로 안 감:
      * BehaviorSummary 계약은 모르는 키를 버린다). { on: 켜 두었나, list: [{ type, text, t(기록 시작부터 초), sec(녹음 초), slide, cut? }] }
      * cut: true = 목소리 말풍선에 밀려 1.2초도 못 보이고 걷힌 알림(20초 뒤 다시 뜰 수 있다) — 「몇 번 알렸나」 를 셀 때는 뺀다
+     * back: 알림 뒤 기대한 자세로 돌아오기까지 초 · 'late'(15초 안에 안 돌아옴) · 'end'(그 전에 발표가 끝남) · 'na'(너무 멂 · 역광 — 재지 않음) (backAfter)
      */
     function take() {
+      settleBacks(true);
       const out = { on: enabled, list: ui.list.slice() };
       resetTake();
       return out;

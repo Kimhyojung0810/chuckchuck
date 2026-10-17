@@ -195,6 +195,44 @@ test('문구 — 해요체 · 짧게 · 감정 · 평가 낱말 없음 · 우선
 
 /* 자기검사 — 간격 규칙을 빼면 「20초 간격」 시험이 깨져야 한다 */
 const GAP_LINE = 'if (c.t - m.lastAt < cfg.gapMs) return { meter: m, cue: null };';
+/* ── 알림 뒤 돌아오기 (리포트 「발표 중 알림」, 바퀴 6) ── play 로 알림 시각을 얻고, 그 뒤 줄로 backAfter */
+function backOf(rows, type, opts = {}) {
+  const cue = play(rows).find((c) => c.type === type);
+  ok(cue, `${type} 알림이 안 떴다`);
+  return { cue, back: C.backAfter(L.states(rows), cue.s * 1000, type, L, opts) };
+}
+
+test('옆 6초 → 알림 뒤 정면으로 돌아오기까지 ≈ (옆 끝 − 알림 시각)', () => {
+  const { cue, back } = backOf(script([[8, front], [6, side], [10, front]]), 'away');
+  ok(typeof back === 'number', `숫자가 아니다: ${back}`);
+  const want = 14000 - cue.s * 1000;
+  ok(Math.abs(back - want) <= 600, `돌아오기 ${back}ms (기대 ≈ ${want})`);
+});
+
+test('아래 11초 → 고개를 들기까지 ≈ (아래 끝 − 알림 시각) · 한두 장 정면 깜박임은 돌아온 것이 아님', () => {
+  const rows = script([[8, front], [11, (t, k) => (k === 45 ? front(t) : down(t))], [10, front]]);
+  const { cue, back } = backOf(rows, 'down');
+  const want = 19000 - cue.s * 1000;
+  ok(typeof back === 'number' && Math.abs(back - want) <= 800, `고개 들기 ${back}ms (기대 ≈ ${want}, 알림 ${cue.s}초)`);
+});
+
+test('알림 뒤 15초 넘게 옆이면 late · 그 전에 기록이 끝나면 final 에서 end, 아니면 아직 모름(null)', () => {
+  const longRows = script([[8, front], [25, side], [5, front]]);
+  eq(backOf(longRows, 'away').back, 'late', '25초 옆');
+  const cut = script([[8, front], [9, side]]);
+  eq(backOf(cut, 'away').back, null, '끝나지 않은 기록');
+  eq(backOf(cut, 'away', { final: true }).back, 'end', '기록 끝');
+});
+
+test('흔들림 → 멎기까지(4초 창 기준, ±1초) · 역광 · 멂은 재지 않음(na)', () => {
+  const rows = script([[6, front], [16, swayAt(0.6, 0.3)], [12, front]]);
+  const { cue, back } = backOf(rows, 'sway');
+  const want = 22000 - cue.s * 1000;
+  ok(typeof back === 'number' && Math.abs(back - want) <= 2000, `멎기 ${back}ms (기대 ≈ ${want}, 알림 ${cue.s}초)`);
+  eq(C.backAfter(L.states(rows), 5000, 'far', L), 'na', '멂');
+  eq(C.backAfter(L.states(rows), 5000, 'backlit', L), 'na', '역광');
+});
+
 test('간격 규칙을 빼면 20초 간격 시험이 깨진다', () => {
   if (!SRC.includes(GAP_LINE)) throw new Error(`decide 의 간격 줄이 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${GAP_LINE}`);
   const B = load(SRC.replace(GAP_LINE, '')).C;

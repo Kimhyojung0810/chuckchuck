@@ -180,6 +180,11 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .rp-m.t-mid { background: var(--mid); } .rv2 .rp-m.t-ct { background: var(--ct); } .rv2 .rp-m.t-ok { background: var(--ok); }
 .rv2 .rp-m.is-bar::after { inset: -11px -1px; }   /* 막대는 이미 넓다 — 옆 막대를 덮지 않게 */
 .rv2 .rp-m.is-bar { height: 10px; min-width: 10px; margin-top: -5px; border-radius: 5px; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface); }
+/* 발표 중 알림 — 「태도」 줄의 작은 종. 판정 색 없음(바퀴 6) */
+.rv2 .rp-m.is-cue { width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; display: grid; place-items: center; z-index: 1;
+  background: var(--surface); color: var(--ink-2); box-shadow: 0 0 0 1.5px var(--ink-3), 0 0 0 3px var(--surface); }
+.rv2 .rp-m.is-cue svg { width: 11px; height: 11px; }
+.rv2 .rp-m.is-cue.is-on { box-shadow: 0 0 0 1.5px var(--ink), 0 0 0 3px var(--surface), 0 0 0 5px var(--ink); }
 .rv2 .rp-m.is-on { z-index: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
 .rv2 .rp-m.is-dot.is-on { transform: scale(1.15); }
 .rv2 .rp-m:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; }

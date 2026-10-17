@@ -129,6 +129,35 @@ vm.runInNewContext(readFileSync(path.join(WEB, 'js/behavior_report.js'), 'utf8')
 const bhHtml = rctx.window.BehaviorReport.rv2Html({ present: { status: 'ok', metrics: {}, areas: [], first: { text: '첫', slide: 2, sec: 10 },
   cards: [{ observation: '장면', scene: { seg: 's3', where: '3장', sec: 24.2 }, conf: '높음' }, { observation: '장면 없음', scene: null }] } });
 check('발표 태도 화면이 장면 시각(data-sec)을 단다 — 리포트 쪽이 「그 순간 듣기」 를 붙인다', /bh-hero"[^>]*data-sec="10"/.test(bhHtml) && /bh-scene" data-sec="24.2"/.test(bhHtml) && (bhHtml.match(/data-sec=/g) || []).length === 2);
+const rv2SrcEarly = readFileSync(path.join(WEB, 'js/report_v2.js'), 'utf8');
+// ─── 발표 중 알림(바퀴 6) — present.liveCues → 발표 태도 화면 한 칸 · 다시 보기 「태도」 줄의 종 ───
+{
+  const BRp = rctx.window.BehaviorReport;
+  const lc = { on: true, list: [
+    { type: 'away', text: '화면 쪽으로 돌아와요', t: 12.1, sec: 12.4, slide: 2, back: 1.6 },
+    { type: 'away', text: '화면 쪽으로 돌아와요', t: 40.2, sec: 40.5, slide: 3, back: 2.0 },
+    { type: 'down', text: '고개를 들고 말해 봐요', t: 30.0, sec: 30.3, slide: 3, back: 'late' },
+    { type: 'sway', text: '두 발에 무게를 나눠 서 봐요', t: 60, sec: 60.2, slide: 4, back: 5.8 },
+    { type: 'far', text: '카메라에 조금 다가와요', t: 5, sec: 5.2, slide: 1, back: 'na' },
+    { type: 'away', text: '화면 쪽으로 돌아와요', t: 70, sec: 70.1, slide: 4, cut: true } ] };
+  const pres = (x) => ({ present: { status: 'ok', metrics: {}, areas: [], first: null, cards: [], t0: 0, liveCues: x } });
+  const h = BRp.rv2Html(pres(lc));
+  check('발표 중 알림: 종류별 횟수 · 돌아오기 평균 · late · 못 보인 알림(cut)은 안 셈', /발표 중 알림<small>5번 알렸어요/.test(h)
+    && /「화면 쪽으로 돌아와요」<\/span><b class="bh-aword">2번/.test(h) && /화면 쪽으로 돌아오기까지 평균 1\.8초/.test(h)
+    && /15초 안에 고개를 들지 않았어요/.test(h) && !/1번은 15초/.test(h) && /흔들림이 멎기까지 약 6초/.test(h)
+    && /「카메라에 조금 다가와요」<\/span><b class="bh-aword">1번<\/b><\/span>/.test(h));
+  check('발표 중 알림: 꺼 두었거나 · 보인 알림이 없으면 칸째 없음 · 판정 · 감정 낱말 없음',
+    !/발표 중 알림/.test(BRp.rv2Html(pres({ on: false, list: lc.list }))) && !/발표 중 알림/.test(BRp.rv2Html(pres({ on: true, list: [] })))
+    && !/발표 중 알림/.test(BRp.rv2Html(pres({ on: true, list: [lc.list[5]] }))) && !/발표 중 알림/.test(BRp.rv2Html(pres(undefined)))
+    && !/(잘했|못했|좋아요|나빠요|불안|긴장|자신감)/.test(h));
+  const ctxW = ctx.window; const hadBR = ctxW.BehaviorReport; ctxW.BehaviorReport = BRp;
+  const CM = RV.momentsOf(SV, { present: { status: 'ok', t0: 0, cards: [], liveCues: lc } }).filter((m) => m.lane === 'cue');
+  ctxW.BehaviorReport = hadBR;
+  check('다시 보기: 보인 알림마다 「태도」 줄의 종(녹음 초 · 판정 색 없음) · 돌아오기 한 줄 · 주소가 돌아온다', CM.length === 5 && CM[1].t === 12.4 && CM.every((m) => m.tone === 'cue')
+    && CM[1].sub === '화면 쪽으로 돌아오기까지 1.6초' && CM[0].sub === '' && CM.every((m) => RV.momentAt(CM, RV.momentRoute(m).slice('replay:'.length)) === m)
+    && RV.momentsOf(SV, { present: { status: 'ok', t0: 0, cards: [], liveCues: { on: false, list: lc.list } } }).every((m) => m.lane !== 'cue'));
+  check('다시 보기 그리기: 「태도」 줄에 종 표시(is-cue) · 장면 막대와 같은 줄', /m\.lane === 'cue'\s*\? `<button type="button" class="rp-m is-cue"/.test(rv2SrcEarly) && /inLane = \(m, k\) => m\.lane === k \|\| \(k === 'beh' && m\.lane === 'cue'\)/.test(rv2SrcEarly));
+}
 const rv2Src = readFileSync(path.join(WEB, 'js/report_v2.js'), 'utf8');
 check('다시 보기는 「그 순간 듣기」 로 열 때만 바로 소리를 낸다(다시 그리기 · 복원에선 안 튼다)', /autoPlayNext = false; select\(el, pick, \{ sound \}\)/.test(rv2Src) && /function goMoment\(route\) \{ if \(busy\) return; autoPlayNext = !!audio;/.test(rv2Src));
 check('옛 시트(nv-sheet)는 걷었다 — 표시는 한 줄 설명으로', !/nv-sheet/.test(rv2Src) && !/nv-sheet/.test(css));

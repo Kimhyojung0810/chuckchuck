@@ -81,6 +81,21 @@
           tone: 'beh', title: c.text, sub: '', quote: '', insight: '', more: '발표 태도 · 베타' });
       });
     }
+    // 발표 중 알림(js/behavior_cue.js · 이 탭에만 있는 present.liveCues, 바퀴 6) — 「태도」 줄에 작은 종 표시. 판정 색 없음.
+    // 녹음 초(sec)가 있으면 그것, 없으면 엔진 줄 시각(t — 녹음과 같이 시작). 목소리 말풍선에 밀려 거의 못 보인 알림(cut)은 빼고, 꺼 두었으면 없음
+    const lc = p && p.status === 'ok' && dur ? p.liveCues : null;
+    if (lc && lc.on !== false && Array.isArray(lc.list)) {
+      const BR = typeof window !== 'undefined' ? window.BehaviorReport : null;
+      lc.list.filter((c) => c && !c.cut && c.text).forEach((c) => {
+        const t = fin(c.sec) ? c.sec : fin(c.t) ? c.t : null;
+        if (t === null || t > dur + 1) return;
+        const back = BR && typeof BR.cueBackLine === 'function'
+          ? BR.cueBackLine({ type: c.type, n: 1, nBack: typeof c.back === 'number' ? 1 : 0, avg: typeof c.back === 'number' ? c.back : null,
+            late: c.back === 'late' ? 1 : 0, end: c.back === 'end' ? 1 : 0 }) : '';
+        out.push({ id: `c${out.length}`, lane: 'cue', t: Math.max(0, t), end: null, slide: Number(c.slide) || null,
+          tone: 'cue', title: `「${c.text}」 알림이 떴어요`, sub: back, quote: '', insight: '', more: '발표 중 알림' });
+      });
+    }
     return out.sort((a, b) => a.t - b.t || (a.lane === b.lane ? 0 : a.lane === 'fix' ? -1 : 1));
   }
   /** 그 순간에 한 말 — 시각을 품은 발화, 없으면 3초 안의 가장 가까운 발화. 구간이면 겹치는 첫 발화.
@@ -96,7 +111,7 @@
   }
   /** 주소 인자 「@18.3」 · 「@18.3:beh」 · 「진단id@18.3」 → 그 시각에 가장 가까운(1초 안) 순간. 진단 id 가 있으면 그 진단의 순간만. 없으면 null */
   function momentAt(moments, arg) {
-    const m = /^(.*)@(\d+(?:\.\d+)?)(?::(fix|beh))?$/.exec(String(arg || ''));
+    const m = /^(.*)@(\d+(?:\.\d+)?)(?::(fix|beh|cue))?$/.exec(String(arg || ''));
     if (!m) return null;
     const t = Number(m[2]);
     let best = null; let gap = 1;
@@ -107,7 +122,7 @@
     return best;
   }
   /** 「그 순간 듣기」 가 여는 주소 — 다시 보기 화면이 이 순간을 고른 채 열린다 */
-  const momentRoute = (m) => `replay:${m.lane === 'fix' ? m.insight : ''}@${(Math.round(m.t * 10) / 10).toFixed(1)}${m.lane === 'beh' ? ':beh' : ''}`;
+  const momentRoute = (m) => `replay:${m.lane === 'fix' ? m.insight : ''}@${(Math.round(m.t * 10) / 10).toFixed(1)}${m.lane !== 'fix' ? `:${m.lane}` : ''}`;
 
   /* ─── 공통 ─────────────────────────────────────────────────────────── */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -137,6 +152,7 @@
     check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.3 3 3 6-6.6" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     q: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.8 5.9a2.3 2.3 0 1 1 3.3 2.1c-.7.3-1.1.9-1.1 1.6v.4M8 12.2v.1" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>',
     bang: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v5.3M8 11.9v.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>',
+    bell: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.2c-2.2 0-3.7 1.6-3.7 3.8v2.4L3 10.6h10l-1.3-2.2V6c0-2.2-1.5-3.8-3.7-3.8Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.6 12.6a1.5 1.5 0 0 0 2.8 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
     cam: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="5" width="11" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="m13.5 9 4-2.3v6.6l-4-2.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
     doc: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 2.8h5.5L15.5 7v9.2A1.3 1.3 0 0 1 14.2 17.5H6a1.3 1.3 0 0 1-1.3-1.3V4.1A1.3 1.3 0 0 1 6 2.8Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M11 3v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
   };
@@ -609,10 +625,14 @@
       const hit = new Set(focus && at < 0 ? focus.proofs.flatMap((p) => (p.kind === 'said' && p.anchor.utt_ids) || []) : []);
       const slideAt = (s) => (V.slides.find((sl) => sl.spans.some((sp) => s >= sp.start && s < sp.end)) || {}).no || 1;
       const s0 = pick ? pick.slide || slideAt(pick.t) : t ? slideAt(t[0]) : (focus && focus.anchor.slide_no) || 1;
-      const LANES = [['fix', '진단'], ['beh', '태도']].filter(([k]) => MS.some((m) => m.lane === k));
+      // 「태도」 줄 = 발표 태도 장면 막대 + 발표 중 알림 종(cue)
+      const inLane = (m, k) => m.lane === k || (k === 'beh' && m.lane === 'cue');
+      const LANES = [['fix', '진단'], ['beh', '태도']].filter(([k]) => MS.some((m) => inLane(m, k)));
       const tones = ['mid', 'ct', 'ok'].filter((k) => MS.some((m) => m.lane === 'fix' && m.tone === k));
       const TONE_WORD = { mid: '고칠 것', ct: '판정이 흔들림', ok: '잘한 점' };
-      const marker = (m) => (m.lane === 'beh'
+      const marker = (m) => (m.lane === 'cue'
+        ? `<button type="button" class="rp-m is-cue" data-m="${m.id}" style="left:${pct(m.t)}" aria-label="${esc(`${fmt(m.t)} · ${m.title}`)}">${I.bell}</button>`
+        : m.lane === 'beh'
         ? `<button type="button" class="rp-m is-bar" data-m="${m.id}" style="left:${pct(m.t)};width:${pct((m.end || m.t) - m.t)}" aria-label="${esc(`${fmt(m.t)} · ${m.title}`)}"></button>`
         : `<button type="button" class="rp-m is-dot t-${m.tone}" data-m="${m.id}" style="left:${pct(m.t)}" aria-label="${esc(`${fmt(m.t)} · ${m.title}`)}"></button>`);
       const hint = audio ? '표시를 누르면 그 순간의 장 · 말 · 소리로 가요' : '표시를 누르면 그 순간의 장과 그때 한 말로 가요';
@@ -622,7 +642,7 @@
               <div class="nv-track" role="slider" tabindex="0" aria-label="발표 시간축" aria-valuemin="0" aria-valuemax="${Math.round(dur)}">
                 ${V.slides.flatMap((s) => s.spans.map((sp) => `<span class="nv-band" style="left:${pct(sp.start)};width:${pct(sp.end - sp.start)}"><em>${s.no}${(sp.end - sp.start) / (dur || 1) < 0.07 ? '' : '장'}</em></span>`)).join('')}
               </div>
-              ${LANES.map(([k, w]) => `<div class="rp-lane" role="group" aria-label="${w === '태도' ? '발표 태도 장면 · 베타' : '진단 근거'}">${MS.filter((m) => m.lane === k).map(marker).join('')}</div>`).join('')}
+              ${LANES.map(([k, w]) => `<div class="rp-lane" role="group" aria-label="${w === '태도' ? '발표 태도 장면 · 베타' : '진단 근거'}">${MS.filter((m) => inLane(m, k)).map(marker).join('')}</div>`).join('')}
               <i class="nv-head"></i>
             </div>
           </div>`;
@@ -655,12 +675,12 @@
         el.querySelector('.rp-cap-t').textContent = m.title;
         const s = el.querySelector('.rp-cap-s'); s.textContent = m.sub; s.hidden = !m.sub;
         const q = el.querySelector('.rp-cap-q'); q.textContent = line ? `그때 한 말 “${line.text}”` : '이 순간엔 받아쓴 말이 없어요'; q.hidden = false;
-        const a = m.lane === 'beh' ? Math.max(0, m.t - 1) : m.t;
-        const b = m.end != null ? m.end + (m.lane === 'beh' ? 0.5 : 0) : Math.min(dur, m.t + 8);
+        const a = m.lane !== 'fix' ? Math.max(0, m.t - 1) : m.t;
+        const b = m.end != null ? m.end + (m.lane === 'beh' ? 0.5 : 0) : Math.min(dur, m.t + (m.lane === 'cue' ? 5 : 8));
         const acts = el.querySelector('.rp-cap-acts'); acts.hidden = false;
-        acts.innerHTML = `${audio ? playBtn(`m:${m.id}`, a, b, '그 순간 듣기') : ''}<button type="button" class="nv-link" data-push="${m.lane === 'beh' ? 'attitude' : `issue:${esc(m.insight)}`}">${m.lane === 'beh' ? '발표 태도 보기' : '자세히 보기'}</button>`;
+        acts.innerHTML = `${audio ? playBtn(`m:${m.id}`, a, b, '그 순간 듣기') : ''}<button type="button" class="nv-link" data-push="${m.lane !== 'fix' ? 'attitude' : `issue:${esc(m.insight)}`}">${m.lane !== 'fix' ? '발표 태도 보기' : '자세히 보기'}</button>`;
         wire(acts);
-        forced = m.lane === 'beh' ? sl : 0;
+        forced = m.lane !== 'fix' ? sl : 0;
         seekView(el, m.t, sl);
         if (audio) {
           if (sound || !audio.paused) play(a, b, `m:${m.id}`);
