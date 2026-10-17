@@ -13,7 +13,8 @@
  *  - 눈: Haar 눈 캐스케이드(눈 띠를 키워서) — 보조 단서만. 안경 · 짙은 톤에서 거의 못 잡는다
  *  - 움직임 양: 160px 프레임 차분(MEA) · 전체 밝기 변화를 빼고 잡음 바닥 위만
  *  - 손짓: 160px Farneback 흐름에서 **몸통 가운데 흐름을 뺀** 상대 움직임 ∧ 피부(이 사람 얼굴색 역투영) ∧ 얼굴 · 목 밖 ∧ **오래 그 자리에 있는
- *    피부색(화분 · 나무 = 배경 피부) 빼기** ∧ 손 크기 덩어리(얼굴 넓이의 0.04~1.2) — 손 없는 영상의 손짓 오탐 13.6% → 0.7% (실험실 참조 엔진)
+ *    피부색(화분 · 나무 = 배경 피부) 빼기** ∧ 손 크기 덩어리(얼굴 넓이의 0.025~1.2) — 손 없는 영상의 손짓 오탐 13.6% → 0.7% (실험실 참조 엔진).
+ *    바퀴 3: 열기 없앰 · 배경 피부 문턱 0.3 · 흐름 문턱을 처리 간격에 비례 · 어두운 방은 밝기 배율로 (손짓 재현율 .49 → 표는 계획 문서 「바퀴 3」)
  *  - 품질: 평균 밝기 · 얼굴 밝기(역광) · 라플라시안 분산(흐림) · 얼굴 크기 · 얼굴 수
  *  - 캐스케이드 없는 예비 모드(opts.mode = 'nocascade'): 가운데에서 시작 → 얼굴색 CamShift + 차분. 방향은 재지 않는다
  * 영상은 이 함수 밖으로 나가지 않는다 — 돌려주는 것은 숫자뿐이다. 순서가 있는 판단은 js/behavior_cv_logic.js 의 일이다.
@@ -47,9 +48,16 @@
     flowW: 160,           // 손짓 흐름 폭 — 실험실 참조 엔진(160×90 Farneback ≈ 4.6ms)
     gestFlow: 0.6,        // 몸통과 다르게 움직인 크기(160px 기준 화소/장) — 실험실 gest_flow
     gestFacePad: 0.6, gestNeck: 1.0,   // 얼굴 상자 좌우 0.6 · 아래 1.0 얼굴 폭(목 · 깃)은 손 자리에서 뺀다
-    bgSkinEma: 0.05, bgSkinOn: 0.6,    // 피부 자리 지수 평균이 0.6 넘으면 배경 피부(화분 · 나무)로 빼낸다
-    blobMin: 0.04, blobMax: 1.2,       // 손 크기 덩어리 = 얼굴 넓이의 0.04~1.2배
-    darkMean: 38,         // 평균 밝기 이 아래면 흐름을 재지 않는다 — booth_cv 와 같은 값
+    gestRefMs: 200, gestDtMin: 0.6, gestDtMax: 2.5,     // gestFlow 는 0.2초(5fps 한 장) 사이 기준 — 처리 간격에 비례해 늘린다(3fps 면 ×1.67)
+    // 움직인 피부 마스크 다듬기 — 'none' | 'open'(3×3 열기, 바퀴 2). 열기는 160px 에서 손가락 · 흐린 손 가장자리를 다 지워 작은 얼굴(d7)
+    // 손짓 재현율 .12 였다 → none (덩어리 크기 거르기만으로 손 없는 영상 오탐 0.5% 유지). 닫고 열기 · 넓혀 묶기는 잡음 영상(d4) 정밀도가 .64 로 떨어져 버렸다 (실험실 바퀴 3)
+    gestMorph: 'none',
+    // 피부 자리 지수 평균이 bgSkinOn 넘으면 배경 피부(화분 · 나무 · 분홍 벽)로 빼낸다. 0.6 → 0.3: 역투영이 문턱 언저리에서 깜빡이는 분홍 벽은
+    // 평균이 0.4~0.6 에 머물러 배경으로 안 빠졌고, 어깨 가장자리 흐름과 겹쳐 손 없는 영상 손짓 오탐을 만들었다 (실험실 바퀴 3, s12 5.5% → 1.5%)
+    bgSkinEma: 0.05, bgSkinOn: 0.3, bgWarm: 10,
+    blobMin: 0.025, blobMax: 1.2,      // 손 크기 덩어리 = 얼굴 넓이의 0.025~1.2배 (0.04 → 0.025: 흐림 · 압축 · 작은 얼굴에서 손이 조각나 걸러졌다, 바퀴 3)
+    darkMean: 38,         // 평균 밝기 이 아래면 어두운 방 — booth_cv 와 같은 값
+    gestDark: 'gain', darkTarget: 100, darkGainMax: 4, darkFlowK: 1.5,   // 어두운 방 손짓: 'gain' = 밝기 배율로 끌어올려 재기(문턱 ×1.5) · 'off' = 재지 않음
     meaW: 160, meaNoise: 12,
     skinEvery: 15, skinBp: 40,
     // ── 예비 모드 ──
@@ -103,7 +111,7 @@
       Object.assign(st, {
         n: 0, last: null, lastSeenAt: -Infinity, lastAnyAt: -Infinity, spots: [], cand: null,
         trackOk: false, trackWin: null, skin: false, frontN: 0,
-        prevFlow: false, prevMea: false, diff: null, skinEma: null, camLost: 0,
+        prevFlow: false, prevFlowT: null, prevDark: false, prevMea: false, diff: null, skinEma: null, camLost: 0,
       });
     }
     resetState();
@@ -390,13 +398,20 @@
 
     /**
      * 손짓 점수 = 손 크기 덩어리의 「움직인 피부」 넓이 / 얼굴 넓이 (160px). 실험실 참조 엔진 v2 와 같은 순서:
-     * 피부(얼굴색 역투영, 없으면 YCrCb) ∧ 몸통 가운데 흐름과 다르게 > gestFlow ∧ 얼굴 · 목 · 얼굴 위 밖 ∧ 배경 피부 아님 → 열기 → 덩어리 크기
+     * 피부(얼굴색 역투영, 없으면 YCrCb) ∧ 몸통 가운데 흐름과 다르게 > gestFlow(처리 간격 비례) ∧ 얼굴 · 목 · 얼굴 위 밖 ∧ 배경 피부 아님 → 덩어리 크기.
+     * 어두운 방(평균 밝기 < darkMean)은 흐름을 끄지 않고 밝기 배율을 올려 문턱 ×1.5 로 잰다 (d2 손짓 재현율 0 → 바퀴 3)
      * 몸 = 얼굴 아래 ±2.2 얼굴 폭 흐름 평균(얼굴 폭/초 환산은 logic)
      */
-    function gestureOf(rgba, face, dark) {
+    function gestureOf(rgba, face, dark, t) {
       cv.resize(M.gray, M.small, new cv.Size(M.fw, M.fh), 0, 0, cv.INTER_AREA);
+      // 어두운 방 — 흐름을 끄는 대신 밝기를 한 배율로 끌어올려(장마다 같은 규칙이라 깜빡이지 않는다) 재고, 잡음이 커진 만큼 문턱을 높인다
+      const lowLight = dark && cfg.gestDark === 'gain';
+      if (lowLight) {
+        const mean = cv.mean(M.small)[0];
+        cv.convertScaleAbs(M.small, M.small, Math.min(cfg.darkGainMax, cfg.darkTarget / Math.max(1, mean)), 0);
+      }
       let out = null;
-      if (!dark && st.prevFlow) {
+      if ((!dark || lowLight) && st.prevFlow && st.prevDark === lowLight) {
         cv.calcOpticalFlowFarneback(M.prev, M.small, M.flow, 0.5, 2, 9, 2, 5, 1.1, 0);
         const W = M.fw; const H = M.fh; const fl = M.flow.data32F;
         let all = 0;
@@ -424,9 +439,13 @@
           const tdx = []; const tdy = [];
           for (let yy = ty0; yy < H; yy += 1) for (let xx = tx0; xx < tx1; xx += 1) { const i = yy * W + xx; tdx.push(fl[2 * i]); tdy.push(fl[2 * i + 1]); }
           const mx = median(tdx); const my = median(tdy);
-          if (!st.skinEma || st.skinEma.length !== W * H) st.skinEma = new Float32Array(W * H);
+          if (!st.skinEma || st.skinEma.length !== W * H) { st.skinEma = new Float32Array(W * H); st.emaN = 0; }
+          st.emaN += 1;
           const m = new Uint8Array(W * H);
           const fx0 = x - cfg.gestFacePad * w; const fx1 = x + (1 + cfg.gestFacePad) * w; const neckY = y + h + cfg.gestNeck * fwk;
+          // 흐름 문턱(장 사이 움직인 화소)을 처리 간격에 맞춘다 — 같은 손 빠르기면 3fps 에서 5/3 배 크게 움직인다 (기기 속도에 손짓 값이 흔들리지 않게)
+          const dtK = Math.min(cfg.gestDtMax, Math.max(cfg.gestDtMin, (st.prevFlowT === null ? cfg.gestRefMs : t - st.prevFlowT) / cfg.gestRefMs));
+          const thr = cfg.gestFlow * dtK * (lowLight ? cfg.darkFlowK : 1);
           let skinN = 0; let mvN = 0;
           for (let yy = 0; yy < H; yy += 1) {
             for (let xx = 0; xx < W; xx += 1) {
@@ -437,30 +456,36 @@
               if (!sk || st.skinEma[i] >= cfg.bgSkinOn) continue;           // 배경 피부(오래 그 자리 피부색)
               if (yy < y) continue;                                          // 얼굴 위
               if (yy < neckY && xx >= fx0 && xx <= fx1) continue;            // 얼굴 · 목
+              skinN += 1;
               const dx = fl[2 * i] - mx; const dy = fl[2 * i + 1] - my;
-              if (Math.hypot(dx, dy) <= cfg.gestFlow) continue;
-              m[i] = 1; mvN += 1; skinN += 1;
+              if (Math.hypot(dx, dy) <= thr) continue;
+              m[i] = 1; mvN += 1;
             }
           }
-          let gs = 0;
+          let gs = 0; let po = 0; let nb = 0;
           if (mvN) {
             M.gmask.delete();
             M.gmask = cv.matFromArray(H, W, cv.CV_8UC1, m);
-            cv.morphologyEx(M.gmask, M.gmask, cv.MORPH_OPEN, M.kern);
+            if (cfg.gestMorph === 'open') cv.morphologyEx(M.gmask, M.gmask, cv.MORPH_OPEN, M.kern);
             const n = cv.connectedComponentsWithStats(M.gmask, M.labels, M.stats, M.cents, 8, cv.CV_32S);
             const S = M.stats.data32S; const A = fwk * fwk;
             for (let k = 1; k < n; k += 1) {
               const area = S[k * 5 + 4];
-              if (area >= cfg.blobMin * A && area <= cfg.blobMax * A) gs += area;
+              po += area;
+              if (area >= cfg.blobMin * A && area <= cfg.blobMax * A) { gs += area; nb += 1; }
             }
             gs /= A;
           }
-          out.gs = gs;
+          // 배경 피부 평균이 아직 덜 찼으면(처음 bgWarm 장 ≈ 2초) 못 잼 — 시작하자마자 벽 · 옷의 피부색이 다 「움직인 피부」 로 셌다 (d2 · t3 첫 3초 오탐, 바퀴 3)
+          out.gs = st.emaN > cfg.bgWarm ? gs : null;
           out.skin = skinN;
+          if (cfg.debug) out.gd = [skinN, mvN, po, nb, Math.round(fwk * 10) / 10];   // 실험실용(node_engine --debug): 피부 · 움직인 피부 · 다듬은 뒤 · 덩어리 수 · 얼굴 폭
         }
       }
       M.small.copyTo(M.prev);
       st.prevFlow = true;
+      st.prevFlowT = t;
+      st.prevDark = lowLight;
       return out;
     }
 
@@ -530,7 +555,7 @@
         const eyes = face && src === 'F' ? findEyes(face) : { n: 0 };
         const q = blurOf(face && src !== 'T' ? face : null);
         const box = face ? { x: face.x / w, y: face.y / h, w: face.w / w, h: face.h / h } : null;
-        const g = gestureOf(rgba, box, dark);
+        const g = gestureOf(rgba, box, dark, t);
         const row = {
           t: Math.round(t), src, side, fn, full: full ? 1 : 0,
           nf: full ? faces.length : -1,
@@ -555,6 +580,7 @@
         row.mv = r3(g.all);
         if (g.body !== null) row.body = r3(g.body);
         if (g.gs !== null) row.gs = r3(g.gs);
+        if (g.gd) row.gd = g.gd;
       }
     }
 
@@ -563,7 +589,7 @@
       const box = face ? { x: face.x / w, y: face.y / h, w: face.w / w, h: face.h / h } : null;
       const q = blurOf(face);
       const mea = meaOf(box);
-      const g = gestureOf(rgba, box, dark);
+      const g = gestureOf(rgba, box, dark, t);
       const row = { t: Math.round(t), src: face ? 'C' : '', side: 0, fn: 0, full: 0, nf: -1,
         box: box ? [r3(box.x), r3(box.y), r3(box.w), r3(box.h)] : null, eyes: 0, br: r1(bright), bl: q ? r1(q.bl) : null, mode: 'noc' };
       addMotion(row, mea, g);

@@ -45,6 +45,12 @@
     moveLo: 0.05, moveHi: 0.15,
     // 손짓 — 손 크기 덩어리의 움직인 피부 넓이 / 얼굴 넓이(features gs). 최근 3장 중 2장 넘으면 켜짐 (실험실 gest_thr 0.035)
     gestThr: 0.035,
+    // 켜짐 = 최근 3장 중 2장, 꺼짐 = 최근 2장이 다 문턱 아래일 때 (히스테리시스 — 흐림 · 압축에서 손 덩어리가 한 장씩 끊겨 켜짐이 깜빡였다, 실험실 바퀴 3)
+    gestOnN: 2, gestOnWin: 3, gestHoldN: 1, gestOffWin: 2,
+    gestSoftK: 0.7,         // 무른 켜짐 · 유지 기준(gestThr × 이 값) — 문턱 언저리에서 손짓 시작이 장마다 흔들렸다(d8 2장 손짓 비율 위상별 표준편차 5.3 → 3.9%p, 바퀴 3)
+    gestBridgeMs: 3000,     // 장 넘김으로 뺀 줄(최대 이만큼) 뒤 gestBridgeWin 장 중 gestBridgeN 장이 문턱 위면 넘김 동안도 손짓을 잰다 (gestureFlags)
+    gestBridgeWin: 4, gestBridgeN: 2,
+    gestResetMs: 1000,      // 이만큼 넘게 못 잰 뒤엔 손짓 상태기계를 처음부터
     gestOn: 0.05, gestOff: 0.025,   // 옛 줄(gs 없음, hl/hr/hf)용
     slideGuardMs: 1000,     // 장 넘김 앞뒤 1초는 움직임 · 손짓에서 뺀다 (자료를 넘기는 손 · 몸 — 실험실 권고 6)
     sceneSpike: 0.35,       // 화면 전체에서 바뀐 점이 이 몫 넘는 장(조명 · 카메라 흔들림 · 장면 바뀜)은 움직임 · 손짓에서 뺀다
@@ -320,25 +326,39 @@
     return out;
   }
 
-  /** 움직임 · 손짓에서 뺄 줄 — 장 넘김 앞뒤 slideGuardMs, 화면 전체가 크게 바뀐 장(sceneSpike) */
-  function excluded(seq, cfg = CFG) {
+  /** 움직임 · 손짓에서 뺄 줄 — 장 넘김 앞뒤 slideGuardMs('turn'), 화면 전체가 크게 바뀐 장(sceneSpike, 'spike'). 안 빼면 '' */
+  function excludedWhy(seq, cfg = CFG) {
     const turns = [];
     for (let i = 1; i < seq.length; i += 1) if ((seq[i].row.seg || '') !== (seq[i - 1].row.seg || '')) turns.push(seq[i].t);
-    return seq.map((x) => Number(x.row.mea) > cfg.sceneSpike || turns.some((t) => Math.abs(x.t - t) <= cfg.slideGuardMs));
+    return seq.map((x) => (Number(x.row.mea) > cfg.sceneSpike ? 'spike' : turns.some((t) => Math.abs(x.t - t) <= cfg.slideGuardMs) ? 'turn' : ''));
   }
+  function excluded(seq, cfg = CFG) { return excludedWhy(seq, cfg).map(Boolean); }
 
-  /** 손짓 켜짐/꺼짐 — 손 자리를 잴 수 있는 줄만 (null = 못 잼). gs 가 있으면 최근 3장 중 2장, 옛 줄은 히스테리시스 */
-  function gestureFlags(seq, cfg = CFG) {
-    const ex = excluded(seq, cfg);
+  /**
+   * 손짓 켜짐/꺼짐 상태기계 — skip[i] 인 줄은 건너뛴다(null). gs 줄: 최근 gestOnWin 장 중 gestOnN 장이 문턱 위면 켜짐,
+   * 켜진 뒤엔 최근 gestOffWin 장 중 gestHoldN 장만 넘어도 유지 (히스테리시스 — 흐림 · 압축에서 손 덩어리가 한 장씩 끊겨 켜짐이 깜빡였다, 실험실 바퀴 3).
+   * 옛 줄(gs 없음, hl/hr/hf)은 gestOn/gestOff 히스테리시스
+   */
+  function gestureRun(seq, skip, cfg) {
     let on = false;
     const recent = [];
+    let lastT = -Infinity;
     return seq.map((x, i) => {
       const r = x.row;
-      if (!x.present || ex[i]) return null;
+      if (!x.present || skip[i]) return null;
+      // 1초 넘게 못 잰 뒤(장 넘김 · 자리 비움)는 처음부터 — 앞에서 남은 표로 켜짐을 잇지 않는다 (s08 손짓 → 장 넘김 → 가만한 손 오탐)
+      if (x.t - lastT > cfg.gestResetMs) { recent.length = 0; on = false; }
+      lastT = x.t;
       if (Number.isFinite(r.gs)) {
-        recent.push(r.gs > cfg.gestThr);
-        if (recent.length > 3) recent.shift();
-        return recent.filter(Boolean).length >= 2;
+        recent.push(r.gs);
+        if (recent.length > Math.max(cfg.gestOnWin, cfg.gestOffWin)) recent.shift();
+        const win = recent.slice(-cfg.gestOnWin);
+        const nOn = win.filter((g) => g > cfg.gestThr).length;
+        // 문턱 언저리(손이 잠깐 멈췄다 움직임) — 반 문턱 넘은 장이 gestOnN 장이고 평균이 문턱 위면 켜짐. 한 장짜리 큰 값만으로는 안 켜진다
+        const soft = cfg.gestSoftK > 0 && win.filter((g) => g > cfg.gestThr * cfg.gestSoftK).length >= cfg.gestOnN && win.reduce((a, b) => a + b, 0) / win.length > cfg.gestThr;
+        const nHold = recent.slice(-cfg.gestOffWin).filter((g) => g > cfg.gestThr * (cfg.gestSoftK > 0 ? cfg.gestSoftK : 1)).length;
+        on = on ? nHold >= cfg.gestHoldN : (nOn >= cfg.gestOnN || soft);
+        return on;
       }
       const vals = [r.hl, r.hr, r.hf].filter(Number.isFinite);
       if (!vals.length || !Number.isFinite(r.body)) return null;
@@ -346,6 +366,30 @@
       on = on ? g >= cfg.gestOff : g >= cfg.gestOn;
       return on;
     });
+  }
+
+  /**
+   * 손짓 켜짐/꺼짐 — 손 자리를 잴 수 있는 줄만 (null = 못 잼).
+   * 장 넘김 앞뒤(slideGuardMs)는 자료를 넘기는 손 때문에 빼되, **넘김 뒤 gestBridgeWin 장 안에 손짓이 다시 gestOnN 장 넘게 보이면**
+   * 넘김 동안도 손짓을 잰다 — 장을 넘기는 사이에도 이어진 손짓이다(넘기는 손 하나는 넘김 뒤까지 이어지지 않는다). 손짓 재현율 .49 → (바퀴 3)
+   */
+  function gestureFlags(seq, cfg = CFG) {
+    const why = excludedWhy(seq, cfg);
+    const flags = gestureRun(seq, why.map(Boolean), cfg);
+    if (!(cfg.gestBridgeMs > 0) || !why.includes('turn')) return flags;
+    const all = gestureRun(seq, why.map((w) => w === 'spike'), cfg);   // 넘김 줄도 센 상태기계
+    for (let i = 0; i < seq.length; i += 1) {
+      if (why[i] !== 'turn') continue;
+      let b = i; while (b < seq.length && why[b] === 'turn') b += 1;
+      const after = seq.slice(b, b + cfg.gestBridgeWin).filter((x) => Number(x.row.gs) > cfg.gestThr).length;
+      if (b < seq.length && after >= cfg.gestBridgeN && seq[b].t - seq[i].t <= cfg.gestBridgeMs) {
+        for (let k = i; k < b; k += 1) flags[k] = all[k];
+        // 이은 뒤 몇 장은 이어 센 상태기계를 따른다 — 넘김 뒤 처음부터 다시 세느라 켜짐이 잠깐 끊기지 않게
+        for (let k = b; k < Math.min(seq.length, b + cfg.gestOnWin + cfg.gestOffWin) && !why[k] && flags[k] !== all[k]; k += 1) flags[k] = all[k];
+      }
+      i = b;
+    }
+    return flags;
   }
 
   /* ─── 5. 품질 ───────────────────────────────────────────────────────────── */
@@ -753,7 +797,7 @@
     return { v: VERSION, phase, status: 'none', why: String(why || '카메라 분석이 없었어요'), metrics: {}, segs: [], cards: [] };
   }
 
-  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, confidence, measure, bySeg, cards, analyze, summaryOf, none, where };
+  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, excludedWhy, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, confidence, measure, bySeg, cards, analyze, summaryOf, none, where };
   root.BehaviorCvLogic = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));

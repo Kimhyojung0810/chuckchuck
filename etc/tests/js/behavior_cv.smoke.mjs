@@ -171,10 +171,27 @@ test('손짓(gs) — 3장 중 2장 · 장 넘김 앞뒤 1초 · 화면 전체가
   const f = L.gestureFlags(seq);
   const at = (sec) => f[seq.findIndex((x) => x.t >= sec * 1000)];
   eq(at(5), false, '3장 중 1장만 켜진 앞쪽');
-  eq(at(10), null, '장 넘김 바로 뒤');
+  eq(at(10), true, '장 넘김 바로 뒤 — 넘김 뒤에도 손짓이 이어지면 넘김 동안도 잰다 (바퀴 3)');
   eq(at(15), true, '뒤쪽');
+  // 자료를 넘기는 손 — 넘김 무렵 0.8초만 움직이고 그친다 → 넘김 앞뒤 1초는 여전히 빼고(null), 그 뒤는 꺼짐
+  const flip = L.states(script([[10, (t) => front(t, { gs: 0 }), 1], [0.8, (t) => front(t, { gs: 0.2 }), 2], [9.2, (t) => front(t, { gs: 0 }), 2]]));
+  const ff = L.gestureFlags(flip);
+  const fat = (sec) => ff[flip.findIndex((x) => x.t >= sec * 1000)];
+  eq(fat(10.2), null, '넘기는 손만 — 넘김 앞뒤는 뺀다');
+  eq(fat(12), false, '넘김 뒤 꺼짐');
   const spike = L.states(script([[10, (t) => front(t, { gs: 0.08, mea: 0.6 })]]));
   ok(L.gestureFlags(spike).every((v) => v === null), '화면 전체가 바뀐 장');
+});
+
+test('손짓 히스테리시스 — 켜진 뒤 손 덩어리가 한 장씩 끊겨도(흐림 · 압축) 켜짐을 유지, 2장 내리 조용하면 끈다', () => {
+  const rows = script([[3, (t) => front(t, { gs: 0 })], [6, (t, k) => front(t, { gs: k % 2 === 0 ? 0.1 : 0 })], [4, (t) => front(t, { gs: 0 })]]);
+  const seq = L.states(rows);
+  const f = L.gestureFlags(seq);
+  const on = f.slice(16, 45).filter((v) => v === true).length;
+  ok(on >= 27, `켜짐 유지 ${on}/29`);
+  eq(f[f.length - 1], false, '조용해진 뒤 꺼짐');
+  const noHys = L.measure(seq, { ...L.CFG, gestHoldN: 2 }).gesture;   // 히스테리시스를 빼면 깜빡인다 — 하네스가 차이를 잡는지
+  ok(noHys < L.measure(seq).gesture - 0.15, `히스테리시스가 켜짐 시간을 늘린다 ${noHys} vs ${L.measure(seq).gesture}`);
 });
 
 test('손짓 · 말소리 — 말할 때만 손이 움직이면 그렇게 쓴다 (많을수록 좋다고 안 쓴다)', () => {
