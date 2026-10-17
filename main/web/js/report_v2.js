@@ -31,6 +31,7 @@
       // 네 모델 Q&A 후보 판 (js/report_qaboard.js) — 판이 없을 때의 까닭: loading · single(한 모델) · missing(이 탭에 없음)
       qa_board: raw.qaBoard || null, qa_board_state: raw.qaBoardState || '',
       qa: raw.qa && Array.isArray(raw.qa.results) && raw.qa.results.length ? { questions: raw.qa.questions || [], results: raw.qa.results } : null,
+      behavior: raw.behavior || null,   // 발표 태도(베타) — 그리기는 js/behavior_report.js
     };
   }
 
@@ -152,7 +153,9 @@
     /* ── 스택 ── */
     /* 「질문은 이렇게 골랐어요」 — 네 모델 후보 판 (js/report_qaboard.js). 파일이 없으면 진입점도 없다 */
     const QBS = window.ReportQaBoard ? window.ReportQaBoard.screens({ esc, I, asset, Q: () => QB }) : null;
-    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy,
+    // 발표 태도(베타) 화면 — 그리기는 js/behavior_report.js 가 한다(리포트 개편 때 옮기기 쉽게 여기는 한 줄)
+    const attitude = () => (window.BehaviorReport ? window.BehaviorReport.rv2Screen(D.behavior, { titles: (D.deck.slides || []).map((x) => x.title) }) : { title: '발표 태도', html: '' });
+    const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy, attitude,
       ...(QBS ? { board: QBS.board, slot: QBS.slot, round: QBS.round } : {}) };
     const parse = (r) => { const k = r.indexOf(':'); return k < 0 ? [r, ''] : [r.slice(0, k), r.slice(k + 1)]; };
     function renderScreen(route) {
@@ -329,6 +332,7 @@
             <span class="nv-faces">${V.evaluators.map((e) => `<img src="${esc(asset(`assets/chick-${e.key}-neutral.svg`))}" alt="" class="${e.absent ? 'off' : ''}">`).join('')}</span><i class="nv-chev">${I.chev}</i></button>
           <button type="button" class="nv-row" data-push="practice"><span class="nv-ico i-green">${I.chat}</span><span class="nv-row-main"><b>Q&A 돌아보기</b><small>${V.qa.length ? `질문 ${V.qa.length}개 · 내 어느 말에서 꼬리질문이 나왔나` : 'Q&A 기록이 없어요'}</small></span><i class="nv-chev">${I.chev}</i></button>
           ${QBS && QB ? QBS.entry() : ''}
+          ${window.BehaviorReport && D.behavior ? window.BehaviorReport.rv2Row(D.behavior, { I, esc }) : ''}
           ${sc ? `<button type="button" class="nv-row" data-push="scores"><span class="nv-ico i-gray">${I.chart}</span><span class="nv-row-main"><b>기준별 점수</b><small>39개 항목을 7개 기준으로</small></span><span class="nv-val">${esc(val)}점</span><i class="nv-chev">${I.chev}</i></button>` : ''}
         </div>
         ${typeof window.__rv2Legacy === 'function' ? `<h3 class="nv-sec">자세한 분석</h3>

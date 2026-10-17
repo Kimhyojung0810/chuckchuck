@@ -188,6 +188,36 @@ test('화면 문구에 감정 · 성격 낱말이 없다', () => {
   texts.filter(Boolean).forEach((t) => ok(!BAD.test(t), `감정 낱말: ${t}`));
 });
 
+/* ── 리포트 카드 (js/behavior_report.js) ── */
+const RSRC = readFileSync(path.join(ROOT, 'main/web/js/behavior_report.js'), 'utf8');
+const R = (() => { const ctx = { console }; vm.createContext(ctx); vm.runInContext(RSRC, ctx, { filename: 'behavior_report.js' }); return ctx.BehaviorReport; })();
+
+test('리포트 카드 — 베타 표시 · 먼저 살펴볼 한 가지 · 숫자는 자세히 보기 안 · 감정 낱말 없음', () => {
+  const side = (t) => ({ ...front(t), src: 'P', side: -1, eyes: 0 });
+  const res = L.analyze(script([[10, front, 1], [4.4, side, 2], [8, front, 2], [4.4, side, 3], [8, front, 3], [4.4, side, 3], [20, front, 4]]));
+  const view = { ...res, raw: undefined, summary: L.summaryOf(res) };
+  const html = R.html({ present: view, qa: null }, { titles: ['표지', '문제', '해법', '정리'] });
+  ok(html.includes('베타 · 총점에 안 들어가요'), '베타 표시');
+  ok(html.includes('먼저 살펴볼 한 가지') && /[23]장 · (문제|해법)/.test(html), '먼저 살펴볼 한 가지 + 장 제목');
+  const [top, fold] = html.split('<details class="bh-fold">');
+  ok(fold && /\d+%/.test(fold), '숫자는 자세히 보기 안에');
+  ok(!/\d+%/.test(top.replace(/<details class="bh-more">[\s\S]*?<\/details>/g, '')), `화면 위쪽에 퍼센트가 없다`);
+  ok(!/불안|긴장|자신감|초조|감정 상태/.test(html), '감정 낱말');
+  const h = R.headline({ present: view });
+  eq(h.status, 'ok', 'headline'); ok(h.first && h.first.slide, '첫 줄의 장'); ok(h.topEvidence.length >= 1, '근거 위 셋');
+  // 숫자만 있는 요약(서버 보관본)도 그린다 — 근거 카드 없이
+  ok(R.html({ present: view.summary }).includes('bh-areas'), '요약만으로도');
+});
+
+test('리포트 카드 — 카메라 분석 없음이면 까닭 한 줄, 리포트 2.0 입구 줄', () => {
+  const none = L.none('카메라를 꺼 두고 발표해서 카메라 분석은 없어요');
+  const html = R.html({ present: none, qa: null });
+  ok(html.includes('카메라 분석 없음') && html.includes('카메라를 꺼 두고'), html);
+  eq(R.headline({ present: none }).word, '카메라 분석 없음', '첫 줄 낱말');
+  ok(R.rv2Row({ present: none }).includes('data-push="attitude"'), '입구 줄');
+  eq(R.html(null), '', '기록 자체가 없으면 그리지 않는다');
+});
+
 /* 자기검사 — 히스테리시스를 빼면 「한 장짜리 헛잡음」 시험이 깨져야 한다 */
 const DWELL_LINE = 'if (seq[i].t - seq[candStart].t + seq[i].dt >= cfg.minDwellMs) {';
 test('히스테리시스를 빼면 한 장짜리 헛잡음 시험이 깨진다', () => {

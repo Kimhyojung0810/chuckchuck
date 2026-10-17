@@ -1178,6 +1178,8 @@ function nfStep3Vision() {
   renderRecPanel();
   // 리허설 흐름(#/rehearsal)이면 「발표 마치고 질문 준비하기」 옆에 「녹음본을 넣어서 발표 마치기」 (js/rehearsal.js)
   if (typeof rehearsalFlowOn === 'function' && rehearsalFlowOn() && typeof rehearsalVisionDock === 'function') rehearsalVisionDock(layer);
+  // 발표 태도(베타) — 녹음하는 동안 이 카메라를 조용히 본다 (js/rehearsal_behavior.js). 권한 · 녹음은 건드리지 않는다
+  if (typeof rhBehaviorVisionMount === 'function') rhBehaviorVisionMount();
   bindRehearsalNav();
   syncRehearsalNav();
   paintRehearsalSlide(nf.slide);

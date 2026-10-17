@@ -373,7 +373,7 @@
     // 「화면 쪽」 — Haar 는 카메라를 보는 것과 노트북 화면(자료)을 보는 것을 가르지 못한다. 눈 맞춤이라고 부르지 않는다 (근거조사 §0-2)
     gaze: { label: '화면 쪽을 향한 시간', words: ['짧아요', '보통이에요', '길어요'], look: [true, false, false],
       tip: '장을 넘길 때마다 한 문장은 카메라를 보며 말해 봐요.' },
-    lookaway: { label: '오래 눈을 뗀 구간', words: ['드물어요', '가끔 있어요', '잦아요'], look: [false, false, true],
+    lookaway: { label: '3초 넘게 벗어난 구간', words: ['드물어요', '가끔 있어요', '잦아요'], look: [false, false, true],
       tip: '자료를 볼 때는 짧게 보고 다시 화면 쪽으로 돌아오는 연습을 해 봐요.' },
     down: { label: '아래를 본 시간', words: ['짧아요', '보통이에요', '길어요'], look: [false, false, true],
       tip: '대본을 읽는 장이 있다면 첫 문장을 외워 고개를 든 채 시작해 봐요.' },
@@ -505,8 +505,8 @@
         const low = segs.slice().sort((a, b) => a.gaze - b.gaze)[0];
         const all = M.gaze.value;
         if (low.gaze < all - 0.15) {
-          out.push({ kind: 'gaze_seg', observation: `${where(low.seg)}에서는 화면 쪽을 향한 시간이 ${Math.round(low.gaze * 100)}%로 발표 전체(${Math.round(all * 100)}%)보다 짧았어요`,
-            value: `${Math.round(low.gaze * 100)}% (${sec(low.dur)}초 중)`, basis: '이 발표의 다른 장과 견줘서 15%p 넘게 낮을 때 짚어요 (설계값 · 검증 전)',
+          out.push({ kind: 'gaze_seg', observation: `${where(low.seg)}에서는 화면 쪽을 향한 시간이 발표 전체보다 눈에 띄게 짧았어요`,
+            value: `${Math.round(low.gaze * 100)}% (${sec(low.dur)}초 중) · 발표 전체 ${Math.round(all * 100)}%`, basis: '이 발표의 다른 장과 견줘서 15%p 넘게 낮을 때 짚어요 (설계값 · 검증 전)',
             scene: scene(low.seg, low.start, low.dur), conf: M.gaze.conf, tip: WORDS.gaze.tip });
         }
       }
@@ -557,9 +557,30 @@
         const sw = metrics.sway; const mv = metrics.movement;
         if (sw && sw.ok) { level = sw.level; word = `흔들림 ${sw.word}`; } else { level = 0; word = `움직임 ${mv.word}`; }
       } else { const m = ok[0]; level = m.look ? Math.max(1, m.level) : (a.key === 'hands' ? m.level : 0); word = m.word; }
-      const lead = looks[0] || ok[0];
-      return { key: a.key, label: a.label, ok: true, level, word, line: `${lead.label} ${lead.word}`, look: looks.length > 0 };
+      return { key: a.key, label: a.label, ok: true, level, word, line: areaLine(a.key, metrics, looks), look: looks.length > 0 };
     });
+  }
+
+  /** 갈래 낱말 아래 한 줄 — 낱말을 되풀이하지 않고 그 갈래의 나머지 관찰을 붙인다 */
+  function areaLine(key, M, looks) {
+    const say = (k) => (M[k] && M[k].ok ? `${M[k].label} ${M[k].word}` : '');
+    if (key === 'gaze') {
+      const parts = (looks.length ? looks.map((m) => `${m.label} ${m.word}`) : [say('gaze'), say('lookaway')]).filter(Boolean);
+      return parts.join(' · ');
+    }
+    if (key === 'body') {
+      return M.sway && M.sway.ok ? say('movement') || '몸 좌우 흔들림을 쟀어요' : '좌우 흔들림은 이번엔 잴 수 없었어요';
+    }
+    if (key === 'hands') {
+      const g = M.gesture;
+      if (g && Number.isFinite(g.speak) && Number.isFinite(g.silent)) {
+        const d = g.speak - g.silent;
+        return d > 0.1 ? '말할 때 손이 더 자주 움직였어요' : d < -0.1 ? '쉴 때 손이 더 자주 움직였어요' : '말할 때와 쉴 때 비슷하게 움직였어요';
+      }
+      return '손 자리 움직임만 봤어요 — 많고 적음에 좋고 나쁨은 없어요';
+    }
+    const f = M.framing;
+    return f && f.offside ? '얼굴이 화면 가운데에서 비껴 있었어요' : '얼굴 크기 · 자리를 봤어요';
   }
 
   const FIRST_ORDER = ['lookaway', 'down', 'gaze_seg', 'sway', 'framing'];
@@ -581,7 +602,7 @@
       return { kind, area: CARD_AREA[kind], text: c.observation, tip: c.tip || m.tip || '', slide: segSlide(sc.seg || '') , q: segQ(sc.seg || ''), sec: sc.sec ?? null, conf: c.conf };
     }
     if (M.gaze && M.gaze.ok && M.gaze.look) {
-      return { kind: 'gaze', area: 'gaze', text: `화면 쪽을 향한 시간이 ${Math.round(M.gaze.value * 100)}%로 짧았어요`, tip: M.gaze.tip, slide: null, q: null, sec: null, conf: M.gaze.conf };
+      return { kind: 'gaze', area: 'gaze', text: '발표하는 동안 화면 쪽을 향한 시간이 짧았어요', tip: M.gaze.tip, slide: null, q: null, sec: null, conf: M.gaze.conf };
     }
     return null;
   }
