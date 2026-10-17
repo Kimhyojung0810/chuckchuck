@@ -84,6 +84,12 @@ const cardHtml = QS.card();
 check('홈 Q&A 카드: 질문마다 한 줄 · 판정 3단계 나눔', (cardHtml.match(/data-push="qa:/g) || []).length === SV.qa.filter((q) => q.result).length && /스스로 설명/.test(cardHtml) && /넘김/.test(cardHtml));
 const screensHtml = SV.qa.filter((q) => q.result).map((q) => QS.qa(q.id).html).join('');
 check('질문 화면: 30초 뼈대(결론 → 근거 → 잇기) · 판정 · 내 답', /30초 뼈대/.test(screensHtml) && /결론 먼저/.test(screensHtml) && /근거 하나/.test(screensHtml) && /내 답/.test(screensHtml));
+check('질문 화면: 닫는 판정에 근거 줄이 없으면 근거 줄이 있는 최근 답의 줄을 「내 답 N」 이라 밝히고 보인다', (() => {
+  const q = SV.qa.find((x) => x.result && !(x.result.grounds || []).length && x.steps.some((s) => (s.grounds || []).length));
+  if (!q) return true;
+  const h = QS.qa(q.id).html;
+  return /내 답 \d을 판정한 근거 줄이에요/.test(h) && /rq-ground r-(covered|missing|conflict)/.test(h);
+})());
 check('공개 샘플 Q&A 에 자리표시자 · 개발 용어가 없다', !/어느 정도|decided_by|F-0\d|rehearsal_flow|\/api\//.test(screensHtml + cardHtml + JSON.stringify(sample.qa) + Object.values(sample.provenance).join(' ')));
 check('공개 샘플: Q&A 와 「질문은 이렇게 골랐어요」 판이 같은 판(질문 글이 판 후보 · 3번+ 에 있다)', (() => {
   const b = JSON.parse(readFileSync(path.join(WEB, 'js/report_qaboard_sample.js'), 'utf8').replace(/^[\s\S]*?window\.__RV2_QA_BOARD = /, '').replace(/;\s*$/, ''));

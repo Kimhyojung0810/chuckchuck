@@ -69,9 +69,12 @@
     /** 근거 칩 — 칩(장 · 줄 · 역할)은 늘 보이고, 줄 글 · 까닭은 눌러야 펼친다 (기조 R4) */
     function groundChips(q) {
       const r = q.result || {};
-      const gs = (r.grounds && r.grounds.length ? r.grounds : (q.steps[q.steps.length - 1] || {}).grounds) || [];
+      // 닫는 판정에 근거 줄이 없으면(마지막 답이 되묻기 · 코칭 턴) 근거 줄이 있는 가장 최근 답의 줄을, 몇 번째 답의 줄인지 밝히고 보인다
+      const at = r.grounds && r.grounds.length ? -1 : q.steps.map((s) => (s.grounds || []).length > 0).lastIndexOf(true);
+      const gs = (at < 0 ? r.grounds : q.steps[at].grounds) || [];
       if (gs.length) {
-        return `<div class="rq-grounds">${gs.map((g) => {
+        const from = at >= 0 && at < q.steps.length - 1 ? `<p class="rq-src">내 답 ${at + 1}을 판정한 근거 줄이에요</p>` : '';
+        return `${from}<div class="rq-grounds">${gs.map((g) => {
           const line = /^S\d+-(\d+)/.exec(g.ref || '');
           const where = `${g.slide_no ? `자료 ${g.slide_no}장` : '자료'}${line ? ` · ${line[1]}번째 줄` : ''}`;
           return `<details class="rq-ground r-${esc(g.role)}"><summary><span>${esc(where)}</span><b>${esc(ROLE[g.role] || '근거')}</b></summary>
