@@ -154,11 +154,30 @@
     const QBS = window.ReportQaBoard ? window.ReportQaBoard.screens({ esc, I, asset, Q: () => QB }) : null;
     const ROUTES = { home, issue, replay, coach, audience, chick, practice, qa, scores, legacy,
       ...(QBS ? { board: QBS.board, slot: QBS.slot, round: QBS.round } : {}) };
+    /* 스튜디오 탭 모드 — 뿌리 화면 다섯은 정거장마다 한 화면 데스크(js/report_desk.js, 10-17 「나눠서 잘 보여 주는 게 핵심」).
+       깊은 화면(진단 · 질문 · 청중 한 마리 · 자세한 분석)은 그대로 이 스택이 밀어 넣는다 */
+    if (TABS && window.ReportDesk) {
+      const desk = () => window.ReportDesk.routes({
+        D, V, G, esc, fmt, grade, I, asset, tone, CRIT, EV, plainDeck, slideTag, playBtn, play, wire, goRoot,
+        audio: () => audio, top: () => stack[stack.length - 1].el,
+        hasLegacy: typeof window.__rv2Legacy === 'function',
+        qaEntry: () => (QBS && (QB || V.qa.length) && QBS.entry(D.qa_board_state) ? `<div class="nv-group">${QBS.entry(D.qa_board_state)}</div>` : ''),
+      });
+      ['home', 'replay', 'audience', 'coach', 'practice'].forEach((k) => { ROUTES[k] = (arg) => desk()[k](arg); });
+    }
     const parse = (r) => { const k = r.indexOf(':'); return k < 0 ? [r, ''] : [r.slice(0, k), r.slice(k + 1)]; };
     function renderScreen(route) {
       const [name, arg] = parse(route);
       const sc = (ROUTES[name] || home)(arg);
       const el = document.createElement('section');
+      if (sc.desk) {   // 데스크 — 막대 · 큰 제목 없이 창을 채운다(제 머리글을 스스로 그린다)
+        el.className = `nv-screen nv-desk nv-${name}`;
+        el.setAttribute('aria-label', sc.title);
+        el.innerHTML = sc.html;
+        wire(el);
+        if (sc.wire) sc.wire(el);
+        return { route, el, short: sc.short || sc.title, onTime: sc.onTime || null };
+      }
       el.className = `nv-screen nv-${ROUTES[name] ? name : 'home'}${sc.wide ? ' is-wide' : ''}`;
       el.setAttribute('aria-label', sc.title);
       const prev = stack[stack.length - 1];
@@ -221,7 +240,7 @@
       await Promise.all([animate(next.el, 'translateX(100%)', 'translateX(0)', 500), prev ? animate(prev.el, 'translateX(0)', 'translateX(-28%)', 500) : null]);
       NV.classList.remove('is-moving');
       if (prev) prev.el.classList.add('is-under');
-      const h = next.el.querySelector('.nv-large'); if (h) h.focus({ preventScroll: true });
+      const h = next.el.querySelector('.nv-large, .dk-title'); if (h) h.focus({ preventScroll: true });
       if (MODE === 'page') history.pushState({ rv2: stack.map((s) => s.route) }, '', hashOf());
       saveStack();
       busy = false;

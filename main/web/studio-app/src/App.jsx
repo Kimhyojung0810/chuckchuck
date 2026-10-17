@@ -126,7 +126,7 @@ export default function App() {
       children: <ScoreBoard data={k === at ? scoreData : null} w={L.graph.w} h={L.graph.h} k={k} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
     // ② 발표는 웹캠 · 앞줄 관중이 주인공이라 자라는 삐약이는 쉰다(v3 — 메인 콘텐츠와 경쟁하지 않게). ④ 질의응답도 — 웹캠이 화면을 채운다
-    if (!vp.phone && k !== 1 && k !== 3) {
+    if (!vp.phone && k !== 1 && k !== 3 && !isReport(k)) {   // 리포트는 넓은 데스크가 창을 채운다 — 옆 삐약이 자리가 없다
       const at2 = k === 2 ? { x: L.app.x, y: L.app.y + L.app.h / 2 + 120 }                                       // 발표 채점 — 진행 창 아래
         : { x: L.app.x - (L.app.w / 2 + 130), y: L.app.y + L.app.h / 2 - 150 }
       // 화면 밖으로 잘리지 않게 (리포트처럼 창이 넓으면 옆 자리가 좁다)

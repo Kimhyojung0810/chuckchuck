@@ -386,3 +386,204 @@ html.sx-studio #app.rv2-host { position: fixed; inset: 0; height: auto; z-index:
 @media (prefers-reduced-motion: reduce) {
   .rv2 *, .rv2 *::before, .rv2 *::after { animation: none !important; transition: none !important; }
 }
+
+/* ═══ 리포트 데스크 (js/report_desk.js) — 스튜디오 정거장 05~09 를 저마다 한 화면으로. 창을 채우고 바깥 스크롤 없음 (10-17) ═══ */
+.rv2 .nv-desk { overflow: hidden; }
+.rv2 .dk { height: 100%; display: flex; flex-direction: column; gap: 18px; padding: 26px 32px 16px; min-height: 0; }
+.rv2 .dk-head { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.rv2 .dk-eyebrow { margin: 0 0 6px; color: var(--ink-3); font-size: 13px; font-weight: 600; }
+.rv2 .dk-title { margin: 0; font-size: 28px; line-height: 1.28; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance; max-width: 30em; outline: none; }
+.rv2 .dk-tag { flex: none; padding: 6px 12px; border-radius: 999px; background: var(--accent-wash); color: var(--accent-ink); font-size: 13px; font-weight: 600; }
+.rv2 .dk-headacts { flex: none; display: flex; gap: 6px; }
+.rv2 .dk-more, .rv2 .dk-go, .rv2 .dk-link { display: inline-flex; align-items: center; gap: 4px; height: 34px; padding: 0 12px; border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 14px; font-weight: 600; white-space: nowrap; }
+.rv2 .dk-more i, .rv2 .dk-go i, .rv2 .dk-link i { width: 6px; height: 11px; display: inline-flex; opacity: .6; }
+.rv2 .dk-more:hover, .rv2 .dk-go:hover, .rv2 .dk-link:hover { color: var(--ink); }
+.rv2 .dk-go { background: var(--fill); color: var(--accent-ink); }
+.rv2 .dk-link { height: 30px; padding: 0; background: none; color: var(--accent-ink); }
+.rv2 .dk-body { flex: 1; min-height: 0; display: grid; gap: 16px; }
+.rv2 .dk-card { background: var(--surface); border-radius: var(--r-card); padding: 18px 20px; min-height: 0; }
+.rv2 .dk-h { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
+.rv2 .dk-h3 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.rv2 .dk-h3 small { margin-left: 6px; font-weight: 500; color: var(--ink-3); }
+.rv2 .dk-cap { margin: 0; color: var(--ink-3); font-size: 13px; }
+.rv2 .dk-sub { margin: 6px 0 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.45; }
+.rv2 .dk-strong { margin: 2px 0 4px; font-size: 16px; font-weight: 700; }
+.rv2 .dk-empty { margin: 0; color: var(--ink-3); font-size: 14px; }
+.rv2 .dk-foot { flex: none; display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink-4); font-size: 12px; }
+.rv2 .dk-num { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.rv2 .dk-num small { margin-left: 4px; font-size: 15px; font-weight: 600; color: var(--ink-3); letter-spacing: 0; }
+.rv2 .dk-num.t-ok { color: var(--ok); } .rv2 .dk-num.t-mid { color: var(--mid); }
+/* 판정 이름표 — 판정 색 다섯 그대로 */
+.rv2 .dk-v { flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.rv2 .dk-v.t-ok { background: var(--ok-bg); color: var(--ok); } .rv2 .dk-v.t-no { background: var(--no-bg); color: var(--no); }
+.rv2 .dk-v.t-ct { background: var(--ct-bg); color: var(--ct); } .rv2 .dk-v.t-om { background: var(--om-bg); color: var(--om); }
+.rv2 .dk-v.t-na { background: var(--fill); color: var(--ink-3); } .rv2 .dk-v.t-mid { background: var(--mid-bg); color: var(--mid); }
+.rv2 .dk-n { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-weight: 700; font-size: 15px; background: var(--mid-bg); color: var(--mid); }
+.rv2 .dk-n.t-ct { background: var(--ct-bg); color: var(--ct); } .rv2 .dk-n.t-ok { background: var(--ok-bg); color: var(--ok); } .rv2 .dk-n.t-na { background: var(--fill); color: var(--ink-3); }
+.rv2 .dk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-4); }
+.rv2 .dk-dot.t-ok { background: var(--ok); } .rv2 .dk-dot.t-no { background: var(--no); } .rv2 .dk-dot.t-ct { background: var(--ct); } .rv2 .dk-dot.t-om { background: var(--om); } .rv2 .dk-dot.t-mid { background: var(--mid); }
+.rv2 .dk-concepts { display: flex; flex-direction: column; gap: 8px; }
+.rv2 .dk-concept { display: flex; align-items: center; gap: 10px; font-size: 14.5px; line-height: 1.35; }
+.rv2 .dk-concept small { margin-left: auto; color: var(--ink-3); font-size: 12.5px; white-space: nowrap; }
+
+/* 05 결과 */
+.rv2 .dk-home .dk-body { grid-template-columns: minmax(340px, 400px) 1fr; }
+.rv2 .dk-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.rv2 .dk-ring { display: flex; align-items: center; gap: 20px; }
+.rv2 .dk-ringbox { position: relative; width: 128px; height: 128px; flex: none; }
+.rv2 .dk-ringbox svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.rv2 .dk-ringbox circle { fill: none; stroke-width: 11; }
+.rv2 .dk-ringbox .bg { stroke: var(--fill-2); }
+.rv2 .dk-ringbox .fg { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: var(--c); stroke-dashoffset: var(--off); }
+.rv2 .dk-ringbox div { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.rv2 .dk-ringbox b { font-size: 38px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; }
+.rv2 .dk-ringbox span { font-size: 14px; color: var(--ink-3); font-weight: 600; }
+.rv2 .dk-kpis { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 12px; }
+.rv2 .dk-kpi { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 14px 16px; border-radius: 18px; background: var(--surface); text-align: left; transition: transform .2s var(--ease); }
+.rv2 .dk-kpi:hover { transform: translateY(-2px); }
+.rv2 .dk-kpi .dk-num { font-size: 28px; }
+.rv2 .dk-bar { height: 6px; border-radius: 3px; background: var(--fill-2); overflow: hidden; }
+.rv2 .dk-bar i { display: block; height: 100%; border-radius: 3px; background: var(--mid); }
+.rv2 .dk-kpi .dk-sub { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+.rv2 .dk-fixlist { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
+.rv2 .dk-fixcard { flex: 1; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; cursor: pointer; transition: transform .2s var(--ease), box-shadow .2s; }
+.rv2 .dk-fixcard:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 0, 0, .06); }
+.rv2 .dk-fixmain b { display: block; font-size: 18px; line-height: 1.35; letter-spacing: -0.02em; }
+.rv2 .dk-fixmain p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rv2 .dk-good { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rv2 .dk-good .dk-cap { margin-right: 4px; font-weight: 700; }
+.rv2 .dk-chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--ok-bg); color: var(--ok); font-size: 13.5px; font-weight: 600; max-width: 100%; }
+.rv2 .dk-chip svg { width: 14px; height: 14px; flex: none; }
+.rv2 .dk-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 06 다시 보기 */
+.rv2 .dk-replay .dk-body { grid-template-columns: 116px minmax(0, 1fr) minmax(300px, 360px); }
+.rv2 .dk-strip { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; padding: 2px; }
+.rv2 .dk-thumb { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 14px; text-align: left; }
+.rv2 .dk-thumb.is-on { background: var(--surface); box-shadow: inset 0 0 0 2px var(--accent); }
+.rv2 .dk-thumbimg { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: var(--fill-2); }
+.rv2 .dk-thumbimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rv2 .dk-thumbimg span, .rv2 .dk-bigslide span, .rv2 .dk-refimg span { display: none; }
+.rv2 .dk-thumbmeta { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.rv2 .dk-thumbmeta small { color: var(--ink-3); }
+.rv2 .dk-thumbmeta .dk-dot { margin-left: auto; }
+.rv2 .dk-stage { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+.rv2 .dk-slidebox { flex: 1; min-height: 0; display: grid; place-items: center; }
+.rv2 .dk-bigslide { max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; height: 100%; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, .08); }
+.rv2 .dk-bigslide img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.rv2 .dk-player { flex: none; display: flex; align-items: center; gap: 14px; padding: 12px 16px; }
+.rv2 .dk-bigplay { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: #fff; }
+.rv2 .dk-bigplay:disabled { background: var(--fill-2); color: var(--ink-4); }
+.rv2 .dk-bigplay .nv-pi, .rv2 .dk-bigplay svg { width: 16px; height: 16px; }
+.rv2 .dk-track { position: relative; flex: 1; height: 34px; border-radius: 8px; background: var(--fill); cursor: pointer; overflow: hidden; }
+.rv2 .dk-band { position: absolute; top: 0; bottom: 0; border-right: 2px solid var(--surface); background: var(--fill-2); display: flex; align-items: center; padding-left: 8px; }
+.rv2 .dk-band em { font-style: normal; font-size: 12px; color: var(--ink-3); font-weight: 600; white-space: nowrap; overflow: hidden; }
+.rv2 .dk-band.is-on { background: var(--accent-wash); } .rv2 .dk-band.is-on em { color: var(--accent-ink); }
+.rv2 .dk-head-mark { position: absolute; top: 0; bottom: 0; left: 0; width: 2px; background: var(--ink); }
+.rv2 .dk-clock { flex: none; color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.rv2 .dk-side { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.rv2 .dk-side .dk-h3 { margin: 8px 0 0; }
+.rv2 .dk-slidehead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.rv2 .dk-slidehead b { font-size: 20px; }
+.rv2 .dk-slidehead > span:not(.dk-pill) { font-size: 15px; font-weight: 600; color: var(--ink-2); flex: 1 1 100%; }
+.rv2 .dk-pill { display: inline-flex; height: 26px; align-items: center; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; background: var(--mid-bg); color: var(--mid); }
+.rv2 .dk-pill.t-ok { background: var(--ok-bg); color: var(--ok); }
+.rv2 .dk-said { display: flex; flex-direction: column; gap: 2px; }
+.rv2 .dk-utt { display: grid; grid-template-columns: 40px 1fr; gap: 8px; padding: 7px 8px; border-radius: 10px; text-align: left; font-size: 14px; line-height: 1.45; }
+.rv2 .dk-utt time { color: var(--ink-3); font-size: 12px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.rv2 .dk-utt:hover { background: var(--fill); } .rv2 .dk-utt.is-now { background: var(--accent-wash); }
+.rv2 .dk-flow { padding: 12px 14px; border-radius: 14px; background: var(--ok-bg); }
+.rv2 .dk-flow.t-mid { background: var(--mid-bg); }
+.rv2 .dk-flow b { font-size: 14px; color: var(--ok); } .rv2 .dk-flow.t-mid b { color: var(--mid); }
+.rv2 .dk-flow p { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-2); }
+
+/* 07 청중석 */
+.rv2 .dk-aud .dk-body { grid-template-rows: minmax(0, 1fr) auto; }
+.rv2 .dk-theater { position: relative; overflow: hidden; border-radius: 24px; background: radial-gradient(120% 140% at 50% -20%, #3A3F48 0%, #16181C 60%, #0E0F12 100%); color: #fff; display: flex; flex-direction: column; justify-content: flex-end; padding: 16px 24px 14px; min-height: 0; }
+.rv2 .dk-spot { position: absolute; left: 50%; top: -40%; width: 70%; height: 120%; transform: translateX(-50%); background: radial-gradient(closest-side, rgba(255, 244, 214, .16), transparent); pointer-events: none; }
+.rv2 .dk-seats { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: end; }
+.rv2 .dk-seat { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; color: #fff; }
+.rv2 .dk-seat img { width: clamp(72px, 13vh, 112px); height: auto; transition: transform .3s var(--ease); }
+.rv2 .dk-seat:hover img { transform: translateY(-4px); }
+.rv2 .dk-seat b { font-size: 15px; } .rv2 .dk-seat small { font-size: 12px; color: rgba(255, 255, 255, .6); }
+.rv2 .dk-seat.is-off img { filter: grayscale(1) brightness(.55); }
+.rv2 .dk-bubble { position: relative; margin: 0 0 4px; max-width: 100%; padding: 10px 12px; border-radius: 14px; background: #fff; color: var(--ink); font-size: 13.5px; line-height: 1.4; text-align: left; }
+.rv2 .dk-bubble span { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }   /* 줄 자르기는 안쪽에 — 바깥 여백에 넷째 줄이 비쳤다 */
+.rv2 .dk-bubble::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; background: inherit; transform: rotate(45deg); border-radius: 2px; }
+.rv2 .dk-bubble.is-off { background: rgba(255, 255, 255, .12); color: rgba(255, 255, 255, .6); text-align: center; }
+.rv2 .dk-bubble.is-off::after { display: none; }
+.rv2 .dk-theater-note { position: relative; margin: 12px 0 0; text-align: center; color: rgba(255, 255, 255, .55); font-size: 12.5px; }
+.rv2 .dk-metrics { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; min-height: 0; }
+.rv2 .dk-m { overflow: hidden; display: flex; flex-direction: column; }
+.rv2 .dk-bars { display: flex; flex-direction: column; gap: 10px; }
+.rv2 .dk-barrow { display: grid; grid-template-columns: 34px 1fr 50px; align-items: center; gap: 10px; font-size: 13px; }
+.rv2 .dk-barrow b { text-align: right; font-variant-numeric: tabular-nums; }
+.rv2 .dk-bartrack { position: relative; height: 12px; }
+.rv2 .dk-bartrack i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+.rv2 .dk-bartrack .rec { background: var(--fill-2); } .rv2 .dk-bartrack .act { background: var(--mid); } .rv2 .dk-bartrack .act.t-ok { background: var(--ok); }
+.rv2 .dk-gauge { position: relative; height: 10px; margin: 14px 0 6px; border-radius: 5px; background: var(--fill-2); }
+.rv2 .dk-gauge .band { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: var(--accent-wash); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.rv2 .dk-gauge .me { position: absolute; top: -5px; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px; background: var(--ink); }
+.rv2 .dk-gaugelab { display: flex; justify-content: space-between; color: var(--ink-3); font-size: 12px; }
+.rv2 .dk-habits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rv2 .dk-habits span { display: flex; flex-direction: column; align-items: flex-start; font-size: 12.5px; color: var(--ink-3); }
+.rv2 .dk-habits b { font-size: 26px; color: var(--ink); line-height: 1.15; font-variant-numeric: tabular-nums; }
+.rv2 .dk-spans { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.rv2 .dk-spanrow { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.rv2 .dk-spanrow small { color: var(--ink-3); font-size: 12px; }
+.rv2 .dk-spanrow .nv-play { margin-left: auto; }
+
+/* 08 코칭 */
+.rv2 .dk-coach .dk-body { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); }
+.rv2 .dk-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; }
+.rv2 .dk-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; text-align: left; }
+.rv2 .dk-item b { display: block; font-size: 15px; line-height: 1.35; } .rv2 .dk-item small { color: var(--ink-3); font-size: 12.5px; }
+.rv2 .dk-item:hover { background: var(--fill); } .rv2 .dk-item.is-on { background: var(--accent-wash); }
+.rv2 .dk-listcap { margin: 12px 8px 4px; color: var(--ink-3); font-size: 12.5px; font-weight: 700; }
+.rv2 .dk-list .dk-concept { padding: 4px 8px; font-size: 14px; }
+.rv2 .dk-tally { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px 4px; }
+.rv2 .dk-detail { overflow-y: auto; padding: 22px 26px; }
+.rv2 .dk-dtitle { margin: 0 0 16px; font-size: 22px; line-height: 1.35; letter-spacing: -0.02em; }
+.rv2 .dk-steps { display: flex; flex-direction: column; gap: 10px; }
+.rv2 .dk-step { display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--fill); }
+.rv2 .dk-step.is-accent { background: var(--accent-wash); }
+.rv2 .dk-stepn { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.rv2 .dk-step.is-accent .dk-stepn { background: var(--accent); color: #fff; }
+.rv2 .dk-step p, .rv2 .dk-step li { margin: 0; font-size: 15px; line-height: 1.55; }
+.rv2 .dk-step ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.rv2 .dk-step blockquote { margin: 0 0 8px; font-size: 16px; line-height: 1.5; font-weight: 600; }
+.rv2 .dk-step .dk-h3 { margin-bottom: 6px; }
+.rv2 .dk-ref { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+.rv2 .dk-refimg { aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: var(--fill-2); }
+.rv2 .dk-refimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rv2 .dk-reftext { margin: 4px 0 0; color: var(--ink-2); font-size: 13px; line-height: 1.5; }
+
+/* 09 연습 */
+.rv2 .dk-prac .dk-body { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rv2 .dk-pcol { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.rv2 .dk-pcol .dk-h3 { margin: 4px 0 0; font-size: 15px; color: var(--ink); }
+.rv2 .dk-rows { display: flex; flex-direction: column; gap: 8px; }
+.rv2 .dk-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--fill); text-align: left; }
+.rv2 .dk-row b { display: block; font-size: 14.5px; line-height: 1.4; } .rv2 .dk-row small { color: var(--ink-3); font-size: 12.5px; }
+.rv2 .dk-row:hover { background: var(--fill-2); }
+.rv2 .dk-row.is-main { background: var(--accent); color: #fff; } .rv2 .dk-row.is-main small { color: rgba(255, 255, 255, .8); }
+.rv2 .dk-ico { flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--surface); color: var(--accent-ink); }
+.rv2 .dk-ico svg { width: 16px; height: 16px; }
+.rv2 .dk-row.is-main .dk-ico { background: rgba(255, 255, 255, .2); color: #fff; }
+.rv2 .dk-punch { display: flex; flex-direction: column; gap: 10px; }
+.rv2 .dk-punch figure { margin: 0; padding: 14px 16px; border-radius: 14px; background: var(--fill); }
+.rv2 .dk-punch blockquote { margin: 0; font-size: 15.5px; line-height: 1.5; font-weight: 600; }
+.rv2 .dk-punch figcaption { margin-top: 6px; color: var(--ink-3); font-size: 12.5px; }
+
+/* 좁은 창(폰 · 태블릿 세로) — 한 화면 고집을 풀고 위아래로 쌓아 스크롤 */
+@media (max-width: 900px) {
+  .rv2 .nv-desk { overflow-y: auto; }
+  .rv2 .dk { height: auto; min-height: 100%; padding: 20px 16px; }
+  .rv2 .dk-head { flex-direction: column; align-items: flex-start; }
+  .rv2 .dk-title { font-size: 23px; }
+  .rv2 .dk-body, .rv2 .dk-home .dk-body, .rv2 .dk-replay .dk-body, .rv2 .dk-coach .dk-body, .rv2 .dk-prac .dk-body, .rv2 .dk-metrics { grid-template-columns: 1fr; grid-template-rows: none; }
+  .rv2 .dk-strip { flex-direction: row; overflow-x: auto; }
+  .rv2 .dk-thumb { width: 110px; flex: none; }
+  .rv2 .dk-bigslide { height: auto; width: 100%; }
+  .rv2 .dk-seats { grid-template-columns: repeat(2, 1fr); }
+}

@@ -67,16 +67,12 @@ function Stage({ W, H, world }) {
   )
 }
 
-/* ⑤ 리포트 — 엑사원이 기뻐한다 */
-function Study({ W, H, world }) {
-  return <Chick name="exaone" mood="happy" at={[W / 2 + 130, -(H / 2 - 60) + 110 + 2, -0.3]} h={96} world={world} flip />
-}
 
 /* ③ 발표 채점 — 세트 없음: 개념 그래프 채점판(ui/ScoreBoard)이 주인공이라 방은 조용히 */
 const Scoring = () => null
 
 // ④ 질의응답은 웹캠 창이 화면 90% 라 양 끝 심사위원 넷이 화면 밖에서 반쯤 잘려 보였다 — 객석 삐약이(Audience)가 맡는다
-const SETS = [null, Stage, Scoring, null, Study]
+const SETS = [null, Stage, Scoring, null, null]   // ⑤ 리포트는 넓은 데스크가 창을 채워 옆 삐약이(Study)가 창 가장자리에 걸렸다 — 뺐다
 
 /** 정거장 k 의 세트 — W·H 는 창 크기(px), world 는 1px 의 m */
 export function StationSet({ k, W, H, L, world }) {
