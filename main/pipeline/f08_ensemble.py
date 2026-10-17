@@ -14,7 +14,9 @@
 - 서로 평가는 작성 모델을 가리고(K01…) 순서를 섞고, 자기 후보는 안 매긴다(실험 모드 `peer_self=True` 에서만 매겨 편향을 잰다).
 - 호출 수: 모델마다 슬롯 묶음당 1회(슬롯 ≤5 개씩 → 덱당 1~2회) + 서로 평가 1회. 429 는 물러났다 다시(`_complete`).
 - 켜기: `QA_ENSEMBLE=1` (기본 0 — 측정 근거가 나오면 켠다). 모델 `QA_ENS_MODELS=solar,ax,midm,exaone`, 최종 선택 `QA_ENS_PICKER=solar`.
-- 호출 로그: 함수 이름이 곧 제출 기능이다 (`_ai_calllog.FUNC_FEATURES` — ens_generate · ens_peer_review · ens_pick · ens_voice · polish_gists).
+- 호출 로그: 함수 이름이 곧 제출 기능이다 (`_ai_calllog.FUNC_FEATURES` — ens_generate · ens_peer_review · ens_pick · ens_voice ·
+  ens_live_voice(F-08-live, 발표 중 장 단위 음성 후보) · polish_gists).
+- 1·2번은 언제나 자료 묶음(pick_opening)에서 — 발표 중 음성 후보(live_round)는 3번부터만 쓴다 (2026-10-17 사용자).
 """
 from __future__ import annotations
 
@@ -595,9 +597,26 @@ PICK_SYSTEM = """당신은 Q&A 진행을 맡은 심사위원장이다. 다음에
 출력은 JSON 객체 하나: {"pick": "C3", "reason": "한 줄 이유 (해요체)"}"""
 
 
-def voice_prompt(signals: list[dict], deck: Deck, asked: list[dict], transcript_text: str) -> str:
-    parts = ["[TASK] qa-ensemble-voice", "", f"## 발표의 핵심 주장\n{deck.thesis}", "", "## 자료", ES.deck_block(deck.lines, 180),
-             "", "## 발표 받아쓰기 (앞부분)", transcript_text[:2400], "", "## 이미 물은 질문과 답"]
+def digest_on() -> bool:
+    """3번+ 프롬프트의 발표 맥락 — 1(기본): 모든 장의 요지 + 신호 장 원문(_ens_live.speech_digest) · 0: 예전 앞 2,400자."""
+    return (os.environ.get("QA_ENS_DIGEST") or "1").strip().lower() not in ("0", "false", "off", "no")
+
+
+def speech_context(speech_of: dict[int, str], deck: "Deck", signals: list[dict]) -> str:
+    """voice_prompt 에 실을 발표 받아쓰기. 신호가 나온 장은 원문을, 나머지 장은 요지 한두 문장을 — 발표 전체를 덮는다."""
+    if not digest_on():
+        return " ".join(speech_of.get(n, "") for n in sorted(speech_of))[:2400]
+    from ._ens_live import speech_digest  # noqa: PLC0415
+    focus = [int(s.get("slide_no") or 0) for s in signals if s.get("slide_no")]
+    return speech_digest(speech_of, deck.slides, focus)
+
+
+def voice_prompt(signals: list[dict], deck: Deck, asked: list[dict], transcript_text: str, *, task: str = "qa-ensemble-voice") -> str:
+    head = "## 발표 받아쓰기 (장별 요지 + 신호 장 원문)" if digest_on() else "## 발표 받아쓰기 (앞부분)"
+    parts = [f"[TASK] {task}", "", f"## 발표의 핵심 주장\n{deck.thesis}", "", "## 자료", ES.deck_block(deck.lines, 180),
+             "", head, transcript_text[:2600], "", "## 이미 물은 질문과 답"]
+    if not asked:
+        parts.append("- (아직 없음 — 발표만 들었어요)")
     for a in asked:
         parts.append(f"- Q: {a.get('question', '')}\n  A: {(a.get('answer') or '')[:240]}\n  판정: {a.get('verdict', '?')}"
                      + (f" · 이해 상태: {a['state']}" if a.get("state") else "")
@@ -614,6 +633,25 @@ def ens_voice(name: str, llm: LLMProvider, signals: list[dict], deck: Deck, aske
               calls: list, temperature: float = 0.4) -> list[dict]:
     data = _complete(llm, "voice", calls, system=VOICE_SYSTEM, user=voice_prompt(signals, deck, asked, transcript_text),
                      temperature=temperature, max_tokens=GEN_MAX_TOKENS)
+    return _voice_items(data, signals, name, calls)
+
+
+#: 발표 중(장을 넘길 때) 음성 후보 — 아직 답은 없다. 3번 이후에 쓴다(1·2번은 언제나 자료 묶음).
+LIVE_SYSTEM = VOICE_SYSTEM.replace("발표를 끝까지 듣고 앞 질문 두 개의 답까지 들은", "발표를 지금까지 들은").replace(
+    "앞 답에서 이해가 약했던 곳.", "(아직 답은 없다.)").replace(
+    "- 앞 답이 약했으면 같은 것을 다시 묻지 말고 한 걸음 더 깊이(왜) 또는 옆으로(이어진 주장) 또는 바로잡게 묻는다.\n", "")
+
+
+def ens_live_voice(name: str, llm: LLMProvider, signals: list[dict], deck: Deck, transcript_text: str, calls: list,
+                   temperature: float = 0.4) -> list[dict]:
+    """발표 중 장 단위 음성 후보 — 제출 기능 F-08-live(예상질문_발표중준비). ens_voice 와 같은 꼴, 앞 답 없이."""
+    data = _complete(llm, "live", calls, system=LIVE_SYSTEM,
+                     user=voice_prompt(signals, deck, [], transcript_text, task="qa-ensemble-live"),
+                     temperature=temperature, max_tokens=GEN_MAX_TOKENS)
+    return _voice_items(data, signals, name, calls)
+
+
+def _voice_items(data, signals: list[dict], name: str, calls: list) -> list[dict]:
     ids = {s["id"]: s for s in signals}
     out = []
     for it in (data.get("items") or []) if isinstance(data, dict) else []:
@@ -659,32 +697,67 @@ class VoiceRound:
 
 def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, asked: list[dict] | None = None,
                 claims=None, models: list[str] | None = None, llms: dict | None = None,
-                temperature: float = 0.4) -> VoiceRound:
-    """발표 받아쓰기 + 앞 답 → 네 모델이 3번+ 후보. 신호가 없으면 빈 묶음(호출 안 함)."""
+                temperature: float = 0.4, speech_of: dict[int, str] | None = None) -> VoiceRound:
+    """발표 받아쓰기 + 앞 답 → 네 모델이 3번+ 후보. 신호가 없으면 빈 묶음(호출 안 함).
+    speech_of 를 주면 받아쓰기 대신 그것(발표 중 쌓은 장별 발화 — 일찍 시작한 Q&A 는 일괄 받아쓰기가 아직 없다)."""
     t0 = time.monotonic()
     deck = Deck.build(graph, slidedoc, claims)
-    speech_of = _speech_of(transcript)
+    speech_of = speech_of if speech_of is not None else _speech_of(transcript)
     from .contracts import AlignmentDoc  # noqa: PLC0415
     al = alignment if alignment is None or not isinstance(alignment, dict) else AlignmentDoc.from_dict(alignment)
     signals = ES.voice_signals(deck.graph, deck.slides, speech_of, al, asked or [], deck.lines)
     if not signals:
         return VoiceRound([], [], [], [], 0.0)
-    text = " ".join(speech_of.get(n, "") for n in sorted(speech_of))
     names = models or model_names()
-    llms = llms or {}
     calls: list = []
+    kept, dropped = _voice_candidates(deck, signals, speech_of, asked or [], names, llms or {}, calls, temperature,
+                                      live=False)
+    return VoiceRound(signals, kept, dropped, calls, round(time.monotonic() - t0, 2))
+
+
+def live_models() -> list[str]:
+    """발표 중 장 단위 음성 후보를 쓸 모델 (장마다 1~2개 — 한 사람 발표에 네 모델을 다 부르면 장 수 × 4 호출)."""
+    raw = os.environ.get("QA_LIVE_MODELS") or "solar4,ax"
+    return [m.strip().lower() for m in raw.split(",") if m.strip()][:2]
+
+
+def live_round(deck: "Deck", signals: list[dict], speech_of: dict[int, str], *, models: list[str] | None = None,
+               llms: dict | None = None, temperature: float = 0.4) -> VoiceRound:
+    """발표 중 — 다 들은 장의 새 신호로 음성 후보(F-08-live). 후보 uid 는 「lv」 로 (3번 이후에만 쓴다)."""
+    t0 = time.monotonic()
+    if not signals:
+        return VoiceRound([], [], [], [], 0.0)
+    calls: list = []
+    kept, dropped = _voice_candidates(deck, signals, speech_of, [], models or live_models(), llms or {}, calls,
+                                      temperature, live=True)
+    return VoiceRound(signals, kept, dropped, calls, round(time.monotonic() - t0, 2))
+
+
+def _voice_candidates(deck: "Deck", signals: list[dict], speech_of: dict[int, str], asked: list[dict], names: list[str],
+                      llms: dict, calls: list, temperature: float, *, live: bool) -> tuple[list, list]:
+    text = " ".join(speech_of.get(n, "") for n in sorted(speech_of))
+    context = speech_context(speech_of, deck, signals)
     raw: list[dict] = []
-    with _ai_calllog.feature_scope("F-08-voice"), ThreadPoolExecutor(max_workers=len(names)) as ex:
-        futs = [ex.submit(_ai_calllog.carry(ens_voice), n, llms.get(n) or make_llm(n), signals, deck, asked or [], text,
-                          calls, temperature) for n in names]
+    fn = ens_live_voice if live else ens_voice
+    with _ai_calllog.feature_scope("F-08-live" if live else "F-08-voice"), ThreadPoolExecutor(max_workers=max(1, len(names))) as ex:
+        if live:
+            futs = [ex.submit(_ai_calllog.carry(fn), n, llms.get(n) or make_llm(n), signals, deck, context, calls,
+                              temperature) for n in names]
+        else:
+            futs = [ex.submit(_ai_calllog.carry(fn), n, llms.get(n) or make_llm(n), signals, deck, asked, context,
+                              calls, temperature) for n in names]
         for f in as_completed(futs):
-            raw.extend(f.result())
+            try:
+                raw.extend(f.result())
+            except Exception as e:  # noqa: BLE001 — 키 없는 모델 하나가 판을 깨지 않는다
+                sys.stderr.write(f"[f08-ens] 음성 후보 실패: {type(e).__name__}: {str(e)[:80]}\n")
     sig_of = {s["id"]: s for s in signals}
     by_id = {n.id: n for n in deck.graph.nodes}
     speech_vocab = ES._tokens(text)          # 발표에서 한 말 — 음성 질문·모범답은 발화의 낱말을 쓴다
     from ._spoken import spoken_numbers  # noqa: PLC0415
     spoken = spoken_numbers(text)            # 「이십구 퍼센트」→「29%」 — 발화의 수도 출처다
     kept, dropped = [], []
+    tag = "lv" if live else "v"
     for i, c in enumerate(raw):
         sig = sig_of[c["signal"]]
         node = by_id.get(sig["node_id"])
@@ -692,10 +765,10 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
                        slides=list(node.slide_nos or []) if node else [],
                        lines=[sig["deck_line"]] if sig.get("deck_line") else [],
                        partner_label=" ".join(sig.get("neighbors") or []))
-        c = tidy({**c, "uid": f"{c['model']}:{c['signal']}:v{i}"})
+        c = tidy({**c, "uid": f"{c['model']}:{c['signal']}:{tag}{i}"})
         ok, why = ES.check_candidate(c, slot, lines_by_id=deck.lines_by_id, idx=deck.idx, deck_tokens=deck.deck_tokens,
                                      sources=deck.sources + [text, spoken], extra_vocab=speech_vocab)
-        if any(ES.question_tokens_overlap(c.get("question", ""), a.get("question", "")) >= DUP_OVERLAP for a in asked or []):
+        if any(ES.question_tokens_overlap(c.get("question", ""), a.get("question", "")) >= DUP_OVERLAP for a in asked):
             why = [*why, "repeats_asked"]
             ok = None
         if ok is None:
@@ -704,15 +777,47 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
             continue
         kept.append({**ok, "node_id": sig["node_id"], "label": sig["label"], "pattern": "voice", "angle": "voice",
                      "signal_kind": sig["kind"], "signal_note": sig["note"], "signal_quote": sig.get("speech_quote", ""),
+                     "signal_slide": int(sig.get("slide_no") or 0), "origin": "live" if live else "answer",
                      "peer": 0.0, "peer_scores": []})
-    return VoiceRound(signals, kept, dropped, calls, round(time.monotonic() - t0, 2))
+    return kept, dropped
+
+
+#: 발표 중에 만든 음성 후보를 고르기 판에 몇 개까지 올리나 (장이 겹치지 않게 골라서)
+LIVE_OPTIONS = 3
+
+
+def live_options(live: list[dict], asked: list[dict], limit: int = LIVE_OPTIONS) -> list[dict]:
+    """
+    발표 중 후보 중 고르기 판에 올릴 것 — 이미 물은 노드 · 겹치는 문장은 빼고, **아직 안 물은 장**을 먼저, 장마다 하나씩.
+    3번+ 가 발표 앞쪽 장에만 몰리지 않게(뒷장도 고르게) 장 번호가 겹치지 않는 순서로 고른다.
+    """
+    asked_nodes = {a.get("node_id") for a in asked}
+    asked_q = [a.get("question", "") for a in asked]
+    asked_slides = {int(a.get("slide_no") or 0) for a in asked if a.get("slide_no")}
+    ok = [c for c in live or [] if c.get("node_id") not in asked_nodes
+          and all(ES.question_tokens_overlap(c.get("question", ""), q) < DUP_OVERLAP for q in asked_q)]
+    ok.sort(key=lambda c: (int(c.get("slide_no") or c.get("signal_slide") or 0) in asked_slides,
+                           -form_factor(c), _model_rank(c.get("model", ""))))
+    out: list[dict] = []
+    seen_slides, seen_nodes = set(), set()
+    for c in ok:
+        sl = int(c.get("slide_no") or c.get("signal_slide") or 0)
+        if sl in seen_slides or c.get("node_id") in seen_nodes:
+            continue
+        out.append(c)
+        seen_slides.add(sl)
+        seen_nodes.add(c.get("node_id"))
+        if len(out) >= limit:
+            break
+    return out
 
 
 def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker: str | None = None,
-                llm: LLMProvider | None = None, seed: int = 0, calls: list | None = None) -> dict:
+                llm: LLMProvider | None = None, seed: int = 0, calls: list | None = None,
+                live: list[dict] | None = None) -> dict:
     """
-    다음 질문 하나. 음성 후보가 있으면 그 후보 + 묶음의 남은 상위 2개를 최종 선택 모델이 고른다(이유 한 줄).
-    음성 후보가 없거나 선택이 실패하면 묶음의 남은 1등(「묶음에서 대신 냄」, substituted=True).
+    다음 질문 하나 (3번 이후). 음성 후보(앞 답까지 들은 것) + 발표 중 후보(live, 장을 넘길 때 만든 것) + 묶음의 남은 상위 2개를
+    최종 선택 모델이 고른다(이유 한 줄). 음성 · 발표 중 후보가 둘 다 없거나 선택이 실패하면 묶음의 남은 1등(「묶음에서 대신 냄」, substituted=True).
     """
     # 이미 물은 노드 + 이해했다고 본 노드(understood)는 다시 고르지 않는다 (노드 이해 상태 — 2026-10-17 5단계)
     asked_nodes = {a.get("node_id") for a in asked}
@@ -721,15 +826,16 @@ def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker:
             and all(ES.question_tokens_overlap(c["question"], q) < DUP_OVERLAP for q in asked_q)]
     voice = [c for c in (vr.candidates if vr else []) if all(ES.question_tokens_overlap(c["question"], q) < DUP_OVERLAP
                                                                 for q in asked_q)]
-    if not voice:
+    heard = live_options(live or [], asked)
+    if not voice and not heard:
         return {**rest[0], "substituted": True, "pick_reason": "음성 후보가 아직 없어 묶음에서 냈어요"} if rest else {}
-    options = voice + rest[:2]
+    options = voice + [c for c in heard if all(c["uid"] != v["uid"] for v in voice)] + rest[:2]
     calls = calls if calls is not None else []
     with _ai_calllog.feature_scope("F-08-pick"):
         got = ens_pick(picker or picker_name(), llm or make_llm(picker or picker_name()), options, asked, calls, seed)
     c = next((o for o in options if o["uid"] == got.get("uid")), None)
     if c is None:
-        c = max(voice, key=lambda o: o.get("peer", 0))
+        c = max(voice or heard, key=lambda o: o.get("peer", 0))
         return {**c, "substituted": False, "pick_reason": "선택 모델이 답하지 않아 첫 음성 후보를 냈어요", "pick_failed": True}
     return {**c, "substituted": False, "pick_reason": got.get("reason", "")}
 
@@ -758,6 +864,8 @@ def to_question(c: dict, i: int, graph=None) -> Question:
         checks.append("gist_polished")     # 절마다 자료로 받쳐진 모범답 — 골자 바닥(F-09)을 쓴다. 추론이 든 답은 F-09 가 스스로 대조한다
     if c.get("signal_kind"):
         checks.append(f"signal:{c['signal_kind']}")
+    if c.get("origin") == "live":
+        checks.append("live")              # 발표 중(장을 넘길 때) 만든 후보 — 3번 이후에만
     quote = c.get("quote") or ""
     slide = int(c.get("slide_no") or 0)
     source = {"voice": "under_spoken"}.get(c.get("pattern", ""), "core_weight")
@@ -774,7 +882,8 @@ def to_question(c: dict, i: int, graph=None) -> Question:
 
 
 __all__ = ["enabled", "model_names", "picker_name", "build_pool", "pick_opening", "voice_round", "choose_next",
-           "plan_total", "to_question", "pick_session", "Pool", "VoiceRound", "Deck", "peer_score"]
+           "plan_total", "to_question", "pick_session", "Pool", "VoiceRound", "Deck", "peer_score", "live_round",
+           "live_options", "live_models", "speech_context", "digest_on"]
 
 
 # ─── 1단계: 모범답 정리 (지금 방식의 질문에도 쓴다 — f08_questions.build_questions 끝) ──────────────────────

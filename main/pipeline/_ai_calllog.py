@@ -43,6 +43,7 @@ FUNC_FEATURES = {
     "ens_peer_review": "F-08-peer",
     "ens_pick": "F-08-pick",
     "ens_voice": "F-08-voice",
+    "ens_live_voice": "F-08-live",     # 발표 중 장을 넘길 때 만드는 3번+ 음성 후보 (2026-10-17 발표를 들으며 준비)
     "polish_gists": "F-08-gist",
     # 꼬리질문 엔진 (2026-10-17 5단계, f09_dialogue) — 판정(F-09)과 따로 센다
     "dialogue_talk": "F-09-talk",

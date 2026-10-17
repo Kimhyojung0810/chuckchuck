@@ -7,6 +7,8 @@ def _single_vote(monkeypatch):
     monkeypatch.setenv("CHUCKCHUCK_CONCEPT_VOTES", "1")
     monkeypatch.setenv("CHUCKCHUCK_GRAPH_SKELETON_VOTES", "1")
     monkeypatch.setenv("CHUCKCHUCK_GRAPH_SAME", "0")          # 같은 개념 묶기는 임베딩 API 를 부른다 — 테스트는 따로 켠다
+    # 네 모델 Q&A 는 실 API 를 부른다 — .env 에 QA_ENSEMBLE=1 이 있어도(10-17 통합 브리지용) 테스트는 끈다. 켜 보는 테스트는 스스로 켠다
+    monkeypatch.setenv("QA_ENSEMBLE", "0")
 
 
 @pytest.fixture(autouse=True)
