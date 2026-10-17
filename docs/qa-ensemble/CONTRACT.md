@@ -118,3 +118,20 @@
 `QaJudgement.to_dict()` 에 `move`(connect·clarify·challenge·explore·recite·hint·deepen·refocus·explain) · `anchor`(답 원문 구절) ·
 `dialogue`(읽기 신호 · 출처 llm/respeak/template/judge/guard · judge_sec · sec_after_judge) · `close_reason` 에 `explained`(갇힘 출구)가 더해졌다.
 `closed=true` 면 질문을 닫는다(`mastered`) — 셋째 답 · 둘째 「모르겠어요」, `coach_stage="explain"` · `explanation` 에 근거 장 해설.
+
+## 8. 발표를 들으며 준비 (2026-10-17, `feat/qa-live-1017` · 실측 `docs/qa-ensemble/LIVE_REPORT.md`)
+
+1·2번은 그대로 **자료 묶음**(pick_opening). 아래는 3번+ 재료와 「발표 끝 → 1번」 지연만 바꾼다.
+
+- **발표 한 번 구분 값 `talk_id`** — 브라우저 `chuckchuck_bridge.js talkRunId(sid, {fresh})`(`t` + 20자, 녹음 시작 때 fresh). 서버 `qa_listen.talk_of(body)`
+  (모양 `[A-Za-z0-9_-]{4,48}`). 열쇠 `live_talk:<sid>:<talk>`(장별 발화 · 닫힌 장 · 끝 · 정합 · 일괄 받아쓰기) · `live_cands:<sid>:<talk>`(후보 · 라운드 · 버림).
+  질문 요청(prefetch 아님)이 `run_talk:<sid>:<run>` = talk 로 잇는다 — `/qa/next` 는 본문 talk_id → 이 이음 순으로 찾는다. talk 이 없으면 예전 그대로.
+- `POST /api/v1/qa/live` `{session_id, talk_id, slide_no, text, closed?, final?, alignment?, transcript?}` → 202 `{live, slides, closed, final, kicked, candidates, rounds}`.
+  text 는 그 장에서 지금까지 확정된 발화 **전체**(바꿔 씀 · 멱등). closed = 그 장을 떠남 · final = 발표를 마침 · alignment/transcript = 분석이 끝난 뒤 붙임.
+  요청 제한 경로(PAID_PATHS). 앙상블이 꺼져 있거나 talk 이 없으면 `{live: false}`.
+- `POST /api/v1/qa/pool/status` `{session_id}` → `{ensemble, ready, early, live}` — 묶음에서 고를 후보 2개 이상이면 ready. LLM 없음 · 요청 제한 밖 ·
+  안 띄워졌으면 서버가 아는 그래프로만 띄운다(본문 그래프로는 안 띄움).
+- `/api/v1/questions` 응답의 `ensemble.fast: true` = 지금 방식 질문을 만들지 않고 묶음에서 바로 고름(`QA_ENS_FAST`).
+- `/api/v1/qa/next` 응답에 `origin`: `live`(발표 중 후보) · `answer`(앞 답까지 들은 음성 후보) · `pool`(묶음). 후보 판 `rounds[]` 에 `origin` · `live_candidates`.
+- 3번+ 후보 dict 에 `origin` · `signal_slide`, `Question.basis.checks` 에 `live`(발표 중 후보).
+- 설정 표는 LIVE_REPORT §2. 새 제출 기능 **F-08-live = 예상질문_발표중준비**.

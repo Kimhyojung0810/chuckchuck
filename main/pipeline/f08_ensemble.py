@@ -665,10 +665,21 @@ LIVE_SYSTEM = VOICE_SYSTEM.replace("발표를 끝까지 듣고 앞 질문 두 �
     "- 앞 답이 약했으면 같은 것을 다시 묻지 말고 한 걸음 더 깊이(왜) 또는 옆으로(이어진 주장) 또는 바로잡게 묻는다.\n", "")
 
 
+#: 발표 중 후보 v2 — 1회차 실측(10-17 C1 · 실험실 2판): 후보 6개 중 6개가 모범답 검사(answer_off_deck · answer_mismatch)에 버려졌다.
+#: 모범답을 자료 줄 낱말로 짓게 하고, 신호가 적은 발표 중엔 신호마다 각도 둘까지 (QA_LIVE_PROMPT=v1 이면 끔)
+LIVE_ADDENDUM = """
+- 모범답은 lines 에 적은 자료 줄의 낱말을 그대로 써서 짓는다. 자료 줄 · 발표에서 한 말에 없는 새 개념어나 해석어를 넣지 않는다 — 넣으면 그 후보는 버려진다.
+- 신호마다 서로 다른 각도로 후보 2개까지 쓸 수 있다(예: 결론의 이유를 묻기 · 근거가 결론을 충분히 받치는지 묻기)."""
+
+
+def live_system() -> str:
+    return LIVE_SYSTEM + ("" if (os.environ.get("QA_LIVE_PROMPT") or "v2").strip().lower() == "v1" else LIVE_ADDENDUM)
+
+
 def ens_live_voice(name: str, llm: LLMProvider, signals: list[dict], deck: Deck, transcript_text: str, calls: list,
                    temperature: float = 0.4) -> list[dict]:
     """발표 중 장 단위 음성 후보 — 제출 기능 F-08-live(예상질문_발표중준비). ens_voice 와 같은 꼴, 앞 답 없이."""
-    data = _complete(llm, "live", calls, system=LIVE_SYSTEM,
+    data = _complete(llm, "live", calls, system=live_system(),
                      user=voice_prompt(signals, deck, [], transcript_text, task="qa-ensemble-live"),
                      temperature=temperature, max_tokens=GEN_MAX_TOKENS)
     return _voice_items(data, signals, name, calls)
@@ -774,7 +785,7 @@ def live_round(deck: "Deck", signals: list[dict], speech_of: dict[int, str], *, 
 
 
 #: 질문 앞머리의 「6장에서 」 「3장에서는 」 — 장별 요지의 위치 표시가 질문으로 샌 것(10-17 r1: 발표 중 후보 6개 중 4개)
-_SLIDE_REF_RE = re.compile(r"^(?:발표\s*)?\d{1,3}\s*장(?:에서는|에서|의|에)\s*")
+_SLIDE_REF_RE = re.compile(r"(?:(?<=^)|(?<=\s))(?:발표\s*)?\d{1,3}\s*장(?:에서는|에서|의|에|\s)\s*(?=[가-힣A-Za-z'‘「\"])")
 
 
 def _voice_candidates(deck: "Deck", signals: list[dict], speech_of: dict[int, str], asked: list[dict], names: list[str],
@@ -837,12 +848,14 @@ def live_options(live: list[dict], asked: list[dict], limit: int = LIVE_OPTIONS)
     발표 중 후보 중 고르기 판에 올릴 것 — 이미 물은 노드 · 겹치는 문장은 빼고, **아직 안 물은 장**을 먼저, 장마다 하나씩.
     3번+ 가 발표 앞쪽 장에만 몰리지 않게(뒷장도 고르게) 장 번호가 겹치지 않는 순서로 고른다.
     """
-    asked_nodes = {a.get("node_id") for a in asked}
+    asked_nodes = [a.get("node_id") for a in asked]
     asked_q = [a.get("question", "") for a in asked]
     asked_slides = {int(a.get("slide_no") or 0) for a in asked if a.get("slide_no")}
-    ok = [c for c in live or [] if c.get("node_id") not in asked_nodes
+    # 이미 물은 노드도 발표 신호(건너뜀 · 흐림)라면 다른 각도라 남긴다 — 음성 후보(answer)와 같은 규칙. 단 두 번 물은 노드는 빼고,
+    # 안 물은 노드를 먼저 (10-17 C1: 핵심 노드 둘을 1·2번이 다 써서 발표 중 후보가 하나도 못 올라갔다)
+    ok = [c for c in live or [] if asked_nodes.count(c.get("node_id")) < 2
           and all(ES.question_tokens_overlap(c.get("question", ""), q) < DUP_OVERLAP for q in asked_q)]
-    ok.sort(key=lambda c: (int(c.get("slide_no") or c.get("signal_slide") or 0) in asked_slides,
+    ok.sort(key=lambda c: (c.get("node_id") in asked_nodes, int(c.get("slide_no") or c.get("signal_slide") or 0) in asked_slides,
                            -form_factor(c), _model_rank(c.get("model", ""))))
     out: list[dict] = []
     seen_slides, seen_nodes = set(), set()

@@ -1345,7 +1345,8 @@ QA_QUESTION_MAX = 400
 #: 질문 요청이 앙상블 묶음이 준비돼 있으면 지금 방식 질문(1차 심사 · 문헌 · 주장 · 생성 LLM)을 건너뛰고 묶음에서 바로 고른다
 #: (2026-10-17 발표를 들으며 준비 — 기준선 C1: 받아쓰기·정합이 끝난 뒤 질문 줄만 37초). 0 이면 예전처럼 지금 방식을 다 만든 뒤 바꿔 낀다.
 QA_ENS_FAST = (os.environ.get("QA_ENS_FAST") or "1").strip().lower() not in ("0", "false", "off", "no")
-#: 3번+ 고르기에서 앞 답이 아직 없을 때(1번을 낼 때 미리 띄우는 것) 발표 중 후보가 있으면 네 모델 음성 라운드를 건너뛴다 — 같은 신호를 두 번 만든다
+#: 3번+ 고르기에서 앞 답이 아직 없을 때(1번을 낼 때 미리 띄우는 것) 발표 중 후보가 서로 다른 노드 셋 이상이면 네 모델 음성 라운드를 건너뛴다 —
+#: 같은 신호를 두 번 만든다. 셋 미만이면 1·2번 노드와 겹쳐 3번 후보가 비는 일이 있었다(10-17 C1: 발표 중 후보 2개가 다 1·2번 노드)
 QA_LIVE_SKIP_EMPTY = (os.environ.get("QA_LIVE_SKIP_EMPTY") or "1").strip().lower() not in ("0", "false", "off", "no")
 #: 묶음이 준비됐으면 브라우저가 받아쓰기 · 정합 · 흐름을 기다리지 않고 Q&A 를 바로 연다 (1·2번은 자료 묶음이라 그것들이 필요 없다)
 QA_EARLY_START = (os.environ.get("QA_EARLY_START") or "1").strip().lower() not in ("0", "false", "off", "no")
@@ -4401,6 +4402,12 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             found["alignment"] = found.get("alignment") or LISTENER.alignment(sid, talk)
             if not found["transcript"] and heard:
                 speech_of = heard
+                if not found["alignment"]:
+                    # 정합도 아직 없다 — 발표 중 신호와 같은 어림(F-11 배합을 글자 수로)으로 흐림 신호를 본다. 없으면 「건너뜀」 만 잡혀 3번이 비었다
+                    from pipeline._ens_live import LiveTalk, pseudo_alignment
+                    t_ = LiveTalk.from_dict(LISTENER.talk(sid, talk))
+                    t_.final = True
+                    found["alignment"] = pseudo_alignment(t_, FE.Deck.build(found["graph"], slidedoc).graph) if found.get("graph") and slidedoc else None
         states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
             # 같은 id 가 여럿일 수 있다 — 질문 id 는 자리 번호 + 노드(e03-<노드>)라 준비한 3번과 고른 3번, 같은 덱 세션을 나눠 쓴 남의 판이
@@ -4422,7 +4429,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             vkey += ":heard:" + fingerprint(sorted(speech_of.items()))
 
         def make_round():
-            if not asked and live and QA_LIVE_SKIP_EMPTY:
+            if not asked and QA_LIVE_SKIP_EMPTY and len({c.get("node_id") for c in live}) >= 3:
                 return FE.VoiceRound([], [], [], [], 0.0)          # 앞 답이 없으면 발표 중 후보가 같은 신호를 이미 다뤘다 — 네 모델을 또 부르지 않는다
             vr_ = STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
                 pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked,

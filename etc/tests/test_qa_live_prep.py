@@ -190,8 +190,10 @@ def test_3번은_발표_중_후보를_고르고_아직_안_물은_장을_먼저(
     assert [o["uid"] for o in opts] == ["solar4:V1:lv0"]          # 장 · 노드마다 하나
     nxt = FE.choose_next(pool, None, asked, live=live, llm=llms["solar4"])
     assert nxt["substituted"] is False and nxt["origin"] == "live"
-    # 이미 물은 노드의 발표 중 후보는 다시 안 고른다
-    assert FE.live_options(live, asked + [{"question": "x", "node_id": free}]) == []
+    # 한 번 물은 노드의 발표 중 후보는 뒤로(다른 각도라 남긴다) · 두 번 물은 노드는 뺀다
+    other = {"uid": "ax:V3:lv2", "model": "ax", "node_id": "zzz", "slide_no": 1, "question": "전혀 다른 노드의 질문이에요?", "origin": "live"}
+    assert [o["uid"] for o in FE.live_options(live + [other], asked + [{"question": "x", "node_id": free}])][0] == "ax:V3:lv2"
+    assert all(o["node_id"] != free for o in FE.live_options(live, asked + [{"question": "x", "node_id": free}] * 2))
 
 
 # ─── 브리지: /qa/live → /qa/next 는 그 발표(talk)의 후보만 ─────────────────────────────────────────────
