@@ -117,8 +117,8 @@ check('카메라 분석이 없거나 못 쟀으면 태도 순간이 없다', RV.
 check('「그 순간 듣기」 주소가 같은 순간으로 돌아온다(진단 · 태도 모두)', MS.every((m) => RV.momentAt(MS, RV.momentRoute(m).slice('replay:'.length)) === m));
 check('주소 인자가 순간이 아니면 null (진단 id 만 · 빈 값 · 먼 시각)', RV.momentAt(MS, 'I:x') === null && RV.momentAt(MS, '') === null && RV.momentAt(MS, '@9999') === null);
 const U = [{ id: 'U1', start: 1, end: 4, text: '하나' }, { id: 'U2', start: 6, end: 9, text: '둘' }];
-check('그때 한 말 — 시각을 품은 발화 · 구간이 겹치는 발화 · 3초 안 가장 가까운 발화 · 없으면 null',
-  RV.lineAt(U, 2).id === 'U1' && RV.lineAt(U, 4.5, 7).id === 'U2' && RV.lineAt(U, 4.6).id === 'U1' && RV.lineAt(U, 5.4).id === 'U2' && RV.lineAt(U, 20) === null);
+check('그때 한 말 — 시각을 품은 발화 · 구간이 겹치는 발화 · 3초 안 가장 가까운 발화 · 없으면 null · 장 구간이면 그 안에서 처음 시작한 발화',
+  RV.lineAt(U, 2).id === 'U1' && RV.lineAt(U, 4.5, 7).id === 'U2' && RV.lineAt(U, 4.6).id === 'U1' && RV.lineAt(U, 5.4).id === 'U2' && RV.lineAt(U, 20) === null && RV.lineAt(U, 3.9, 9, true).id === 'U2');
 const rctx = { window: {} };
 vm.runInNewContext(readFileSync(path.join(WEB, 'js/behavior_report.js'), 'utf8'), rctx);
 const bhHtml = rctx.window.BehaviorReport.rv2Html({ present: { status: 'ok', metrics: {}, areas: [], first: { text: '첫', slide: 2, sec: 10 },

@@ -56,7 +56,7 @@
         if (p.status !== 'supported' || !fin(a.start_sec) || a.start_sec > dur + 1) return;
         if (out.some((m) => m.insight === x.id && Math.abs(m.t - a.start_sec) < 1)) return;
         out.push({ id: `f${out.length}`, lane: 'fix', t: Math.max(0, a.start_sec), end: fin(a.end_sec) ? a.end_sec : null, slide: a.slide_no || null,
-          tone: toneOf(x), title: x.title, sub: p.kind === 'said' ? '' : String(p.text || ''), quote: p.kind === 'said' ? String(p.text || '') : '', insight: x.id, proof: k,
+          tone: toneOf(x), title: x.title, sub: p.kind === 'said' ? '' : String(p.text || ''), span: p.kind === 'time', quote: p.kind === 'said' ? String(p.text || '') : '', insight: x.id, proof: k,
           more: x.polarity === 'strength' ? '잘한 점' : x.status === 'conflicting' ? '판정이 흔들려요' : '고칠 것' });
       });
     });
@@ -79,9 +79,11 @@
     }
     return out.sort((a, b) => a.t - b.t || (a.lane === b.lane ? 0 : a.lane === 'fix' ? -1 : 1));
   }
-  /** 그 순간에 한 말 — 시각을 품은 발화, 없으면 3초 안의 가장 가까운 발화. 구간이면 겹치는 첫 발화 */
-  function lineAt(utts, t, end) {
+  /** 그 순간에 한 말 — 시각을 품은 발화, 없으면 3초 안의 가장 가까운 발화. 구간이면 겹치는 첫 발화.
+      first: 장 구간 근거(「2장 실제 93초」)처럼 구간의 시작이 뜻일 때 — 그 구간 안에서 처음 시작한 발화(앞 장 말끝을 집지 않게) */
+  function lineAt(utts, t, end, first = false) {
     const list = utts || [];
+    if (first && end != null) { const f = list.find((u) => u.start >= t - 0.3 && u.start < end); if (f) return f; }
     const hit = list.find((u) => u.start <= t && u.end >= t) || (end != null ? list.find((u) => u.start < end && u.end > t) : null);
     if (hit) return hit;
     let best = null; let gap = 3;
@@ -642,7 +644,7 @@
         el.querySelectorAll('.rp-m.is-on').forEach((b) => b.classList.remove('is-on'));
         const mk = el.querySelector(`.rp-m[data-m="${m.id}"]`); if (mk) mk.classList.add('is-on');
         const k = MS.indexOf(m);
-        const line = m.quote ? { text: m.quote } : lineAt(V.utterances, m.t, m.end);
+        const line = m.quote ? { text: m.quote } : lineAt(V.utterances, m.t, m.end, !!m.span);
         const sl = m.slide || slideAt(m.t);
         el.querySelector('.rp-cap-k').textContent = `${m.more} · ${fmt(m.t)} · ${sl}장`;
         el.querySelector('.rp-n').textContent = `${k + 1} / ${MS.length}`;
