@@ -218,3 +218,14 @@ def test_네_모델_묶음이_늦은_판의_질문은_짧게만_든다(monkeypat
     doc = SimpleNamespace(track="10", questions=[])
     out = bridge.Handler._ensemble_questions(h, doc, {"session_id": SID}, {"graph": {}}, {"slides": []}, None, None)
     assert out is doc and out._ensemble_missed is True
+
+
+@pytest.mark.parametrize("q, is_micro", [
+    ("구체적으로 어떤 조건들을 어떻게 고정했는지 2~3가지만 예를 들어 설명해 줄 수 있나요?", True),
+    ("다섯 가지 원인을 모두 나열해 줄래요?", True),
+    ("격차가 행동에서 만들어진다는 근거가 다섯 요인 중 어떤 구조로 드러나나요?", False),
+    ("왜 두 가지 가설 중 하나만 지지됐나요?", False),
+])
+def test_항목_늘어놓기는_미시_확인으로_거른다(q, is_micro):
+    from pipeline import _ens_slots as ES
+    assert ES.micro(q) is is_micro
