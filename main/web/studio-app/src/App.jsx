@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { STATIONS, FOV, FOV_PHONE, EYE } from './config.js'
 import { rig } from './rig.js'
-import { Room } from './scene/Room.jsx'
+import { Environment } from './scene/Environment.jsx'
+import { Audience } from './scene/Audience.jsx'
 import { Lights } from './scene/Lights.jsx'
 import { CameraRig } from './scene/CameraRig.jsx'
 import { GlassPass } from './scene/Glass.jsx'
@@ -34,7 +35,6 @@ export default function App() {
   const [at, setAt] = useState(0)
   const mic = useMicLevel()
   const live = useRef(null)
-  const quality = useRef(1)
   const htmlLayer = useRef(null)   // drei Html 이 붙을 고정 층 — 첫 Html 이 붙을 자리를 못 찾고 사라지던 것을 막는다
   const frameApi = useRef(null)
   const [fitH, setFitH] = useState(null)        // ① 업로드 창 = 내용 높이 (Frame onFit)
@@ -136,7 +136,7 @@ export default function App() {
       <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.0 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
         <color attach="background" args={['#F3F3F6']} />
-        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} />
+        <Scene stations={stations} at={at} small={vp.phone} readLevel={readAppLevel} portal={htmlLayer} W={W} H={H} Ls={Ls} />
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} onFit={onFit} />
@@ -168,13 +168,14 @@ export default function App() {
   )
 }
 
-function Scene({ stations, at, quality, portal, W, H, Ls }) {
+function Scene({ stations, at, small, readLevel, portal, W, H, Ls }) {
   const coveRef = useRef([])
   return (
     <>
       <CameraRig />
       <Lights coveRef={coveRef} />
-      <Room coveRef={coveRef} quality={quality} />
+      <Environment small={small} />
+      <Audience readLevel={readLevel} />
       <GlassPass />
       {stations.map((panels, k) => (
         <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={Ls[k].app.w} H={Ls[k].app.h} L={Ls[k]} />

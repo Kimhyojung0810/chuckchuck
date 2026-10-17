@@ -19,6 +19,10 @@ export const STATIONS = [
   { key: 'practice', name: '연습',       line: '고칠 곳만 다시 · Q&A 전환점 돌아보기' },
 ]
 
+/* 정거장별 사진 환경 (scene/Environment.jsx ENV_NAMES) — 0 산 들판(차분히 준비 · 읽기), 1 극장(객석 앞에 선다)
+   발표 · 질의응답 · 청중석은 극장, 나머지는 들판 (10-17 사용자 「발표할 때는 관객이 있는 것처럼」) */
+export const ENV_OF = [0, 1, 0, 1, 0, 0, 1, 0, 0]
+
 /* 정거장별 조명 (SPACE §3 · DESIGN_SYSTEM v3-3) — 따뜻한 중성 빛만(10-13 리뉴얼: 초록 빛 없음, 조용한 스튜디오).
    spot: 정면 스포트(cd) · 각(rad), cove: 빛 띠 밝기, amb: 방 전체, fog: 안개 끝(m) */
 export const LIGHT = [

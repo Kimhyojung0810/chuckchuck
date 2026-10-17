@@ -4,7 +4,6 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { easing } from 'maath'
 import { LIGHT, CEIL, toward, stationAngle } from '../config.js'
-import { BACK_R } from './Room.jsx'
 import { rig } from '../rig.js'
 
 export function Lights({ coveRef }) {
@@ -15,11 +14,12 @@ export function Lights({ coveRef }) {
   const targets = useMemo(() => [0, 1, 2, 3].map((k) => {
     const o = new THREE.Object3D()
     // 카메라 정거장(② ③)은 큰 카메라 화면을, 나머지는 창 뒤 벽을 비춘다
-    const [x, z] = toward(stationAngle(k), BACK_R)
+    const [x, z] = toward(stationAngle(k), 9)   // 창 뒤 9m
     o.position.set(x, 1.5, z)
     return o
   }), [])
-  if (!scene.fog) scene.fog = new THREE.Fog('#F3F3F6', 9, LIGHT[0].fog)
+  // 안개 없음 — 사진 환경(Environment)이 먼 곳을 맡는다. 안개는 사진 앞 삐약이 · 유리만 흐리게 만들었다
+  if (scene.fog) scene.fog = null
 
   useFrame((_, dt) => {
     const L = LIGHT[rig.at]
@@ -41,7 +41,6 @@ export function Lights({ coveRef }) {
     const cv = cur.cove * (0.6 + 0.4 * rig.motion)
     // 밝은 방(10-16 사용자 「화면 밝게」) — 빛 띠는 바탕보다 조금 짙은 회색 선으로 지평선만 남긴다
     coveRef.current.forEach((m) => m && m.color.setRGB(0.80 - 0.06 * cv, 0.80 - 0.06 * cv, 0.82 - 0.06 * cv))
-    scene.fog.far = cur.fog
   })
 
   return (
