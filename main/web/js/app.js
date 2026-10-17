@@ -5643,7 +5643,6 @@ async function renderReport() {
     s.slides ? `슬라이드 ${s.slides}개` : '',
     escapeHtml(s.duration),
     s.recording ? `녹음 파일 「${escapeHtml(s.recording)}」로 분석했어요` : '',
-    s.live ? '' : `${s.nth}번째 연습`,
   ].filter(Boolean);
   app.innerHTML = `
     <section class="verdict${v.hasAnalysis ? '' : ' is-plain'}">
@@ -5709,7 +5708,7 @@ function renderProfileReport(p) {
       <a class="back-link" href="#/home">← 내 발표</a>
       <span class="final-label">발표 + 질문 코칭 최종 분석</span>
       <h1 class="page-title">${p.title}</h1>
-      <p class="report-meta">${p.occasion} · 슬라이드 ${p.slides}개 · ${p.duration} · ${p.nth}번째 연습</p>
+      <p class="report-meta">${p.occasion} · 슬라이드 ${p.slides}개 · ${p.duration}</p>
       <p class="sample-note">이 발표는 <b>샘플 데이터</b>예요. 화면 구성을 미리 볼 수 있게 넣어 뒀어요.</p>
     </div>
 
@@ -6049,18 +6048,6 @@ async function paintDeckThumbs(root = document) {
  * 그게 다음 리허설에서 실제로 말해볼 한 문장이라 트로피 자리에 맞다.
  * 전부 잘 설명했으면 aligned 중 가장 무거운 개념의 유지 멘트를 쓴다.
  */
-/** 시연·샘플 리포트용 트로피. QA 더미의 before/after 문장을 쓴다. */
-function sampleTrophy() {
-  const tr = DATA.session && DATA.session.qa && DATA.session.qa.trophy;
-  if (!tr || !tr.after) return null;
-  return {
-    text: tr.after,
-    slide: tr.slide || 11,
-    verdict: 'missing',
-    label: tr.node || '',
-  };
-}
-
 function realTrophy() {
   const out = reportOut();
   const al = out && out.alignment;
@@ -6700,85 +6687,7 @@ function showCurtainCallApplause(score, dims) {
   });
 }
 
-/* ─── 배웅 (§4) ─────────────────────────────────────────────────────────────
-   카너먼: 경험의 기억은 피크와 엔드로 결정된다. 피크는 커튼콜이 맡는데,
-   엔드는 지금까지 아무것도 없었다 — 리포트를 보다가 그냥 나갔다.
-
-   외치는 문장은 F-11 트로피 문장 그대로다. 수십 개의 판정 중 사용자가 집에
-   가져갈 단 하나의 문장이라, 리포트를 안 읽었어도 이 한 줄은 남는다. */
-
-const SENDOFF_MS = 2400;
-
-function sendoffLine() {
-  const t = realTrophy();
-  if (t && t.label) {
-    return t.verdict === 'aligned'
-      ? `다음 공연에서도 '${t.label}' 그대로 들려주세요!!`
-      : `다음 공연 땐 '${t.label}' 꼭 들려주세요!!`;
-  }
-  // 데이터가 없으면 지어내지 않는다. 근거 없는 회상 대사 금지와 같은 규칙이다
-  return '오늘 완벽했어요, 또 오세요!';
-}
-
-function showSendoff() {
-  if (!window.Chatter) return Promise.resolve();
-  const veil = document.createElement('div');
-  veil.className = 'cc-veil so-veil';
-  veil.innerHTML = `
-    <div class="cc-row">
-      ${window.Chatter.SEATS.map(s =>
-        `<div class="ch-seat" data-speaker="${s}" data-mood="happy">
-           ${window.Chatter.chickSvg(s)}
-         </div>`).join('')}
-    </div>
-    <div class="cc-line so-shout">${escapeHtml(sendoffLine())}</div>
-    <div class="cc-sub">— 오늘의 관객 넷 드림</div>`;
-  document.body.appendChild(veil);
-  requestAnimationFrame(() => veil.classList.add('on'));
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      veil.classList.remove('on');
-      setTimeout(() => veil.remove(), 380);
-      resolve();
-    };
-    veil.addEventListener('click', finish);
-    setTimeout(finish, SENDOFF_MS);
-  });
-}
-
-/**
- * 리포트를 떠나는 순간을 가로채 배웅을 끼워 넣는다.
- *
- * 실판정이 없으면(샘플 화면) 배웅하지 않는다 — 들어본 적 없는 발표를 배웅하면
- * 그 한 줄이 거짓말이 된다.
- */
-let sendoffWired = false;
-let sendoffPassthrough = null;
-
-function wireSendoff() {
-  if (sendoffWired) return;
-  sendoffWired = true;
-  // 요소마다 붙이면 나중에 그려지는 탭(개념별 판정·논리 흐름·말 속도·연습 도구)의
-  // 링크가 영영 안 잡힌다. §4 는 '요약 탭을 떠날 때'가 아니라 '리포트를 떠날 때'다
-  document.addEventListener('click', (e) => {
-    const el = e.target.closest('a[href="#/new"], a[href="#/"], a[href="#/home"], a[href="#/landing"], [data-fresh-practice]');
-    if (!el || el === sendoffPassthrough) return;
-    // 상단바 버튼은 라우트가 바뀌어도 살아 있다. 리포트를 떠날 때만 배웅한다
-    if (routeParts()[0] !== 'report') return;
-    // 들어본 적 없는 발표(샘플 화면)를 배웅하면 트로피 문장이 거짓말이 된다
-    if (!realTrophy() && !realSummary()) return;
-    e.preventDefault();
-    e.stopPropagation();
-    showSendoff().then(() => {
-      sendoffPassthrough = el;
-      el.click();
-      sendoffPassthrough = null;
-    });
-  }, true);
-}
+/* 배웅(트로피 문장을 외치는 연출)은 지웠다 — 트로피 문장(F-11 suggestion)이 실측에서 늘 비어 「오늘 완벽했어요」 대체 문장만 나왔다 (10-17 리포트 개편 §4) */
 
 /**
  * 회상 카드 — diff 가 증명할 때만 나온다 (§13).
@@ -6952,7 +6861,8 @@ function qaHistoryPanelHtml({ open = false } = {}) {
 function judgeLegendHtml(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const allNa = list.length > 0 && list.every(n => n.status === 'na');
-  const keys = allNa ? ['na'] : ['ok', 'mid', 'no', 'ct', 'om', ...(list.some(n => n.status === 'na') ? ['na'] : [])];
+  /* 「언급만 함」(mid)은 API 판정에 대응이 없어 실측에서 늘 0 이다 — 그 칸이 있는 행(샘플)일 때만 범례에 단다 (10-17 리포트 개편 §4) */
+  const keys = allNa ? ['na'] : ['ok', ...(list.some(n => n.status === 'mid') ? ['mid'] : []), 'no', 'ct', 'om', ...(list.some(n => n.status === 'na') ? ['na'] : [])];
   return keys.map(k => `<span><i class="dot st-${k}"></i>${STATUS[k]}</span>`).join('');
 }
 
@@ -6960,8 +6870,6 @@ function rSummary() {
   const meta = reportSessionMeta();
   const live = meta.live;
   const s = DATA.session;
-  const prio = DATA.priorities[s.occasion] || DATA.priorities['범용'] || Object.values(DATA.priorities)[0];
-  const trophy = realTrophy() || (!isLiveReportSession() ? sampleTrophy() : null);
   const real = realSummary();
   const tree = judgeTree();
   const isRealTree = !!(tree[0] && tree[0].real);
@@ -7046,11 +6954,7 @@ function rSummary() {
      기본 노출은 결론 층(판정 헤드·오늘의 문장·슬라이드 덱·보완 1가지)만 남긴다. */
   const recall = recallCardHtml();
   $('#rbody').innerHTML = `
-    ${trophy ? `<button class="card trophy-strip" id="trophyStrip" data-slide="${trophy.slide}">
-      <span class="ts-label">${trophy.verdict === 'aligned' ? '이 흐름을 지키세요' : '다음엔 이렇게 말해보세요'}</span>
-      <p class="ts-quote">“${escapeHtml(trophy.text)}”</p>
-      <i class="ts-go">${trophy.slide}번 슬라이드에서 보기 →</i>
-    </button>` : ''}
+    <!-- 「다음엔 이렇게 말해보세요」(트로피)는 지웠다 — F-11 에 suggestion 필드가 없어 실측에서 늘 비었다 (10-17 리포트 개편 §4) -->
 
     <!-- 개념 지도는 여기 두지 않는다. 질문 생성을 기다리는 대기 화면으로 옮겼다
          (2026-08-10 지시) — 리포트에는 개념 전달 탭의 성좌가 이미 있어서 한
@@ -7084,13 +6988,7 @@ function rSummary() {
       <div class="fold-body">${recall}</div>
     </details>` : ''}
 
-    ${(!live && prio && prio[0]) ? `
-    <h2 class="section-title" style="margin:26px 0 12px">이것부터 고치면 돼요<span class="soft">효과가 가장 큰 한 가지</span></h2>
-    ${prioCard(prio[0], 1)}
-    <details class="fold">
-      <summary>보완 2가지 더 보기</summary>
-      <div class="fold-body">${prio.slice(1).map((p, i) => prioCard(p, i + 2)).join('')}</div>
-    </details>` : ''}
+    <!-- 「이것부터 고치면 돼요」(우선순위 카드)는 샘플에서만 찼다 — 지웠다 (10-17 리포트 개편 §4) -->
 
     <!-- 「다음에 뭘 할지」를 말하는 덩어리가 셋이었다: 오늘 만든 문장(트로피),
          이것부터 고치면 돼요(우선순위), 그리고 여기. 셋이 각자 제목을 달고 서
@@ -7114,11 +7012,6 @@ function rSummary() {
      끝처럼 읽히는 자리라, 그 밑에 뭘 두든 안 열린다. 다루는 내용도 바로 위
      「슬라이드로 보는 발표」와 같은 것(이 발표의 개념들)이라 붙여 두는 게 맞다 —
      범례가 설명한 판정 5종의 전체 목록이 곧 이 묶음이다. CTA 는 맨 뒤로 보낸다. */
-  const trophyEl = $('#trophyStrip');
-  if (trophyEl) trophyEl.addEventListener('click', (e) => {
-    selectDeckSlide(Number(e.currentTarget.dataset.slide) || (trophy && trophy.slide) || 1);
-    const deck = $('.rep-deck'); if (deck) deck.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
   const film = $('#deckFilm');
   if (film) {
     film.addEventListener('click', e => {
@@ -7148,7 +7041,6 @@ function rSummary() {
   bindDeckPanel();
   paintDeckStage();
   paintDeckThumbs();
-  wireSendoff();
   if (real) showCurtainCallApplause(real.score, real.dims).then(() => animateViz($('#rbody')));
 }
 
@@ -7525,7 +7417,7 @@ function deckHtml() {
         ? escapeHtml(node.ev)
         : `<span class="note">${noEvidenceNote(node.status, node.naWhy, node.mentions)}</span>`}${node.evTime ? `<time>${escapeHtml(node.evTime)}</time>` : ''}</div>
       ${node.why ? `<p class="note" style="margin-top:10px">${escapeHtml(node.why)}</p>` : ''}
-      ${node.fix ? `<div class="dp-fix"><b>이렇게 말해보세요</b><p>${escapeHtml(node.fix)}</p></div>` : ''}
+      ${node.deckQuote ? `<div class="dp-fix"><b>자료는 이렇게 말해요${node.deckSlide ? ` · ${node.deckSlide}장` : ''}</b><p>${escapeHtml(node.deckQuote)}</p></div>` : ''}
       <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${escapeHtml(node.id)}">판정 근거 자세히 보기</button>`;
   } else if (node) {
     panel = `
@@ -7538,7 +7430,6 @@ function deckHtml() {
       : `
         <span class="bubble-label" style="margin-top:0">이 슬라이드에서 한 말</span>
         <div class="bubble">${node.ev}${node.evTime ? `<time>${node.evTime}</time>` : ''}</div>`}
-      <div class="dp-fix"><b>이렇게 말해보세요</b><p>${node.fix}</p></div>
       <button class="btn btn-tint btn-sm" id="deckJudgeGo" data-node="${node.id}">판정 근거 자세히 보기</button>`;
   } else {
     panel = `<p class="dp-none">${live
@@ -7566,24 +7457,6 @@ function deckHtml() {
         <figcaption><span class="num">${n} / ${total}</span>${escapeHtml(title)}${deckChickOnSlide(n)}</figcaption>
       </figure>
       <div class="deck-panel">${panel}</div>
-    </div>`;
-}
-
-function prioCard(p, num) {
-  return `
-    <div class="card prio-card ${num === 1 ? 'prio-first' : ''}">
-      <div class="prio-head">
-        <span class="n">${num}</span>
-        <h3>${p.t}</h3>
-        ${p.gain ? `<span class="chip chip-sm prio-gain">+${p.gain}점 기대</span>` : ''}
-      </div>
-      <p class="prio-desc">${p.d}</p>
-      ${p.spoke || p.spokeNote ? `
-        <span class="bubble-label">실제로 한 말</span>
-        <div class="bubble">${p.spoke ? `${p.spoke.text}<time>${p.spoke.time}</time>` : `<i style="color:var(--text-3)">${p.spokeNote}</i>`}</div>` : ''}
-      ${p.fix ? `
-        <span class="bubble-label right blue">이렇게 바꿔보세요</span>
-        <div class="bubble fixup">${p.fix}</div>` : ''}
     </div>`;
 }
 
@@ -7666,13 +7539,13 @@ function realJudgeTree() {
         status: naWhy ? 'na' : (STATUS_FROM_VERDICT[it.verdict] || 'no'),
         naWhy,
         mentions: typeof basis.mention_count === 'number' && Number.isFinite(basis.mention_count) ? basis.mention_count : null,
-        conf: Math.round((it.confidence || 0) * 100),
-        checks: it.checks || {},
         ev: it.evidence || '',
         evTime: basis.first_mention_sec != null ? fmtMarkSec(basis.first_mention_sec) : '',
         // 짐작한 개념의 note 는 버려진 LLM 판정의 까닭이다(「근거 없이 aligned」 의 설명 등) — 판정 이유로 세우지 않는다
         why: naWhy === 'guess' ? '' : (it.note || ''),
-        fix: it.suggestion || '',
+        // 「이렇게 말해보세요」(suggestion)는 서버에 없는 필드라 늘 비었다 — 대신 자료 원문 줄(deck_quote)을 「자료는 이렇게 말해요」 로 (10-17 §4)
+        deckQuote: it.deck_quote || '',
+        deckSlide: Number(it.deck_slide_no) || 0,
         real: true,
       };
     });
@@ -7762,8 +7635,8 @@ function rJudge() {
   /* 판정을 안 한 발표(다른 발표 녹음)면 판정 칩 다섯을 0 으로 늘어놓지 않는다 — 「안 나옴 0」 도 판정처럼 읽힌다 (REC-10) */
   const filters = counts.na === tree.length
     ? [['all', '전체'], ['na', '판정 안 함']]
-    : [['all', '전체'], ['ok', '설명함'], ['mid', '언급만'], ['no', '안 나옴'], ['ct', '모순'], ['om', '생략'],
-      ...(counts.na ? [['na', '판정 안 함']] : [])];
+    : [['all', '전체'], ['ok', '설명함'], ...(counts.mid ? [['mid', '언급만']] : []), ['no', '안 나옴'], ['ct', '모순'], ['om', '생략'],
+      ...(counts.na ? [['na', '판정 안 함']] : [])];   // 「언급만」 칩은 그 판정이 있을 때만(실측엔 없다 — 10-17 §4)
   const items = tree.filter(n => jFilter === 'all' || n.status === jFilter);
   if (!items.some(n => n.id === jSel) && items.length) jSel = items[0].id;
   const n = tree.find(t => t.id === jSel);
@@ -7813,8 +7686,6 @@ function jDetail(n, tree = DATA.tree) {
   const stage = (uploadedPdf && uploadedPdf.pdf)
     ? `<canvas class="deck-canvas" data-stage-page="${slideNum}" role="img" aria-label="${slideNum}번 슬라이드 · ${escapeHtml(title)}"></canvas>`
     : `<img src="${deckImageSrc(slideNum, live)}" alt="${slideNum}번 슬라이드 · ${escapeHtml(title)}">`;
-  // 실데이터는 4축을 checks 로, 샘플은 옛 필드명 check 로 준다
-  const checks = n.checks || n.check || {};
   return `
     <div class="detail-top">
       <h3>${escapeHtml(n.label)}</h3>${chip(n.status)}
@@ -7824,10 +7695,7 @@ function jDetail(n, tree = DATA.tree) {
       ${stage}
       <figcaption><span class="num">${slideNum}번 슬라이드</span>${escapeHtml(title)}</figcaption>
     </figure>
-    ${n.conf ? `<div class="confbar">판정 확신도 <span class="fill-bar"><i data-w="${n.conf}%"></i></span><b class="num">${n.conf}%</b></div>` : ''}
-    ${Object.keys(checks).length ? `<div class="checks">
-      ${Object.entries(checks).map(([k, v]) => `<span class="${v ? 'y' : ''}">${v ? '✓' : '—'} ${escapeHtml(k)}</span>`).join('')}
-    </div>` : ''}
+    <!-- 「판정 확신도」 · 체크 ✓ 는 서버에 없는 필드라 실측에서 늘 비었다 — 지웠다 (10-17 리포트 개편 §4) -->
     ${n.status === 'ct' && n.docSays ? `
     <div class="drow"><b>자료와 발화 비교</b>
       <span class="bubble-label" style="margin-top:0">자료에 적힌 것</span>
@@ -7839,7 +7707,7 @@ function jDetail(n, tree = DATA.tree) {
       <div class="bubble">${n.ev ? escapeHtml(n.ev) : `<span class="note">${noEvidenceNote(n.status, n.naWhy, n.mentions)}</span>`}${n.evTime ? `<time>${n.evTime}</time>` : ''}</div>
     </div>`}
     ${n.why ? `<div class="drow"><b>판정 이유</b>${escapeHtml(n.why)}</div>` : ''}
-    ${n.fix ? `<div class="fixbox"><b>이렇게 말해보세요</b><p>${escapeHtml(n.fix)}</p></div>` : ''}
+    ${n.deckQuote ? `<div class="fixbox"><b>자료는 이렇게 말해요${n.deckSlide ? ` · ${n.deckSlide}장` : ''}</b><p>${escapeHtml(n.deckQuote)}</p></div>` : ''}
     <div class="step-actions">
       <a class="btn btn-tint btn-sm" href="#/qa">질문 코칭으로 가기</a>
     </div>`;
@@ -8085,10 +7953,9 @@ function rLogicRealCards(flow) {
   let tauNote = '';
   if (tau != null) {
     const pct = Math.round(((tau + 1) / 2) * 100);
-    tauNote = `<p class="ai-note">자료 순서와 발표 순서 일치도 <b class="num">${pct}%</b> — ${tauJudge(pct)}${
-      (flow.ghost_node_ids || []).length
-        ? ` · 한 번도 언급되지 않은 개념 ${flow.ghost_node_ids.length}개`
-        : ''}</p>`;
+    /* 「한 번도 언급되지 않은 개념 N개」(ghost_node_ids)는 지웠다 — 글자 일치로 세서 개념 전달 판정과 정면으로 어긋났다
+       (실측: 「13개 중 13개 설명함」 과 「언급 안 됨 13개」 가 같이 떴다 · 10-17 리포트 개편 §4) */
+    tauNote = `<p class="ai-note">자료 순서와 발표 순서 일치도 <b class="num">${pct}%</b> — ${tauJudge(pct)}</p>`;
   }
   const firstKind = first && (FLOW_KIND[first.kind] || { type: escapeHtml(first.kind), good: false });
   const firstSlides = (first && first.slide_nos) || [];
@@ -8329,6 +8196,9 @@ function timeSplitHtml(rows, totals = {}) {
 
 function timeSplitCard(pace) {
   const secs = (pace && pace.sections) || [];
+  /* 실측(pace 가 있음)인데 구간이 없으면 샘플 배분(DATA.timeAlloc)으로 채우지 않는다 — 내 리포트에 남의 숫자가 섞였다 (10-17 리포트 개편 §4).
+     샘플 배분은 샘플 화면(pace 없음 · 내 발표 세션 아님)에서만 */
+  if (!secs.length && (pace || isLiveReportSession())) return '';
   const sampleTargetSec = 600;
   const sampleActualSec = Number(DATA.session && DATA.session.durationSec) || sampleTargetSec;
   const rows = secs.length
@@ -8427,6 +8297,18 @@ function rPace(host = $('#rbody')) {
     return;
   }
   const real = realPace();
+  /* 내 발표인데 말 속도 결과가 없으면 샘플 속도표(DATA.pace)로 채우지 않는다 — 거짓 숫자다 (10-17 리포트 개편 §4) */
+  if (!real && isLiveReportSession()) {
+    host.innerHTML = `
+      <div class="voice-stack">
+        ${tabVerdictHtml({
+          headline: '이번엔 말 속도와 시간 배분을 잴 수 없었어요',
+          action: '단어 시각이 있는 받아쓰기가 있어야 재요. 발표를 녹음해 다시 분석하면 이 자리에 내 숫자가 떠요.',
+        })}
+        <div id="dlvAud"></div>
+      </div>`;
+    return;
+  }
   const st = real
     ? { avg: real.avg, max: real.max, maxSeg: real.maxSeg, rec: real.rec }
     : DATA.paceStats;
@@ -8469,7 +8351,7 @@ function rPace(host = $('#rbody')) {
     <div class="voice-stack">
       ${real ? '' : `<p class="note" style="color:var(--mid);margin-bottom:0">
         ⚠️ <b>샘플 데이터</b>예요. 리허설을 마치면 내 발화로 계산해요.</p>`}
-      ${timeSplitCard(null)}
+      ${timeSplitCard(real ? (real.f17 || {}) : null)}
       ${tabVerdictHtml(fbVerdict)}
       <div class="stat-row speech-stat-row">
         <div class="stat-card"><small>전체 말 속도</small><strong class="pace-word">${escapeHtml(fbPace.short)}</strong><p class="note" style="margin-top:4px">${escapeHtml(fbPace.detail)}</p></div>
@@ -8646,8 +8528,9 @@ function tStrategy(host = $('#toolStrategy')) {
   window.ReportStrategy.render(host, {
     sessionId: strategySessionKey(),
     analysis: strategyAnalysis(),
-    // 실데이터면 버튼 없이 바로 제안 (샘플은 눌러야 — 구경만 해도 LLM 이 돌면 안 된다)
-    auto: strategySessionKey() !== 'sample',
+    /* 누를 때만 제안한다 (10-17 리포트 개편 §4) — 예전엔 실데이터면 탭을 여는 것만으로 /api/v1/strategy(LLM)를 불렀다.
+       리포트 2.0 「자세한 분석」 을 훑기만 해도 과금 · 대기가 생겼고, 근거 대조가 없는 자유 글이라 핵심 화면도 아니다 */
+    auto: false,
   });
 }
 
@@ -8677,7 +8560,9 @@ function graphSummaryById() {
 /** 실전 코칭 질문(F-08). 남아 있으면 용어 카드의 예상 질문·답변 프레임이 된다. */
 function liveQuestionsByNode() {
   const by = {};
-  ((qa && qa.live && qa.live.questions) || []).forEach((q) => { by[q.node_id] = q; });
+  // 이 탭의 코칭이 없으면 다시 연 리포트 저장본(nf.rv2Qa — 실제로 받은 질문)에서 (10-17 리포트 개편)
+  const qs = (qa && qa.live && qa.live.questions && qa.live.questions.length) ? qa.live.questions : ((nf && nf.rv2Qa && nf.rv2Qa.questions) || []);
+  qs.forEach((q) => { if (q && q.node_id && !by[q.node_id]) by[q.node_id] = q; });
   return by;
 }
 
@@ -8728,8 +8613,9 @@ function liveTerms() {
     const q = qBy[n.id];
     return {
       term: n.label, status: n.status, slide: n.slide, def: sumBy[n.id],
-      q: (q && q.question) || `${n.label}, 이 발표에 왜 필요했나요?`,
-      frame: (q && q.answer_gist) || `① ${slideNumber(n.slide)}번 슬라이드의 정의 → ② 근거 → ③ 내 주장과 잇기`,
+      /* 틀 질문(「…이 발표에 왜 필요했나요?」)은 실제로 나온 질문이 아니라 지웠다 — 실제 Q&A 질문 · 모범답이 있을 때만 싣는다 (10-17 §4) */
+      q: (q && q.question) || '',
+      frame: (q && q.answer_gist) || '',
     };
   }) : null;
 }
@@ -8872,8 +8758,8 @@ function tTerms(host = $('#toolTerms')) {
     <div class="card">
       <div class="term-top"><h3>${escapeHtml(t.term)}</h3>${chip(t.status, true)}<span class="sl">근거: ${slideNumber(t.slide)}번 슬라이드</span></div>
       <p class="term-def">${escapeHtml(t.def)}</p>
-      <p class="term-q"><b>이런 질문이 와요</b> — ${escapeHtml(t.q)}</p>
-      <p class="term-f"><b>이 순서로 답해요</b> — ${escapeHtml(t.frame)}</p>
+      ${t.q ? `<p class="term-q"><b>${live ? '실제로 받은 질문' : '이런 질문이 와요'}</b> — ${escapeHtml(t.q)}</p>` : ''}
+      ${t.frame ? `<p class="term-f"><b>${live ? '모범답' : '이 순서로 답해요'}</b> — ${escapeHtml(t.frame)}</p>` : ''}
     </div>`).join('')}
     <p class="note" style="margin-top:10px">정의는 올린 자료에 있는 말로만 만들어요.</p>`;
 }

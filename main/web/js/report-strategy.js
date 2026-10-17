@@ -287,7 +287,7 @@ window.ReportStrategy = (function () {
           <b>핵심을 앞에 둘지 뒤에 남길지</b>부터 정하고 새 순서표를 드려요.
         </p>
         <div class="step-actions">
-          <button class="btn btn-primary" data-strat="go">구성 제안받기</button>
+          <button class="btn btn-primary" data-strat="go">발표 구성 다시 짜 보기</button>
         </div>
       </div>`;
   }

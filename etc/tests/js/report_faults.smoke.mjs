@@ -227,7 +227,9 @@ test('개념 칩은 「안 나옴」 이 아니라 「판정 안 함」 — 요�
   score: { score: 70, faults: [] } });
   const judged = A.realJudgeTree();
   eq(judged.map(t => t.status), ['ok', 'no', 'om'], '판정 그대로');
-  eq((A.judgeLegendHtml(judged).match(/<span>/g) || []).length, 5, '범례 다섯');
+  eq((A.judgeLegendHtml(judged).match(/<span>/g) || []).length, 4, '범례 넷 (「언급만」 은 실측에 없어 뺀다)');
+  ok(!A.judgeLegendHtml(judged).includes('언급만'), '「언급만」 범례 없음');
+  ok(A.judgeLegendHtml([{ status: 'mid' }, { status: 'ok' }]).includes('언급만'), '「언급만」 판정이 있는 행(샘플)엔 범례가 붙는다');
   ok(A.judgeSplitHtml(judged).includes('다시 볼 곳 1개'), '다시 볼 곳');
 });
 

@@ -191,7 +191,8 @@ test('리포트 — 판정 안 한 개념이 섞이면 분모는 판정한 개�
   ok(/판정한 개념 <b class="num">2<\/b>개 중 <b class="num jsplit-ok">1<\/b>개를 설명했어요/.test(split), split);
   ok(split.includes('다시 볼 곳 1개') && split.includes('판정 안 함 2개는 AI 판정이 비어서'), split);
   ok(!/안 나옴/.test(split), `짐작을 「안 나옴」 으로 세지 않는다: ${split}`);
-  eq((A.judgeLegendHtml(tree).match(/<span>/g) || []).length, 6, '범례 다섯 + 판정 안 함');
+  eq((A.judgeLegendHtml(tree).match(/<span>/g) || []).length, 5, '범례 넷 + 판정 안 함 (「언급만」 은 그 판정이 있을 때만)');
+  ok(!A.judgeLegendHtml(tree).includes('언급만'), '실측 범례에 「언급만」 이 없다');
   // 전부 짐작이면 한 줄로
   const allGuess = { ...GUESS_ALIGN, items: GUESS_ALIGN.items.map((it) => ({ ...it, decided_by: 'fallback' })) };
   A.setOut({ graph: GRAPH, alignment: allGuess, score: { score: 61, faults: [] } });
