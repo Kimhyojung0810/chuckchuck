@@ -93,6 +93,41 @@ check('공개 샘플: Q&A 와 「질문은 이렇게 골랐어요」 판이 같�
 const emptyQS = qctx.window.ReportV2Qa.screens({ esc: esc2, I: {}, asset: (x) => x, V: () => ({ qa: [] }), D: () => ({}), QB: () => null, QBS: null, slideTag: () => '', EMBED: false });
 check('Q&A 를 안 했으면 빈 상태 + 「Q&A 연습하기」', /Q&A를 하면/.test(emptyQS.card()) && /Q&A 연습하기/.test(emptyQS.card()));
 
+// ─── 다시 보기 「순간」(10-17 바퀴 4) — 진단 근거 · 발표 태도 장면을 녹음 시각으로. Q&A 는 넣지 않는다 ───
+const RV = ctx.window.ReportV2;
+const dur = SV.duration_sec;
+const cardsBeh = { present: { status: 'ok', t0: 2000, cards: [
+  { kind: 'lookaway', observation: '2장에서 4.5초 동안 화면 쪽이 아니라 다른 곳을 향했어요', scene: { seg: 's2', where: '2장', sec: 10, dur: 4.5 } },
+  { kind: 'down', observation: '2장에서 4.5초 동안 아래를 봤어요', scene: { seg: 's2', where: '2장', sec: 10.4, dur: 4.5 } },   // 같은 장면 — 한 번만
+  { kind: 'sway', observation: '멀리', scene: { seg: 's3', where: '3장', sec: dur + 30, dur: 8 } },                          // 녹음 밖 — 버린다
+  { kind: 'gesture_speech', observation: '장면 없음', scene: null },
+  { kind: 'lookaway', observation: '질문', scene: { seg: 'q1', where: '1번째 질문', sec: 5, dur: 4 } },                      // Q&A — 따로
+] }, qa: { status: 'ok', cards: [{ kind: 'lookaway', observation: 'qa', scene: { seg: 'q1', sec: 3, dur: 4 } }] } };
+const MS = RV.momentsOf(SV, cardsBeh);
+const beh = MS.filter((m) => m.lane === 'beh');
+check('발표 태도 장면 → 녹음 시각(sec + t0) · 같은 장면 한 번 · 녹음 밖 · 장면 없음 · Q&A 는 뺀다', beh.length === 1 && beh[0].t === 12 && beh[0].slide === 2 && beh[0].end === 16.5);
+check('진단 근거 순간 — 근거가 있는 시각만, 판정 색 · 진단 id 를 단다', MS.filter((m) => m.lane === 'fix').length > 0
+  && MS.filter((m) => m.lane === 'fix').every((m) => m.insight && ['mid', 'ct', 'ok'].includes(m.tone) && m.t >= 0 && m.t <= dur + 1));
+check('순간은 시각 순', MS.every((m, k) => k === 0 || MS[k - 1].t <= m.t));
+const sumBeh = { present: { status: 'ok', summary: { events: [{ k: 'down', seg: 's1', t: 3, d: 2.4 }, { k: 'sway', seg: 's2', t: 20, d: 8 }, { k: 'lookaway', seg: 'q2', t: 9, d: 4 }] } } };
+const sb = RV.momentsOf(SV, sumBeh).filter((m) => m.lane === 'beh');
+check('숫자 요약(서버 보관본)만 있어도 장면 문장을 만든다(장 장면만)', sb.length === 2 && sb[0].title === '1장에서 2.4초 동안 아래를 봤어요' && /몸이 좌우로/.test(sb[1].title));
+check('카메라 분석이 없거나 못 쟀으면 태도 순간이 없다', RV.momentsOf(SV, { present: { status: 'none' } }).every((m) => m.lane === 'fix')
+  && RV.momentsOf(SV, null).every((m) => m.lane === 'fix') && RV.momentsOf(SV, { present: { status: 'unmeasured', cards: cardsBeh.present.cards } }).every((m) => m.lane === 'fix'));
+check('「그 순간 듣기」 주소가 같은 순간으로 돌아온다(진단 · 태도 모두)', MS.every((m) => RV.momentAt(MS, RV.momentRoute(m).slice('replay:'.length)) === m));
+check('주소 인자가 순간이 아니면 null (진단 id 만 · 빈 값 · 먼 시각)', RV.momentAt(MS, 'I:x') === null && RV.momentAt(MS, '') === null && RV.momentAt(MS, '@9999') === null);
+const U = [{ id: 'U1', start: 1, end: 4, text: '하나' }, { id: 'U2', start: 6, end: 9, text: '둘' }];
+check('그때 한 말 — 시각을 품은 발화 · 구간이 겹치는 발화 · 3초 안 가장 가까운 발화 · 없으면 null',
+  RV.lineAt(U, 2).id === 'U1' && RV.lineAt(U, 4.5, 7).id === 'U2' && RV.lineAt(U, 4.6).id === 'U1' && RV.lineAt(U, 5.4).id === 'U2' && RV.lineAt(U, 20) === null);
+const rctx = { window: {} };
+vm.runInNewContext(readFileSync(path.join(WEB, 'js/behavior_report.js'), 'utf8'), rctx);
+const bhHtml = rctx.window.BehaviorReport.rv2Html({ present: { status: 'ok', metrics: {}, areas: [], first: { text: '첫', slide: 2, sec: 10 },
+  cards: [{ observation: '장면', scene: { seg: 's3', where: '3장', sec: 24.2 }, conf: '높음' }, { observation: '장면 없음', scene: null }] } });
+check('발표 태도 화면이 장면 시각(data-sec)을 단다 — 리포트 쪽이 「그 순간 듣기」 를 붙인다', /bh-hero"[^>]*data-sec="10"/.test(bhHtml) && /bh-scene" data-sec="24.2"/.test(bhHtml) && (bhHtml.match(/data-sec=/g) || []).length === 2);
+const rv2Src = readFileSync(path.join(WEB, 'js/report_v2.js'), 'utf8');
+check('다시 보기는 「그 순간 듣기」 로 열 때만 바로 소리를 낸다(다시 그리기 · 복원에선 안 튼다)', /autoPlayNext = false; select\(el, pick, \{ sound \}\)/.test(rv2Src) && /function goMoment\(route\) \{ if \(busy\) return; autoPlayNext = !!audio;/.test(rv2Src));
+check('옛 시트(nv-sheet)는 걷었다 — 표시는 한 줄 설명으로', !/nv-sheet/.test(rv2Src) && !/nv-sheet/.test(css));
+
 // 하네스 자가 검사 — 범위 밖 규칙을 넣으면 잡는가
 const badLoose = ['body', '.rv2 .ok'].filter((x) => !/^(\.rv2\b|body\.rv2-page\b|#app\.rv2-host\b)/.test(x));
 check('하네스가 회귀를 잡는다', badLoose.length === 1);

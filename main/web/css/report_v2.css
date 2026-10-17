@@ -28,7 +28,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 { position: relative; height: 100dvh; min-height: 480px; background: var(--bg); color: var(--ink); font: 1.0625rem/1.47 var(--font); letter-spacing: -0.01em; word-break: keep-all; -webkit-font-smoothing: antialiased; overflow: hidden; }
 :where(.rv2 button:not(.nv-legacyhost button)) { font: inherit; color: inherit; letter-spacing: inherit; cursor: pointer; border: 0; background: none; padding: 0; text-align: inherit; }
 .rv2 :focus-visible { outline: 3px solid rgba(8, 184, 121, .45); outline-offset: 2px; border-radius: 10px; }
-.rv2 .nv-large, .rv2 .nv-small, .rv2 .nv-sec, .rv2 .nv-sheet-title { margin: 0; text-wrap: balance; }
+.rv2 .nv-large, .rv2 .nv-small, .rv2 .nv-sec { margin: 0; text-wrap: balance; }
 :where(.rv2 svg:not(.nv-legacyhost svg)) { display: block; }
 
 /* ── 스택 ── */
@@ -106,7 +106,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-acts { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
 .rv2 .nv-play { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px; border-radius: 999px; background: var(--accent-wash); color: var(--accent-ink); font-size: .9375rem; font-weight: 600; transition: background-color .2s, color .2s, transform .15s; }
 .rv2 .nv-play svg { width: 14px; height: 14px; }
-.rv2 .nv-play.is-on { background: var(--accent); color: #fff; }
+.rv2 .nv-play.is-on { background: var(--accent-ink); color: #fff; }   /* 흰 글자 — #08B879 위는 Lc 55 라 숲 초록으로 (10-17 바퀴 4) */
 .rv2 .nv-play:active { transform: scale(.97); }
 .rv2 .nv-play:disabled { background: var(--fill); color: var(--ink-4); cursor: default; }
 .rv2 .nv-link { color: var(--accent-ink); font-size: .9375rem; font-weight: 600; }
@@ -161,34 +161,62 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-bigplay:disabled { background: var(--fill-2); color: var(--ink-4); }
 .rv2 .nv-player-txt { display: grid; gap: 2px; }
 .rv2 .nv-player-txt b { font-size: 1.0625rem; font-weight: 600; }
-.rv2 .nv-player-txt small { font-size: .9375rem; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.rv2 .nv-track { position: relative; height: 54px; margin: 18px 0 6px; cursor: pointer; border-radius: 10px; background: var(--fill); }
+.rv2 .nv-player-txt small { font-size: .9375rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* 시간축 — 위 장 띠 · 아래 순간 두 줄(진단 점 · 발표 태도 막대). 왼쪽 열은 줄 이름, 재생 막대(nv-head)는 세 줄을 꿰뚫는다 (10-17 바퀴 4) */
+.rv2 .rp-tl { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 16px; margin: 16px 0 6px; }
+.rv2 .rp-tl.is-bare { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+.rv2 .rp-keys, .rv2 .rp-axis { display: grid; grid-template-rows: 44px repeat(var(--rows), 32px); row-gap: 4px; }
+.rv2 .rp-keys span { display: flex; align-items: center; font-size: .8125rem; font-weight: 700; color: var(--ink-2); }
+.rv2 .rp-axis { position: relative; }
+.rv2 .nv-track { position: relative; cursor: pointer; border-radius: 10px; background: var(--fill); }
 .rv2 .nv-band { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--fill-2); }
 .rv2 .nv-band:first-child { border-left: 0; }
-.rv2 .nv-band em { position: absolute; left: 8px; top: 6px; font-style: normal; font-size: .8125rem; color: var(--ink-3); }
-.rv2 .nv-mark { position: absolute; top: 28px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; box-shadow: 0 0 0 2.5px var(--fill); transition: transform .2s var(--ease); }
-.rv2 .nv-mark.t-mid { background: var(--mid); } .rv2 .nv-mark.t-ct { background: var(--ct); } .rv2 .nv-mark.t-ok { background: var(--ok); }
-.rv2 .nv-mark.is-on { transform: scale(1.35); box-shadow: 0 0 0 2.5px var(--fill), 0 0 0 5px rgba(25, 31, 40, .18); }
-.rv2 .nv-head { position: absolute; top: 4px; bottom: 4px; left: 0; width: 2px; border-radius: 1px; background: var(--ink); pointer-events: none; transition: left .25s linear; }
-.rv2 .nv-legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 0 4px; font-size: .8125rem; color: var(--ink-3); }
+.rv2 .nv-band em { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: .8125rem; color: var(--ink-3); white-space: nowrap; }
+.rv2 .rp-lane { position: relative; }
+.rv2 .rp-lane::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--fill-2); }
+.rv2 .rp-m { position: absolute; top: 50%; padding: 0; transition: transform .15s var(--ease), box-shadow .15s; }
+.rv2 .rp-m::after { content: ''; position: absolute; inset: -10px -6px; }   /* 누르는 자리 — 보이는 점보다 넓게 */
+.rv2 .rp-m.is-dot { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+.rv2 .rp-m.t-mid { background: var(--mid); } .rv2 .rp-m.t-ct { background: var(--ct); } .rv2 .rp-m.t-ok { background: var(--ok); }
+.rv2 .rp-m.is-bar::after { inset: -11px -1px; }   /* 막대는 이미 넓다 — 옆 막대를 덮지 않게 */
+.rv2 .rp-m.is-bar { height: 10px; min-width: 10px; margin-top: -5px; border-radius: 5px; background: var(--ink-2); box-shadow: 0 0 0 2px var(--surface); }
+.rv2 .rp-m.is-on { z-index: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+.rv2 .rp-m.is-dot.is-on { transform: scale(1.15); }
+.rv2 .rp-m:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; }
+.rv2 .nv-head { position: absolute; top: 4px; bottom: 0; left: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); pointer-events: none; transition: left .2s linear; }
+.rv2 .nv-legend { display: flex; gap: 6px 14px; flex-wrap: wrap; margin: 6px 0 0; font-size: .8125rem; color: var(--ink-2); }
 .rv2 .nv-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .rv2 .nv-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .rv2 .nv-legend i.t-mid { background: var(--mid); } .rv2 .nv-legend i.t-ct { background: var(--ct); } .rv2 .nv-legend i.t-ok { background: var(--ok); }
+/* 고른 순간 한 줄 — 무엇이 · 그때 한 말 · 듣기 */
+.rv2 .rp-cap { margin-top: 12px; padding-top: 6px; border-top: .5px solid var(--sep); display: grid; gap: var(--tgap); }
+.rv2 .rp-cap-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; }
+.rv2 .rp-cap-k { margin: 0; min-width: 0; font-size: .8125rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rv2 .rp-steps { flex: none; display: inline-flex; align-items: center; }
+.rv2 .rp-step { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: var(--accent-ink); transition: background-color .15s; }
+.rv2 .rp-step:active { background: var(--fill); }
+.rv2 .rp-step svg { width: 9px; height: 15px; }
+.rv2 .rp-n { min-width: 3.4em; text-align: center; font-size: .8125rem; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rv2 .rp-n:empty { min-width: 0; }
+.rv2 .rp-cap-t { margin: 0; font-size: 1.0625rem; line-height: 1.45; font-weight: 600; color: var(--ink); text-wrap: pretty; }
+.rv2 .rp-cap-s { margin: 0; font-size: .8125rem; line-height: 1.45; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rv2 .rp-cap-q { margin: 0; font-size: .9375rem; line-height: 1.5; color: var(--ink-2); }
+.rv2 .rp-cap-acts:not([hidden]) { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+.rv2 .rp-note { margin-top: 12px; }
+.rv2 .hm-moment { min-height: 32px; padding: 0 4px; font-size: .8125rem; }
+.rv2 .bh-rv2 .bh-act { display: flex; }
+.rv2 .bh-rv2 .bh-moment { min-height: 32px; font-size: .9375rem; }
+.rv2 .nv-bigplay[hidden] { display: none; }
+/* 폰 — 장 그림을 위에 붙여 둔다(동영상 앱처럼). 시간축 표시를 누르거나 받아쓰기를 읽는 동안에도 그 순간의 장이 보인다 */
+@media (max-width: 719px) {
+  .rv2 .rp-stick { position: sticky; top: -4px; z-index: 2; margin: -4px calc(-1 * var(--gut)) 0; padding: 4px var(--gut) 8px; background: var(--bg); }
+}
 .rv2 .nv-line { position: relative; display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 12px; width: 100%; padding: 13px 16px; text-align: left; font-size: 1.0625rem; line-height: 1.5; color: var(--ink-2); transition: background-color .2s; }
 .rv2 .nv-line + .nv-line::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; border-top: .5px solid var(--sep); }
 .rv2 .nv-line time { font-size: .8125rem; color: var(--ink-3); padding-top: 3px; font-variant-numeric: tabular-nums; }
 .rv2 .nv-line:active { background: var(--fill); }
 .rv2 .nv-line.is-hit { background: var(--mid-bg); color: var(--ink); }
 .rv2 .nv-line.is-now { color: var(--ink); box-shadow: inset 3px 0 0 var(--accent); }
-
-/* 아래 시트 */
-.rv2 .nv-sheet { position: absolute; inset: 0; z-index: 5; background: rgba(0, 0, 0, 0); transition: background-color .2s; display: flex; align-items: flex-end; }
-.rv2 .nv-sheet.is-open { background: rgba(0, 0, 0, .28); }
-.rv2 .nv-sheet-card { width: 100%; max-width: var(--col); margin: 0 auto; background: var(--surface); border-radius: 22px 22px 0 0; padding: 10px 22px calc(28px + env(safe-area-inset-bottom, 0px));
-  transform: translateY(100%); transition: transform .2s var(--ease); touch-action: none; }
-.rv2 .nv-sheet.is-open .nv-sheet-card { transform: none; }
-.rv2 .nv-grab { display: block; width: 36px; height: 5px; border-radius: 3px; background: var(--fill-2); margin: 0 auto 16px; cursor: grab; }
-.rv2 .nv-sheet-title { font-size: 1.375rem; font-weight: 700; line-height: 1.36; margin: 2px 0 10px; }
 
 /* ── 청중석 — 와우 포인트: 조명이 켜지는 어두운 무대 ── */
 .rv2 .nv-theater { position: relative; overflow: hidden; margin: 4px 0 24px; border-radius: 28px; padding: 40px 20px 28px; text-align: center; color: #fff;

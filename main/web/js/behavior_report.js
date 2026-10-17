@@ -298,7 +298,8 @@
     }
     const title = f.slide && titles && titles[f.slide - 1] ? titles[f.slide - 1] : '';
     const chip = sceneChip(f.slide ? `${f.slide}장` : (f.q ? `${f.q}번째 질문` : ''), f.sec, true);
-    return `<section class="bh-hero" aria-label="먼저 살펴볼 한 가지"><p class="bh-label">먼저 살펴볼 한 가지</p>
+    // data-sec — 리포트 쪽이 「그 순간 듣기」 를 단다(report_v2.js attitude). 카메라 기록 첫 장면 기준 초
+    return `<section class="bh-hero" aria-label="먼저 살펴볼 한 가지"${Number.isFinite(f.sec) && f.slide ? ` data-sec="${f.sec}"` : ''}><p class="bh-label">먼저 살펴볼 한 가지</p>
         <p class="bh-head">${esc(f.text)}</p>
         ${chip ? `<div class="bh-chips"><span class="bh-chip">${esc(chip)}</span>${title ? `<span class="bh-ttl">${esc(title)}</span>` : ''}</div>` : ''}
         ${f.tip ? `<p class="bh-tip"><b>다음엔</b> ${esc(f.tip)}</p>` : ''}</section>`;
@@ -312,7 +313,7 @@
       const n = s ? slideOfSeg(s.seg) : 0;
       const title = n && titles && titles[n - 1] ? titles[n - 1] : '';
       const chip = s ? sceneChip(s.where || '', s.sec, false) : '';
-      return `<article class="bh-scene"><p class="bh-obs">${esc(c.observation)}</p>
+      return `<article class="bh-scene"${s && n && Number.isFinite(s.sec) ? ` data-sec="${s.sec}"` : ''}><p class="bh-obs">${esc(c.observation)}</p>
           <div class="bh-chips">${chip ? `<span class="bh-chip">${esc(chip)}</span>` : ''}${title ? `<span class="bh-ttl">${esc(title)}</span>` : ''}<span class="bh-conf">신뢰도 ${esc(c.conf || '낮음')}</span></div>
           <details class="bh-more"><summary>측정값 · 비교 기준</summary><p>측정값 ${esc(c.value)}</p><p>비교 기준 ${esc(c.basis)}</p></details></article>`;
     }).join('')}</div>`;

@@ -35,6 +35,74 @@
     };
   }
 
+  /* ─── 순수: 다시 보기 시간축의 「순간」 (10-17 바퀴 4 — 근거를 들을 수 있게) ───────────────────────
+     진단 근거(말한 구절 · 말버릇 · 장별 시간)와 발표 태도 장면(오래 눈 뗌 · 아래 봄 · 흔들림)을 녹음 시각으로 맞춘다. Q&A 는 따로라 넣지 않는다.
+     카메라 장면 시각은 첫 장면(t0) 기준이라 녹음 시각 = sec + t0/1000 (기록은 녹음이 켜질 때 함께 시작한다 — js/rehearsal_behavior.js).
+     V = report_graph 뷰모델, behavior = D.behavior. → [{ id, lane:'fix'|'beh', t, end, slide, tone, title, sub, insight, more }] 시각 순 */
+  const BEH_LINE = {
+    lookaway: (w, d) => `${w}에서 ${d}초 동안 화면 쪽이 아니라 다른 곳을 봤어요`,
+    down: (w, d) => `${w}에서 ${d}초 동안 아래를 봤어요`,
+    sway: (w, d) => `${w} 무렵 ${d}초 동안 몸이 좌우로 되풀이해 오갔어요`,
+  };
+  function momentsOf(V, behavior) {
+    const dur = (V && V.duration_sec) || 0;
+    const out = [];
+    const fin = (x) => typeof x === 'number' && isFinite(x);
+    const toneOf = (x) => (x.status === 'conflicting' ? 'ct' : x.polarity === 'strength' ? 'ok' : 'mid');
+    const near = (lane, t) => out.some((m) => m.lane === lane && Math.abs(m.t - t) < 1);
+    [...((V && V.issues) || []), ...((V && V.strengths) || [])].forEach((x) => {
+      (x.proofs || []).forEach((p, k) => {
+        const a = p.anchor || {};
+        if (p.status !== 'supported' || !fin(a.start_sec) || a.start_sec > dur + 1) return;
+        if (out.some((m) => m.insight === x.id && Math.abs(m.t - a.start_sec) < 1)) return;
+        out.push({ id: `f${out.length}`, lane: 'fix', t: Math.max(0, a.start_sec), end: fin(a.end_sec) ? a.end_sec : null, slide: a.slide_no || null,
+          tone: toneOf(x), title: x.title, sub: p.kind === 'said' ? '' : String(p.text || ''), quote: p.kind === 'said' ? String(p.text || '') : '', insight: x.id, proof: k,
+          more: x.polarity === 'strength' ? '잘한 점' : x.status === 'conflicting' ? '판정이 흔들려요' : '고칠 것' });
+      });
+    });
+    const p = behavior && behavior.present;
+    if (p && p.status === 'ok' && dur) {
+      const t0 = fin(p.t0) ? p.t0 / 1000 : 0;
+      // 화면용 묶음엔 cards, 서버 보관 요약(summaryOf)엔 events 만 있다
+      const list = Array.isArray(p.cards) && p.cards.length
+        ? p.cards.filter((c) => c.scene && fin(c.scene.sec)).map((c) => ({ kind: c.kind, seg: c.scene.seg, where: c.scene.where, sec: c.scene.sec, d: c.scene.dur, text: c.observation }))
+        : ((p.summary || p).events || []).filter((e) => BEH_LINE[e.k] && fin(e.t)).map((e) => {
+          const w = /^s\d+$/.test(e.seg || '') ? `${e.seg.slice(1)}장` : '발표 중';
+          return { kind: e.k, seg: e.seg, where: w, sec: e.t, d: e.d, text: BEH_LINE[e.k](w, e.d) };
+        });
+      list.forEach((c) => {
+        const t = Math.max(0, c.sec + t0);
+        if (t > dur + 1 || !/^s\d+$/.test(c.seg || '') || near('beh', t)) return;   // 같은 장면을 두 지표가 짚으면 한 번만(behavior_report uniqCards 와 같은 규칙)
+        out.push({ id: `b${out.length}`, lane: 'beh', t, end: fin(c.d) ? Math.min(dur, t + c.d) : null, slide: Number(c.seg.slice(1)),
+          tone: 'beh', title: c.text, sub: '', quote: '', insight: '', more: '발표 태도 · 베타' });
+      });
+    }
+    return out.sort((a, b) => a.t - b.t || (a.lane === b.lane ? 0 : a.lane === 'fix' ? -1 : 1));
+  }
+  /** 그 순간에 한 말 — 시각을 품은 발화, 없으면 3초 안의 가장 가까운 발화. 구간이면 겹치는 첫 발화 */
+  function lineAt(utts, t, end) {
+    const list = utts || [];
+    const hit = list.find((u) => u.start <= t && u.end >= t) || (end != null ? list.find((u) => u.start < end && u.end > t) : null);
+    if (hit) return hit;
+    let best = null; let gap = 3;
+    list.forEach((u) => { const g = Math.min(Math.abs(u.start - t), Math.abs(u.end - t)); if (g <= gap) { gap = g; best = u; } });
+    return best;
+  }
+  /** 주소 인자 「@18.3」 · 「@18.3:beh」 · 「진단id@18.3」 → 그 시각에 가장 가까운(1초 안) 순간. 진단 id 가 있으면 그 진단의 순간만. 없으면 null */
+  function momentAt(moments, arg) {
+    const m = /^(.*)@(\d+(?:\.\d+)?)(?::(fix|beh))?$/.exec(String(arg || ''));
+    if (!m) return null;
+    const t = Number(m[2]);
+    let best = null; let gap = 1;
+    (moments || []).forEach((x) => {
+      if ((m[3] && x.lane !== m[3]) || (m[1] && x.insight !== m[1])) return;
+      const g = Math.abs(x.t - t); if (g <= gap) { gap = g; best = x; }
+    });
+    return best;
+  }
+  /** 「그 순간 듣기」 가 여는 주소 — 다시 보기 화면이 이 순간을 고른 채 열린다 */
+  const momentRoute = (m) => `replay:${m.lane === 'fix' ? m.insight : ''}@${(Math.round(m.t * 10) / 10).toFixed(1)}${m.lane === 'beh' ? ':beh' : ''}`;
+
   /* ─── 공통 ─────────────────────────────────────────────────────────── */
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (sec) => { if (sec == null || !isFinite(sec)) return '–'; const s = Math.max(0, Math.round(sec)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
@@ -87,6 +155,7 @@
     const TABS = Array.isArray(opts.tabs) && opts.tabs.length ? opts.tabs : null;
     let D = data; let G = null; let V = null; let QB = null;
     let audio = null; let stopAt = null; let playingKey = '';
+    let autoPlayNext = false;   // 「그 순간 듣기」 로 다시 보기를 열 때만 그 순간을 바로 들려준다(다시 그리기 · 복원에선 안 튼다)
     const stack = [];      // [{ route, el, short, onTime }]
     const imgCache = {};
     const STATE_KEY = 'cheokcheok:rv2-stack';
@@ -189,8 +258,10 @@
       if (sc.wire) sc.wire(el);
       return { route, el, short: sc.short || sc.title, onTime: sc.onTime || null };
     }
+    function goMoment(route) { if (busy) return; autoPlayNext = !!audio; push(route); }
     function wire(el) {
       el.querySelectorAll('[data-push]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); push(b.dataset.push); }));
+      el.querySelectorAll('[data-moment]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); goMoment(b.dataset.moment); }));
       el.querySelectorAll('[data-back]').forEach((b) => b.addEventListener('click', () => back()));
       el.querySelectorAll('[data-legacy]').forEach((b) => b.addEventListener('click', () => opts.onLegacy()));
       el.querySelectorAll('[data-play]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); play(+b.dataset.a, b.dataset.b === '' ? null : +b.dataset.b, b.dataset.play); }));
@@ -317,6 +388,12 @@
       });
       return out.join('');
     }
+    /** 「그 순간 듣기」 — 이 진단의 첫 순간을 고른 채 다시 보기를 연다(녹음이 있으면 그 구간을 바로 들려준다). 녹음이 없으면 「그 순간 보기」 */
+    const momentWord = () => (audio ? '그 순간 듣기' : '그 순간 보기');
+    function momentLink(x) {
+      const m = momentsOf(V, null).find((y) => y.insight === x.id);
+      return m ? `<button type="button" class="nv-link hm-moment" data-moment="${esc(momentRoute(m))}">${momentWord()}</button>` : '';
+    }
     function behaviorRow() {
       const BR = window.BehaviorReport;
       if (!BR || !D.behavior || typeof BR.headline !== 'function') return '';
@@ -355,7 +432,7 @@
           <p class="hm-label">가장 먼저 고칠 한 가지</p>
           <button type="button" class="hm-first-title" data-push="issue:${esc(first.id)}"><span class="nv-headline">${esc(first.title)}</span><i class="nv-chev">${I.chev}</i></button>
           ${first.why ? `<p class="hm-why">${esc(first.why)}</p>` : ''}
-          <div class="hm-chips">${proofChips(first)}</div>
+          <div class="hm-chips">${proofChips(first)}${momentLink(first)}</div>
           <p class="hm-ev">${esc(EV[first.evidence])}</p>
           <button type="button" class="hm-fix" data-push="coach:${esc(first.id)}">고쳐 보기</button>
         </section>` : `<section class="hm-first is-none"><p class="hm-label">가장 먼저 고칠 한 가지</p><p class="nv-headline">근거가 있는 고칠 점은 찾지 못했어요</p>
@@ -429,7 +506,28 @@
       try {
         sc = BR.rv2Screen(D.behavior, { titles: (D.deck.slides || []).map((x) => x.title), questions: V.qa.map((q) => q.text) });
       } catch (err) { console.warn('[report-v2] 발표 태도', err); sc = null; }
-      return { title: '발표 태도', short: '발표 태도', html: `${banner}${(sc && sc.html) || '<p class="nv-empty">카메라 분석을 그리지 못했어요.</p>'}` };
+      return { title: '발표 태도', short: '발표 태도', html: `${banner}${(sc && sc.html) || '<p class="nv-empty">카메라 분석을 그리지 못했어요.</p>'}`,
+        /* 장면 카드 · 「먼저 살펴볼 한 가지」 에 「그 순간 듣기」 — 카메라 장면 시각(data-sec, t0 기준)을 녹음 시각으로 맞춰 다시 보기 순간을 찾는다.
+           녹음 시간 밖이거나 장면 시각이 없으면 단추를 달지 않는다 */
+        wire(el) {
+          const p = D.behavior && D.behavior.present;
+          const MS = momentsOf(V, D.behavior).filter((m) => m.lane === 'beh');
+          if (!p || !MS.length) return;
+          const t0 = typeof p.t0 === 'number' && isFinite(p.t0) ? p.t0 / 1000 : 0;
+          el.querySelectorAll('.bh-rv2 [data-sec]').forEach((card) => {
+            const sec = Number(card.dataset.sec);
+            const m = isFinite(sec) ? momentAt(MS, `@${(sec + t0).toFixed(2)}:beh`) : null;
+            const row = card.querySelector('.bh-chips');
+            if (!m || !row) return;
+            const box = document.createElement('div'); box.className = 'bh-act';
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'nv-link bh-moment'; b.dataset.moment = momentRoute(m); b.textContent = momentWord();
+            b.addEventListener('click', (e) => { e.stopPropagation(); goMoment(b.dataset.moment); });
+            box.appendChild(b);
+            // 장면 카드는 장면 칩 바로 아래, 「먼저 살펴볼 한 가지」 는 「다음엔」 아래(카드 끝) — 늘 같은 자리에 한 줄
+            if (card.classList.contains('bh-hero')) card.appendChild(box); else row.after(box);
+          });
+        } };
     }
 
     /* 진단 하나 — 무엇이 · 왜 · 근거(실제 음성으로) · 청중 반응, 아래 「고쳐 보기」 */
@@ -490,73 +588,123 @@
       };
     }
 
-    /* 발표 다시 보기 — 장 그림 · 재생 · 시간축 · 받아쓰기. 시간축 표시를 누르면 아래에서 진단 시트가 올라온다 */
+    /* 발표 다시 보기 — 장 그림 · 재생 · 시간축 · 받아쓰기 (10-17 바퀴 4: 근거를 들을 수 있게).
+       시간축 아래 두 줄 — 진단 근거(점 · 판정 색)와 발표 태도 장면(막대 · 베타). 표시를 누르면 그 순간으로 간다: 장 그림 · 그때 한 말 · (녹음이 있으면) 그 구간 소리.
+       녹음이 없으면 소리만 빠지고 장 그림 · 받아쓰기 줄은 그대로. 발표 태도 기록이 없으면 그 줄이 없다. Q&A 는 따로라 넣지 않는다.
+       arg: 진단 id(「발표에서 보기」) · 「@초」 · 「진단id@초」 · 「@초:beh」(그 순간 듣기) */
     function replay(arg) {
-      const focus = insight(arg);
+      const at = String(arg || '').lastIndexOf('@');
+      const focus = insight(at > 0 ? arg.slice(0, at) : arg);
+      const MS = momentsOf(V, D.behavior);
+      const pick = momentAt(MS, arg) || (focus ? MS.find((m) => m.insight === focus.id) : null);
       const t = timeOf(focus);
       const dur = V.duration_sec || 0;
-      const pct = (s) => `${(100 * s / (dur || 1)).toFixed(3)}%`;
-      const marks = [...V.issues, ...V.strengths].flatMap((x) => x.proofs.filter((p) => p.anchor.start_sec != null && p.status === 'supported' && p.kind !== 'time').map((p) => ({ x, p })));
-      const hit = new Set(focus ? focus.proofs.flatMap((p) => (p.kind === 'said' && p.anchor.utt_ids) || []) : []);
+      const pct = (s) => `${(100 * Math.max(0, Math.min(dur, s)) / (dur || 1)).toFixed(3)}%`;
+      const hit = new Set(focus && at < 0 ? focus.proofs.flatMap((p) => (p.kind === 'said' && p.anchor.utt_ids) || []) : []);
       const slideAt = (s) => (V.slides.find((sl) => sl.spans.some((sp) => s >= sp.start && s < sp.end)) || {}).no || 1;
-      const s0 = t ? slideAt(t[0]) : (focus && focus.anchor.slide_no) || 1;
+      const s0 = pick ? pick.slide || slideAt(pick.t) : t ? slideAt(t[0]) : (focus && focus.anchor.slide_no) || 1;
+      const LANES = [['fix', '진단'], ['beh', '태도']].filter(([k]) => MS.some((m) => m.lane === k));
+      const tones = ['mid', 'ct', 'ok'].filter((k) => MS.some((m) => m.lane === 'fix' && m.tone === k));
+      const TONE_WORD = { mid: '고칠 것', ct: '판정이 흔들림', ok: '잘한 점' };
+      const marker = (m) => (m.lane === 'beh'
+        ? `<button type="button" class="rp-m is-bar" data-m="${m.id}" style="left:${pct(m.t)};width:${pct((m.end || m.t) - m.t)}" aria-label="${esc(`${fmt(m.t)} · ${m.title}`)}"></button>`
+        : `<button type="button" class="rp-m is-dot t-${m.tone}" data-m="${m.id}" style="left:${pct(m.t)}" aria-label="${esc(`${fmt(m.t)} · ${m.title}`)}"></button>`);
+      const hint = audio ? '표시를 누르면 그 순간의 장 · 말 · 소리로 가요' : '표시를 누르면 그 순간의 장과 그때 한 말로 가요';
+      const timeline = `<div class="rp-tl${LANES.length ? '' : ' is-bare'}" style="--rows:${LANES.length}">
+            ${LANES.length ? `<div class="rp-keys" aria-hidden="true"><span></span>${LANES.map(([, w]) => `<span>${w}</span>`).join('')}</div>` : ''}
+            <div class="rp-axis">
+              <div class="nv-track" role="slider" tabindex="0" aria-label="발표 시간축" aria-valuemin="0" aria-valuemax="${Math.round(dur)}">
+                ${V.slides.flatMap((s) => s.spans.map((sp) => `<span class="nv-band" style="left:${pct(sp.start)};width:${pct(sp.end - sp.start)}"><em>${s.no}${(sp.end - sp.start) / (dur || 1) < 0.1 ? '' : '장'}</em></span>`)).join('')}
+              </div>
+              ${LANES.map(([k, w]) => `<div class="rp-lane" role="group" aria-label="${w === '태도' ? '발표 태도 장면 · 베타' : '진단 근거'}">${MS.filter((m) => m.lane === k).map(marker).join('')}</div>`).join('')}
+              <i class="nv-head"></i>
+            </div>
+          </div>`;
+      const caption = MS.length ? `<div class="rp-cap" aria-live="polite">
+            <div class="rp-cap-top"><p class="rp-cap-k">순간 ${MS.length}개</p>
+              <span class="rp-steps"><button type="button" class="rp-step" data-step="-1" aria-label="앞 순간">${I.back}</button><span class="rp-n"></span><button type="button" class="rp-step is-next" data-step="1" aria-label="다음 순간">${I.chev}</button></span></div>
+            <p class="rp-cap-t">${hint}</p><p class="rp-cap-s" hidden></p><p class="rp-cap-q" hidden></p><div class="rp-cap-acts" hidden></div>
+          </div>` : '';
+      let cur = null;
+      let forced = 0;   // 발표 태도 장면은 카메라가 본 장(seg)을 그대로 보인다 — 재생이 시작되면 녹음 시각의 장으로
+      function seekView(el, now, slide) {
+        const head = el.querySelector('.nv-head'); if (head) head.style.left = pct(now);
+        const clk = el.querySelector('.nv-clock'); if (clk) clk.textContent = `${fmt(now)} / ${fmt(dur)}`;
+        const u = V.utterances.find((x) => x.start <= now && x.end >= now);
+        el.querySelectorAll('.nv-line.is-now').forEach((l) => l.classList.remove('is-now'));
+        if (u) { const l = el.querySelector(`.nv-line[data-u="${u.id}"]`); if (l) l.classList.add('is-now'); }
+        const sl = slide || slideAt(now); const img = el.querySelector('.nv-stage img');
+        if (img && img.dataset.slide !== String(sl)) el.querySelector('.nv-stage').innerHTML = slideTag(sl, 'nv-slide');
+      }
+      function select(el, m, { sound = false } = {}) {
+        if (!m) return;
+        cur = m;
+        el.querySelectorAll('.rp-m.is-on').forEach((b) => b.classList.remove('is-on'));
+        const mk = el.querySelector(`.rp-m[data-m="${m.id}"]`); if (mk) mk.classList.add('is-on');
+        const k = MS.indexOf(m);
+        const line = m.quote ? { text: m.quote } : lineAt(V.utterances, m.t, m.end);
+        const sl = m.slide || slideAt(m.t);
+        el.querySelector('.rp-cap-k').textContent = `${m.more} · ${fmt(m.t)} · ${sl}장`;
+        el.querySelector('.rp-n').textContent = `${k + 1} / ${MS.length}`;
+        el.querySelector('.rp-cap-t').textContent = m.title;
+        const s = el.querySelector('.rp-cap-s'); s.textContent = m.sub; s.hidden = !m.sub;
+        const q = el.querySelector('.rp-cap-q'); q.textContent = line ? `그때 한 말 “${line.text}”` : '이 순간엔 받아쓴 말이 없어요'; q.hidden = false;
+        const a = m.lane === 'beh' ? Math.max(0, m.t - 1) : m.t;
+        const b = m.end != null ? m.end + (m.lane === 'beh' ? 0.5 : 0) : Math.min(dur, m.t + 8);
+        const acts = el.querySelector('.rp-cap-acts'); acts.hidden = false;
+        acts.innerHTML = `${audio ? playBtn(`m:${m.id}`, a, b, '그 순간 듣기') : ''}<button type="button" class="nv-link" data-push="${m.lane === 'beh' ? 'attitude' : `issue:${esc(m.insight)}`}">${m.lane === 'beh' ? '발표 태도 보기' : '자세히 보기'}</button>`;
+        wire(acts);
+        forced = m.lane === 'beh' ? sl : 0;
+        seekView(el, m.t, sl);
+        if (audio) {
+          if (sound || !audio.paused) play(a, b, `m:${m.id}`);
+          else { try { audio.currentTime = m.t; } catch (_) { /* 메타데이터 전 */ } }
+        }
+        paintPlay();
+      }
       return {
         title: '발표 다시 보기', short: '다시 보기', eyebrow: focus ? focus.title : `${D.sample ? '샘플 · ' : ''}${D.deck.title}`,
         html: `
-        <div class="nv-stage">${slideTag(s0, 'nv-slide')}</div>
+        <div class="rp-stick"><div class="nv-stage">${slideTag(s0, 'nv-slide')}</div></div>
         <div class="nv-card nv-player">
           <div class="nv-player-row">
-            <button type="button" class="nv-bigplay" data-play="${t ? 'focus' : 'all'}" data-a="${t ? t[0] : 0}" data-b="${t ? t[1] : ''}" ${audio ? '' : 'disabled'} aria-label="${t ? '이 구간 듣기' : '처음부터 듣기'}"><span class="nv-pi">${I.play}</span></button>
-            <div class="nv-player-txt"><b>${t ? `${fmt(t[0])}–${fmt(t[1])} 구간` : '처음부터 듣기'}</b><small class="nv-clock">0:00 / ${fmt(dur)}</small></div>
+            <button type="button" class="nv-bigplay" data-play="${t ? 'focus' : 'all'}" data-a="${t ? t[0] : 0}" data-b="${t ? t[1] : ''}" ${audio ? '' : 'disabled'} aria-label="${t ? '이 구간 듣기' : '처음부터 듣기'}" ${audio ? '' : 'hidden'}><span class="nv-pi">${I.play}</span></button>
+            <div class="nv-player-txt"><b>${!audio ? '받아쓰기로 다시 보기' : t ? `${fmt(t[0])}–${fmt(t[1])} 구간` : '처음부터 듣기'}</b><small class="nv-clock">0:00 / ${fmt(dur)}</small></div>
           </div>
-          <div class="nv-track" role="slider" tabindex="0" aria-label="발표 시간축" aria-valuemin="0" aria-valuemax="${Math.round(dur)}">
-            ${V.slides.flatMap((s) => s.spans.map((sp) => `<span class="nv-band" style="left:${pct(sp.start)};width:${pct(sp.end - sp.start)}"><em>${s.no}장</em></span>`)).join('')}
-            ${marks.map(({ x, p }) => `<button type="button" class="nv-mark t-${tone(x)}${focus && x.id === focus.id ? ' is-on' : ''}" data-sheet="${esc(x.id)}" style="left:${pct(p.anchor.start_sec)}" aria-label="${esc(x.title)}"></button>`).join('')}
-            <i class="nv-head"></i>
-          </div>
-          <div class="nv-legend"><span><i class="t-mid"></i>고칠 것</span><span><i class="t-ct"></i>판정이 흔들림</span><span><i class="t-ok"></i>잘한 점</span></div>
-          ${D.transcript && D.transcript.marks_estimated ? '<p class="nv-cap">장 경계는 녹음 내용으로 추정한 대략 위치예요.</p>' : ''}
-          ${audio ? '' : '<p class="nv-cap">녹음이 저장되지 않아 들을 수 없어요. 글로만 봐요.</p>'}
+          ${timeline}
+          ${tones.length ? `<div class="nv-legend">${tones.map((k) => `<span><i class="t-${k}"></i>${TONE_WORD[k]}</span>`).join('')}</div>` : ''}
+          ${caption}
+          ${D.transcript && D.transcript.marks_estimated ? '<p class="nv-cap rp-note">장 경계는 녹음 내용으로 추정한 대략 위치예요.</p>' : ''}
+          ${audio ? '' : '<p class="nv-cap rp-note">녹음이 이 기기에 남아 있지 않아 소리는 들을 수 없어요.</p>'}
         </div>
         ${typeof window.__rv2Legacy === 'function' ? `<div class="nv-group" style="margin-top:12px"><button type="button" class="nv-row" data-push="legacy:0"><span class="nv-ico i-blue">${I.doc}</span><span class="nv-row-main"><b>슬라이드로 보는 발표</b><small>장마다 판정 · 그 장에서 한 말</small></span><i class="nv-chev">${I.chev}</i></button><button type="button" class="nv-row" data-push="legacy:1"><span class="nv-ico i-orange">${I.wave}</span><span class="nv-row-main"><b>말하기</b><small>말 속도 · 시간 배분 · 말버릇</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
         <h3 class="nv-sec">받아쓰기</h3>
-        <div class="nv-group nv-lines">${V.utterances.map((u) => `<button type="button" class="nv-line${hit.has(u.id) ? ' is-hit' : ''}" data-u="${esc(u.id)}" data-s="${u.start}"><time>${fmt(u.start)}</time><span>${esc(u.text)}</span></button>`).join('') || '<p class="nv-empty">받아쓰기가 없어요.</p>'}</div>
-        <div class="nv-sheet" hidden><div class="nv-sheet-card" role="dialog" aria-label="진단"><i class="nv-grab"></i><div class="nv-sheet-body"></div></div></div>`,
+        <div class="nv-group nv-lines">${V.utterances.map((u) => `<button type="button" class="nv-line${hit.has(u.id) ? ' is-hit' : ''}" data-u="${esc(u.id)}" data-s="${u.start}"><time>${fmt(u.start)}</time><span>${esc(u.text)}</span></button>`).join('') || '<p class="nv-empty">받아쓰기가 없어요.</p>'}</div>`,
         onTime(now) {
           const el = stack[stack.length - 1].el;
-          const head = el.querySelector('.nv-head'); if (head) head.style.left = pct(now);
-          const clk = el.querySelector('.nv-clock'); if (clk) clk.textContent = `${fmt(now)} / ${fmt(dur)}`;
-          const u = V.utterances.find((x) => x.start <= now && x.end >= now);
-          el.querySelectorAll('.nv-line.is-now').forEach((l) => l.classList.remove('is-now'));
-          if (u) { const l = el.querySelector(`.nv-line[data-u="${u.id}"]`); if (l) l.classList.add('is-now'); }
-          const sl = slideAt(now); const img = el.querySelector('.nv-stage img');
-          if (img && img.dataset.slide !== String(sl)) el.querySelector('.nv-stage').innerHTML = slideTag(sl, 'nv-slide');
+          if (audio && !audio.paused) forced = 0;
+          seekView(el, now, forced);
         },
         wire(el) {
-          el.querySelectorAll('.nv-line').forEach((b) => b.addEventListener('click', () => play(+b.dataset.s, null, `u${b.dataset.u}`)));
+          el.querySelectorAll('.nv-line').forEach((b) => b.addEventListener('click', () => { forced = 0; if (audio) play(+b.dataset.s, null, `u${b.dataset.u}`); else seekView(el, +b.dataset.s); }));
           const tr = el.querySelector('.nv-track');
-          tr.addEventListener('click', (e) => { if (e.target.closest('.nv-mark')) return; const r = tr.getBoundingClientRect(); play(((e.clientX - r.left) / r.width) * dur, null, 'scrub'); });
+          tr.addEventListener('click', (e) => { const r = tr.getBoundingClientRect(); const s = ((e.clientX - r.left) / r.width) * dur; forced = 0; if (audio) play(s, null, 'scrub'); else seekView(el, s); });
           tr.addEventListener('keydown', (e) => { if (!audio) return; if (e.key === 'ArrowRight') audio.currentTime += 5; if (e.key === 'ArrowLeft') audio.currentTime -= 5; });
-          const sheet = el.querySelector('.nv-sheet'); const body = el.querySelector('.nv-sheet-body'); const card = el.querySelector('.nv-sheet-card');
-          const close = () => { sheet.classList.remove('is-open'); setTimeout(() => { sheet.hidden = true; }, 200); };
-          const openSheet = (id) => {
-            const x = insight(id); if (!x) return;
-            const tt = timeOf(x);
-            body.innerHTML = `<p class="nv-eyebrow">${x.polarity === 'strength' ? '잘한 점' : x.status === 'conflicting' ? '판정이 흔들려요' : '고칠 것'}</p><h3 class="nv-sheet-title">${esc(x.title)}</h3>
-              ${x.why ? `<p class="nv-body">${esc(x.why)}</p>` : ''}
-              <div class="nv-acts">${tt ? playBtn('sheet', tt[0], tt[1], `${fmt(tt[0])} 듣기`) : ''}<button type="button" class="nv-link" data-push="issue:${esc(x.id)}">자세히 보기</button></div>`;
-            wire(body);
-            sheet.hidden = false;
-            requestAnimationFrame(() => sheet.classList.add('is-open'));
-          };
-          el.querySelectorAll('[data-sheet]').forEach((m) => m.addEventListener('click', (e) => { e.stopPropagation(); openSheet(m.dataset.sheet); }));
-          sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
-          // 시트 손잡이를 아래로 끌어 닫기 — 손을 1:1 로 따라온다
-          let sd = null;
-          card.addEventListener('pointerdown', (e) => { if (!e.target.closest('.nv-grab')) return; sd = { y0: e.clientY, id: e.pointerId }; card.setPointerCapture(e.pointerId); card.style.transition = 'none'; });
-          card.addEventListener('pointermove', (e) => { if (!sd || e.pointerId !== sd.id) return; card.style.transform = `translateY(${Math.max(0, e.clientY - sd.y0)}px)`; });
-          const up = (e) => { if (!sd || e.pointerId !== sd.id) return; const dy = e.clientY - sd.y0; sd = null; card.style.transition = ''; card.style.transform = ''; if (dy > 90) close(); };
-          card.addEventListener('pointerup', up); card.addEventListener('pointercancel', up);
+          el.querySelectorAll('.rp-m').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); select(el, MS.find((m) => m.id === b.dataset.m), { sound: true }); }));
+          el.querySelectorAll('.rp-step').forEach((b) => b.addEventListener('click', () => {
+            const k = cur ? MS.indexOf(cur) + Number(b.dataset.step) : (Number(b.dataset.step) > 0 ? 0 : MS.length - 1);
+            select(el, MS[(k + MS.length) % MS.length]);
+          }));
+          if (pick) {
+            const sound = autoPlayNext; autoPlayNext = false; select(el, pick, { sound });
+            // 「그 순간 듣기」 로 왔으면 시간축 · 고른 순간이 보이게 — 폰에선 붙어 있는 장 그림 바로 아래로
+            if (at >= 0) setTimeout(() => {
+              const sc = el.querySelector('.nv-scroll'); const st = el.querySelector('.rp-stick'); const pl = el.querySelector('.nv-player');
+              if (!sc || !st || !pl || getComputedStyle(st).position !== 'sticky') return;
+              const y = pl.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - st.offsetHeight;
+              sc.scrollTo({ top: Math.max(0, y), behavior: reduced() ? 'auto' : 'smooth' });
+            }, 220);
+          }
           const h = el.querySelector('.nv-line.is-hit');
           if (h) setTimeout(() => { const sc = el.querySelector('.nv-scroll'); sc.scrollTo({ top: h.offsetTop - sc.clientHeight / 2, behavior: reduced() ? 'auto' : 'smooth' }); }, 240);
         },
@@ -723,7 +871,7 @@
   }
 
   if (typeof window !== 'undefined') {
-    window.ReportV2 = { mount, inputFromApp, bootPage };
+    window.ReportV2 = { mount, inputFromApp, bootPage, momentsOf, lineAt, momentAt, momentRoute };
     const pageRoot = typeof document !== 'undefined' && document.getElementById && document.getElementById('rv2Page');
     if (pageRoot) bootPage(pageRoot);
   }
