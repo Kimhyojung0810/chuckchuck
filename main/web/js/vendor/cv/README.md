@@ -1,7 +1,10 @@
 # 카메라 판단용 Haar 캐스케이드 (발표 태도 · 베타)
 
-`js/behavior_cv_worker.js` 가 받는 고전 OpenCV 검출기 파일이다. **학습 신경망이 아니다** — Viola-Jones(2001) 방식의
-부스팅 캐스케이드로, OpenCV 저장소에 2000년대부터 들어 있는 파일을 바꾸지 않고 그대로 둔다.
+`js/behavior_cv_worker.js` 가 받는 고전 OpenCV 검출기 파일이다. **신경망은 아니지만 학습한 검출기다** — Viola-Jones(2001) ·
+Lienhart(2002) 방식으로 AdaBoost 로 학습한 부스팅 캐스케이드이고(파일 머리말 「Stump-based … adaboost」), OpenCV 저장소에
+2000년대부터 들어 있는 파일을 바꾸지 않고 그대로 둔다. 「학습 모델이 아니다」 라고만 쓰면 반만 맞다 (근거조사 2026-10-17 §4).
+규정 해석이 「학습한 검출기도 AI 모델」 로 나면 캐스케이드 없는 예비 모드로 바꾼다 —
+`localStorage['cheokcheok:behavior-mode'] = 'nocascade'` (가운데 시작 얼굴색 CamShift + 프레임 차분, 얼굴 방향은 재지 않음).
 
 | 파일 | 원본 | 라이선스 |
 |---|---|---|

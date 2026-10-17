@@ -92,6 +92,35 @@ test('얼굴이 아래로 내려가며 사라지면 그 뒤는 「아래를 봄�
   eq(r.quality.presence, 1, '자리 비움으로 안 셌다');
 });
 
+test('정면으로 잡힌 채 얼굴이 기준선보다 내려가면 「아래를 봄」 — 눈을 못 찾아도', () => {
+  const low = (t) => front(t, { box: [0.41, 0.28, 0.18, 0.24], eyes: 0 });
+  const r = L.analyze(script([[15, front], [5, low], [15, front]]));
+  ok(r.metrics.down.value > 0.1, `아래 비율 ${r.metrics.down.value}`);
+  eq(r.raw.downs.length, 1, '아래 구간');
+});
+
+test('움직임 양은 프레임 차분(MEA) 몸 영역 — 3fps 로 느려져도 같은 낱말', () => {
+  const at = (fps, meb) => {
+    const rows = []; const step = 1000 / fps;
+    for (let t = 0; t < 40000; t += step) rows.push({ ...front(Math.round(t)), meb: meb * (step / 200), seg: 's1' });
+    return L.analyze(rows).metrics.movement;
+  };
+  eq(at(5, 0.02).word, '적어요', '가만히 5fps');
+  eq(at(3, 0.02).word, '적어요', '가만히 3fps');
+  eq(at(5, 0.25).word, '많아요', '많이 5fps');
+  eq(at(3, 0.25).word, '많아요', '많이 3fps');
+  eq(at(5, 0.25).look, false, '움직임 양은 연습 표시를 안 한다');
+});
+
+test('캐스케이드 없는 예비 모드 — 방향 지표는 까닭과 함께 빠지고 흔들림 · 움직임은 잰다', () => {
+  const noc = (t) => ({ ...front(t, { box: [0.41 + 0.07 * Math.sin((2 * Math.PI * 0.6 * t) / 1000), 0.2, 0.18, 0.24], meb: 0.03 }), src: 'C', mode: 'noc', eyes: 0 });
+  const r = L.analyze(script([[60, noc]]));
+  ['gaze', 'lookaway', 'down'].forEach((k) => ok(!r.metrics[k].ok && /예비 모드/.test(r.metrics[k].why), `${k}: ${r.metrics[k].why}`));
+  ok(r.metrics.sway.ok && r.metrics.movement.ok, '흔들림 · 움직임');
+  eq(r.cards.filter((c) => c.kind === 'lookaway').length, 0, '눈 뗀 카드 없음');
+  eq(L.summaryOf(r).events.filter((e) => e.k === 'lookaway').length, 0, '눈 뗀 장면 없음');
+});
+
 test('얼굴도 움직임도 오래 없으면 자리 비움 — 있는 시간이 모자라면 시선은 「잴 수 없었어요」', () => {
   const rows = script([[15, front], [40, lost]]);
   const r = L.analyze(rows);

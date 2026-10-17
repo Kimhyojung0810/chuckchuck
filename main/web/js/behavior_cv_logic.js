@@ -25,19 +25,22 @@
     awayMotion: 0.12,       // 얼굴이 없어도 화면 흐름 평균이 이 위면(80px 기준 화소/장) 사람이 있다고 본다 (설계값 · 검증 전)
     downEy: 0.47,           // 두 눈이 얼굴 상자 위에서 이 비율보다 아래면 「아래를 봄」 — 정면 모나리자 0.38 (노드 벤치 10-17). 설계값 · 검증 전
     yawEx: 0.09,            // 눈 가운데가 상자 가운데에서 얼굴 폭의 이만큼 넘게 비끼면 옆을 보는 중 — 정면 ±0.03 (노드 벤치). 설계값 · 검증 전
+    downShift: 0.22,        // 정면으로 잡힌 채 얼굴 가운데가 최근 10초 정면 기준선보다 얼굴 높이의 이만큼 아래면 「아래를 봄」 — 눈 검출은 재현율이 30~40% 라 눈에만 기대지 않는다 (근거조사 §2-2, 설계값 · 검증 전)
+    baseWinMs: 10000,
     downDrift: 0.25,        // 얼굴을 놓치기 직전 0.8초 동안 얼굴 높이의 이만큼 아래로 내려갔으면 그 뒤 놓친 시간은 「아래를 봄」 (설계값 · 검증 전)
     driftWinMs: 800,
     lostDownMaxMs: 6000,    // 위 「아래를 봄」 추정은 이만큼까지만 — 더 길면 방향을 모름(다른 곳)으로 둔다
-    lookAwayMs: 3000,       // 청중 쪽에서 눈을 뗀 구간이 이보다 길면 「오래 눈을 뗐다」 — 발표 코칭에서 흔히 쓰는 3~5초 규칙의 아래쪽 (설계값 · 검증 전)
+    lookAwayMs: 3000,       // 화면 쪽에서 벗어난 구간이 이보다 길면 짚는다 — 3초를 검증한 연구는 없다(근거조사 §1-2, 가까운 근거 Binetti 2016 선호 응시 ≈3.3초). 설계값 · 검증 전
     downSegMs: 2000,        // 아래를 본 구간 짚기 — 2초 넘게 (설계값 · 검증 전)
     // 흔들림: 얼굴 가운데 x(얼굴 폭 단위)의 0.3~1.5Hz 반복 성분. 자세 흔들림 연구가 보는 대역(서 있는 사람 몸 흔들림 ≈ 0.1~1Hz)에 걸음 · 체중 옮김을 더한 설계값
     swayLoHz: 0.3, swayHiHz: 1.5,
     swayWinMs: 10000, swayStepMs: 5000, swayFs: 4,
-    swayAmp: 0.25,          // 대역 진폭이 얼굴 폭의 이만큼(≈ 4cm) 넘으면 흔들림 창 (설계값 · 검증 전)
+    swayAmp: 0.15,          // 대역 진폭이 얼굴 폭의 이만큼(≈ 2cm, 봉우리 간 0.3 폭) 넘으면 흔들림 창 — 근거조사 §1-4 권장(봉우리 간 0.1 폭)보다 높게 둔 건 Haar 상자 떨림(±0.03 폭) 때문 (설계값 · 검증 전)
     swayShare: 0.5,         // 대역 힘이 전체(0.1Hz~)의 절반 넘을 때만 — 천천히 자리 옮김은 흔들림이 아니다
     swayCover: 0.7,         // 창 안에 얼굴 자리가 이만큼 있어야 그 창을 잰다
-    // 움직임 양 — 몸 영역 흐름을 얼굴 폭/초로 (거리에 상관없게). 3단계 경계는 설계값 · 검증 전
-    moveLo: 0.25, moveHi: 0.8,
+    // 움직임 양 — 몸 영역에서 0.2초 사이 바뀐 점 비율(MEA). 노드 벤치: 가만히 0.01~0.04 · 흔들림 0.2. 3단계 경계는 설계값 · 검증 전
+    // (근거조사 §1-5: 팀 녹화 백분위 P20/P80 으로 다시 정할 자리)
+    moveLo: 0.05, moveHi: 0.15,
     // 손짓 — 손 자리에서 몸통과 따로 움직인 점의 비율. 켜짐 0.05 · 꺼짐 0.025 (히스테리시스, 설계값 · 검증 전)
     gestOn: 0.05, gestOff: 0.025,
     // ── 품질 게이트 ──
@@ -81,6 +84,7 @@
    */
   function rawDir(row, cfg = CFG) {
     if (!row || !row.src) return 'none';
+    if (row.src === 'C') return 'face';   // 캐스케이드 없는 예비 모드 — 얼굴 자리만 있고 방향은 모른다
     if (row.src === 'P') return row.side > 0 ? 'right' : 'left';
     if (row.src === 'T') return 'unknown';
     if (row.eyes === 2 && Number.isFinite(row.ey)) {
@@ -103,11 +107,19 @@
     let lastDef = null; let lastDefAt = -Infinity;     // 마지막 확실한 방향 · 시각
     let lastFaceAt = -Infinity; let lostMode = '';     // 놓친 구간의 해석 ('down' | 'away' | '')
     let lostStart = -Infinity;
+    const base = [];                                   // 최근 정면 줄의 얼굴 가운데 y (기준선)
     for (let i = 0; i < list.length; i += 1) {
       const row = list[i];
       const next = list[i + 1];
       const dt = next ? Math.min(cfg.dtCapMs, Math.max(0, next.t - row.t)) : Math.min(cfg.dtCapMs, out.length ? out[out.length - 1].dt : 200);
       let raw = rawDir(row, cfg);
+      if (raw === 'face') { out.push({ t: row.t, dt, raw, state: 'face', row }); lastFaceAt = row.t; continue; }
+      while (base.length && row.t - base[0].t > cfg.baseWinMs) base.shift();
+      if (raw === 'front' && row.box) {
+        const ref = base.length >= 10 ? median(base.map((b) => b.cy)) : null;
+        if (ref !== null && (cyOf(row) - ref) / Math.max(0.01, row.box[3]) > cfg.downShift) raw = 'down';
+        else base.push({ t: row.t, cy: cyOf(row) });
+      }
       if (raw === 'front' || raw === 'left' || raw === 'right' || raw === 'down') {
         lastDef = raw; lastDefAt = row.t; lostMode = '';
       }
@@ -266,13 +278,16 @@
 
   /* ─── 4. 움직임 · 손짓 ──────────────────────────────────────────────────── */
 
-  /** 줄마다 몸 움직임(얼굴 폭/초) — 흐름은 앞 줄과의 차이라서 앞 줄과의 간격으로 나눈다 */
+  /**
+   * 줄마다 몸 움직임 — 프레임 차분(MEA) 몸 영역에서 바뀐 점 비율을 0.2초(5fps 한 장) 사이 몫으로 맞춘다.
+   * 차분은 앞 줄과의 차이라서 3fps 로 느려지면 값이 커진다 — 간격으로 나눠 기기 속도와 상관없게 (근거조사 §7-4: 움직임 양은 MEA 가 주 신호)
+   */
   function bodySpeed(seq) {
     const out = [];
     for (let i = 1; i < seq.length; i += 1) {
       const r = seq[i].row; const gap = (seq[i].t - seq[i - 1].t) / 1000;
-      if (!Number.isFinite(r.body) || !r.box || gap <= 0 || gap > 1.2) continue;
-      out.push({ i, v: r.body / gap / Math.max(1, r.box[2] * 80) });   // 80 = features 의 흐름 폭(FX.flowW)
+      if (!Number.isFinite(r.meb) || gap <= 0 || gap > 1.2) continue;
+      out.push({ i, v: Math.min(1, (r.meb * 0.2) / gap) });
     }
     return out;
   }
@@ -312,6 +327,7 @@
       track: presentRows.length ? presentRows.filter((x) => x.row.box).length / presentRows.length : 0,
       body: presentRows.length ? presentRows.filter((x) => Number.isFinite(x.row.body)).length / presentRows.length : 0,
       msP50: median(ms), msP90: quant(ms, 0.9),
+      noc: seq.length ? seq.filter((x) => x.row.mode === 'noc').length / seq.length : 0,
     };
   }
 
@@ -321,6 +337,7 @@
     if (q.fps < (kind === 'movement' || kind === 'gesture' ? 2 : cfg.minFps)) return '이 기기에서 화면을 충분히 자주 보지 못했어요';
     if (q.dark > cfg.maxDark) return '화면이 어두웠어요 — 얼굴 앞쪽을 밝게 하면 잴 수 있어요';
     if (kind === 'framing') return q.presence < 0.3 ? '얼굴이 화면에 거의 없었어요' : '';
+    if (q.noc > 0.5 && (kind === 'gaze' || kind === 'lookaway' || kind === 'down')) return '캐스케이드 없는 예비 모드라 얼굴 방향은 재지 않았어요';
     if (kind === 'movement' || kind === 'gesture') {
       if (q.presence < 0.3) return '사람이 화면에 거의 없었어요';
       if (q.body < cfg.minBody) return '몸이 화면에 거의 안 보였어요 — 카메라를 조금 멀리 두면 잴 수 있어요';
@@ -353,10 +370,11 @@
 
   /** 낱말 · 제안 — 관찰만. 「좋아요/나빠요」 · 감정 낱말을 쓰지 않는다. look: 연습해 볼 만한 쪽이면 true */
   const WORDS = {
-    gaze: { label: '청중 쪽을 본 시간', words: ['짧아요', '보통이에요', '길어요'], look: [true, false, false],
-      tip: '장을 넘길 때마다 한 문장은 카메라(청중)를 보며 말해 봐요.' },
+    // 「화면 쪽」 — Haar 는 카메라를 보는 것과 노트북 화면(자료)을 보는 것을 가르지 못한다. 눈 맞춤이라고 부르지 않는다 (근거조사 §0-2)
+    gaze: { label: '화면 쪽을 향한 시간', words: ['짧아요', '보통이에요', '길어요'], look: [true, false, false],
+      tip: '장을 넘길 때마다 한 문장은 카메라를 보며 말해 봐요.' },
     lookaway: { label: '오래 눈을 뗀 구간', words: ['드물어요', '가끔 있어요', '잦아요'], look: [false, false, true],
-      tip: '자료를 볼 때는 짧게 보고 다시 청중 쪽으로 돌아오는 연습을 해 봐요.' },
+      tip: '자료를 볼 때는 짧게 보고 다시 화면 쪽으로 돌아오는 연습을 해 봐요.' },
     down: { label: '아래를 본 시간', words: ['짧아요', '보통이에요', '길어요'], look: [false, false, true],
       tip: '대본을 읽는 장이 있다면 첫 문장을 외워 고개를 든 채 시작해 봐요.' },
     sway: { label: '몸 좌우 흔들림', words: ['거의 없어요', '가끔 있어요', '자주 있어요'], look: [false, false, true],
@@ -371,10 +389,10 @@
 
   const BASIS = {
     gaze: `${Math.round(CFG.gazeLo * 100)}% 아래 짧아요 · ${Math.round(CFG.gazeHi * 100)}% 넘으면 길어요 (설계값 · 검증 전)`,
-    lookaway: `청중 쪽에서 ${CFG.lookAwayMs / 1000}초 넘게 눈을 뗀 구간을 1분에 몇 번 했나 — ${CFG.awayPerMinLo}번 아래 드물어요 · ${CFG.awayPerMinHi}번 넘으면 잦아요 (설계값 · 검증 전)`,
+    lookaway: `화면 쪽에서 ${CFG.lookAwayMs / 1000}초 넘게 눈을 뗀 구간을 1분에 몇 번 했나 — ${CFG.awayPerMinLo}번 아래 드물어요 · ${CFG.awayPerMinHi}번 넘으면 잦아요 (설계값 · 검증 전)`,
     down: `있는 시간 중 ${Math.round(CFG.downLo * 100)}% 아래 짧아요 · ${Math.round(CFG.downHi * 100)}% 넘으면 길어요 (설계값 · 검증 전)`,
     sway: `10초 창에서 얼굴이 ${CFG.swayLoHz}~${CFG.swayHiHz}Hz 로 얼굴 폭의 ${Math.round(CFG.swayAmp * 100)}% 넘게 오간 창의 비율 (설계값 · 검증 전)`,
-    movement: `몸 영역이 1초에 얼굴 폭의 ${CFG.moveLo}배 아래면 적어요 · ${CFG.moveHi}배 넘으면 많아요 (설계값 · 검증 전)`,
+    movement: `몸 영역에서 0.2초 사이 바뀐 점이 ${Math.round(CFG.moveLo * 100)}% 아래면 적어요 · ${Math.round(CFG.moveHi * 100)}% 넘으면 많아요 — 많고 적음에 좋고 나쁨은 없어요 (설계값 · 검증 전)`,
     gesture: `있는 시간 중 손이 움직인 시간 ${Math.round(CFG.gestLo * 100)}% 아래 적어요 · ${Math.round(CFG.gestHi * 100)}% 넘으면 많아요 — 많을수록 좋다는 뜻이 아니에요 (설계값 · 검증 전)`,
     framing: `얼굴 폭이 화면의 ${Math.round(CFG.sizeLo * 100)}~${Math.round(CFG.sizeHi * 100)}% 면 알맞아요 (설계값)`,
   };
@@ -394,7 +412,7 @@
     const ms = (st) => sum(pres.filter((x) => x.state === st).map((x) => x.dt));
     const front = ms('front'); const down = ms('down');
     const left = ms('left'); const right = ms('right'); const away = ms('away');
-    const look = runs(seq, (x) => x.present && x.state !== 'front', cfg.lookAwayMs);
+    const look = runs(seq, (x) => x.present && x.state !== 'front' && x.state !== 'face', cfg.lookAwayMs);
     const downs = runs(seq, (x) => x.state === 'down', cfg.downSegMs);
     const speeds = bodySpeed(seq).filter((s) => seq[s.i].present).map((s) => s.v);
     const flags = gestureFlags(seq, cfg);
@@ -469,7 +487,7 @@
     const scene = (seg, t, dur) => ({ seg, where: where(seg), sec: sec(t - t0), dur: sec(dur) });
     if (M.lookaway.ok) {
       res.raw.look.slice().sort((a, b) => b.dur - a.dur).slice(0, 3).forEach((r) => {
-        out.push({ kind: 'lookaway', observation: `${where(r.seg) || '발표 중'}에서 ${sec(r.dur)}초 동안 청중 쪽이 아니라 ${mainDir(r.states)}을 봤어요`,
+        out.push({ kind: 'lookaway', observation: `${where(r.seg) || '발표 중'}에서 ${sec(r.dur)}초 동안 화면 쪽이 아니라 ${mainDir(r.states)}을 향했어요`,
           value: `${sec(r.dur)}초 · 주로 ${mainDir(r.states)}`, basis: `${cfg.lookAwayMs / 1000}초 넘게 이어지면 짚어요 (설계값 · 검증 전)`,
           scene: scene(r.seg, r.start, r.dur), conf: M.lookaway.conf, tip: WORDS.lookaway.tip });
       });
@@ -487,7 +505,7 @@
         const low = segs.slice().sort((a, b) => a.gaze - b.gaze)[0];
         const all = M.gaze.value;
         if (low.gaze < all - 0.15) {
-          out.push({ kind: 'gaze_seg', observation: `${where(low.seg)}에서는 청중 쪽을 본 시간이 ${Math.round(low.gaze * 100)}%로 발표 전체(${Math.round(all * 100)}%)보다 짧았어요`,
+          out.push({ kind: 'gaze_seg', observation: `${where(low.seg)}에서는 화면 쪽을 향한 시간이 ${Math.round(low.gaze * 100)}%로 발표 전체(${Math.round(all * 100)}%)보다 짧았어요`,
             value: `${Math.round(low.gaze * 100)}% (${sec(low.dur)}초 중)`, basis: '이 발표의 다른 장과 견줘서 15%p 넘게 낮을 때 짚어요 (설계값 · 검증 전)',
             scene: scene(low.seg, low.start, low.dur), conf: M.gaze.conf, tip: WORDS.gaze.tip });
         }
@@ -550,7 +568,7 @@
 
   /**
    * 가장 먼저 고칠 한 가지 — 근거 카드 중 「연습해 볼 쪽」(look) 지표의 것을 순서(오래 눈 뗌 → 아래 → 장별 시선 → 흔들림 → 구도)대로 하나.
-   * 카드가 없지만 청중 쪽 시간이 짧으면 그 지표 자체. 없으면 null — 개수를 채우려고 지어내지 않는다
+   * 카드가 없지만 화면 쪽 시간이 짧으면 그 지표 자체. 없으면 null — 개수를 채우려고 지어내지 않는다
    */
   function firstFix(res) {
     const M = res.metrics || {};
@@ -563,7 +581,7 @@
       return { kind, area: CARD_AREA[kind], text: c.observation, tip: c.tip || m.tip || '', slide: segSlide(sc.seg || '') , q: segQ(sc.seg || ''), sec: sc.sec ?? null, conf: c.conf };
     }
     if (M.gaze && M.gaze.ok && M.gaze.look) {
-      return { kind: 'gaze', area: 'gaze', text: `청중 쪽을 본 시간이 ${Math.round(M.gaze.value * 100)}%로 짧았어요`, tip: M.gaze.tip, slide: null, q: null, sec: null, conf: M.gaze.conf };
+      return { kind: 'gaze', area: 'gaze', text: `화면 쪽을 향한 시간이 ${Math.round(M.gaze.value * 100)}%로 짧았어요`, tip: M.gaze.tip, slide: null, q: null, sec: null, conf: M.gaze.conf };
     }
     return null;
   }

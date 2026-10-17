@@ -565,7 +565,7 @@ def presence_items(behavior: BehaviorSummary | dict | None) -> list[RubricItemSc
 
     서버는 다시 재지 않고 옮겨 적기만 한다 (영상이 서버로 오지 않는다). **가중치는 언제나 0 이다** —
     `_aggregate` 가 보는 items 에 넣지 않으니 총점 · 클러스터는 이 값과 상관없다.
-    점수 매기기(설계값 · 검증 전): 40 = 청중 쪽을 본 시간 비율 · 41 = 흔들림이 없던 창 비율 · 42 = 말할 때 손을 같이 쓴 시간 비율.
+    점수 매기기(설계값 · 검증 전): 40 = 화면 쪽을 향한 시간 비율 · 41 = 흔들림이 없던 창 비율 · 42 = 말할 때 손을 같이 쓴 시간 비율.
     잴 수 없었던 지표는 0점이 아니라 「못 쟀다」 와 브라우저가 적은 까닭이다.
     """
     b = behavior if isinstance(behavior, BehaviorSummary) else BehaviorSummary.from_dict(behavior)
@@ -600,7 +600,7 @@ def presence_items(behavior: BehaviorSummary | dict | None) -> list[RubricItemSc
                 continue
             la = b.metric("lookaway") or {}
             dn = b.metric("down") or {}
-            ev = f"청중 쪽을 본 시간 {_pct(g['value'])}"
+            ev = f"화면 쪽을 향한 시간 {_pct(g['value'])}"
             if la:
                 ev += f" · 3초 넘게 눈을 뗀 구간 {la.get('n', 0)}번"
             if dn:

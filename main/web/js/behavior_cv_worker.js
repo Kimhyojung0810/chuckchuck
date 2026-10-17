@@ -2,7 +2,7 @@
  * 발표 태도(베타) 카메라 워커 — js/behavior_cv.js 가 띄운다. OpenCV.js 와 캐스케이드 셋(정면 · 옆얼굴 · 눈)을 여기서만 올린다.
  * 메인 스레드에서 올리면 화면이 2분 넘게 얼었다 (booth_cv_worker.js 머리말, 2026-09-30 실험실) — 발표 화면이 얼면 안 된다.
  *
- * 받는 것: { type: 'init', opencv: [url…], cascades: { frontal: [url…], profile: [url…], eye: [url…] }, features: url }
+ * 받는 것: { type: 'init', opencv: [url…], cascades: { frontal: [url…], profile: [url…], eye: [url…] }, features: url, mode: 'cascade'|'nocascade' }
  *          { type: 'frame', w, h, data: ArrayBuffer(RGBA), t, id }   — 메인이 320px 로 줄여 보낸 한 장
  *          { type: 'reset' }                                           — 새 기록(발표 · Q&A)을 시작한다: 템플릿 · 앞 장을 버린다
  * 보내는 것: { type: 'ready', info } · { type: 'failed', error } · { type: 'row', id, row } · { type: 'row', id, error }
@@ -50,8 +50,10 @@ async function init(msg) {
     const from = importFirst(msg.opencv);
     await cvReady(self.cv);
     const names = {};
-    // 정면은 꼭 있어야 하고, 옆얼굴 · 눈은 못 받으면 그 지표만 빠진다 (logic 이 「잴 수 없었어요」 로 말한다)
-    for (const kind of ['frontal', 'profile', 'eye']) {
+    const noc = msg.mode === 'nocascade';
+    // 정면은 꼭 있어야 하고, 옆얼굴 · 눈은 못 받으면 그 지표만 빠진다 (logic 이 「잴 수 없었어요」 로 말한다).
+    // 예비 모드(nocascade)는 캐스케이드를 아예 받지 않는다 — 가운데 시작 CamShift + 차분만
+    for (const kind of noc ? [] : ['frontal', 'profile', 'eye']) {
       try {
         const bytes = await fetchFirst((msg.cascades || {})[kind]);
         const file = `bcv_${kind}.xml`;
@@ -61,7 +63,7 @@ async function init(msg) {
         if (kind === 'frontal') throw err;
       }
     }
-    ex = BehaviorCvFeatures.createExtractor(cv, names);
+    ex = BehaviorCvFeatures.createExtractor(cv, names, { mode: noc ? 'nocascade' : 'cascade' });
     post({ type: 'ready', info: { ...ex.info, opencv: /vendor/.test(from) ? 'local' : 'cdn' } });
   } catch (err) {
     post({ type: 'failed', error: String((err && err.message) || err) });

@@ -1,12 +1,19 @@
 /**
  * 발표 태도(베타) 카메라 특징 뽑기 — 프레임 한 장 → 숫자 한 줄. 워커(js/behavior_cv_worker.js)와 노드 벤치가 같이 쓴다.
  *
- * 고전 OpenCV 만 쓴다 (계획 §1-3 「구성 AI 100% 국내」 — 학습 신경망 · MediaPipe · YuNet 없음):
- *  - 얼굴: Haar 정면 캐스케이드(Viola-Jones 2001, OpenCV 동봉) + 옆얼굴 캐스케이드(좌우 뒤집어 양쪽)
- *  - 눈: Haar 눈 캐스케이드 — 얼굴 상자 위쪽 안에서만. 두 눈 → 기울기(roll) · 얼굴 안 눈 높이(숙임 대용) · 눈 가운데 x(돌림 대용)
- *  - 검출이 끊긴 프레임: 마지막 얼굴 조각으로 템플릿 맞추기(정규화 상관)로 메운다 — 짧게만(TRACK_MAX_MS)
- *  - 움직임: 80px 로 줄인 흑백 두 장의 Farneback 광학 흐름(2003) — 몸(얼굴 아래) · 손 자리(좌우 · 몸 앞)로 나눠 잰다
+ * 고전 OpenCV 만 쓴다 (계획 §1-3 「구성 AI 100% 국내」 — 신경망 · MediaPipe · YuNet · Facemark 없음):
+ *  - 얼굴: Haar 정면 캐스케이드 + 옆얼굴 캐스케이드(좌우 뒤집어 양쪽). Haar 는 신경망이 아니라 AdaBoost 로 학습한 부스팅 캐스케이드다
+ *    (Viola-Jones 2001 · Lienhart 2002, OpenCV 에 2000년대부터 동봉) — 「학습 모델이 아니다」 라고만 쓰면 반만 맞다 (근거조사 10-17 §4).
+ *    옆얼굴은 정면을 놓쳤을 때만, 지난 얼굴 둘레에서만 돈다 — 양쪽 전체면 한 장 82ms (근거조사 §2-7 실측).
+ *  - 눈: Haar 눈 캐스케이드 — 얼굴 상자 위쪽 띠를 키워서. 두 눈 → 기울기 · 얼굴 안 눈 높이 · 눈 가운데 비낌. 눈 검출 재현율은
+ *    문헌상 30~40% 라 「아래를 봄」 을 눈에만 기대지 않는다 (logic 이 얼굴 상자 내려감 · 놓치기 전 아래로 내려감을 같이 본다)
+ *  - 검출이 끊긴 프레임: 마지막 얼굴 조각으로 템플릿 맞추기(정규화 상관)로 메운다 — 짧게만(trackMaxMs)
+ *  - 움직임 양: 160px 프레임 차분(MEA, motion energy analysis — Ramseyer & Tschacher 2011 계열) · 전체 밝기 변화를 빼고 잡음 바닥 위만
+ *  - 손 자리: 80px Farneback 광학 흐름에서 몸통과 따로 움직인 점. 피부는 고정 색 경계가 아니라 **이 사람 얼굴에서 뽑은 색 히스토그램의
+ *    역투영**(calcBackProject) — 고정 YCrCb 문턱은 피부색에 따라 치우친다 (근거조사 §2-5)
  *  - 품질: 평균 밝기 · 라플라시안 분산(흐림) · 얼굴 크기 · 얼굴 수
+ *  - 캐스케이드 없는 예비 모드(opts.mode = 'nocascade'): 가운데에서 시작 → 얼굴색 CamShift + 차분. 방향은 재지 않는다 —
+ *    대회 규정 해석이 「학습한 검출기도 AI 모델」 로 나면 이 스위치 하나로 바꾼다
  * 영상은 이 함수 밖으로 나가지 않는다 — 돌려주는 것은 숫자뿐이다.
  *
  * 순서가 있는 판단(평활 · 상태 · 구간 · 장별 집계)은 하지 않는다 — 그건 js/behavior_cv_logic.js(순수 함수)의 일이다.
@@ -34,9 +41,17 @@
     flowW: 80,            // 광학 흐름용 축소 폭 — 80x60 이면 Farneback 이 2ms 안팎
     moveThr: 0.8,         // 80px 기준 이 화소 이상 움직인 점만 「움직였다」로 센다 (센서 잡음 · 압축 잡음 위, 설계값 · 검증 전)
     darkMean: 38,         // 평균 밝기 이 아래면 흐름을 재지 않는다 — booth_cv 와 같은 값(어두운 방 센서 잡음이 움직임으로 보였다, 10-02)
+    meaW: 160,            // 차분(MEA) 폭 — 근거조사 §7-4 「160×120」. 한 장 0.1ms 안팎
+    meaNoise: 12,         // 밝기 차가 이 위인 점만 바뀐 점 — 웹캠 센서 · 압축 잡음 바닥 위 (설계값 · 검증 전)
+    // ── 피부(얼굴색 역투영) ──
+    skinEvery: 15,        // 정면 얼굴이 잡힌 장 중 이만큼마다 한 번 히스토그램을 새로 뜬다 — 조명이 바뀌어도 따라간다
+    skinBp: 40,           // 역투영 값(0~255, 정규화)이 이 위면 피부 (설계값 · 검증 전)
+    // ── 예비 모드 ──
+    mode: 'cascade',      // 'cascade' | 'nocascade'
+    nocFace: [0.4, 0.14, 0.2, 0.27], // 예비 모드 시작 상자 [x, y, w, h] — 노트북 카메라 앞 발표자의 얼굴이 흔히 오는 자리 (설계값)
   };
 
-  /** 피부색 대략 — YCrCb 경계 (Chai & Ngan 1999, 「Face segmentation using skin-color map」). 손 자리의 움직임이 손인지 참고만 한다 */
+  /** 피부색 대략 — YCrCb 경계 (Chai & Ngan 1999). 이 사람 얼굴색 히스토그램을 아직 못 떴을 때만 쓰는 예비 (피부색 치우침이 있다) */
   function isSkin(r, g, b) {
     const y = 0.299 * r + 0.587 * g + 0.114 * b;
     const cr = (r - y) * 0.713 + 128;
@@ -67,14 +82,15 @@
       if (!c.load(name)) { c.delete(); return null; }
       return c;
     };
-    const frontal = load(files.frontal);
-    if (!frontal) throw new Error('정면 얼굴 분류기를 읽지 못했어요');
-    const profile = load(files.profile);
-    const eye = load(files.eye);
+    const noc = cfg.mode === 'nocascade';
+    const frontal = noc ? null : load(files.frontal);
+    if (!noc && !frontal) throw new Error('정면 얼굴 분류기를 읽지 못했어요');
+    const profile = noc ? null : load(files.profile);
+    const eye = noc ? null : load(files.eye);
 
     let M = null;
     let key = '';
-    const st = { n: 0, last: null, lastAt: -Infinity, tmpl: null, prevSmall: false };
+    const st = { n: 0, last: null, lastAt: -Infinity, tmpl: null, prevSmall: false, prevMea: false, hist: false, frontN: 0, camWin: null, camLost: 0 };
 
     function ensure(w, h) {
       const k = `${w}x${h}`;
@@ -85,11 +101,14 @@
       M = {
         gray: new cv.Mat(), eq: new cv.Mat(), flip: new cv.Mat(), lap: new cv.Mat(),
         small: new cv.Mat(), prev: new cv.Mat(), flow: new cv.Mat(), smallRgba: new cv.Mat(),
-        mean: new cv.Mat(), std: new cv.Mat(), match: new cv.Mat(), eyeBand: new cv.Mat(), half: new cv.Mat(),
+        mean: new cv.Mat(), std: new cv.Mat(), match: new cv.Mat(), eyeBand: new cv.Mat(),
+        mea: new cv.Mat(), meaPrev: new cv.Mat(), rgb: new cv.Mat(), hsv: new cv.Mat(), smallRgb: new cv.Mat(), smallHsv: new cv.Mat(),
+        hist: new cv.Mat(), bp: new cv.Mat(), mask: new cv.Mat(), bpFull: new cv.Mat(),
+        meaW: cfg.meaW, meaH: Math.max(1, Math.round((cfg.meaW * h) / w)),
         rects: new cv.RectVector(), nums: new cv.IntVector(), eyes: new cv.RectVector(),
         fw: cfg.flowW, fh,
       };
-      st.prevSmall = false;
+      st.prevSmall = false; st.prevMea = false; st.hist = false;
       return M;
     }
 
@@ -142,12 +161,62 @@
       return best;
     }
 
-    /** 전체 화면 옆얼굴 찾기 — 반 크기에서 찾고 좌표만 되돌린다 */
-    function findProfileHalf(minSide) {
-      if (!profile) return null;
-      cv.resize(M.eq, M.half, new cv.Size(Math.round(M.eq.cols / 2), Math.round(M.eq.rows / 2)), 0, 0, cv.INTER_AREA);
-      const p = findProfile(M.half, null, Math.max(20, Math.round(minSide / 2)), Math.min(M.half.cols, M.half.rows));
-      return p ? { ...p, x: p.x * 2, y: p.y * 2, w: p.w * 2, h: p.h * 2 } : null;
+    /**
+     * 이 사람 얼굴색 히스토그램(색상 30 × 채도 32) — 얼굴 상자 안쪽 아래(볼 · 코: 눈 · 머리카락 · 배경을 피한다)에서 뜬다.
+     * 손 · 피부를 이 히스토그램의 역투영으로 찾는다 (Bradski 1998 CamShift 와 같은 방식). 고정 색 경계의 피부색 치우침을 피한다
+     */
+    function updateSkinHist(rgba, box) {
+      const r = clampRect(box.x + box.w * 0.25, box.y + box.h * 0.45, box.w * 0.5, box.h * 0.4, rgba.cols, rgba.rows);
+      if (r.width < 4 || r.height < 4) return;
+      const sub = rgba.roi(new cv.Rect(r.x, r.y, r.width, r.height));
+      const vec = new cv.MatVector();
+      try {
+        cv.cvtColor(sub, M.rgb, cv.COLOR_RGBA2RGB);
+        cv.cvtColor(M.rgb, M.hsv, cv.COLOR_RGB2HSV);
+        vec.push_back(M.hsv);
+        cv.calcHist(vec, [0, 1], new cv.Mat(), M.hist, [30, 32], [0, 180, 0, 256], false);
+        cv.normalize(M.hist, M.hist, 0, 255, cv.NORM_MINMAX);
+        st.hist = true;
+      } finally { sub.delete(); vec.delete(); }
+    }
+
+    /** 역투영 — src(RGBA) → out(0~255 한 채널). 히스토그램이 없으면 false */
+    function backProject(src, out) {
+      if (!st.hist) return false;
+      cv.cvtColor(src, M.smallRgb, cv.COLOR_RGBA2RGB);
+      cv.cvtColor(M.smallRgb, M.smallHsv, cv.COLOR_RGB2HSV);
+      const vec = new cv.MatVector();
+      try {
+        vec.push_back(M.smallHsv);
+        cv.calcBackProject(vec, [0, 1], M.hist, out, [0, 180, 0, 256], 1);
+      } finally { vec.delete(); }
+      return true;
+    }
+
+    /**
+     * 예비 모드(캐스케이드 없음) 얼굴 자리 — 가운데 시작 상자의 색으로 히스토그램을 뜨고 CamShift 로 따라간다.
+     * 상자가 무너지면(너무 작음 · 화면 끝) 시작 상자로 되돌린다. 방향(정면 · 옆)은 알 수 없다 — src 'C'
+     */
+    function camshiftFace(rgba) {
+      const W = rgba.cols; const H = rgba.rows;
+      const init = () => ({ x: Math.round(cfg.nocFace[0] * W), y: Math.round(cfg.nocFace[1] * H), w: Math.round(cfg.nocFace[2] * W), h: Math.round(cfg.nocFace[3] * H) });
+      if (!st.camWin || !st.hist) { st.camWin = init(); updateSkinHist(rgba, st.camWin); }
+      if (!backProject(rgba, M.bpFull)) return null;
+      const win = new cv.Rect(st.camWin.x, st.camWin.y, Math.max(4, st.camWin.w), Math.max(4, st.camWin.h));
+      const crit = new cv.TermCriteria(cv.TermCriteria_EPS | cv.TermCriteria_COUNT, 10, 1);
+      const res = cv.CamShift(M.bpFull, win, crit);
+      const r = res && res[1] ? res[1] : win;
+      // 배경이 피부색과 비슷하면 창이 화면 전체로 번진다 — 너무 크면 시작 크기로 줄여 가운데를 잇는다 (노드 벤치 10-17: 벽색 방에서 폭 0.55 까지 번졌다)
+      if (r.width > W * 0.4 || r.height > H * 0.6) {
+        const iw = cfg.nocFace[2] * W; const ih = cfg.nocFace[3] * H;
+        const c = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+        r.x = Math.round(Math.max(0, c.x - iw / 2)); r.y = Math.round(Math.max(0, c.y - ih / 2)); r.width = Math.round(iw); r.height = Math.round(ih);
+      }
+      const ok = r.width >= W * 0.05 && r.height >= H * 0.05;
+      if (!ok) { st.camLost += 1; if (st.camLost > 10) { st.camWin = null; st.camLost = 0; } return null; }
+      st.camLost = 0;
+      st.camWin = { x: r.x, y: r.y, w: r.width, h: r.height };
+      return { ...st.camWin };
     }
 
     function keepTemplate(box) {
@@ -241,7 +310,8 @@
       if (!dark && st.prevSmall) {
         cv.calcOpticalFlowFarneback(M.prev, M.small, M.flow, 0.5, 2, 9, 2, 5, 1.1, 0);
         cv.resize(rgba, M.smallRgba, new cv.Size(M.fw, M.fh), 0, 0, cv.INTER_AREA);
-        out = splitFlow(M.flow.data32F, M.smallRgba.data, M.fw, M.fh, face);
+        const bp = backProject(M.smallRgba, M.bp) ? M.bp.data : null;
+        out = splitFlow(M.flow.data32F, M.smallRgba.data, M.fw, M.fh, face, bp);
       }
       M.small.copyTo(M.prev);
       st.prevSmall = true;
@@ -254,7 +324,8 @@
       return a[a.length >> 1];
     }
 
-    function splitFlow(flow, px, W, H, face) {
+    function splitFlow(flow, px, W, H, face, bp) {
+      const skinAt = (i) => (bp ? bp[i] >= cfg.skinBp : isSkin(px[4 * i], px[4 * i + 1], px[4 * i + 2]));
       const thr = cfg.moveThr;
       let all = 0; let allN = 0;
       if (!face) {
@@ -296,7 +367,7 @@
           const dx = flow[2 * i]; const dy = flow[2 * i + 1];
           if (Math.hypot(dx, dy) >= thr && Math.hypot(dx - bmx, dy - bmy) >= thr) {
             k += 1; moveN += 1;
-            if (isSkin(px[4 * i], px[4 * i + 1], px[4 * i + 2])) skinMove += 1;
+            if (skinAt(i)) skinMove += 1;
           }
         }
         return k / idx.length;
@@ -311,6 +382,56 @@
         hl, hr, hf: idxBody.length >= 20 ? hf : null,
         skin: moveN >= 6 ? skinMove / moveN : null,
       };
+    }
+
+    /**
+     * 움직임 에너지(MEA) — 160px 흑백 두 장의 차이. 전체 밝기가 한꺼번에 바뀐 몫(자동 노출 · 조명)을 빼고 잡음 바닥 위의 점만 센다.
+     * all = 화면 전체에서 바뀐 점 비율 · body = 얼굴 아래 몸 영역(얼굴 가운데 ±1.3 얼굴 폭)에서 바뀐 점 비율
+     */
+    function meaOf(face) {
+      cv.resize(M.gray, M.mea, new cv.Size(M.meaW, M.meaH), 0, 0, cv.INTER_AREA);
+      let out = null;
+      if (st.prevMea) {
+        const a = M.mea.data; const b = M.meaPrev.data; const n = a.length;
+        let mean = 0;
+        for (let i = 0; i < n; i += 1) mean += a[i] - b[i];
+        mean /= n;
+        const W = M.meaW; const H = M.meaH;
+        let all = 0; let body = 0; let bodyN = 0;
+        const bx0 = face ? (face.x + face.w / 2 - 1.3 * face.w) * W : 0; const bx1 = face ? (face.x + face.w / 2 + 1.3 * face.w) * W : 0;
+        const by0 = face ? (face.y + face.h * 1.15) * H : H;
+        for (let y = 0; y < H; y += 1) {
+          const inBodyRow = face && y >= by0;
+          for (let x = 0; x < W; x += 1) {
+            const i = y * W + x;
+            const on = Math.abs(a[i] - b[i] - mean) > cfg.meaNoise;
+            if (on) all += 1;
+            if (inBodyRow && x >= bx0 && x <= bx1) { bodyN += 1; if (on) body += 1; }
+          }
+        }
+        out = { all: all / n, body: bodyN >= 60 ? body / bodyN : null };
+      }
+      M.mea.copyTo(M.meaPrev);
+      st.prevMea = true;
+      return out;
+    }
+
+    /** 예비 모드 한 장 — 얼굴 자리는 CamShift, 방향 · 눈은 없음 */
+    function processNoCascade(rgba, t, t0, bright, w, h) {
+      const face = camshiftFace(rgba);
+      const box = face ? { x: face.x / w, y: face.y / h, w: face.w / w, h: face.h / h } : null;
+      const blur = blurOf(face);
+      const mv = motionOf(rgba, box, bright < cfg.darkMean);
+      const mea = meaOf(box);
+      const row = { t: Math.round(t), src: face ? 'C' : '', side: 0, fn: 0, full: 0, nf: -1,
+        box: box ? [r3(box.x), r3(box.y), r3(box.w), r3(box.h)] : null, eyes: 0, br: r1(bright), bl: blur === null ? null : r1(blur), mode: 'noc' };
+      if (mea) { row.mea = r3(mea.all); if (mea.body !== null) row.meb = r3(mea.body); }
+      if (mv) {
+        row.mv = r3(mv.all);
+        ['body', 'hl', 'hr', 'hf', 'skin'].forEach((k) => { if (mv[k] !== null && mv[k] !== undefined) row[k] = r3(mv[k]); });
+      }
+      row.ms = Date.now() - t0;
+      return row;
     }
 
     /**
@@ -340,6 +461,7 @@
           maxS = Math.min(Math.min(roi.width, roi.height), Math.round(prev.w * 1.6));
           if (maxS <= minS) { roi = null; minS = minSide; maxS = Math.min(w, h); }
         }
+        if (noc) return processNoCascade(rgba, t, t0, bright, w, h);
         const faces = findFrontal(M.eq, roi, minS, maxS);
         // 얼굴이 여럿이면 지난 얼굴과 가장 가까운 것, 처음이면 가장 큰 것 (뒤로 지나가는 사람보다 발표자)
         let face = null;
@@ -353,8 +475,16 @@
         let src = ''; let side = 0; let fn = 0; let corr = null;
         if (face) { src = 'F'; fn = face.n; }
         if (!face) {
-          // 옆얼굴은 정면이 없을 때만 — 지난 얼굴 둘레면 그대로, 전체를 볼 때는 반 크기로 (전체 320px 두 번이면 110ms 였다, 노드 벤치 10-17)
-          const p = roi ? findProfile(M.eq, roi, minS, maxS) : findProfileHalf(minSide);
+          // 옆얼굴은 정면을 놓쳤을 때만 · 지난 얼굴 둘레에서만 — 전체 320px 양쪽이면 82~110ms 다 (근거조사 §2-7 · 노드 벤치 10-17).
+          // 지난 얼굴이 없으면(처음 · 자리 비움) 돌리지 않는다 — 옆얼굴부터 시작하는 발표자는 정면이 한 번 잡힌 뒤부터 잰다
+          let proi = roi;
+          if (!proi && prev) {
+            const pp = prev.w * cfg.roiPad;
+            proi = clampRect(prev.x - pp, prev.y - pp, prev.w + 2 * pp, prev.h + 2 * pp, w, h);
+            minS = Math.max(minSide, Math.round(prev.w * 0.6));
+            maxS = Math.max(minS + 1, Math.min(Math.min(proi.width, proi.height), Math.round(prev.w * 1.6)));
+          }
+          const p = proi ? findProfile(M.eq, proi, minS, maxS) : null;
           if (p) { face = p; src = 'P'; side = p.side; fn = p.n; }
         }
         if (!face && prev) {
@@ -363,11 +493,13 @@
           if (tr && tr.box) { face = tr.box; src = 'T'; }
         }
         if (face && src !== 'T') keepTemplate(face);
+        if (face && src === 'F' && (!st.hist || ++st.frontN % cfg.skinEvery === 0)) updateSkinHist(rgba, face);
         if (face) { st.last = face; if (src !== 'T') st.lastAt = t; } else { st.last = null; }
         const eyes = face && src !== 'P' ? findEyes(face) : { n: 0 };
         const blur = blurOf(face);
         const box = face ? { x: face.x / w, y: face.y / h, w: face.w / w, h: face.h / h } : null;
         const mv = motionOf(rgba, box, bright < cfg.darkMean);
+        const mea = meaOf(box);
         const row = {
           t: Math.round(t),
           src, side, fn, full: full ? 1 : 0,
@@ -379,6 +511,7 @@
         };
         if (corr !== null) row.corr = r3(corr);
         if (eyes.n === 2) { row.roll = r1(eyes.roll); row.ey = r3(eyes.ey); row.ex = r3(eyes.ex); row.sep = r3(eyes.sep); }
+        if (mea) { row.mea = r3(mea.all); if (mea.body !== null) row.meb = r3(mea.body); }
         if (mv) {
           row.mv = r3(mv.all);
           if (mv.body !== null) row.body = r3(mv.body);
@@ -395,7 +528,7 @@
     }
 
     function reset() {
-      st.n = 0; st.last = null; st.lastAt = -Infinity; st.prevSmall = false;
+      st.n = 0; st.last = null; st.lastAt = -Infinity; st.prevSmall = false; st.prevMea = false; st.camWin = null; st.camLost = 0;
       if (st.tmpl) { st.tmpl.delete(); st.tmpl = null; }
     }
 
@@ -404,7 +537,7 @@
       [frontal, profile, eye].forEach((c) => { if (c) { try { c.delete(); } catch (_) { /* 이미 지움 */ } } });
     }
 
-    return { process, reset, dispose, info: { profile: !!profile, eye: !!eye }, cfg };
+    return { process, reset, dispose, info: { mode: noc ? 'nocascade' : 'cascade', profile: !!profile, eye: !!eye }, cfg };
   }
 
   const api = { FX, createExtractor, isSkin };

@@ -13,8 +13,8 @@
   if (!root.document) return;
 
   // ⚠️ 워커 · 워커가 다시 읽는 특징 파일의 ?v= 는 여기서 손으로 올린다 — etc/scripts/chk bump 는 index.html 만 본다 (CLAUDE.md §2)
-  const WORKER_SRC = 'js/behavior_cv_worker.js?v=bc1';
-  const FEATURES_SRC = 'js/behavior_cv_features.js?v=bc1';
+  const WORKER_SRC = 'js/behavior_cv_worker.js?v=bc2';
+  const FEATURES_SRC = 'js/behavior_cv_features.js?v=bc2';
   const CDN_CV = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
   const CDN_XML = 'https://cdn.jsdelivr.net/gh/opencv/opencv@4.10.0/data/haarcascades/';
   const OPENCV_SRCS = ['js/vendor/opencv.js', CDN_CV];
@@ -34,6 +34,17 @@
   const SPEAK_LEVEL = 0.015;    // 마이크 RMS 가 이 위면 말소리 — vision_cue.js quietLevel(0.03) 의 반 (작게 말해도 말하는 중, 설계값)
   const SPEAK_HOLD_MS = 700;    // 음절 사이 숨은 말하는 중으로 친다 (설계값)
   const abs = (u) => new URL(u, root.location.href).href;
+  const MODE_KEY = 'cheokcheok:behavior-mode';
+  /**
+   * 캐스케이드 없는 예비 모드 스위치 — 대회 규정 해석이 「AdaBoost 로 학습한 Haar 도 AI 모델」 로 나면 이것 하나로 바꾼다
+   * (근거조사 10-17 §4). window.CHUCK_BEHAVIOR_MODE 또는 localStorage 'cheokcheok:behavior-mode' = 'nocascade'.
+   * 예비 모드는 가운데에서 시작한 얼굴색 CamShift + 프레임 차분만 쓰고 얼굴 방향은 재지 않는다
+   */
+  function mode() {
+    let m = root.CHUCK_BEHAVIOR_MODE || '';
+    if (!m) { try { m = root.localStorage.getItem(MODE_KEY) || ''; } catch (_) { /* 저장소 막힘 */ } }
+    return m === 'nocascade' ? 'nocascade' : 'cascade';
+  }
 
   const rt = {
     status: 'idle',            // idle | loading | ready | failed
@@ -70,6 +81,7 @@
         opencv: OPENCV_SRCS.map(abs),
         cascades: Object.fromEntries(Object.entries(CASCADES).map(([k, v]) => [k, v.map(abs)])),
         features: abs(FEATURES_SRC),
+        mode: mode(),
       });
     });
     const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('카메라 분석 도구를 받는 데 너무 오래 걸려요')), LOAD_TIMEOUT_MS));

@@ -68,7 +68,7 @@ BEHAVIOR_OK = {
     },
     "areas": [{"key": "gaze", "ok": True, "level": 0, "word": "짚을 곳이 없어요"}, {"key": "body", "ok": True, "level": 1, "word": "흔들림 가끔 있어요"},
               {"key": "hands", "ok": True, "level": 1, "word": "보통이에요"}, {"key": "frame", "ok": True, "level": 0, "word": "알맞아요"}],
-    "first": {"kind": "lookaway", "area": "gaze", "text": "3장에서 4.6초 동안 청중 쪽이 아니라 왼쪽을 봤어요", "slide": 3, "q": None, "sec": 41.2},
+    "first": {"kind": "lookaway", "area": "gaze", "text": "3장에서 4.6초 동안 화면 쪽이 아니라 왼쪽을 향했어요", "slide": 3, "q": None, "sec": 41.2},
     "segs": [{"seg": "s1", "dur": 30.2, "present": 1, "gaze": 0.9, "down": 0, "gesture": 0.3, "move": 0.2, "lookaway": 0}],
     "events": [{"k": "lookaway", "seg": "s3", "t": 41.2, "d": 4.6}],
 }
@@ -105,7 +105,7 @@ def test_카메라_요약을_얹어도_총점이_그대로다(situation):
 def test_숫자를_옮겨_적는다_점수는_설계값_매기기():
     items = {i.no: i for i in presence_items(BEHAVIOR_OK)}
     assert items[40].status == "scored" and items[40].score == 81 and items[40].weight == 0
-    assert "청중 쪽을 본 시간 81%" in items[40].evidence and "2번" in items[40].evidence
+    assert "화면 쪽을 향한 시간 81%" in items[40].evidence and "2번" in items[40].evidence
     assert items[41].score == 80 and "베타" in items[41].note          # 흔들림 없던 창 80%
     assert items[42].score == 42 and "많을수록 좋다는 뜻은 검증 전" in items[42].evidence
 
