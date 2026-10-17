@@ -54,6 +54,18 @@
 - 남은 것: 같은 파일 = 같은 세션(파싱 sha 재사용)이라 3번+ 기록이 같은 파일을 올린 사람끼리 섞일 수 있다(답 원문은 안 남기고, 화면은 내 Q&A 와 글자로 맞는 것만 그린다) ·
   미니맵은 그래프 품질을 그대로 보인다(개념 아래 주장 같은 꼬인 부모는 줄이 엉킨다)
 
+## 2026-10-17 — 리포트 개편 (핵심 · 부속 · 빼기, Q&A 돌아보기 · 발표 태도 갈고리) — worktree wt-report-ia · feat/report-ia-1017
+- 입력: `~/meetings/리서치/2026-10-17_리포트_개편_설계.md`(D1~D5 → DECISIONS D-014~D-018) · `…_리포트_정보구조_판정.md` · `…_배민토스당근현대카드_UIUX기조.md`(R1~R20)
+- [x] Q&A 재료 살리기 — qa_live.js 턴 기록(move · 근거 줄 · 빠진 점) · 닫힌 질문(trail 에 턴 답 원문 · 판정 낱말, missing · grounds · closeGist) · app.js rv2QaSnapshot(summary · lookSlides · closeReason · checks · evidence_quote, 상한 있음) · report_graph addQa/chainOf/qaTopic/qaBetter
+- [x] 홈 재구성(report_v2.js) — 총점(숲 초록 · 노란 고리 · 48 가변폭) · 가장 약한 기준 · 가장 먼저 고칠 한 가지 · Q&A 카드 · 발표 태도(베타) · 청중석 · 「더 살펴보기」 한 줄 입구. 1024px+ 두 단
+- [x] Q&A 한 질문(js/report_v2_qa.js 새 파일) · 새 화면 issues · strengths · unsure · details · attitude · 점수 화면 개편 · 연습 화면에서 Q&A 목록 뺌
+- [x] 옛 리포트 빼기(설계 §4) — 트로피 · 배웅 · 이렇게 말해보세요 · 확신도 · 언급만 · 우선순위 카드 · N번째 연습 · 샘플 숫자 섞임 · 「한 번도 언급 안 된 개념」 · 용어 카드 틀 질문 · 발표 구성 자동 호출
+- [x] 시각 규칙 — 간격 16 · 12 · 6, 글자 5단 rem, 모션 ≤200ms(고리 800ms), APCA 본문 Lc 75+ (곁말 #6B7684 Lc 72 · 링크 #075640 Lc 89)
+- [x] 공개 샘플 Q&A · 판을 같은 판(10/17 integ-A)으로 — 자리표시자 · 미시 수치 질문 없음, 샘플 꼬리말의 개발 용어 정리
+- 발표 태도 갈고리 — 입력 `D.behavior = nf.behavior = { present, qa, prev? }`(behavior_cv_logic summaryOf/analyze), 홈 줄은 `BehaviorReport.headline(b)` → `{ status, word, oneLine, first, topEvidence }`(status 'none' 이면 숨김), 화면은 `BehaviorReport.rv2Screen(b, { titles })`. 모듈이나 값이 없으면 줄을 숨기고 `attitude` 화면은 빈 상태
+- 검증: 캡처 `/data/models/_runs/report-ia/new/{r1..r4, live1, beh1, studio1·2, old_after}` (정적 8840, /api/** 가로챔 — 유료 호출 0) · Pretendard tnum 은 켜지지만 동적 서브셋에서 숫자 폭이 40px 기준 글자당 ≤0.7px 다르다(15px 에선 0.3px, 눈에 안 보임)
+- 남은 것: 공개 샘플 Q&A 엔 근거 줄 · 빠진 점 · 턴 답이 없다(그 판은 저장 확장 전) — 새 프런트로 실 API 한 판을 돌리면 찬다 · 옛 리포트 머리 헤드라인(「핵심은 잘 전달했어요」)은 아직 v2 와 다른 말
+
 ## (지난) 승인 대기 상태 (2026-10-15)
 승인받을 것: `DECISIONS.md` 의 OPEN — D-004(청중 = 청중, 점수 안 만듦) · D-005(저장 늘리기) · D-006(F-19 자유 글) · D-009(안 A 구조).
 승인 뒤 `IMPLEMENTATION_PLAN.md` P3-1 부터. **승인 전 기존 리포트 교체 · 대규모 구현 금지.**

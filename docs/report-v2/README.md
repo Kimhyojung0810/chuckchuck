@@ -12,7 +12,7 @@
 - 데이터가 없는 기능은 `unavailable` · `not_supported` 로 보인다 — 지어내지 않는다
 
 ## 현재 상태
-Phase 1 · 2 끝, **사용자 승인 대기** (2026-10-15). 자세한 건 [`PROGRESS.md`](PROGRESS.md).
+2026-10-17 리포트 개편(홈 · Q&A 돌아보기 · 발표 태도 갈고리 · 옛 리포트 빈 요소 정리) — feat/report-ia-1017. 자세한 건 [`PROGRESS.md`](PROGRESS.md) · 결정은 [`DECISIONS.md`](DECISIONS.md) D-014~D-020.
 
 ## 문서
 | 문서 | 내용 |
