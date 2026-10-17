@@ -587,3 +587,4 @@ html.sx-studio #app.rv2-host { position: fixed; inset: 0; height: auto; z-index:
   .rv2 .dk-bigslide { height: auto; width: 100%; }
   .rv2 .dk-seats { grid-template-columns: repeat(2, 1fr); }
 }
+.rv2 .dk-lead { margin: 6px 0 0; color: var(--ink-2); font-size: 15px; line-height: 1.45; }

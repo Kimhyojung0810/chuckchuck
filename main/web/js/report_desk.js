@@ -43,7 +43,21 @@
     /** 장 하나의 가장 나쁜 판정 — 썸네일 점 색 */
     const worstOn = (no) => { const order = ['no', 'ct', 'mid', 'na', 'om', 'ok']; const ts = conceptsOn(no).map((x) => x.v.t); return order.find((t) => ts.includes(t)) || ''; };
     const eyebrow = (key) => `${STATION_NAME[key]}${D.sample ? ' · 샘플' : ''} · ${D.deck.title || ''}`;
-    const head = (key, title, side = '') => `<header class="dk-head"><div><p class="dk-eyebrow">${esc(eyebrow(key))}</p><h1 class="dk-title" tabindex="-1">${esc(title)}</h1></div>${side}</header>`;
+    // 머리 — 큰 문장은 「무슨 일이 있었고 그래서 어떻다」 (판단), 숫자는 그 아래 작은 줄(lead)로 (10-17 「2장에 93초 · 1장엔 12초 — 이딴 멘트는 직관적으로 이해 못 함」)
+    const head = (key, title, side = '', lead = '') => `<header class="dk-head"><div><p class="dk-eyebrow">${esc(eyebrow(key))}</p><h1 class="dk-title" tabindex="-1">${esc(title)}</h1>${lead ? `<p class="dk-lead">${esc(lead)}</p>` : ''}</div>${side}</header>`;
+    /** 사람 말 시간 — 600 → 10분, 140 → 2분 20초, 35 → 35초 */
+    const human = (sec) => { const t = Math.max(0, Math.round(sec || 0)); const m = Math.floor(t / 60); const r = t % 60; return m ? (r ? `${m}분 ${r}초` : `${m}분`) : `${r}초`; };
+    /** 받침에 따라 조사 — 「가설 A」가 · 「평점」이. 끝 글자가 영문 · 숫자면 읽는 소리로 */
+    const josa = (word, withB, withoutB) => {
+      const ch = String(word).trim().slice(-1);
+      const code = ch.charCodeAt(0) - 0xAC00;
+      let b;
+      if (code >= 0 && code <= 11171) b = code % 28 !== 0;
+      else if (/[0-9]/.test(ch)) b = '013678'.includes(ch);
+      else if (/[a-z]/i.test(ch)) b = 'lmnr'.includes(ch.toLowerCase());
+      else b = false;
+      return b ? withB : withoutB;
+    };
     const sampleTag = D.sample ? '<span class="dk-tag">미리 돌린 샘플 리포트예요</span>' : '';
     const more = (k, label) => (c.hasLegacy ? `<button type="button" class="dk-more" data-push="legacy:${k}">${esc(label)} <i>${I.chev}</i></button>` : '');
     const go = (key, label) => `<button type="button" class="dk-go" data-root="${esc(key)}">${esc(label)} <i>${I.chev}</i></button>`;
@@ -60,7 +74,9 @@
       const kpis = [
         judged ? { k: '개념 전달', v: `${counts.ok || 0}`, u: `/ ${judged}개`, sub: counts.no ? `안 나온 개념 ${counts.no}개` : '판정한 개념을 다 설명했어요', t: (counts.ok || 0) / judged >= 0.8 ? 'ok' : 'mid', go: 'coach' } : null,
         pace ? { k: '발표 시간', v: fmt(pace.actual_sec), u: `/ ${fmt(pace.target_sec)}`, sub: pace.actual_sec < pace.target_sec * 0.8 ? '목표보다 많이 짧아요' : pace.actual_sec > pace.target_sec * 1.15 ? '목표보다 길어요' : '목표에 맞췄어요', t: Math.abs(pace.actual_sec / pace.target_sec - 1) <= 0.2 ? 'ok' : 'mid', bar: Math.min(1, pace.actual_sec / pace.target_sec), go: 'audience' } : null,
-        pace ? { k: '말 속도', v: `${Math.round(pace.avg_chars_per_min)}`, u: '자/분', sub: `권장 ${pace.recommended_cpm}자/분`, t: 'na', go: 'audience' } : null,
+        pace ? (() => { const [lo, hi] = String(pace.recommended_cpm || '').split('~').map(Number); const v = pace.avg_chars_per_min;
+          const word = lo && v < lo ? '권장보다 조금 느려요' : hi && v > hi ? '권장보다 빨라요' : '듣기 편한 속도예요';
+          return { k: '말 속도', v: `${Math.round(v)}`, u: '자/분', sub: `${word} (권장 ${pace.recommended_cpm})`, t: word === '듣기 편한 속도예요' ? 'ok' : 'mid', go: 'audience' }; })() : null,
         habits ? { k: '말버릇', v: `${fillers}`, u: '번', sub: fillers ? '간투어 · 반복이 있었어요' : '간투어 · 반복이 거의 없어요', t: fillers <= 3 ? 'ok' : 'mid', go: 'audience' } : null,
       ].filter(Boolean);
       return {
@@ -101,11 +117,15 @@
     /* ══ 06 다시 보기 — 장마다 무슨 말을 했나 (옛 「슬라이드로 보는 발표」 + 「흐름」 + 녹음) ══ */
     function replay() {
       const dur = V.duration_sec || 0;
-      const longest = slides.slice().sort((a, b) => slideSec(b) - slideSec(a))[0];
-      const shortest = slides.slice().sort((a, b) => slideSec(a) - slideSec(b))[0];
-      const title = slides.length > 1 && longest && shortest && slideSec(longest) > slideSec(shortest) * 2
-        ? `${longest.no}장에 ${Math.round(slideSec(longest))}초, ${shortest.no}장엔 ${Math.round(slideSec(shortest))}초를 썼어요`
-        : '장마다 한 말과 판정을 같이 봐요';
+      // 큰 문장: 어느 장을 서둘렀나 + 어느 장에서 무엇이 빠졌나 — 판단만. 초 단위 숫자는 lead 로
+      const rushed = slides.filter((sl) => { const p = paceOf(sl.no); return p && p.status === 'short' && p.actual_sec < p.recommended_sec * 0.5; });
+      const miss = concepts.filter((x) => x.v.t === 'no' || x.v.t === 'ct').sort((a, b) => b.weight - a.weight)[0];
+      const partA = rushed.length && rushed.length === slides.length ? '모든 장을 너무 빨리 넘어갔' : rushed.length ? `${rushed.map((sl) => sl.no).join('·')}장은 너무 빨리 넘어갔` : '';
+      const partB = miss ? `${miss.slides[0] ? `${miss.slides[0]}장에선 ` : ''}「${miss.label}」${josa(miss.label, '이', '가')} ${miss.v.t === 'ct' ? '자료와 다르게 나왔' : '빠졌'}` : '';
+      const title = partA && partB ? `${partA}고, ${partB}어요` : partA ? `${partA}어요` : partB ? `${partB}어요` : '장마다 자료대로 잘 전했어요';
+      const recs = ((pace && pace.slides) || []).map((p) => p.recommended_sec);
+      const sameRec = recs.length && recs.every((r) => Math.abs(r - recs[0]) < 1);
+      const lead = slides.map((sl) => `${sl.no}장 ${human(slideSec(sl))}`).join(' · ') + (sameRec ? ` — 장마다 권장 ${human(recs[0])}` : '');
       const links = ((D.flow && D.flow.issues) || []);
       const linkOn = (no) => links.filter((f) => (f.slide_nos || []).includes(no));
       let cur = (slides[0] || {}).no || 1;
@@ -126,7 +146,7 @@
       return {
         title: '다시 보기', short: '다시 보기', desk: true,
         html: `<div class="dk dk-replay">
-          ${head('replay', title, `<div class="dk-headacts">${more(0, '장별 판정 전체')}${more(3, '흐름 자세히')}</div>`)}
+          ${head('replay', title, `<div class="dk-headacts">${more(0, '장별 판정 전체')}${more(3, '흐름 자세히')}</div>`, lead)}
           <div class="dk-body">
             <nav class="dk-strip" aria-label="장 고르기">${slides.map((s) => `<button type="button" class="dk-thumb${s.no === cur ? ' is-on' : ''}" data-slide-pick="${s.no}">
               ${c.slideTag(s.no, 'dk-thumbimg')}<span class="dk-thumbmeta"><b>${s.no}장</b><small>${Math.round(slideSec(s))}초</small>${worstOn(s.no) ? `<i class="dk-dot t-${worstOn(s.no)}"></i>` : ''}</span></button>`).join('')}</nav>
@@ -196,7 +216,7 @@
       return {
         title: '청중석', short: '청중석', desk: true,
         html: `<div class="dk dk-aud">
-          ${head('audience', title, `<div class="dk-headacts">${more(1, '말하기 자세히')}</div>`)}
+          ${head('audience', title, `<div class="dk-headacts">${more(1, '말하기 자세히')}</div>`, pace ? `${human(pace.target_sec)} 발표를 ${human(pace.actual_sec)} 만에 끝냈어요${habits ? ` · 간투어 ${habits.filler_cnt || 0}번 · 같은 말 반복 ${habits.repeat_cnt || 0}번` : ''}` : '')}
           <div class="dk-body">
             <section class="dk-theater"><i class="dk-spot"></i>
               <div class="dk-seats">${evs.map((e, k) => `<button type="button" class="dk-seat${e.absent ? ' is-off' : ''}" data-push="chick:${esc(e.key)}" style="--k:${k}">
@@ -234,7 +254,13 @@
       const list = [...V.issues, ...V.unknown];
       const misses = concepts.filter((x) => x.v.t === 'no' || x.v.t === 'ct').filter((x) => !list.some((y) => (y.concepts || []).some((cc) => cc.id === `C:${x.id}` || cc.label === x.label)));
       let pick = list[0] ? list[0].id : '';
-      const title = list.length ? `고칠 곳이 ${list.length}개예요 — ${CRIT[list[0].criterion] || '1번'}부터 손봐요` : '근거가 있는 고칠 곳을 찾지 못했어요';
+      const first = list[0];
+      const firstConcept = first && (first.concepts || [])[0];
+      const title = !first ? '근거가 있는 고칠 곳을 찾지 못했어요'
+        : first.criterion === 'time' ? '가장 급한 건 발표 시간이에요 — 장마다 할 말을 더 채워야 해요'
+        : first.criterion === 'content' && firstConcept ? `가장 급한 건 「${firstConcept.label}」${josa(firstConcept.label, '을', '를')} 말로 전하지 않은 거예요`
+        : `가장 먼저 고칠 것 — ${first.title}`;
+      const lead = list.length ? `고칠 곳은 모두 ${list.length}개예요. 왼쪽에서 하나씩 골라 무엇을 어떻게 바꿀지 봐요.` : '';
       const detail = (id) => {
         const x = list.find((y) => y.id === id); if (!x) return '';
         const said = x.proofs.find((p) => p.kind === 'said' && p.status === 'supported');
@@ -256,7 +282,7 @@
       return {
         title: '코칭', short: '코칭', desk: true,
         html: `<div class="dk dk-coach">
-          ${head('coach', title, `<div class="dk-headacts">${more(2, '개념 전달 전체')}${more(4, '채점 근거')}</div>`)}
+          ${head('coach', title, `<div class="dk-headacts">${more(2, '개념 전달 전체')}${more(4, '채점 근거')}</div>`, lead)}
           <div class="dk-body">
             <nav class="dk-card dk-list" aria-label="고칠 곳">
               ${list.map((x, k) => `<button type="button" class="dk-item${x.id === pick ? ' is-on' : ''}" data-pick="${esc(x.id)}"><span class="dk-n t-${tone(x)}">${k + 1}</span><span><b>${esc(x.title)}</b><small>${esc(CRIT[x.criterion] || '종합')}</small></span></button>`).join('')}
@@ -292,7 +318,7 @@
       return {
         title: '연습', short: '연습', desk: true,
         html: `<div class="dk dk-prac">
-          ${head('practice', weak.length ? `다음엔 「${weak[0].label}」부터 말로 채워 봐요` : '고칠 장만 골라 다시 해 봐요', `<div class="dk-headacts">${more(5, '연습 도구 전체')}${more(6, '발표 구성 다시 짜기')}</div>`)}
+          ${head('practice', weak.length ? `다음엔 「${weak[0].label}」부터 말로 채워 봐요` : '고칠 장만 골라 다시 해 봐요', `<div class="dk-headacts">${more(5, '연습 도구 전체')}${more(6, '발표 구성 다시 짜기')}</div>`, weak.length && weak[0].slides.length ? `${weak[0].slides.join('·')}장에 있는 개념이에요. 그 장부터 다시 말해 보면 돼요.` : '')}
           <div class="dk-body">
             <section class="dk-card dk-pcol">
               <h3 class="dk-h3">다시 연습</h3>
