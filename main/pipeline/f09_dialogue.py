@@ -67,6 +67,15 @@ def wait_sec() -> float:
         return 6.0
 
 
+def talk_retries() -> int:
+    """읽기+말하기 콜이 요청 제한(429)에 걸렸을 때 다시 부르는 횟수 — 서비스 1(기다림을 늘리지 않게), 실험 판은 더 크게
+    (`QA_DIALOGUE_TALK_RETRIES`, 10-17 tune: 실험 판에서 읽기 콜이 429 로 빠지면 틀린 전제를 못 짚은 것으로 세어졌다)."""
+    try:
+        return max(0, min(6, int(os.environ.get("QA_DIALOGUE_TALK_RETRIES", "1"))))
+    except ValueError:
+        return 1
+
+
 TALK_TEMPERATURE = 0.4
 TALK_MAX_TOKENS = 700
 #: 교수님 말투 명세 (R10) — 문장 하나 45자 · 한 턴(반응 + 꼬리질문) 3문장 · 해요체.
@@ -257,15 +266,15 @@ def dialogue_talk(ti: TalkInput, llm=None) -> TalkResult:
     with _ai_calllog.feature_scope("F-09-talk"):
         try:
             engine = llm or _llm()
-            try:
-                data = _complete(engine, TALK_SYSTEM.format(style=STYLE, shapes=_shapes_block()), talk_user(ti),
-                                 temperature=TALK_TEMPERATURE, max_tokens=TALK_MAX_TOKENS)
-            except Exception as e:  # noqa: BLE001 — 요청 제한이면 한 번 더 (제공자가 이미 2초 물러났다 다시 불렀다)
-                if " 429" not in str(e):
-                    raise
-                time.sleep(1.5)
-                data = _complete(engine, TALK_SYSTEM.format(style=STYLE, shapes=_shapes_block()), talk_user(ti),
-                                 temperature=TALK_TEMPERATURE, max_tokens=TALK_MAX_TOKENS)
+            for k in range(talk_retries() + 1):
+                try:
+                    data = _complete(engine, TALK_SYSTEM.format(style=STYLE, shapes=_shapes_block()), talk_user(ti),
+                                     temperature=TALK_TEMPERATURE, max_tokens=TALK_MAX_TOKENS)
+                    break
+                except Exception as e:  # noqa: BLE001 — 요청 제한이면 다시 (제공자가 이미 2초 물러났다 다시 불렀다)
+                    if " 429" not in str(e) or k >= talk_retries():
+                        raise
+                    time.sleep(1.5 * (k + 1))
         except Exception as e:  # noqa: BLE001 — 대화 엔진의 실패가 판정을 깨지 않는다
             sys.stderr.write(f"[f09-dialogue] talk 실패: {type(e).__name__}: {str(e)[:160]}\n")
             return TalkResult(sec=round(time.monotonic() - t0, 2), error=f"{type(e).__name__}: {str(e)[:120]}")
@@ -282,8 +291,16 @@ def dialogue_talk(ti: TalkInput, llm=None) -> TalkResult:
     except (TypeError, ValueError):
         read["conflict_slide"] = 0
     move = str(data.get("move") or "")
+    anchor = verbatim(str(data.get("anchor") or ""), ti.answer)
+    # 수가 곧 읽기 신호다 — 표대로라면 challenge 는 conflict 에서, explore 는 disagree 에서 나온다. 10-17 tune dev: 읽기 콜이 challenge 를
+    # 고르고도 어긋난 구절을 idea 칸에 둔 판이 틀린 전제 답의 4% — 그러면 정책이 connect 로 가서 어긋남을 못 짚었다.
+    if move == "challenge" and not read["conflict"]:
+        read["conflict"] = anchor or read.get("idea") or ""
+        read["conflict_from_move"] = bool(read["conflict"])
+    if move == "explore" and not read["disagree"]:
+        read["disagree"] = anchor or read.get("idea") or ""
     return TalkResult(read=read, move=move if move in DIALOGUE_MOVES else "",
-                      anchor=verbatim(str(data.get("anchor") or ""), ti.answer),
+                      anchor=anchor,
                       react=str(data.get("react") or "").strip(), ask=str(data.get("ask") or "").strip(),
                       sec=round(time.monotonic() - t0, 2), ok=True, model=getattr(engine, "name", ""))
 
@@ -562,7 +579,9 @@ def policy(verdict: str, guard: str, read: dict, *, gave_up: bool = False, closi
         return "hint"
     if guard in REFOCUS_GUARDS:
         return "refocus"
-    if guard in CONFLICT_GUARDS or (read.get("conflict") and verdict != "good"):
+    # 읽기 콜이 자료와 어긋난 구절을 찾았으면 판정이 good 이어도 짚는다 (10-17 tune: dev 3판 · 5단계 판 합쳐 모범답 · 자기 말 답 304개에서
+    # 읽기 콜 conflict 0건, 틀린 전제 답 153개에서 93% — 판정 LLM 이 방향을 뒤집은 답에 good 85 를 준 판이 남았다). 판정은 apply 가 내린다.
+    if guard in CONFLICT_GUARDS or read.get("conflict"):
         return "challenge"
     if read.get("disagree") and verdict != "good":
         return "explore"
@@ -717,16 +736,19 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
         return replace(judgement, move="challenge" if judgement.guard != "injection" else "",
                        dialogue={"source": "guard", "guard": judgement.guard})
     t0 = time.monotonic()
-    mastered = judgement.mastered
-    need_ask = not mastered
     numbers_ok = " ".join(str(g.slide_no) for g in judgement.grounds) + f" {judgement.evidence_slide_no}"
     checked: dict[int, tuple[str, str, list[str]]] = {}
 
+    def needs_ask(t: TalkResult | None) -> bool:
+        # 닫히는 질문(mastered)은 꼬리질문이 없다 — 단 읽기 콜이 어긋남을 찾아 판정을 내릴 판(`_read_conflict_cap`)이면 묻는다
+        return (not judgement.mastered) or (t is not None and t.ok and _reader_conflict(judgement, t.read, closing))
+
     def candidate(t: TalkResult) -> tuple[str, str, list[str]]:
         if id(t) not in checked:
+            na = needs_ask(t)
             r = with_quote(soft_trim(tidy_react(t.react)), _anchor_for(t.move, t.read, t.anchor), ti.answer, t.move)
-            a = t.ask if need_ask else ""
-            checked[id(t)] = (r, a, check_turn(r, a, ti, need_ask=need_ask, numbers_ok=numbers_ok) + quote_problem(r, ti.answer, t.move))
+            a = t.ask if na else ""
+            checked[id(t)] = (r, a, check_turn(r, a, ti, need_ask=na, numbers_ok=numbers_ok) + quote_problem(r, ti.answer, t.move))
         return checked[id(t)]
 
     def accept(t: TalkResult) -> bool:
@@ -748,7 +770,13 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     base = chosen or (ok_talks[0] if ok_talks else None)
     read = dict(base.read) if base else {}
     move = policy(judgement.verdict, judgement.guard, read, gave_up=gave_up, closing=closing, passed=judgement.passed)
+    capped = _reader_conflict(judgement, read, closing)
+    if capped:
+        judgement = _read_conflict_cap(judgement, read)
+    mastered = judgement.mastered
+    need_ask = not mastered
     meta: dict = {"read": read, "llm_move": base.move if base else "", "talk_sec": base.sec if base else None,
+                  "read_conflict_cap": capped,
                   "talk_model": base.model if base else "", "talk_ok": bool(base), "talk_n": len(got),
                   "talk_moves": [[t.model, t.move, (candidate(t)[2] if t.ok else [t.error]), t.react, t.ask] for t in got],
                   "talk_error": "" if base else (got[0].error if got else "no_talk")}
@@ -799,6 +827,28 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
     meta.update(source=source, move=move, sec_after_judge=round(time.monotonic() - t0, 3))
     return replace(judgement, react=react[:200], followup=ask[:200] if need_ask else "",
                    move=move, anchor=quoted_anchor(react, ti.answer) or anchor, dialogue=meta)
+
+
+#: 읽기 콜이 찾은 어긋남으로 판정을 내릴 때의 점수 상한 — 통과(70) 아래 (판정 프롬프트 규칙 8: 자료와 어긋난 주장이 있으면 70 미만).
+READ_CONFLICT_SCORE_MAX = 60
+
+
+def _reader_conflict(j: QaJudgement, read: dict, closing: bool = False) -> bool:
+    """통과한 판정인데 읽기 콜이 자료와 어긋난 구절을 찾았나 (코드 가드가 이미 잡은 어긋남 · 갇힘 출구 · 모름은 빼고)."""
+    return bool(j.passed and not closing and read.get("conflict") and not read.get("unknown")
+                and j.guard not in CONFLICT_GUARDS and j.guard not in REFOCUS_GUARDS)
+
+
+def _read_conflict_cap(j: QaJudgement, read: dict) -> QaJudgement:
+    """
+    판정 가드가 못 잡은 어긋남 (2026-10-17 tune) — 판정 LLM 이 방향을 뒤집은 답(「깊은 과제보다 단순 작업에서 더 커요」)에 good 85 를 준 판이
+    dev 틀린 전제 답의 4~9% 였다. 읽기 콜(판정과 동시에 도는 F-09-talk)이 그 답에서 자료와 어긋난 구절을 낱말 그대로 뽑았으면 통과를 막는다
+    — 같은 읽기 콜이 모범답 · 자기 말 답 304개에서 어긋남을 0건 찾았다(거짓 경보 0). 질문은 닫지 않고 challenge 로 견주게 한다.
+    """
+    phrase = str(read.get("conflict") or "")[:40]
+    return replace(j, verdict="partial", score=min(j.score, READ_CONFLICT_SCORE_MAX), closed=False,
+                   guard="read_conflict", guard_reason=f"답의 「{phrase}」 가 자료와 어긋나 보여요",
+                   summary_sentence=f"「{phrase}」 부분이 자료와 다르게 읽혀요. 근거 장과 다시 견줘 봐요."[:200])
 
 
 def _judge_note(j: QaJudgement, move: str) -> str:

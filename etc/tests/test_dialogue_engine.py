@@ -199,3 +199,37 @@ def test_자료_줄을_대신_말하면_누설이다():
     bad = DLG.check_turn("「높은 온도에서만」이라고 했죠. 자료는 충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다고 해요.",
                          "자료 2장은 어떻게 말해요?", t)
     assert "deck_leak" in bad
+
+
+# ─── 10-17 tune: 판정 가드가 못 잡은 어긋남 ─────────────────────────────────────────────────
+
+PREMISE = "실험실에서 한 거라서 오히려 실사용에서 더 크게 깎여요."
+CONFLICT_TALK = {"idea": "", "vague": "", "conflict": "실사용에서 더 크게 깎여요", "conflict_slide": 2, "disagree": "",
+                 "recite": False, "unknown": False, "skipped": "", "move": "challenge", "anchor": "실사용에서 더 크게 깎여요",
+                 "react": "「실사용에서 더 크게 깎여요」라고 했죠. 자료 2장과 방향이 달라요.", "ask": "자료 2장은 실사용을 어떻게 말해요?"}
+
+
+def test_읽기_콜이_어긋남을_찾으면_판정이_good_이어도_짚고_통과를_막는다():
+    t = ti(answer=PREMISE)
+    talk = DLG.dialogue_talk(t, llm=TalkLLM(CONFLICT_TALK))
+    out = DLG.apply(judged(verdict="good", score=85, react="", followup=""), t, talk, respeak=False)
+    assert out.move == "challenge" and out.dialogue["read_conflict_cap"] is True
+    assert out.verdict == "partial" and out.score <= DLG.READ_CONFLICT_SCORE_MAX and not out.passed and not out.mastered
+    assert out.guard == "read_conflict" and out.followup.endswith("?")          # 닫지 않고 견주게 묻는다
+
+
+def test_수를_challenge_로_골랐는데_어긋난_구절을_idea_칸에_두면_conflict_로_읽는다():
+    t = ti(answer=PREMISE)
+    talk = DLG.dialogue_talk(t, llm=TalkLLM({**CONFLICT_TALK, "conflict": "", "idea": "실사용에서 더 크게 깎여요"}))
+    assert talk.read["conflict"] == "실사용에서 더 크게 깎여요" and talk.read.get("conflict_from_move")
+    assert DLG.policy("wrong", "", talk.read) == "challenge"
+
+
+def test_어긋남_신호가_없으면_good_판정은_그대로_닫힌다():
+    t = ti()
+    talk = DLG.dialogue_talk(t, llm=TalkLLM({**GOOD_TALK, "vague": "", "idea": "실험실에서 한 거라서", "skipped": "",
+                                             "move": "deepen", "anchor": "실험실에서 한 거라서",
+                                             "react": "「실험실에서 한 거라서」라고 했죠. 조건과 결론을 이었어요."}))
+    out = DLG.apply(judged(verdict="good", score=85), t, talk, respeak=False)
+    assert out.verdict == "good" and out.mastered and not out.dialogue["read_conflict_cap"]
+

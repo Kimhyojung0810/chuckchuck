@@ -37,7 +37,7 @@ from pipeline import judge_answer  # noqa: E402
 from pipeline._json_text import extract_json_object  # noqa: E402
 from pipeline.contracts import Question  # noqa: E402
 
-OUT = Path("/data/models/_runs/qa-dialogue")
+OUT = Path(os.environ.get("QA_DLG_OUT") or "/data/models/_runs/qa-dialogue")   # 실험 폴더 — 에이전트마다 따로 (10-17 tune)
 ENS_RUNS = Path("/data/models/_runs/qa-ensemble/runs")
 BUNDLES = {
     "A1": "/data/models/_runs/qa-route/bundles/booth_A1_battery.json",
@@ -206,7 +206,10 @@ def run_single(args) -> int:
                              "kind": k, "answer": ans, "expect": EXPECT[k], "talk": args.talk, "judge": args.judge,
                              "rep": args.rep, **{f: d.get(f) for f in ("verdict", "score", "passed", "mastered", "guard", "react",
                                                                       "followup", "move", "anchor", "dialogue", "coach_stage",
-                                                                      "close_reason", "missing_points", "sec", "error")}})
+                                                                      "close_reason", "missing_points", "sec", "error",
+                                                                      "guard_reason", "claim")},
+                             "grounds": [{"role": g.get("role"), "slide_no": g.get("slide_no"), "text": (g.get("text") or "")[:120]}
+                                         for g in (d.get("grounds") or []) if isinstance(g, dict)]})
         f = out_dir / f"{deck}-r{args.rep}.jsonl"
         f.write_text("\n".join(json.dumps(x, ensure_ascii=False) for x in rows) + "\n", encoding="utf-8")
         return deck, len(rows)
