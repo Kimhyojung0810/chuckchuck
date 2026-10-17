@@ -18,8 +18,6 @@ export function Lights({ coveRef }) {
     o.position.set(x, 1.5, z)
     return o
   }), [])
-  // 안개 없음 — 사진 환경(Environment)이 먼 곳을 맡는다. 안개는 사진 앞 삐약이 · 유리만 흐리게 만들었다
-  if (scene.fog) scene.fog = null
 
   useFrame((_, dt) => {
     const L = LIGHT[rig.at]
@@ -31,7 +29,8 @@ export function Lights({ coveRef }) {
     for (let k = 0; k < 4; k++) easing.damp(cur.k, k, k === 0 ? 1 : 0, st, dt)   // 시점 고정 — 비추는 건 언제나 정면 벽, 단계마다 색 · 세기만
     // 움직이는 동안(rig.motion → 1)은 공간이 조금 밝아져 곡선 전체가 보이고, 멈추면 가라앉아 지금 창에 집중한다
     const focus = 0.72 + 0.28 * rig.motion
-    if (amb.current) { amb.current.intensity = cur.amb * 0.9 * focus; amb.current.color.copy(cur.color) }
+    if (amb.current) { amb.current.intensity = cur.amb * 0.22 * focus;   // 강연장(Hall)은 실내 반사광이 밝힌다 — 센 주변광은 의자를 하얗게 날렸다
+      amb.current.color.copy(cur.color) }
     spots.current.forEach((s, k) => {
       if (!s) return
       s.color.copy(cur.color)
@@ -46,7 +45,7 @@ export function Lights({ coveRef }) {
   return (
     <>
       <ambientLight ref={amb} intensity={0.5} />
-      <hemisphereLight args={['#FFFFFF', '#D8D8DE', 1.4]} />
+      <hemisphereLight args={['#FFFFFF', '#B8B0A6', 0.6]} />
       {[0, 1, 2, 3].map((k) => {
         const [x, z] = toward(stationAngle(k), 2.4)
         return (

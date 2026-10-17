@@ -3,7 +3,7 @@
 import { useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
-import { DIST, EYE, SPACING, HIDE_DOM, deg, toward } from '../config.js'
+import { DIST, EYE, SPACING, HIDE_DOM, deg, toward, easeInOutSine } from '../config.js'
 import { rig } from '../rig.js'
 import { GlassPanel } from './Glass.jsx'
 import { StationSet } from './Sets.jsx'
@@ -30,21 +30,30 @@ export function Station({ k, active, panels, portal, W, H, L }) {
   const setRef = useRef()
 
   useFrame(() => {
-    const rel = k - rig.f
+    let rel = k - rig.f
+    // 단계 전환(제자리 페이드, CameraRig) — 떠나는 창은 정면에서 살짝 물러나며 흐려지고, 오는 창은 살짝 앞에서 자리로 내려앉는다
+    let fade = 1, push = 0
+    const fd = rig.fade
+    if (fd) {
+      const out = easeInOutSine(Math.min(1, fd.p / 0.6))
+      const inn = easeInOutSine(Math.max(0, (fd.p - 0.3) / 0.7))
+      if (k === fd.from) { rel = 0; fade = 1 - out; push = -0.12 * out }
+      else if (k === fd.to) { fade = inn; push = 0.06 * (1 - inn) }
+      else fade = inn
+    }
     const ang = rel * SPACING
-    // 이동 중에는 곡선 전체가 뒤로 물러나고 작아진다(줌 아웃), 멈추면 지금 창이 정면 1:1 로 다가온다(집중)
     const m = rig.motion
-    const [x, z] = toward(ang, DIST + 1.1 * m)
+    const [x, z] = toward(ang, DIST + 0.5 * m - push)
     const g = group.current
     if (g) {
-      g.position.set(x, EYE + 0.06 * m, z)
+      g.position.set(x, EYE, z)
       g.rotation.set(0, -deg(ang), 0)
-      g.scale.setScalar((1 - 0.1 * Math.min(1, Math.abs(rel))) * (1 - 0.06 * m))
+      g.scale.setScalar((1 - 0.1 * Math.min(1, Math.abs(rel))) * (1 - 0.03 * m))
     }
     // 세트는 제 창이 정면 가까이 올 때만 — 이웃 정거장의 소품 · 삐약이가 화면 가장자리에 몰려 어수선했다
-    if (setRef.current) setRef.current.visible = Math.abs(rel) < 0.7
+    if (setRef.current) setRef.current.visible = Math.abs(rel) < 0.7 && fade > 0.5
     const off = Math.abs(ang)
-    op.current = (1 - 0.55 * Math.min(1, Math.abs(rel))) * (1 - smoothstep(HIDE_DOM - 22, HIDE_DOM, off))
+    op.current = fade * (1 - 0.55 * Math.min(1, Math.abs(rel))) * (1 - smoothstep(HIDE_DOM - 22, HIDE_DOM, off))
     // 지금 정거장의 표지는 실제 앱이 덮는 동안 감춘다 — v3 앱 문서는 바탕이 투명이라 표지 글자가 비쳤다
     const live = active && rig.settled && !rig.dragging
     htmlRefs.current.forEach((el, i) => {

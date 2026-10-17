@@ -4,8 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { STATIONS, FOV, FOV_PHONE, EYE } from './config.js'
 import { rig } from './rig.js'
-import { Environment } from './scene/Environment.jsx'
-import { Audience } from './scene/Audience.jsx'
+import { Hall } from './scene/Hall.jsx'
 import { Lights } from './scene/Lights.jsx'
 import { CameraRig } from './scene/CameraRig.jsx'
 import { GlassPass } from './scene/Glass.jsx'
@@ -135,8 +134,8 @@ export default function App() {
     <div className="sx-root ds-root" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
       <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.0 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
-        <color attach="background" args={['#F3F3F6']} />
-        <Scene stations={stations} at={at} small={vp.phone} readLevel={readAppLevel} portal={htmlLayer} W={W} H={H} Ls={Ls} />
+        <color attach="background" args={['#EEEAE4']} />
+        <Scene stations={stations} at={at} readLevel={readAppLevel} portal={htmlLayer} W={W} H={H} Ls={Ls} />
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} onFit={onFit} />
@@ -168,14 +167,13 @@ export default function App() {
   )
 }
 
-function Scene({ stations, at, small, readLevel, portal, W, H, Ls }) {
+function Scene({ stations, at, readLevel, portal, W, H, Ls }) {
   const coveRef = useRef([])
   return (
     <>
       <CameraRig />
       <Lights coveRef={coveRef} />
-      <Environment small={small} />
-      <Audience readLevel={readLevel} />
+      <Hall readLevel={readLevel} />
       <GlassPass />
       {stations.map((panels, k) => (
         <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={Ls[k].app.w} H={Ls[k].app.h} L={Ls[k]} />

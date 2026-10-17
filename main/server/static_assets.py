@@ -57,7 +57,6 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
     | js/vendor/(?:{_NAME}/)?{_NAME}\.(?:m?js|wasm|xml)
     | js/vendor/mediapipe/(?:wasm/)?{_NAME}\.(?:m?js|wasm|task)
     | assets/{_NAME}\.(?:png|svg|ico|webp)
-    | assets/env/{_NAME}\.webp
     | assets/fonts/{_NAME}\.woff2
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
     | sdk/{_NAME}\.m?js
@@ -65,7 +64,6 @@ _PUBLIC_PATH = re.compile(rf"""^/(?:
 )$""", re.X)
 #: ↑ 마지막 줄은 부스 모바일 /hi · #/tour (2026-10-11, docs/booth-mobile/) — 팀 카드 · 녹화 투어 · 팀 사진. 다른 data/*.json 은 그대로 팀 전용.
 #:   intro_stage.html · data/hi_stage/*.json 은 /hi/stage 시안 A(2026-10-13) — 사람 그래프 움직임 좌표.
-#:   assets/env/*.webp 는 /VRShow 사진 환경 (2026-10-17, Poly Haven CC0 — etc/scripts/make_studio_env.py).
 #:   studio.html 은 /VRShow 가상 발표 스튜디오 본체 (2026-10-15 사용자 「도메인에 합치자 — /VRShow」 · 공개로 결정, 원래 팀 전용 /studio).
 #:   intro.html 은 /hi 랜딩 본체 (브리지가 /hi · /hi/<id> 에서 이 파일을 그대로 준다 — bridge.standalone_page_for).
 #:   js/vendor/mediapipe/ 는 부스 스캔 화면(/booth/scan)의 MediaPipe 런타임·모델 (etc/scripts/get_mediapipe.sh 로 받는다, git 밖) —
@@ -81,7 +79,6 @@ _TEAM_PATH = re.compile(rf"^/(?:data/{_NAME}\.json|assets/samples/{_NAME}\.pdf|b
 #: 바뀐 판은 60초 안에 퍼지고(뒤에서 새로 받는다), 급하면 Cloudflare 에서 그 주소만 Purge. JSON 은 Cloudflare 가 기본으로 저장하지
 #: 않아서 캐시 규칙이 있어야 쓰인다 (docs/booth-mobile/DEPLOY.md). 팀 전용 data/*.json 은 여기에 없다 — 늘 private, no-store.
 EDGE_SHORT_PATH = re.compile(rf"""^/(?:
-      assets/env/{_NAME}\.webp |
       data/team\.json | data/tour/{_TOUR}\.json | assets/team/{_NAME}\.(?:webp|png|jpg)
     | assets/deck-covers/{_NAME}\.webp | assets/deck-slides/{_NAME}/{_NAME}\.webp
 )$""", re.X)
