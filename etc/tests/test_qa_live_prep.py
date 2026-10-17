@@ -328,3 +328,15 @@ def test_바로_앞_질문과_같은_장의_후보는_다른_장이_있으면_�
                             {"uid": "v2", "question": "설계가 결론을 받치나요?", "slide_no": 2, "node_id": "design", "peer": 0}], [], [], 0)
     FE.choose_next(pool, vr, asked, llm=llms["solar4"], pick_wait=0)
     assert seen and all(int(o.get("slide_no") or 0) != 4 for o in seen)
+
+
+
+def test_깨진_정합을_실어도_발표_중_준비는_멈추지_않는다(monkeypatch):
+    monkeypatch.setenv("QA_ENSEMBLE", "1")
+    graph, sd = deck()
+    store = SessionStore()
+    L = _listener(store, graph, sd, {"solar4": FakeGen("solar4")})
+    for n in (1, 2, 3, 4):
+        L.put("S", "tCCCC3333", slide_no=n, text=SAID[n], closed=True)
+    L.put("S", "tCCCC3333", final=True, alignment={"items": "깨진 모양"})
+    assert L.candidates("S", "tCCCC3333")

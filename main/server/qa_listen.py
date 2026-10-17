@@ -151,7 +151,10 @@ class Listener:
                     return done
                 t = LiveTalk.from_dict(raw)
                 al = raw.get("alignment")
-                al = AlignmentDoc.from_dict(al) if isinstance(al, dict) else None
+                try:
+                    al = AlignmentDoc.from_dict(al) if isinstance(al, dict) else None
+                except Exception:  # noqa: BLE001 — 브라우저가 실은 정합 모양이 깨졌으면 정합 없이(글자 수 어림) — 라운드는 계속
+                    al = None
                 sigs = new_signals(t, deck.graph, deck.slides, deck.lines, al)[:SIGS_PER_ROUND]
                 if not sigs or (len(sigs) < MIN_SIGS and not t.final):
                     return done
