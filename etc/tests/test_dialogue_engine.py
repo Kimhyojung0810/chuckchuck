@@ -199,3 +199,87 @@ def test_자료_줄을_대신_말하면_누설이다():
     bad = DLG.check_turn("「높은 온도에서만」이라고 했죠. 자료는 충전 속도와 온도만 바꾸고 나머지 조건은 모두 묶었다고 해요.",
                          "자료 2장은 어떻게 말해요?", t)
     assert "deck_leak" in bad
+
+
+# ─── 10-17 tune: 판정 가드가 못 잡은 어긋남 ─────────────────────────────────────────────────
+
+PREMISE = "실험실에서 한 거라서 오히려 실사용에서 더 크게 깎여요."
+CONFLICT_TALK = {"idea": "", "vague": "", "conflict": "실사용에서 더 크게 깎여요", "conflict_slide": 2, "disagree": "",
+                 "recite": False, "unknown": False, "skipped": "", "move": "challenge", "anchor": "실사용에서 더 크게 깎여요",
+                 "react": "「실사용에서 더 크게 깎여요」라고 했죠. 자료 2장과 방향이 달라요.", "ask": "자료 2장은 실사용을 어떻게 말해요?"}
+
+
+def test_읽기_콜이_어긋남을_찾으면_판정이_good_이어도_짚고_통과를_막는다():
+    t = ti(answer=PREMISE)
+    talk = DLG.dialogue_talk(t, llm=TalkLLM(CONFLICT_TALK))
+    out = DLG.apply(judged(verdict="good", score=85, react="", followup=""), t, talk, respeak=False)
+    assert out.move == "challenge" and out.dialogue["read_conflict_cap"] is True
+    assert out.verdict == "partial" and out.score <= DLG.READ_CONFLICT_SCORE_MAX and not out.passed and not out.mastered
+    assert out.guard == "read_conflict" and out.followup.endswith("?")          # 닫지 않고 견주게 묻는다
+
+
+def test_수를_challenge_로_골랐는데_어긋난_구절을_idea_칸에_두면_conflict_로_읽는다():
+    t = ti(answer=PREMISE)
+    talk = DLG.dialogue_talk(t, llm=TalkLLM({**CONFLICT_TALK, "conflict": "", "idea": "실사용에서 더 크게 깎여요"}))
+    assert talk.read["conflict"] == "실사용에서 더 크게 깎여요" and talk.read.get("conflict_from_move")
+    assert DLG.policy("wrong", "", talk.read) == "challenge"
+
+
+def test_어긋남_신호가_없으면_good_판정은_그대로_닫힌다():
+    t = ti()
+    talk = DLG.dialogue_talk(t, llm=TalkLLM({**GOOD_TALK, "vague": "", "idea": "실험실에서 한 거라서", "skipped": "",
+                                             "move": "deepen", "anchor": "실험실에서 한 거라서",
+                                             "react": "「실험실에서 한 거라서」라고 했죠. 조건과 결론을 이었어요."}))
+    out = DLG.apply(judged(verdict="good", score=85), t, talk, respeak=False)
+    assert out.verdict == "good" and out.mastered and not out.dialogue["read_conflict_cap"]
+
+
+def test_판정과_상관없는_검사에_걸리면_판정을_기다리지_않고_미리_다시_말한다(monkeypatch):
+    long_react = "「상황마다 좀 다를 것」이라고 했죠. 그 말이 실험실의 가속 조건과 실제 사용자의 충전 조건 차이를 어떻게 설명하는지는 아직 빠졌어요."
+    llm = TalkLLM({**GOOD_TALK, "react": long_react},
+                  respeak={"react": "「상황마다 좀 다를 것」이라고 했죠. 기준이 아직 흐려요.", "ask": "어떤 조건에서 그렇다는 말이에요?"})
+    monkeypatch.setattr(DLG, "_llm", lambda name=None: llm)
+    t = ti()
+    talk = DLG._talk_with(t, "fake")
+    assert talk.early is not None and talk.early[0] == "clarify"           # 판정 전에 이미 띄웠다
+    out = DLG.apply(judged(), t, [talk])
+    assert out.dialogue["source"] == "respeak" and out.dialogue["respeak_early"] is True
+    assert sum("이미 정해졌다" in s for s in llm.systems) == 1               # 다시 말하기는 한 번만
+
+
+def test_challenge_반응이_자료_내용을_먼저_말하면_다시_말하게_한다():
+    assert DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.")
+    assert not DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 그 말과 부딪혀요.")
+    assert not DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 그걸 어떻게 말해요?")
+    assert DLG.quote_problem("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.", "회전율은 정상관이에요", "challenge") == ["deck_claim"]
+    assert DLG.quote_problem("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.", "회전율은 정상관이에요", "connect") == []
+
+
+def test_가벼운_판정은_엔진이_켜진_판정에만_react_followup_을_비우라고_한다(monkeypatch):
+    from pipeline import f09_judge as J
+    seen = []
+
+    class Rec(LLMProvider):
+        name = "rec"
+
+        def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+            seen.append(system)
+            return json.dumps({"verdict": "partial", "score": 60, "react": "", "summary_sentence": "s", "missing_points": [],
+                               "followup": "", "claim": "", "grounds": []}, ensure_ascii=False)
+
+    J.clear_judge_cache()
+    judge_answer(q(), ANSWER, llm=Rec(), dialogue=False)                      # 엔진 끔 — 예전 출력 그대로
+    assert "출력 줄이기" not in seen[-1]
+    assert J.judge_lean_on()
+    monkeypatch.setenv("QA_JUDGE_LEAN", "0")
+    assert not J.judge_lean_on()
+
+
+def test_판정이_근거_줄에_어긋남을_달면_읽기_콜이_없어도_challenge():
+    from pipeline.contracts import JudgeGround
+    t = ti(answer=PREMISE)
+    j = judged(verdict="wrong", score=30, grounds=[JudgeGround(slide_no=2, quote="실사용 열화는 더 느리다", role="conflict", note="n")])
+    out = DLG.apply(j, t, DLG.TalkResult(error="429"), respeak=False)
+    assert out.move == "challenge" and out.dialogue["read"].get("judge_conflict") is True
+    ok = DLG.apply(judged(verdict="wrong", score=30), t, DLG.TalkResult(error="429"), respeak=False)
+    assert ok.move != "challenge"

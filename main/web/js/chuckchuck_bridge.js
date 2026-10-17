@@ -1021,9 +1021,23 @@ export async function judgeQaAnswer(sessionId, { onWait = null, stillWanted = nu
   }
 }
 
-async function judgeOnce(sessionId, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown, artifacts }) {
+/**
+ * 미리 판정 (2026-10-17 tune · 브리지 server/qa_spec.py) — judgeQaAnswer 와 **같은 본문**에 speculative 를 실어 보낸다. 브리지는 판정만
+ * 뒤에서 돌리고 202 를 바로 준다 · 기록은 남기지 않는다. 진짜 보내기가 같은 본문이면 그 판정을 받아 쓴다. 실패해도 조용히 false.
+ */
+export async function prejudgeQaAnswer(sessionId, req) {
   const sid = sessionId || 'flat';
-  const body = {
+  try {
+    await qaApi(`/api/v1/sessions/${sid}/qa/judge`, { method: 'POST', json: { ...judgeBody(sid, req), speculative: true }, timeoutMs: 8000 });
+    return true;
+  } catch (err) {
+    console.info('[chuckchuck] 미리 판정 건너뜀', err && (err.code || err.message));
+    return false;
+  }
+}
+
+function judgeBody(sid, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown }) {
+  return {
     session_id: sid,
     question_id: questionId,
     answer,
@@ -1037,6 +1051,12 @@ async function judgeOnce(sessionId, { questionId, answer, history, question, giv
     hints_shown: hintsShown || [],
     qa_run_id: qaRunId(sid),
   };
+}
+
+async function judgeOnce(sessionId, req) {
+  const sid = sessionId || 'flat';
+  const { artifacts } = req;
+  const body = judgeBody(sid, req);
   const path = `/api/v1/sessions/${sid}/qa/judge`;
   try {
     return await qaApi(path, { method: 'POST', json: body, timeoutMs: JUDGE_TIMEOUT_MS });
@@ -1250,6 +1270,7 @@ window.ChuckchuckBridge = {
   setQaApiBase,
   buildQuestions,
   judgeQaAnswer,
+  prejudgeQaAnswer,
   reframeQaQuestion,
   ensembleNextQuestion,
   registerSessionArtifacts,

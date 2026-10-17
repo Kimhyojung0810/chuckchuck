@@ -119,7 +119,21 @@
 `dialogue`(읽기 신호 · 출처 llm/respeak/template/judge/guard · judge_sec · sec_after_judge) · `close_reason` 에 `explained`(갇힘 출구)가 더해졌다.
 `closed=true` 면 질문을 닫는다(`mastered`) — 셋째 답 · 둘째 「모르겠어요」, `coach_stage="explain"` · `explanation` 에 근거 장 해설.
 
-## 8. 발표를 들으며 준비 (2026-10-17, `feat/qa-live-1017` · 실측 `docs/qa-ensemble/LIVE_REPORT.md`)
+## 8. 기준 미달 3가지 손질 (10-17 tune · `feat/qa-tune-1017`, 보고 `docs/qa-ensemble/TUNE_REPORT.md`)
+
+- **미리 판정** — `POST /api/v1/sessions/{sid}/qa/judge` 본문에 `"speculative": true` 를 실으면 202 `{speculative, started}` 를 바로 주고
+  판정(`judge_answer`)만 뒤에서 돈다(`server/qa_spec.py`, 열쇠 = 판정 재료 전부의 지문, 60초 보관). 같은 본문의 진짜 요청은 그 판정을
+  받아 쓰고 응답에 `speculative_hit`(미리 보낸 뒤 지난 초)을 싣는다. 기록(qa_turns) · 대화 상태는 진짜 요청만 남긴다. 끄기 `QA_SPEC=0`.
+  브라우저: `ChuckchuckBridge.prejudgeQaAnswer(sid, req)` (judgeQaAnswer 와 같은 req) · `qa_live.js liveSpeculate(answer)`.
+- **턴 시각 · 말 끝 판단** — `js/qa_turn.js` `window.QaTurn` (설정 · 어미 판단 · 턴 시각). 화면 주소 쿼리 `qa_turn=fast` · `qa_eot=fixed|ending` ·
+  `qa_silence_ms` · `qa_send_ms` · `qa_final_ms` · `qa_soft_ms` · `qa_cont_ms` · `qa_spec=off|quiet|final`. 브리지가 /booth/call 등을 해시로
+  돌려보낼 때 `qa_*` 쿼리만 실어 간다. 턴 기록은 `window.__qaTurns` · 콘솔 `[qa-turn] {…}` (서버로 안 보낸다).
+- **판정 가드 `read_conflict`** — 읽기 콜(F-09-talk)이 답에서 자료와 어긋난 구절을 찾았는데 판정이 통과였으면 `partial` · 60 상한 ·
+  `guard="read_conflict"` 로 내리고 challenge 로 견주게 묻는다(`dialogue.read_conflict_cap=true`).
+- **「모르겠어요」 1단 보기** — `choices` 는 핵심 논리 둘(이유 · 범위 한 마디, 32자 안, 숫자로 갈리지 않음). 못 세우면 `choices=[]` 에
+  근거 장의 이유를 떠올리게 하는 되물음. 끄기(예전 낱말 보기) `QA_NARROW_LOGIC=0`.
+
+## 9. 발표를 들으며 준비 (2026-10-17, `feat/qa-live-1017` · 실측 `docs/qa-ensemble/LIVE_REPORT.md`)
 
 1·2번은 그대로 **자료 묶음**(pick_opening). 아래는 3번+ 재료와 「발표 끝 → 1번」 지연만 바꾼다.
 
