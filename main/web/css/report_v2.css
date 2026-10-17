@@ -369,6 +369,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .hm-grid { display: grid; gap: var(--gap); }
 .rv2 .hm-main, .rv2 .hm-side, .rv2 .hm-rest { display: grid; gap: var(--gap); align-content: start; min-width: 0; }
 .rv2 .hm-rest .hm-sec { margin-top: var(--gap); }
+.rv2 .hm-main > .nv-group + .nv-group, .rv2 .hm-side > .nv-group + .nv-group, .rv2 .hm-rest > .nv-group + .nv-group { margin-top: 0; }
 @media (min-width: 1024px) {
   .rv2 .nv-screen.is-home { --col: 1040px; }
   .rv2 .hm-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-areas: 'main side' 'rest side'; gap: var(--gap) 20px; align-items: start; }

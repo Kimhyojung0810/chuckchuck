@@ -63,6 +63,7 @@
     check: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.3 3 3 6-6.6" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     q: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.8 5.9a2.3 2.3 0 1 1 3.3 2.1c-.7.3-1.1.9-1.1 1.6v.4M8 12.2v.1" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>',
     bang: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5v5.3M8 11.9v.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>',
+    cam: '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="5" width="11" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="m13.5 9 4-2.3v6.6l-4-2.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
     doc: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 2.8h5.5L15.5 7v9.2A1.3 1.3 0 0 1 14.2 17.5H6a1.3 1.3 0 0 1-1.3-1.3V4.1A1.3 1.3 0 0 1 6 2.8Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="M11 3v4.5h4.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>',
   };
   /** 옛 리포트 분석 탭 (app.js R_TAB_VIEWS 순서 그대로) */
@@ -323,7 +324,7 @@
       try { h = BR.headline(D.behavior); } catch (_) { return ''; }
       if (!h || h.status === 'none') return '';   // D5 — 카메라 분석이 없으면 줄 자체를 숨긴다
       const line = h.status === 'ok' ? h.oneLine : `이번엔 잴 수 없었어요 — ${h.oneLine}`;
-      return `<div class="nv-group hm-beh"><button type="button" class="nv-row" data-push="attitude"><span class="nv-ico i-gray">${I.people}</span>
+      return `<div class="nv-group hm-beh"><button type="button" class="nv-row" data-push="attitude"><span class="nv-ico i-gray">${I.cam}</span>
         <span class="nv-row-main"><span class="hm-beta">베타 · 총점에 안 들어가요</span><b>발표 태도</b><small>${esc(line)}</small></span><i class="nv-chev">${I.chev}</i></button></div>`;
     }
     function home() {
@@ -421,7 +422,7 @@
       const BR = window.BehaviorReport;
       const banner = '<div class="nv-callout hm-betabanner"><b>시험 기능(베타)</b><p>총점에 안 들어가요. 카메라 각도와 조명에 따라 달라져요.</p></div>';
       if (!BR || !D.behavior || typeof BR.rv2Screen !== 'function') {
-        return { title: '발표 태도', short: '발표 태도', html: `${banner}<div class="rq-empty"><span class="nv-ico i-gray">${I.people}</span><div><b>카메라를 켜고 발표하면 시선과 자세를 볼 수 있어요</b><p>영상은 이 기기 안에서만 분석해요.</p></div></div>` };
+        return { title: '발표 태도', short: '발표 태도', html: `${banner}<div class="rq-empty"><span class="nv-ico i-gray">${I.cam}</span><div><b>카메라를 켜고 발표하면 시선과 자세를 볼 수 있어요</b><p>영상은 이 기기 안에서만 분석해요.</p></div></div>` };
       }
       let sc = null;
       try { sc = BR.rv2Screen(D.behavior, { titles: (D.deck.slides || []).map((x) => x.title) }); } catch (_) { sc = null; }
