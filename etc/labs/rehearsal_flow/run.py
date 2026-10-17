@@ -911,6 +911,11 @@ def run(args) -> Path:
             # ── 1. 발표 고르기 ─────────────────────────────────────────────
             t0 = time.time()
             page.goto(f"{args.base}/rehearsal", wait_until="load")
+            if args.upload:
+                # 팀 브라우저(DEV_ROUTES)는 첫 화면이 시연 덱 고르기다 — 「내 자료 올리기」 화면(#/rehearsal/upload)으로 간다
+                page.wait_for_selector("#bqStage[data-flow='rehearsal'][data-screen='pick']", timeout=30000)
+                if not page.query_selector("#rhUpPick"):
+                    page.evaluate("location.hash = '#/rehearsal/upload'")
             page.wait_for_selector("#bqStage[data-flow='rehearsal'][data-screen='pick'] " + ("#rhUpPick" if args.upload else ".bq-deck[data-deck]"), timeout=30000)
             try:
                 page.wait_for_function("[...document.querySelectorAll('#bqStage .bq-cover canvas')].every(c => c.parentElement.classList.contains('ready'))", timeout=40000)
