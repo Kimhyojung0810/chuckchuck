@@ -21,12 +21,12 @@
     dtCapMs: 1000,          // 줄 사이가 이보다 길면(탭 숨김 · 멈춤) 이만큼만 센다 — 빈 시간을 어떤 상태로도 부풀리지 않게
     minDwellMs: 400,        // 새 방향이 이만큼 이어져야 바꾼다(히스테리시스) — 5fps 에서 두 장. Haar 의 한 장짜리 헛잡음을 거른다 (설계값 · 검증 전)
     fillMs: 800,            // 정면이 잠깐 끊긴 동안(이어 붙임 · 놓침)은 하던 방향을 그대로 든다 — Haar 는 멀쩡한 정면도 몇 장씩 놓친다 (booth_cv 실측)
-    awayHoldMs: 10000,      // 얼굴을 놓친 뒤 이만큼은 「자리에 있는데 다른 곳을 본다」 로 친다 — 돌아서서 화면을 보는 발표자를 자리 비움으로 세지 않게 (설계값)
-    awayMotion: 0.12,       // 얼굴이 없어도 화면 흐름 평균이 이 위면(80px 기준 화소/장) 사람이 있다고 본다 (설계값 · 검증 전)
+    awayHoldMs: 1500,       // 얼굴도 머리 추적(CamShift, 6초)도 끊긴 뒤 이만큼만 「다른 곳」, 넘으면 자리 비움 — 머리 추적이 돌아선 발표자를 잇는다 (실험실 absent_after 1초)
+    sideHoldMs: 1500,       // 옆얼굴을 본 뒤 머리만 따라가는 동안 그 옆을 든다 (실험실 side_hold_s)
+    baseEma: 0.05,          // 정면 기준선 갱신 속도 (실험실 참조 엔진)
     downEy: 0.47,           // 두 눈이 얼굴 상자 위에서 이 비율보다 아래면 「아래를 봄」 — 정면 모나리자 0.38 (노드 벤치 10-17). 설계값 · 검증 전
     yawEx: 0.09,            // 눈 가운데가 상자 가운데에서 얼굴 폭의 이만큼 넘게 비끼면 옆을 보는 중 — 정면 ±0.03 (노드 벤치). 설계값 · 검증 전
-    downShift: 0.22,        // 정면으로 잡힌 채 얼굴 가운데가 최근 10초 정면 기준선보다 얼굴 높이의 이만큼 아래면 「아래를 봄」 — 눈 검출은 재현율이 30~40% 라 눈에만 기대지 않는다 (근거조사 §2-2, 설계값 · 검증 전)
-    baseWinMs: 10000,
+    downShift: 0.22,        // 얼굴 가운데가 정면 기준선보다 얼굴 폭의 이만큼 아래면 「아래를 봄」 — 실험실 v2 pitch -35° 84% · -45° 90% (권고 5). 눈은 보조만(안경 · 짙은 톤에서 0%)
     downDrift: 0.25,        // 얼굴을 놓치기 직전 0.8초 동안 얼굴 높이의 이만큼 아래로 내려갔으면 그 뒤 놓친 시간은 「아래를 봄」 (설계값 · 검증 전)
     driftWinMs: 800,
     lostDownMaxMs: 6000,    // 위 「아래를 봄」 추정은 이만큼까지만 — 더 길면 방향을 모름(다른 곳)으로 둔다
@@ -34,22 +34,28 @@
     downSegMs: 2000,        // 아래를 본 구간 짚기 — 2초 넘게 (설계값 · 검증 전)
     // 흔들림: 얼굴 가운데 x(얼굴 폭 단위)의 0.3~1.5Hz 반복 성분. 자세 흔들림 연구가 보는 대역(서 있는 사람 몸 흔들림 ≈ 0.1~1Hz)에 걸음 · 체중 옮김을 더한 설계값
     swayLoHz: 0.3, swayHiHz: 1.5,
-    swayWinMs: 10000, swayStepMs: 5000, swayFs: 4,
-    swayAmp: 0.15,          // 대역 진폭이 얼굴 폭의 이만큼(≈ 2cm, 봉우리 간 0.3 폭) 넘으면 흔들림 창 — 근거조사 §1-4 권장(봉우리 간 0.1 폭)보다 높게 둔 건 Haar 상자 떨림(±0.03 폭) 때문 (설계값 · 검증 전)
-    swayShare: 0.5,         // 대역 힘이 전체(0.1Hz~)의 절반 넘을 때만 — 천천히 자리 옮김은 흔들림이 아니다
+    swayWinMs: 8000, swayStepMs: 2000, swayFs: 5,   // 8초 창 · 2초 걸음 — 실험실 참조 엔진(주파수 오차 중앙 0.005Hz). 1.5Hz 를 보려면 처리 5fps 유지
+    swayAmp: 0.12,          // 대역 진폭이 얼굴 폭의 이만큼(≈ 2cm, 봉우리 간 0.3 폭) 넘으면 흔들림 창 — 근거조사 §1-4 권장(봉우리 간 0.1 폭)보다 높게 둔 건 Haar 상자 떨림(±0.03 폭) 때문 (설계값 · 검증 전)
+    swayShare: 0.55,        // 대역 힘이 전체(0.05Hz~)의 이 몫 넘을 때만 — 천천히 자리 옮김은 흔들림이 아니다 (실험실 sway_ratio)
+    // 대역 아래쪽(0.3~0.42Hz)은 느린 이동(0.12Hz)이 끝날 때의 꺾임이 새어 들어오는 자리다 — 거기 봉우리면 대역 몫이 0.85 넘게 깨끗할 때만 (실험실 s07 오탐 10초 → 0)
+    swayPure: 0.85, swayLowF: 0.42,
     swayCover: 0.7,         // 창 안에 얼굴 자리가 이만큼 있어야 그 창을 잰다
     // 움직임 양 — 몸 영역에서 0.2초 사이 바뀐 점 비율(MEA). 노드 벤치: 가만히 0.01~0.04 · 흔들림 0.2. 3단계 경계는 설계값 · 검증 전
     // (근거조사 §1-5: 팀 녹화 백분위 P20/P80 으로 다시 정할 자리)
     moveLo: 0.05, moveHi: 0.15,
-    // 손짓 — 손 자리에서 몸통과 따로 움직인 점의 비율. 켜짐 0.05 · 꺼짐 0.025 (히스테리시스, 설계값 · 검증 전)
-    gestOn: 0.05, gestOff: 0.025,
+    // 손짓 — 손 크기 덩어리의 움직인 피부 넓이 / 얼굴 넓이(features gs). 최근 3장 중 2장 넘으면 켜짐 (실험실 gest_thr 0.035)
+    gestThr: 0.035,
+    gestOn: 0.05, gestOff: 0.025,   // 옛 줄(gs 없음, hl/hr/hf)용
+    slideGuardMs: 1000,     // 장 넘김 앞뒤 1초는 움직임 · 손짓에서 뺀다 (자료를 넘기는 손 · 몸 — 실험실 권고 6)
+    sceneSpike: 0.35,       // 화면 전체에서 바뀐 점이 이 몫 넘는 장(조명 · 카메라 흔들림 · 장면 바뀜)은 움직임 · 손짓에서 뺀다
     // ── 품질 게이트 ──
     minDurMs: 20000, minFrames: 40, minFps: 2.5,
     minPresence: 0.6,       // 얼굴(또는 사람)이 있는 시간이 이 아래면 방향 지표를 재지 않는다 (계획 §2)
     darkBr: 40,             // 평균 밝기 이 아래 줄은 어둡다 (계획 §2 「밝기 ≥ 40」)
     maxDark: 0.3,           // 어두운 줄이 이보다 많으면 못 잼
     blurMin: 15,            // 얼굴 라플라시안 분산 중앙값이 이 아래면 흐림 — 노드 벤치: 또렷 ≈ 340, 가우스 3.5px 흐림 ≈ 3.7 (설계값)
-    minFaceW: 0.10,         // 얼굴 폭 중앙값이 화면 폭의 이 비율 아래면 방향을 재지 않는다 (계획 §2)
+    minFaceW: 0.08,         // 얼굴 폭 중앙값이 화면 폭의 이 비율 아래면 「너무 멀어요」 — 엔진이 0.06 얼굴은 아예 못 찾았다 (실험실 d7, 권고 8)
+    backlit: 0.5,           // 얼굴 상자 밝기 / 화면 밝기가 이 아래면 역광 — 역광은 화면 평균 밝기로는 못 잡는다 (실험실 d5, 권고 8)
     minEyes: 0.1, lowEyes: 0.3,  // 정면 줄 중 두 눈이 잡힌 비율 — 0.1 아래면 「아래를 봄」 못 잼, 0.3 아래면 신뢰도 낮음
     minTrack: 0.7,          // 흔들림: 있는 시간 중 얼굴 자리가 있는 비율
     minBody: 0.5,           // 움직임 · 손짓: 있는 시간 중 몸 영역이 화면에 있는 비율
@@ -87,11 +93,8 @@
     if (row.src === 'C') return 'face';   // 캐스케이드 없는 예비 모드 — 얼굴 자리만 있고 방향은 모른다
     if (row.src === 'P') return row.side > 0 ? 'right' : 'left';
     if (row.src === 'T') return 'unknown';
-    if (row.eyes === 2 && Number.isFinite(row.ey)) {
-      if (row.ey > cfg.downEy) return 'down';
-      if (row.ex < -cfg.yawEx) return 'right';
-      if (row.ex > cfg.yawEx) return 'left';
-    }
+    // 정면 Haar(alt2)는 고개를 20~35° 돌려도 잡는다 — 이 범위는 Haar 로 가를 수 없어 「화면 쪽」 으로 둔다 (실험실 각도 곡선 · 권고 4).
+    // 그래서 눈 가운데 비낌(ex)으로 옆을 나누지 않는다. 아래는 states() 가 얼굴 가운데 하강으로 본다
     return 'front';
   }
 
@@ -104,32 +107,35 @@
   function states(rows, cfg = CFG) {
     const list = (rows || []).filter((r) => r && Number.isFinite(r.t)).slice().sort((a, b) => a.t - b.t);
     const out = [];
-    let lastDef = null; let lastDefAt = -Infinity;     // 마지막 확실한 방향 · 시각
-    let lastFaceAt = -Infinity; let lostMode = '';     // 놓친 구간의 해석 ('down' | 'away' | '')
+    let lastDef = null; let lastDefAt = -Infinity;     // 마지막 확실한 방향(정면 · 아래) · 시각
+    let lastSide = null; let lastSideAt = -Infinity;   // 마지막 옆얼굴 방향 — 놓친 뒤 sideHoldMs 동안 든다
+    let lastFaceAt = -Infinity; let lostMode = '';
     let lostStart = -Infinity;
-    const base = [];                                   // 최근 정면 줄의 얼굴 가운데 y (기준선)
+    let base = null;                                   // 정면 기준선 — 얼굴 가운데 y (지수 평균, 정면일 때만 천천히)
+    const fhs = [];                                    // 최근 정면 얼굴 높이 (= 정사각 Haar 상자의 폭)
     for (let i = 0; i < list.length; i += 1) {
       const row = list[i];
       const next = list[i + 1];
       const dt = next ? Math.min(cfg.dtCapMs, Math.max(0, next.t - row.t)) : Math.min(cfg.dtCapMs, out.length ? out[out.length - 1].dt : 200);
       let raw = rawDir(row, cfg);
       if (raw === 'face') { out.push({ t: row.t, dt, raw, state: 'face', row }); lastFaceAt = row.t; continue; }
-      while (base.length && row.t - base[0].t > cfg.baseWinMs) base.shift();
-      if (raw === 'front' && row.box) {
-        const ref = base.length >= 10 ? median(base.map((b) => b.cy)) : null;
-        if (ref !== null && (cyOf(row) - ref) / Math.max(0.01, row.box[3]) > cfg.downShift) raw = 'down';
-        else base.push({ t: row.t, cy: cyOf(row) });
+      // 숙임 = 얼굴 가운데가 정면 기준선보다 얼굴 폭의 downShift 넘게 내려감 (실험실 권고 5 — 주 신호). 눈은 보조
+      if (row.box && (row.src === 'F' || row.src === 'T')) {
+        if (row.src === 'F') { fhs.push(row.box[3]); if (fhs.length > 50) fhs.shift(); }
+        const fh = fhs.length ? median(fhs) : row.box[3];
+        const cy = cyOf(row);
+        const dy = base === null ? null : (cy - base) / Math.max(0.01, fh);
+        if (raw === 'front' && (dy === null || dy < cfg.downShift * 0.5)) base = base === null ? cy : (1 - cfg.baseEma) * base + cfg.baseEma * cy;
+        if (dy !== null && dy > cfg.downShift && (raw === 'front' || raw === 'unknown')) raw = 'down';
+        else if (raw === 'front' && row.eyes === 2 && row.ey > cfg.downEy && dy !== null && dy > cfg.downShift * 0.5) raw = 'down';
       }
-      if (raw === 'front' || raw === 'left' || raw === 'right' || raw === 'down') {
-        lastDef = raw; lastDefAt = row.t; lostMode = '';
-      }
+      if (raw === 'front' || raw === 'down') { lastDef = raw; lastDefAt = row.t; lostMode = ''; }
+      if (raw === 'left' || raw === 'right') { lastSide = raw; lastSideAt = row.t; lostMode = ''; }
       if (row.src) lastFaceAt = row.t;
       let s = raw;
       if (raw === 'unknown') {
-        // 이어 붙인 얼굴 — 잠깐이면 하던 방향, 아래로 내려갔으면 아래, 길면 다른 곳
-        const ref = findLastDetected(list, i);
-        const fall = ref && row.box && ref.box ? (cyOf(row) - cyOf(ref)) / Math.max(0.01, ref.box[3]) : 0;
-        if (fall > cfg.downDrift) s = 'down';
+        // 이어 붙인 머리 — 옆을 보다 놓쳤으면 그 옆, 잠깐이면 하던 방향, 길면 방향 모름(다른 곳)
+        if (lastSide && row.t - lastSideAt <= cfg.sideHoldMs) s = lastSide;
         else if (lastDef && row.t - lastDefAt <= cfg.fillMs) s = lastDef;
         else s = 'away';
       } else if (raw === 'none') {
@@ -137,11 +143,9 @@
           lostStart = row.t;
           lostMode = droppedDown(list, i, cfg) ? 'down' : 'away';
         }
-        const sinceFace = row.t - lastFaceAt;
-        const moving = Number(row.mv) > cfg.awayMotion;
         if (lastDef && row.t - lastDefAt <= cfg.fillMs) s = lastDef;
         else if (lostMode === 'down' && row.t - lostStart <= cfg.lostDownMaxMs) s = 'down';
-        else if (sinceFace <= cfg.awayHoldMs || moving) s = 'away';
+        else if (row.t - lastFaceAt <= cfg.awayHoldMs) s = 'away';
         else s = 'none';
       }
       out.push({ t: row.t, dt, raw, state: s, row });
@@ -228,44 +232,67 @@
   function bandOf(x, fs, lo, hi) {
     const n = x.length;
     if (n < 8) return null;
-    const mt = (n - 1) / 2; const mx = sum(x) / n;
-    let sxy = 0; let sxx = 0;
-    x.forEach((v, k) => { sxy += (k - mt) * (v - mx); sxx += (k - mt) ** 2; });
-    const slope = sxx ? sxy / sxx : 0;
-    const y = x.map((v, k) => v - mx - slope * (k - mt));
-    let band = 0; let total = 0;
+    // 2차 추세 빼기 — 천천히 자리 옮김(0.12Hz 같은)이 대역으로 새지 않게 (실험실 참조 엔진)
+    const u = x.map((_, k) => (k - (n - 1) / 2) / n);
+    const S = [0, 0, 0, 0, 0]; const T = [0, 0, 0];
+    u.forEach((v, k) => { for (let p = 0; p <= 4; p += 1) S[p] += v ** p; for (let p = 0; p <= 2; p += 1) T[p] += x[k] * v ** p; });
+    const A = [[S[0], S[1], S[2]], [S[1], S[2], S[3]], [S[2], S[3], S[4]]];
+    const det = (m) => m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    const D = det(A);
+    const c = [0, 1, 2].map((j) => (D ? det(A.map((row, r) => row.map((v, q) => (q === j ? T[r] : v)))) / D : 0));
+    const y = x.map((v, k) => v - (c[0] + c[1] * u[k] + c[2] * u[k] * u[k]));
+    // 한닝 창 — 창 끝의 잘림이 대역으로 새지 않게(느린 이동 0.12Hz 가 0.3Hz 칸으로 새어 흔들림으로 켜졌다, 실험실 s07 9.8초).
+    // 대역 몫 · 주파수는 한닝 스펙트럼으로, 진폭은 창 없는 Parseval 로 (한닝은 진폭을 줄인다)
+    const han = y.map((_, m) => 0.5 - 0.5 * Math.cos((2 * Math.PI * m) / (n - 1)));
+    const pw = (f, win) => {
+      let re = 0; let im = 0;
+      for (let m = 0; m < n; m += 1) { const v = win ? y[m] * han[m] : y[m]; const ang = (-2 * Math.PI * f * m) / fs; re += v * Math.cos(ang); im += v * Math.sin(ang); }
+      return (2 * (re * re + im * im)) / (n * n);   // 한쪽 스펙트럼 힘 (Parseval)
+    };
+    let band = 0; let bandW = 0; let totalW = 0;
+    const df = fs / (4 * n);   // 네 배 촘촘한 격자 (한닝 몫 · 주파수)
+    for (let f = df; f < fs / 2; f += df) {
+      if (f < 0.05) continue;
+      const p = pw(f, true);
+      totalW += p;
+      if (f >= lo && f <= hi) bandW += p;
+    }
     for (let k = 1; k < n / 2; k += 1) {
       const f = (k * fs) / n;
-      if (f < 0.1) continue;
-      let re = 0; let im = 0;
-      for (let m = 0; m < n; m += 1) { const a = (-2 * Math.PI * k * m) / n; re += y[m] * Math.cos(a); im += y[m] * Math.sin(a); }
-      const p = (2 * (re * re + im * im)) / (n * n);   // 한쪽 스펙트럼 힘 (Parseval)
-      total += p;
-      if (f >= lo && f <= hi) band += p;
+      if (f >= lo && f <= hi) band += pw(f, false);
     }
-    return { amp: Math.sqrt(2 * band), share: total > 0 ? band / total : 0 };
+    // 주파수 — 대역 안 0.02Hz 격자에서 가장 센 곳
+    let freq = null; let best = -1;
+    for (let f = lo; f <= hi + 1e-9; f += 0.02) { const p = pw(f, true); if (p > best) { best = p; freq = f; } }
+    return { amp: Math.sqrt(2 * band), share: totalW > 0 ? bandW / totalW : 0, freq: freq === null ? null : Math.round(freq * 100) / 100 };
   }
 
-  /** 흔들림 창들 — [{ start, end, amp, share, on, seg }]. 얼굴 폭 중앙값으로 나눠 거리에 상관없게 */
+  /**
+   * 흔들림 창들 — [{ start, end, amp, share, freq, on, seg }]. 얼굴 폭 중앙값으로 나눠 거리에 상관없게.
+   * **고개를 돌린 동안(옆 · 다른 곳 · 놓침)은 뺀다** — 옆얼굴 상자는 머리 가운데에서 비껴 있어 돌림이 흔들림으로 셌다(실험실 s02 오탐 14.8초).
+   * 진폭은 대역 거르기 손실로 15~20% 작게 나온다(실험실) — 화면엔 「대략」.
+   */
   function swayWindows(seq, cfg = CFG) {
-    const pts = seq.filter((x) => x.row.box).map((x) => ({ t: x.t, v: x.row.box[0] + x.row.box[2] / 2, w: x.row.box[2], seg: x.row.seg || '' }));
+    const okState = (x) => x.state === 'front' || x.state === 'face';
+    const pts = seq.filter((x) => x.row.box && okState(x)).map((x) => ({ t: x.t, v: x.row.box[0] + x.row.box[2] / 2, w: x.row.box[2], seg: x.row.seg || '' }));
     if (pts.length < 8) return [];
     const fw = median(pts.map((p) => p.w)) || 0.1;
     const P = pts.map((p) => ({ ...p, v: p.v / fw }));
     const t0 = seq[0].t; const tEnd = seq[seq.length - 1].t;
+    const fps = fpsOf(seq);
     const out = [];
     for (let a = t0; a + cfg.swayWinMs <= tEnd + 1; a += cfg.swayStepMs) {
       const b = a + cfg.swayWinMs;
       const inWin = P.filter((p) => p.t >= a && p.t < b);
-      const cover = inWin.length / Math.max(1, ((b - a) / 1000) * fpsOf(seq));
+      const cover = inWin.length / Math.max(1, ((b - a) / 1000) * fps);
       if (cover < cfg.swayCover || inWin.length < 8) continue;
-      const fs = Math.min(cfg.swayFs, fpsOf(seq));
+      const fs = Math.min(cfg.swayFs, Math.round(fps));
       const x = resample(inWin, a, b, fs);
       if (!x) continue;
-      const hi = Math.min(cfg.swayHiHz, 0.45 * fs);
+      const hi = Math.min(cfg.swayHiHz, 0.49 * fs);
       const r = bandOf(x, fs, cfg.swayLoHz, hi);
       if (!r) continue;
-      out.push({ start: a, end: b, amp: r.amp, share: r.share, on: r.amp >= cfg.swayAmp && r.share >= cfg.swayShare, seg: inWin[inWin.length >> 1].seg });   // 창 가운데의 장
+      out.push({ start: a, end: b, amp: r.amp, share: r.share, freq: r.freq, on: r.amp >= cfg.swayAmp && (r.share >= cfg.swayPure || (r.share >= cfg.swayShare && r.freq >= cfg.swayLowF)), seg: inWin[inWin.length >> 1].seg });   // 창 가운데의 장
     }
     return out;
   }
@@ -282,23 +309,39 @@
    * 줄마다 몸 움직임 — 프레임 차분(MEA) 몸 영역에서 바뀐 점 비율을 0.2초(5fps 한 장) 사이 몫으로 맞춘다.
    * 차분은 앞 줄과의 차이라서 3fps 로 느려지면 값이 커진다 — 간격으로 나눠 기기 속도와 상관없게 (근거조사 §7-4: 움직임 양은 MEA 가 주 신호)
    */
-  function bodySpeed(seq) {
+  function bodySpeed(seq, cfg = CFG) {
+    const ex = excluded(seq, cfg);
     const out = [];
     for (let i = 1; i < seq.length; i += 1) {
       const r = seq[i].row; const gap = (seq[i].t - seq[i - 1].t) / 1000;
-      if (!Number.isFinite(r.meb) || gap <= 0 || gap > 1.2) continue;
+      if (ex[i] || !Number.isFinite(r.meb) || gap <= 0 || gap > 1.2) continue;
       out.push({ i, v: Math.min(1, (r.meb * 0.2) / gap) });
     }
     return out;
   }
 
-  /** 손짓 켜짐/꺼짐 (히스테리시스) — 손 자리를 잴 수 있는 줄만 */
+  /** 움직임 · 손짓에서 뺄 줄 — 장 넘김 앞뒤 slideGuardMs, 화면 전체가 크게 바뀐 장(sceneSpike) */
+  function excluded(seq, cfg = CFG) {
+    const turns = [];
+    for (let i = 1; i < seq.length; i += 1) if ((seq[i].row.seg || '') !== (seq[i - 1].row.seg || '')) turns.push(seq[i].t);
+    return seq.map((x) => Number(x.row.mea) > cfg.sceneSpike || turns.some((t) => Math.abs(x.t - t) <= cfg.slideGuardMs));
+  }
+
+  /** 손짓 켜짐/꺼짐 — 손 자리를 잴 수 있는 줄만 (null = 못 잼). gs 가 있으면 최근 3장 중 2장, 옛 줄은 히스테리시스 */
   function gestureFlags(seq, cfg = CFG) {
+    const ex = excluded(seq, cfg);
     let on = false;
-    return seq.map((x) => {
+    const recent = [];
+    return seq.map((x, i) => {
       const r = x.row;
+      if (!x.present || ex[i]) return null;
+      if (Number.isFinite(r.gs)) {
+        recent.push(r.gs > cfg.gestThr);
+        if (recent.length > 3) recent.shift();
+        return recent.filter(Boolean).length >= 2;
+      }
       const vals = [r.hl, r.hr, r.hf].filter(Number.isFinite);
-      if (!x.present || !vals.length || !Number.isFinite(r.body)) return null;
+      if (!vals.length || !Number.isFinite(r.body)) return null;
       const g = Math.max(...vals);
       on = on ? g >= cfg.gestOff : g >= cfg.gestOn;
       return on;
@@ -325,7 +368,9 @@
       face: median(faceRows.map((x) => x.row.box[2])),
       eyes: frontRows.length ? frontRows.filter((x) => x.row.eyes === 2).length / frontRows.length : 0,
       track: presentRows.length ? presentRows.filter((x) => x.row.box).length / presentRows.length : 0,
-      body: presentRows.length ? presentRows.filter((x) => Number.isFinite(x.row.body)).length / presentRows.length : 0,
+      body: presentRows.length ? presentRows.filter((x) => Number.isFinite(x.row.body) || Number.isFinite(x.row.meb)).length / presentRows.length : 0,
+      // 역광 — 얼굴 상자 밝기 / 화면 밝기 (정면 · 옆얼굴 줄)
+      backlit: median(faceRows.filter((x) => Number.isFinite(x.row.fb) && Number(x.row.br) > 0).map((x) => x.row.fb / x.row.br)),
       msP50: median(ms), msP90: quant(ms, 0.9),
       noc: seq.length ? seq.filter((x) => x.row.mode === 'noc').length / seq.length : 0,
     };
@@ -344,7 +389,8 @@
       return '';
     }
     if (q.presence < cfg.minPresence) return '얼굴이 화면에 잡힌 시간이 짧았어요';
-    if (q.face !== null && q.face < cfg.minFaceW) return '얼굴이 화면에서 너무 작았어요 — 카메라에 조금 가까이 오면 잴 수 있어요';
+    if (q.face !== null && q.face < cfg.minFaceW) return '카메라에서 너무 멀어요 — 조금 가까이 오면 잴 수 있어요';
+    if (q.backlit !== null && q.backlit < cfg.backlit) return '뒤쪽이 밝아(역광) 얼굴이 어두웠어요 — 얼굴 앞쪽을 밝히면 잴 수 있어요';
     if (q.blur !== null && q.blur < cfg.blurMin) return '화면이 흐렸어요 — 카메라 렌즈를 닦거나 초점을 맞추면 잴 수 있어요';
     if (kind === 'down' && q.eyes < cfg.minEyes) return '눈 위치를 거의 못 찾았어요 — 안경 반사 · 앞머리 · 조명 때문일 수 있어요';
     if (kind === 'sway' && q.track < cfg.minTrack) return '얼굴 자리를 이어서 따라가지 못했어요';
@@ -371,11 +417,11 @@
   /** 낱말 · 제안 — 관찰만. 「좋아요/나빠요」 · 감정 낱말을 쓰지 않는다. look: 연습해 볼 만한 쪽이면 true */
   const WORDS = {
     // 「화면 쪽」 — Haar 는 카메라를 보는 것과 노트북 화면(자료)을 보는 것을 가르지 못한다. 눈 맞춤이라고 부르지 않는다 (근거조사 §0-2)
-    gaze: { label: '화면 쪽을 향한 시간', words: ['짧아요', '보통이에요', '길어요'], look: [true, false, false],
+    gaze: { label: '화면 쪽을 향한 시간', words: ['짧아요', '조금 짧아요', '충분해요'], look: [true, false, false],
       tip: '장을 넘길 때마다 한 문장은 카메라를 보며 말해 봐요.' },
     lookaway: { label: '3초 넘게 벗어난 구간', words: ['드물어요', '가끔 있어요', '잦아요'], look: [false, false, true],
       tip: '자료를 볼 때는 짧게 보고 다시 화면 쪽으로 돌아오는 연습을 해 봐요.' },
-    down: { label: '아래를 본 시간', words: ['짧아요', '보통이에요', '길어요'], look: [false, false, true],
+    down: { label: '아래를 본 시간', words: ['짧아요', '조금 길어요', '길어요'], look: [false, false, true],
       tip: '대본을 읽는 장이 있다면 첫 문장을 외워 고개를 든 채 시작해 봐요.' },
     sway: { label: '몸 좌우 흔들림', words: ['거의 없어요', '가끔 있어요', '자주 있어요'], look: [false, false, true],
       tip: '두 발을 어깨너비로 두고 무게를 양발에 나눠 서 봐요.' },
@@ -388,10 +434,10 @@
   };
 
   const BASIS = {
-    gaze: `${Math.round(CFG.gazeLo * 100)}% 아래 짧아요 · ${Math.round(CFG.gazeHi * 100)}% 넘으면 길어요 (설계값 · 검증 전)`,
+    gaze: `있는 시간 중 ${Math.round(CFG.gazeLo * 100)}% 아래 짧아요 · ${Math.round(CFG.gazeHi * 100)}% 넘으면 충분해요 (설계값 · 검증 전). 고개를 20~35° 돌린 정도는 「화면 쪽」 으로 세요 — 이 정도는 고전 얼굴 검출로 가를 수 없어요`,
     lookaway: `화면 쪽에서 ${CFG.lookAwayMs / 1000}초 넘게 눈을 뗀 구간을 1분에 몇 번 했나 — ${CFG.awayPerMinLo}번 아래 드물어요 · ${CFG.awayPerMinHi}번 넘으면 잦아요 (설계값 · 검증 전)`,
-    down: `있는 시간 중 ${Math.round(CFG.downLo * 100)}% 아래 짧아요 · ${Math.round(CFG.downHi * 100)}% 넘으면 길어요 (설계값 · 검증 전)`,
-    sway: `10초 창에서 얼굴이 ${CFG.swayLoHz}~${CFG.swayHiHz}Hz 로 얼굴 폭의 ${Math.round(CFG.swayAmp * 100)}% 넘게 오간 창의 비율 (설계값 · 검증 전)`,
+    down: `있는 시간 중 ${Math.round(CFG.downLo * 100)}% 아래 짧아요 · ${Math.round(CFG.downHi * 100)}% 넘으면 길어요 (설계값 · 검증 전). 얼굴이 평소 자리보다 얼굴 폭의 ${Math.round(CFG.downShift * 100)}% 넘게 내려가면 아래로 봐요`,
+    sway: `8초 창에서 얼굴이 ${CFG.swayLoHz}~${CFG.swayHiHz}Hz 로 얼굴 폭의 ${Math.round(CFG.swayAmp * 100)}% 넘게 오간 창의 비율 — 고개를 돌린 동안은 빼요. 진폭은 대략이에요(15~20% 작게 잴 수 있어요) (설계값 · 검증 전)`,
     movement: `몸 영역에서 0.2초 사이 바뀐 점이 ${Math.round(CFG.moveLo * 100)}% 아래면 적어요 · ${Math.round(CFG.moveHi * 100)}% 넘으면 많아요 — 많고 적음에 좋고 나쁨은 없어요 (설계값 · 검증 전)`,
     gesture: `있는 시간 중 손이 움직인 시간 ${Math.round(CFG.gestLo * 100)}% 아래 적어요 · ${Math.round(CFG.gestHi * 100)}% 넘으면 많아요 — 많을수록 좋다는 뜻이 아니에요 (설계값 · 검증 전)`,
     framing: `얼굴 폭이 화면의 ${Math.round(CFG.sizeLo * 100)}~${Math.round(CFG.sizeHi * 100)}% 면 알맞아요 (설계값)`,
@@ -414,7 +460,7 @@
     const left = ms('left'); const right = ms('right'); const away = ms('away');
     const look = runs(seq, (x) => x.present && x.state !== 'front' && x.state !== 'face', cfg.lookAwayMs);
     const downs = runs(seq, (x) => x.state === 'down', cfg.downSegMs);
-    const speeds = bodySpeed(seq).filter((s) => seq[s.i].present).map((s) => s.v);
+    const speeds = bodySpeed(seq, cfg).filter((s) => seq[s.i].present).map((s) => s.v);
     const flags = gestureFlags(seq, cfg);
     let gOn = 0; let gAll = 0; let spOn = 0; let spAll = 0; let siOn = 0; let siAll = 0; let spKnown = 0;
     seq.forEach((x, i) => {
@@ -472,12 +518,13 @@
 
   /* ─── 8. 근거 카드 ──────────────────────────────────────────────────────── */
 
-  const SIDE_WORD = { left: '왼쪽', right: '오른쪽', down: '아래', away: '다른 곳' };
+  // 왼쪽 · 오른쪽은 화면에 따로 쓰지 않는다 — 옆얼굴 검출이 약해 대부분 「방향 모름」 이라 가를 수 있는 때가 드물다 (실험실 권고 3). 안의 상태 이름은 실험실 채점용으로 둔다
+  const SIDE_WORD = { left: '다른 곳', right: '다른 곳', down: '아래', away: '다른 곳' };
 
   function mainDir(states) {
-    let best = ''; let bestMs = 0;
-    Object.entries(states || {}).forEach(([k, v]) => { if (k !== 'front' && v > bestMs) { best = k; bestMs = v; } });
-    return SIDE_WORD[best] || '다른 곳';
+    const ms = { 다른곳: 0, 아래: 0 };
+    Object.entries(states || {}).forEach(([k, v]) => { if (k === 'down') ms.아래 += v; else if (k !== 'front') ms.다른곳 += v; });
+    return ms.아래 > ms.다른곳 ? '아래' : '다른 곳';
   }
 
   function cards(res, cfg = CFG) {
@@ -705,7 +752,7 @@
     return { v: VERSION, phase, status: 'none', why: String(why || '카메라 분석이 없었어요'), metrics: {}, segs: [], cards: [] };
   }
 
-  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, confidence, measure, bySeg, cards, analyze, summaryOf, none, where };
+  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, confidence, measure, bySeg, cards, analyze, summaryOf, none, where };
   root.BehaviorCvLogic = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));

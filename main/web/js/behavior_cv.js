@@ -13,13 +13,13 @@
   if (!root.document) return;
 
   // ⚠️ 워커 · 워커가 다시 읽는 특징 파일의 ?v= 는 여기서 손으로 올린다 — etc/scripts/chk bump 는 index.html 만 본다 (CLAUDE.md §2)
-  const WORKER_SRC = 'js/behavior_cv_worker.js?v=bc2';
-  const FEATURES_SRC = 'js/behavior_cv_features.js?v=bc2';
+  const WORKER_SRC = 'js/behavior_cv_worker.js?v=bc3';
+  const FEATURES_SRC = 'js/behavior_cv_features.js?v=bc3';
   const CDN_CV = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.10.0-release.1/dist/opencv.js';
   const CDN_XML = 'https://cdn.jsdelivr.net/gh/opencv/opencv@4.10.0/data/haarcascades/';
   const OPENCV_SRCS = ['js/vendor/opencv.js', CDN_CV];
   const CASCADES = {
-    frontal: ['js/vendor/cv/haarcascade_frontalface_default.xml', `${CDN_XML}haarcascade_frontalface_default.xml`],
+    frontal: ['js/vendor/cv/haarcascade_frontalface_alt2.xml', `${CDN_XML}haarcascade_frontalface_alt2.xml`],   // alt2 — 정답 실험실 권고 1 (10-17)
     profile: ['js/vendor/cv/haarcascade_profileface.xml', `${CDN_XML}haarcascade_profileface.xml`],
     eye: ['js/vendor/cv/haarcascade_eye.xml', `${CDN_XML}haarcascade_eye.xml`],
   };

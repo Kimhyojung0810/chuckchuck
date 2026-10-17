@@ -46,9 +46,9 @@
         return { ...x.row, seg: 's' + (slideOf(f) + 1), _frame: f };
       });
       const seq = L.states(rows);
-      // 손짓 켜짐/꺼짐 — logic 의 gestureFlags 는 밖으로 안 나와 같은 규칙을 여기서 되풀이한다 (CFG.gestOn/gestOff)
+      // 손짓 켜짐/꺼짐 — 엔진이 gestureFlags 를 내놓으면(10-17 바퀴 2~) 그대로, 옛 엔진이면 같은 규칙을 여기서 되풀이한다
       let on = false;
-      const gflags = seq.map((x) => {
+      const gflags = L.gestureFlags ? L.gestureFlags(seq) : seq.map((x) => {
         const r = x.row; const vals = [r.hl, r.hr, r.hf].filter(Number.isFinite);
         if (!x.present || !vals.length || !Number.isFinite(r.body)) return null;
         const g = Math.max(...vals); on = on ? g >= L.CFG.gestOff : g >= L.CFG.gestOn; return on;
@@ -60,8 +60,8 @@
         return {
           frame: x.row._frame, orient: x.state, orient_raw: x.raw, present: x.present,
           sway: { active: inOn.length > 0, amp_fw: any.length ? Math.max(...any.map((w) => w.amp)) : null, freq: (inOn[0] || any[0] || {}).freq ?? null },
-          gesture: gflags[i] === true, motion: Number.isFinite(x.row.body) ? x.row.body : null, ms: x.row.ms,
-          raw: { src: x.row.src, side: x.row.side, box: x.row.box, eyes: x.row.eyes, ey: x.row.ey, ex: x.row.ex, br: x.row.br, bl: x.row.bl, hl: x.row.hl, hr: x.row.hr, hf: x.row.hf, body: x.row.body },
+          gesture: gflags[i] === true, motion: Number.isFinite(x.row.meb) ? x.row.meb : (Number.isFinite(x.row.body) ? x.row.body : null), ms: x.row.ms,
+          raw: { src: x.row.src, side: x.row.side, box: x.row.box, eyes: x.row.eyes, ey: x.row.ey, ex: x.row.ex, br: x.row.br, bl: x.row.bl, fb: x.row.fb, gs: x.row.gs, meb: x.row.meb, mea: x.row.mea, body: x.row.body, sw: x.row.sw, dead: x.row.dead },
         };
       });
       // 엔진 자체 집계 — 긴 이탈 구간(영상 초) · 장별 값
@@ -75,6 +75,8 @@
       }));
       return {
         rows: out, summary: { slides, lookaways, engine: view ? view.summary : null },
+        // 엔진 줄 그대로(장 표시 · 프레임 번호 포함) — logic 만 바꿨을 때 브라우저 없이 다시 채점하려고 (etc/labs/behavior_cv/replay_logic.mjs)
+        engine_rows: rows,
         engine_view: view ? { status: view.status, why: view.why, metrics: view.metrics, quality: view.quality, device: view.device } : null,
         adapter_note: `줄 ${out.length} · 바코드 못 풂 ${nClock} · 흔들림 창 ${sw.length}(켜짐 ${sw.filter((w) => w.on).length})`,
       };

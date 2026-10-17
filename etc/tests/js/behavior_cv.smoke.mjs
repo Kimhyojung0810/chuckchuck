@@ -46,8 +46,9 @@ function script(parts) {
 test('날 방향 — 옆얼굴 · 눈 위치 · 이어 붙임 · 없음 (발표자 기준 왼쪽 · 오른쪽)', () => {
   eq(L.rawDir({ src: 'P', side: 1 }), 'right', '코가 화면 왼쪽 = 발표자 오른쪽');
   eq(L.rawDir({ src: 'P', side: -1 }), 'left', '뒤집어 찾은 옆얼굴');
-  eq(L.rawDir(front(0, { ex: 0.15 })), 'left', '눈 가운데가 화면 오른쪽으로');
-  eq(L.rawDir(front(0, { ey: 0.55 })), 'down', '눈이 상자 아래쪽');
+  // 정면 Haar 는 20~35° 돌림까지 잡는다 — 눈 비낌으로 옆을 나누지 않는다(실험실 권고 4). 아래는 states() 가 얼굴 하강으로 본다
+  eq(L.rawDir(front(0, { ex: 0.15 })), 'front', '눈 가운데가 비껴도 정면');
+  eq(L.rawDir(front(0, { ey: 0.55 })), 'front', '눈 높이만으로는 아래가 아니다');
   eq(L.rawDir(front(0, { eyes: 0 })), 'front', '눈을 못 찾은 정면');
   eq(L.rawDir({ src: 'T' }), 'unknown', '이어 붙임');
   eq(L.rawDir(lost(0)), 'none', '없음');
@@ -75,7 +76,7 @@ test('4초 넘게 옆을 본 구간 → 장 · 초가 붙은 근거 카드 · �
   eq(r.metrics.lookaway.word, '잦아요', '1분에 3번 넘게');
   const c = r.cards.filter((x) => x.kind === 'lookaway');
   ok(c.length >= 2, '카드');
-  ok(/왼쪽/.test(c[0].observation), `방향: ${c[0].observation}`);
+  ok(/다른 곳/.test(c[0].observation) && !/왼쪽|오른쪽/.test(c[0].observation), `방향은 「다른 곳」 하나로: ${c[0].observation}`);
   ok(c[0].scene.where.endsWith('장') && c[0].scene.sec >= 9, `장면 ${JSON.stringify(c[0].scene)}`);
   ok(['관찰', 'observation'].some((k) => k in c[0]) && c[0].basis && c[0].conf && c[0].tip, '카드 여섯 칸');
   eq(r.first.kind, 'lookaway', '먼저 고칠 것');
@@ -134,7 +135,7 @@ test('어둡거나 흐리거나 짧으면 숫자 대신 까닭', () => {
   eq(L.analyze(script([[30, (t) => front(t, { br: 20 })]])).metrics.gaze.why.includes('어두'), true, '어두움');
   eq(L.analyze(script([[30, (t) => front(t, { bl: 4 })]])).metrics.gaze.why.includes('흐렸'), true, '흐림');
   eq(L.analyze(script([[12, front]])).status, 'unmeasured', '12초');
-  eq(L.analyze(script([[30, (t) => front(t, { box: [0.45, 0.3, 0.06, 0.08] })]])).metrics.gaze.why.includes('작았'), true, '작은 얼굴');
+  eq(L.analyze(script([[30, (t) => front(t, { box: [0.45, 0.3, 0.06, 0.08] })]])).metrics.gaze.why.includes('멀어요'), true, '작은 얼굴 → 너무 멀어요');
   eq(L.analyze([]).status, 'none', '빈 기록');
 });
 
@@ -148,6 +149,32 @@ test('흔들림 — 0.6Hz 좌우 반복은 잡고, 가만히 · 천천히 자리
   ok(Math.abs(a.metrics.sway.amp - 0.07 / 0.18) < 0.08, `진폭 ${a.metrics.sway.amp}`);
   eq(b.metrics.sway.value, 0, '가만히');
   eq(c.metrics.sway.value, 0, '천천히 옮김');
+});
+
+test('역광(얼굴이 화면보다 많이 어두움)이면 방향 지표는 까닭과 함께 빠진다', () => {
+  const r = L.analyze(script([[30, (t) => front(t, { br: 170, fb: 60 })]]));
+  ok(!r.metrics.gaze.ok && /역광/.test(r.metrics.gaze.why), r.metrics.gaze.why);
+});
+
+test('고개를 돌리는 동안의 얼굴 자리 움직임은 흔들림으로 세지 않는다', () => {
+  // 3초마다 옆으로 돌렸다 오기 — 옆얼굴 상자는 머리 가운데에서 비낀다
+  const turn = (t, k) => (Math.floor(k / 8) % 2 ? { ...front(t, { box: [0.48, 0.2, 0.18, 0.24] }), src: 'P', side: 1, eyes: 0 } : front(t));
+  const r = L.analyze(script([[60, turn]]));
+  eq(r.raw.sway.filter((w) => w.on).length, 0, '켜진 흔들림 창');
+  const a = L.analyze(script([[60, (t) => front(t, { box: [0.41 + 0.07 * Math.sin((2 * Math.PI * 0.6 * t) / 1000), 0.2, 0.18, 0.24] })]]));
+  ok(Math.abs(a.raw.sway.find((w) => w.on).freq - 0.6) <= 0.05, `주파수 ${a.raw.sway.find((w) => w.on).freq}`);
+});
+
+test('손짓(gs) — 3장 중 2장 · 장 넘김 앞뒤 1초 · 화면 전체가 바뀐 장은 뺀다', () => {
+  const rows = script([[10, (t, k) => front(t, { gs: k % 3 === 0 ? 0.08 : 0.0 }), 1], [10, (t) => front(t, { gs: 0.08 }), 2]]);
+  const seq = L.states(rows);
+  const f = L.gestureFlags(seq);
+  const at = (sec) => f[seq.findIndex((x) => x.t >= sec * 1000)];
+  eq(at(5), false, '3장 중 1장만 켜진 앞쪽');
+  eq(at(10), null, '장 넘김 바로 뒤');
+  eq(at(15), true, '뒤쪽');
+  const spike = L.states(script([[10, (t) => front(t, { gs: 0.08, mea: 0.6 })]]));
+  ok(L.gestureFlags(spike).every((v) => v === null), '화면 전체가 바뀐 장');
 });
 
 test('손짓 · 말소리 — 말할 때만 손이 움직이면 그렇게 쓴다 (많을수록 좋다고 안 쓴다)', () => {
