@@ -308,6 +308,56 @@ test('리포트 2.0 화면 — 흰 카드 꼴 · 방향 낱말 · 첫 화면에 
 
 /* 자기검사 — 히스테리시스를 빼면 「한 장짜리 헛잡음」 시험이 깨져야 한다 */
 const DWELL_LINE = 'if (seq[i].t - seq[candStart].t + seq[i].dt >= cfg.minDwellMs) {';
+/* ── 바퀴 5 (리포트 문장 검증 — etc/labs/rehearsal_flow/report_truth.mjs 가 정답 영상 실 흐름에서 찾은 것) ── */
+test('숙인 채 머리 추적이 끊겨도 얼굴이 돌아올 때까지 「아래」 — 11초 숙임이 아래 6초 + 다른 곳 · 자리 비움으로 쪼개지지 않는다', () => {
+  const downT = (t) => front(t, { src: 'T', box: [0.41, 0.33, 0.18, 0.24], eyes: 0 });   // 얼굴 가운데가 얼굴 폭 절반 넘게 내려간 머리 추적
+  const r = L.analyze(script([[10, front], [6, downT], [5, lost], [10, front]]));
+  const downs = r.raw.downs;
+  eq(downs.length, 1, `아래 구간 ${JSON.stringify(downs.map((d) => d.dur))}`);
+  ok(downs[0].dur >= 10500, `아래 ${downs[0].dur}ms`);
+  ok(r.quality.presence > 0.95, `자리 있음 ${r.quality.presence}`);
+  // 옆으로 움직이다 놓치면(걸어 나감) 들지 않는다
+  const walk = (t) => front(t, { src: 'T', box: [0.41 + 0.5 * ((t - 10000) / 1000), 0.33, 0.18, 0.24], eyes: 0 });
+  const w = L.analyze(script([[10, front], [1, walk], [10, lost], [10, front]]));
+  ok(w.raw.downs.every((d) => d.dur < 3000), `걸어 나감 아래 ${JSON.stringify(w.raw.downs.map((d) => d.dur))}`);
+});
+
+test('옆얼굴 사이 1초 남짓 정면 헛잡음은 옆으로 — 3초 넘는 이탈이 조각나지 않는다', () => {
+  const side = (t) => front(t, { src: 'P', side: 1 });
+  const r = L.analyze(script([[10, front], [2.4, side], [0.8, front], [2.4, side], [10, front]]));
+  eq(r.metrics.lookaway.n, 1, '이탈 하나');
+  ok(r.raw.look[0].dur >= 5000, `이탈 ${r.raw.look[0].dur}`);
+  // 정면이 오래(2초) 끼면 따로 센다
+  const r2 = L.analyze(script([[10, front], [3.4, side], [2, front], [3.4, side], [10, front]]));
+  eq(r2.metrics.lookaway.n, 2, '이탈 둘');
+});
+
+test('흔들림 카드 — 문장에 고정 초(「10초 동안」) 없이, 장면은 켜진 창 묶음', () => {
+  const sway = (t) => front(t, { box: [0.41 + 0.07 * Math.sin((2 * Math.PI * 0.6 * t) / 1000), 0.2, 0.18, 0.24] });
+  const r = L.analyze(script([[20, front], [20, sway], [20, front]]));
+  const c = r.cards.find((x) => x.kind === 'sway');
+  ok(c, '흔들림 카드');
+  ok(!/초 동안/.test(c.observation), c.observation);
+  ok(c.scene.dur > 8, `묶음 길이 ${c.scene.dur}`);
+  const ev = L.summaryOf(r).events.filter((e) => e.k === 'sway');
+  eq(ev.length, 1, `겹친 창은 묶음 하나 ${JSON.stringify(ev)}`);
+});
+
+test('리포트 2.0 — 먼저 살펴볼 한 가지와 같은 순간을 장면 카드로 또 보이지 않는다 · 장면은 시각 순', () => {
+  const look = (t) => lost(t);
+  const downT = (t) => front(t, { src: 'T', box: [0.41, 0.33, 0.18, 0.24], eyes: 0 });
+  const r = L.analyze(script([[8, front, 1], [4, front, 1], [4, (t) => front(t, { src: 'P', side: 1 }), 1], [8, front, 2], [6, downT, 2], [10, front, 3], [4, (t) => front(t, { src: 'P', side: -1 }), 3], [6, front, 3]]));
+  const b = { present: { ...r, raw: undefined }, qa: null };
+  const html = R.rv2Html(b, { titles: ['a', 'b', 'c'] });
+  const hero = /bh-head">([^<]+)</.exec(html)[1];
+  const scenes = [...html.matchAll(/bh-obs">([^<]+)</g)].map((m) => m[1]);
+  const secs = [...html.matchAll(/bh-scene" data-sec="([\d.]+)"/g)].map((m) => Number(m[1]));
+  ok(r.first && r.first.sec !== null, '먼저 살펴볼 장면');
+  ok(!scenes.some((x) => /2장/.test(x) && /2장/.test(hero)), `같은 순간 둘: ${hero} / ${scenes.join(' / ')}`);
+  ok(secs.every((v, k) => k === 0 || secs[k - 1] <= v), `시각 순 ${secs}`);
+  void look;
+});
+
 test('조사 — 낱말 받침을 보고 을/를 · 이/가 · 은/는 · 으로/로 (「아래을」 금지)', () => {
   eq(L.josa('아래', '을'), '아래를', '아래');
   eq(L.josa('다른 곳', '을'), '다른 곳을', '다른 곳');

@@ -66,10 +66,16 @@
     }).join('')}</div>`;
   }
 
-  /** 같은 장면을 두 지표가 짚으면(오래 눈 뗌 = 아래를 봄) 한 번만 — 장 · 시각(1초 안)이 같으면 앞의 것 */
-  function uniqCards(cards) {
+  /**
+   * 같은 장면을 두 지표가 짚으면(오래 눈 뗌 = 아래를 봄) 한 번만 — 장 · 시각(1초 안)이 같으면 앞의 것.
+   * first(먼저 살펴볼 한 가지)가 짚은 장면도 이미 본 것으로 친다 — 위 흰 카드 「2장 5.9초 아래를 향했어요」 아래에 같은 순간 「2장 5.9초 아래를 봤어요」 가 또 나왔다(바퀴 5 · s03 · s04).
+   * 남은 카드는 시각 순(장면 없는 카드는 뒤) — 길이 순이면 「1장 · 3장 · 2장」 처럼 읽혔다
+   */
+  function uniqCards(cards, first = null) {
     const seen = [];
-    return cards.filter((c) => {
+    if (first && Number.isFinite(first.sec) && (first.slide || first.q)) seen.push({ seg: first.slide ? `s${first.slide}` : `q${first.q}`, sec: first.sec });
+    const sec = (c) => (c.scene && Number.isFinite(c.scene.sec) ? c.scene.sec : Infinity);
+    return cards.slice().sort((a, b) => sec(a) - sec(b)).filter((c) => {
       const s = c.scene;
       if (!s || !Number.isFinite(s.sec)) return true;
       if (seen.some((x) => x.seg === s.seg && Math.abs(x.sec - s.sec) <= 1)) return false;
@@ -93,7 +99,7 @@
 
   /** 근거 카드 — 화면엔 관찰 · 장면 · 신뢰도, 측정값 · 비교 기준은 접힌 칸 */
   function cardsHtml(p, titles) {
-    const cards = uniqCards((p.cards || []).filter((c) => !p.first || c.observation !== p.first.text));
+    const cards = uniqCards((p.cards || []).filter((c) => !p.first || c.observation !== p.first.text), p.first);
     if (!cards.length) return '';
     return `<h4 class="bh-sub">장면별로 본 것</h4>
       <ul class="bh-cards">${cards.map((c) => {
@@ -259,7 +265,9 @@
     if (a.key === 'body') {
       const sw = M.sway; const mv = M.movement;
       if (sw && sw.ok) return { key: a.key, name, ok: true, word: `흔들림 ${wordOf('sway', sw)}`, line: mv && mv.ok ? `${LABEL.movement} ${wordOf('movement', mv)}` : '', lv: sw.level, look: lookOf('sway', sw) };
-      return { key: a.key, name, ok: true, word: `움직임 ${wordOf('movement', mv)}`, line: '좌우 흔들림은 이번엔 잴 수 없었어요', lv: mv && mv.ok ? mv.level : null, look: false };
+      // 왜 못 쟀는지 붙인다 — 「멀어요」 · 「1초에 3장」 처럼 고칠 수 있는 까닭이 있는데 맨 문장만 보였다(바퀴 5 · d7)
+      const why = sw && !sw.ok && sw.why ? String(sw.why).split(' — ')[0] : '';
+      return { key: a.key, name, ok: true, word: `움직임 ${wordOf('movement', mv)}`, line: `좌우 흔들림은 이번엔 잴 수 없었어요${why ? ` — ${why}` : ''}`, lv: mv && mv.ok ? mv.level : null, look: false };
     }
     if (a.key === 'hands') {
       const g = M.gesture;
@@ -306,7 +314,7 @@
   }
 
   function scenesHtml(p, titles) {
-    const cards = uniqCards((p.cards || []).filter((c) => !p.first || c.observation !== p.first.text));
+    const cards = uniqCards((p.cards || []).filter((c) => !p.first || c.observation !== p.first.text), p.first);
     if (!cards.length) return '';
     return `<h3 class="nv-sec">장면별로 본 것</h3><div class="bh-scenes">${cards.map((c) => {
       const s = c.scene || null;

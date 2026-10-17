@@ -30,6 +30,13 @@
     downDrift: 0.25,        // 얼굴을 놓치기 직전 0.8초 동안 얼굴 높이의 이만큼 아래로 내려갔으면 그 뒤 놓친 시간은 「아래를 봄」 (설계값 · 검증 전)
     driftWinMs: 800,
     lostDownMaxMs: 6000,    // 위 「아래를 봄」 추정은 이만큼까지만 — 더 길면 방향을 모름(다른 곳)으로 둔다
+    // 숙인 채 얼굴을 놓침 — 머리 추적(CamShift)은 6초면 끝나서 11초 숙임이 「아래 6.5초 + 다른 곳 · 자리 비움」 으로 쪼개졌다(바퀴 5 · c01).
+    // 놓치기 직전 상태가 「아래」 이고 옆으로 움직이지 않았으면 얼굴이 돌아올 때까지 「아래」 를 든다 — 대본을 오래 읽는 발표자 (설계값 · 검증 전)
+    lostDownHoldMs: 15000,
+    lostDownLateral: 0.35,  // 놓치기 전 0.8초 동안 얼굴 가운데가 얼굴 폭의 이만큼 넘게 옆으로 갔으면(걸어 나감 · 돌아섬) 들지 않는다
+    // 옆얼굴 사이 정면 한두 장 — 정면 Haar 가 55° 옆얼굴을 잠깐 정면으로 잡아 3초+ 이탈이 0.8초 정면으로 끊겼다(바퀴 5 · c01 오른쪽 6초 → 1.6초 조각들).
+    // 앞뒤가 옆(left/right)인 이만큼 미만의 정면은 옆으로 본다 (설계값 · 검증 전)
+    sideBridgeMs: 1200,
     lookAwayMs: 3000,       // 화면 쪽에서 벗어난 구간이 이보다 길면 짚는다 — 3초를 검증한 연구는 없다(근거조사 §1-2, 가까운 근거 Binetti 2016 선호 응시 ≈3.3초). 설계값 · 검증 전
     downSegMs: 2000,        // 아래를 본 구간 짚기 — 2초 넘게 (설계값 · 검증 전)
     // 흔들림: 얼굴 가운데 x(얼굴 폭 단위)의 0.3~1.5Hz 반복 성분. 자세 흔들림 연구가 보는 대역(서 있는 사람 몸 흔들림 ≈ 0.1~1Hz)에 걸음 · 체중 옮김을 더한 설계값
@@ -150,16 +157,46 @@
       } else if (raw === 'none') {
         if (!lostMode) {
           lostStart = row.t;
-          lostMode = droppedDown(list, i, cfg) ? 'down' : 'away';
+          lostMode = droppedDown(list, i, cfg) ? 'down'
+            : lastDef === 'down' && row.t - lastDefAt <= cfg.fillMs && !movedSideways(list, i, cfg) ? 'hold' : 'away';
         }
         if (lastDef && row.t - lastDefAt <= cfg.fillMs) s = lastDef;
         else if (lostMode === 'down' && row.t - lostStart <= cfg.lostDownMaxMs) s = 'down';
+        else if (lostMode === 'hold' && row.t - lostStart <= cfg.lostDownHoldMs) s = 'down';
         else if (row.t - lastFaceAt <= cfg.awayHoldMs) s = 'away';
         else s = 'none';
       }
       out.push({ t: row.t, dt, raw, state: s, row });
     }
-    return hysteresis(out, cfg).map((x) => ({ ...x, present: x.state !== 'none' }));
+    return bridgeSides(hysteresis(out, cfg), cfg).map((x) => ({ ...x, present: x.state !== 'none' }));
+  }
+
+  /** 앞뒤가 옆(left/right)인 짧은 정면(sideBridgeMs 미만)을 옆으로 — 옆얼굴을 정면 Haar 가 잠깐 잡은 것 */
+  function bridgeSides(seq, cfg) {
+    if (!(cfg.sideBridgeMs > 0)) return seq;
+    const side = (s) => s === 'left' || s === 'right';
+    for (let i = 1; i < seq.length; i += 1) {
+      if (seq[i].state !== 'front' || !side(seq[i - 1].state)) continue;
+      let j = i; while (j < seq.length && seq[j].state === 'front') j += 1;
+      if (j < seq.length && side(seq[j].state) && seq[j].t - seq[i].t < cfg.sideBridgeMs) {
+        for (let k = i; k < j; k += 1) seq[k] = { ...seq[k], state: seq[i - 1].state };
+      }
+      i = j;
+    }
+    return seq;
+  }
+
+  /** 얼굴을 놓치기 직전 driftWinMs 동안 얼굴 가운데가 옆으로 lostDownLateral(얼굴 폭) 넘게 갔나 — 걸어 나감 · 돌아섬 */
+  function movedSideways(list, i, cfg) {
+    let last = null; let first = null;
+    for (let k = i - 1; k >= 0 && list[i].t - list[k].t <= cfg.driftWinMs + 400; k -= 1) {
+      if (!list[k].box) continue;
+      if (!last) last = list[k];
+      if (last.t - list[k].t <= cfg.driftWinMs) first = list[k];
+    }
+    if (!last || !first || last === first) return false;
+    const cx = (r) => r.box[0] + r.box[2] / 2;
+    return Math.abs(cx(last) - cx(first)) / Math.max(0.01, first.box[2]) > cfg.lostDownLateral;
   }
 
   function findLastDetected(list, i) {
@@ -311,6 +348,16 @@
     return out;
   }
 
+  /** 켜진 흔들림 창을 겹치는 것끼리 묶는다 — [{ start, end, seg(첫 창의 장), n }] */
+  function swayRuns(wins) {
+    const out = [];
+    (wins || []).filter((w) => w.on).sort((a, b) => a.start - b.start).forEach((w) => {
+      const last = out[out.length - 1];
+      if (last && w.start <= last.end) { last.end = Math.max(last.end, w.end); last.n += 1; } else out.push({ start: w.start, end: w.end, seg: w.seg, n: 1 });
+    });
+    return out;
+  }
+
   function fpsOf(seq) {
     if (seq.length < 2) return 0;
     const span = (seq[seq.length - 1].t - seq[0].t) / 1000;
@@ -451,7 +498,7 @@
     eyes: '눈 위치를 거의 못 찾았어요 — 안경 반사 · 앞머리 · 조명 때문일 수 있어요',
     track: '얼굴 자리를 이어서 따라가지 못했어요',
     sway_fps: SWAY_LOWFPS,
-    sway_win: '얼굴 자리를 10초 넘게 이어서 따라간 구간이 모자랐어요',
+    sway_win: `얼굴 자리를 ${CFG.swayWinMs / 1000}초 넘게 이어서 따라간 구간이 모자랐어요`,
     move_none: '몸 영역의 움직임을 재지 못했어요',
     hands_none: '손 자리를 재지 못했어요',
   };
@@ -468,6 +515,7 @@
       if (q.body < cfg.minBody) return 'nobody';
       return '';
     }
+    if (q.presence < 0.1) return 'noface';   // 빈 방 — 「잡힌 시간이 짧았어요」 보다 사실대로 (바퀴 5 · s10)
     if (q.presence < cfg.minPresence) return 'presence';
     if (q.face !== null && q.face < cfg.minFaceW) return 'far';
     if (q.backlit !== null && q.backlit < cfg.backlit) return 'backlit';
@@ -659,11 +707,14 @@
       }
     }
     if (M.sway.ok && M.sway.look) {
+      // 가장 센 창이 든 「이어 켜진 창 묶음」 하나 — 문장엔 초를 쓰지 않는다(8초 창이 2초씩 겹쳐 켜져 실제 흔들린 시간과 몇 초 어긋난다 · 바퀴 5:
+      // 예전 「10초 동안」 은 잰 값이 아니라 고정 글이었다). 시각 · 길이는 장면 칩과 다시 보기 막대가 묶음으로 보인다
       const w = res.raw.sway.filter((x) => x.on).sort((a, b) => b.amp - a.amp)[0];
-      if (w) {
-        out.push({ kind: 'sway', observation: `${where(w.seg) || '발표 중'} 무렵 10초 동안 몸이 좌우로 되풀이해 오갔어요`,
-          value: `얼굴 폭의 ${Math.round(w.amp * 100)}% 진폭`, basis: BASIS.sway,
-          scene: scene(w.seg, w.start, w.end - w.start), conf: M.sway.conf, tip: WORDS.sway.tip });
+      const run = w ? swayRuns(res.raw.sway).find((r) => r.start <= w.start && r.end >= w.end) : null;
+      if (run) {
+        out.push({ kind: 'sway', observation: `${where(run.seg) || '발표 중'} 무렵 몸이 좌우로 되풀이해 오갔어요`,
+          value: `얼굴 폭의 ${Math.round(w.amp * 100)}% 진폭 · 흔들린 ${cfg.swayWinMs / 1000}초 창 ${run.n}개`, basis: BASIS.sway,
+          scene: scene(run.seg, run.start, run.end - run.start), conf: M.sway.conf, tip: WORDS.sway.tip });
       }
     }
     // 말할 때도 쉴 때도 손이 거의 안 움직였으면 견줄 거리가 없다 — 「비슷했어요」 카드를 내지 않는다 (헤드리스 사진: 0% · 0% 에 「비슷」)
@@ -843,7 +894,7 @@
       events: [
         ...res.raw.look.map((r) => ({ k: 'lookaway', seg: r.seg, t: sec(r.start - res.t0), d: sec(r.dur) })),
         ...res.raw.downs.map((r) => ({ k: 'down', seg: r.seg, t: sec(r.start - res.t0), d: sec(r.dur) })),
-        ...res.raw.sway.filter((w) => w.on).map((w) => ({ k: 'sway', seg: w.seg, t: sec(w.start - res.t0), d: sec(w.end - w.start) })),
+        ...swayRuns(res.raw.sway).map((w) => ({ k: 'sway', seg: w.seg, t: sec(w.start - res.t0), d: sec(w.end - w.start) })),   // 겹친 창은 묶음 하나로
       ].sort((a, b) => b.d - a.d).slice(0, cfg.maxEvents),
     };
     // 크기 상한 — 넘으면 장면 → 장 순으로 줄인다 (숫자 요약은 남긴다)
@@ -859,7 +910,7 @@
     return { v: VERSION, phase, status: 'none', why: String(why || '카메라 분석이 없었어요'), metrics: {}, segs: [], cards: [] };
   }
 
-  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, excludedWhy, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, gateCode, GATE_TEXT, confidence, measure, bySeg, cards, analyze, summaryOf, none, where, josa };
+  const api = { swayRuns, CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, excludedWhy, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, gateCode, GATE_TEXT, confidence, measure, bySeg, cards, analyze, summaryOf, none, where, josa };
   root.BehaviorCvLogic = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));
