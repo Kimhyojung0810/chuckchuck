@@ -48,7 +48,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-back svg { width: 12px; height: 20px; flex: none; }
 .rv2 .nv-back span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rv2 .nv-back:active { opacity: .5; }
-.rv2 .nv-oldbtn { justify-self: start; height: 44px; padding: 0 10px; color: var(--ink-2); font-size: .9375rem; }
+.rv2 .nv-oldbtn { justify-self: start; height: 32px; margin: 6px 0; padding: 0 12px; border: 1px solid var(--fill-2); border-radius: 16px; color: var(--ink-2); font-size: .875rem; }   /* 단추로 보이게 — 맨 글자 「이전 리포트」 는 제목 위 떠도는 이름표로 읽혔다 (바퀴 5) */
 
 /* 본문 기둥 — iOS 앱처럼 한 기둥, 넓은 화면에선 가운데 */
 .rv2 .nv-scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px max(var(--gut), calc((100% - var(--col)) / 2)) calc(120px + env(safe-area-inset-bottom, 0px)); }
@@ -171,7 +171,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .nv-track { position: relative; cursor: pointer; border-radius: 10px; background: var(--fill); }
 .rv2 .nv-band { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--fill-2); }
 .rv2 .nv-band:first-child { border-left: 0; }
-.rv2 .nv-band em { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: .8125rem; color: var(--ink-3); white-space: nowrap; }
+.rv2 .nv-band em { position: absolute; z-index: 2; left: 4px; top: 50%; transform: translateY(-50%); padding: 0 3px; border-radius: 4px; background: var(--fill); font-style: normal; font-size: .8125rem; color: var(--ink-3); white-space: nowrap; }   /* 재생 막대(nv-head)가 지나가도 장 이름은 위에 — 0:00 에 「1장」 이 막대에 가려 「|1」 로 읽혔다 (바퀴 5) */
 .rv2 .rp-lane { position: relative; }
 .rv2 .rp-lane::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--fill-2); }
 .rv2 .rp-m { position: absolute; top: 50%; padding: 0; transition: transform .15s var(--ease), box-shadow .15s; }
@@ -183,7 +183,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .rp-m.is-on { z-index: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
 .rv2 .rp-m.is-dot.is-on { transform: scale(1.15); }
 .rv2 .rp-m:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; }
-.rv2 .nv-head { position: absolute; top: 4px; bottom: 0; left: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); pointer-events: none; transition: left .2s linear; }
+.rv2 .nv-head { position: absolute; z-index: 1; top: 4px; bottom: 0; left: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); pointer-events: none; transition: left .2s linear; }
 .rv2 .nv-legend { display: flex; gap: 6px 14px; flex-wrap: wrap; margin: 6px 0 0; font-size: .8125rem; color: var(--ink-2); }
 .rv2 .nv-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .rv2 .nv-legend i { width: 8px; height: 8px; border-radius: 50%; }

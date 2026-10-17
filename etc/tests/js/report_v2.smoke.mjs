@@ -109,9 +109,14 @@ check('발표 태도 장면 → 녹음 시각(sec + t0) · 같은 장면 한 번
 check('진단 근거 순간 — 근거가 있는 시각만, 판정 색 · 진단 id 를 단다', MS.filter((m) => m.lane === 'fix').length > 0
   && MS.filter((m) => m.lane === 'fix').every((m) => m.insight && ['mid', 'ct', 'ok'].includes(m.tone) && m.t >= 0 && m.t <= dur + 1));
 check('순간은 시각 순', MS.every((m, k) => k === 0 || MS[k - 1].t <= m.t));
-const sumBeh = { present: { status: 'ok', summary: { events: [{ k: 'down', seg: 's1', t: 3, d: 2.4 }, { k: 'sway', seg: 's2', t: 20, d: 8 }, { k: 'lookaway', seg: 'q2', t: 9, d: 4 }] } } };
+const sumEvents = [{ k: 'down', seg: 's1', t: 3, d: 2.4 }, { k: 'sway', seg: 's2', t: 20, d: 8 }, { k: 'lookaway', seg: 'q2', t: 9, d: 4 }];
+const sumBeh = { present: { status: 'ok', summary: { metrics: { down: { ok: true, level: 1 }, sway: { ok: true, level: 2 }, lookaway: { ok: true, level: 0 } }, events: sumEvents } } };
 const sb = RV.momentsOf(SV, sumBeh).filter((m) => m.lane === 'beh');
-check('숫자 요약(서버 보관본)만 있어도 장면 문장을 만든다(장 장면만)', sb.length === 2 && sb[0].title === '1장에서 2.4초 동안 아래를 봤어요' && /몸이 좌우로/.test(sb[1].title));
+check('숫자 요약(서버 보관본)만 있어도 장면 문장을 만든다(장 장면만)', sb.length === 2 && sb[0].title === '1장에서 2.4초 동안 아래를 봤어요' && /몸이 좌우로/.test(sb[1].title) && !/초 동안 몸이/.test(sb[1].title));
+// 바퀴 5 (s07 느린 이동): 화면은 「흔들림 거의 없어요」 인데 다시 보기엔 흔들림 막대 — 빈 cards 면 events 로 넘어가던 것 · events 의 흔들림은 「자주」 일 때만
+const quietSway = { present: { status: 'ok', cards: [], summary: { metrics: { sway: { ok: true, level: 0 } }, events: [{ k: 'sway', seg: 's2', t: 20, d: 8 }] } } };
+const lowSway = { present: { status: 'ok', summary: { metrics: { sway: { ok: true, level: 0 } }, events: [{ k: 'sway', seg: 's2', t: 20, d: 8 }] } } };
+check('화면 카드가 비었거나 흔들림이 「자주」 가 아니면 흔들림 막대가 없다', RV.momentsOf(SV, quietSway).every((m) => m.lane === 'fix') && RV.momentsOf(SV, lowSway).every((m) => m.lane === 'fix'));
 check('카메라 분석이 없거나 못 쟀으면 태도 순간이 없다', RV.momentsOf(SV, { present: { status: 'none' } }).every((m) => m.lane === 'fix')
   && RV.momentsOf(SV, null).every((m) => m.lane === 'fix') && RV.momentsOf(SV, { present: { status: 'unmeasured', cards: cardsBeh.present.cards } }).every((m) => m.lane === 'fix'));
 check('「그 순간 듣기」 주소가 같은 순간으로 돌아온다(진단 · 태도 모두)', MS.every((m) => RV.momentAt(MS, RV.momentRoute(m).slice('replay:'.length)) === m));

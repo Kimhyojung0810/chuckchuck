@@ -42,7 +42,7 @@
   const BEH_LINE = {
     lookaway: (w, d) => `${w}에서 ${d}초 동안 화면 쪽이 아니라 다른 곳을 봤어요`,
     down: (w, d) => `${w}에서 ${d}초 동안 아래를 봤어요`,
-    sway: (w, d) => `${w} 무렵 ${d}초 동안 몸이 좌우로 되풀이해 오갔어요`,
+    sway: (w) => `${w} 무렵 몸이 좌우로 되풀이해 오갔어요`,   // 초는 안 쓴다 — 겹친 8초 창 묶음이라 실제 흔들린 시간과 어긋난다 (behavior_cv_logic cards 와 같은 말)
   };
   function momentsOf(V, behavior) {
     const dur = (V && V.duration_sec) || 0;
@@ -63,10 +63,14 @@
     const p = behavior && behavior.present;
     if (p && p.status === 'ok' && dur) {
       const t0 = fin(p.t0) ? p.t0 / 1000 : 0;
-      // 화면용 묶음엔 cards, 서버 보관 요약(summaryOf)엔 events 만 있다
-      const list = Array.isArray(p.cards) && p.cards.length
+      // 화면용 묶음엔 cards, 서버 보관 요약(summaryOf)엔 events 만 있다. cards 가 **비어 있어도** 화면용 묶음이면 cards 만 본다 —
+      // 예전엔 빈 cards 면 events 로 넘어가, 화면은 「흔들림 거의 없어요」 인데 다시 보기엔 흔들림 막대가 섰다(바퀴 5 · s07 느린 이동).
+      // events 만 있을 때도 화면 카드와 같은 문턱: 그 지표를 잴 수 있었고, 흔들림은 「자주」(look)일 때만
+      const SM = (p.summary || p).metrics || {};
+      const lookOk = (k) => { const m = SM[k]; if (!m || !m.ok) return false; if (k !== 'sway') return true; return m.level === 2 || m.look === true; };
+      const list = Array.isArray(p.cards)
         ? p.cards.filter((c) => c.scene && fin(c.scene.sec)).map((c) => ({ kind: c.kind, seg: c.scene.seg, where: c.scene.where, sec: c.scene.sec, d: c.scene.dur, text: c.observation }))
-        : ((p.summary || p).events || []).filter((e) => BEH_LINE[e.k] && fin(e.t)).map((e) => {
+        : ((p.summary || p).events || []).filter((e) => BEH_LINE[e.k] && fin(e.t) && lookOk(e.k)).map((e) => {
           const w = /^s\d+$/.test(e.seg || '') ? `${e.seg.slice(1)}장` : '발표 중';
           return { kind: e.k, seg: e.seg, where: w, sec: e.t, d: e.d, text: BEH_LINE[e.k](w, e.d) };
         });
@@ -242,7 +246,7 @@
       el.innerHTML = `
         <header class="nv-bar">
           ${backWord ? `<button type="button" class="nv-back" data-back>${I.back}<span>${esc(backWord)}</span></button>`
-            : (typeof opts.onLegacy === 'function' && name === 'home' ? '<button type="button" class="nv-oldbtn" data-legacy>이전 리포트</button>' : '<span></span>')}
+            : (typeof opts.onLegacy === 'function' && name === 'home' ? '<button type="button" class="nv-oldbtn" data-legacy aria-label="이 리포트를 예전 화면으로 보기">예전 화면</button>' : '<span></span>')}
           <h2 class="nv-small">${esc(sc.short || sc.title)}</h2><span class="nv-bar-end"></span>
         </header>
         <div class="nv-scroll">
@@ -494,7 +498,7 @@
     function details() {
       return { title: '자세한 분석', short: '자세히',
         html: `<div class="nv-group">${LEGACY.map((L, k) => `<button type="button" class="nv-row" data-push="legacy:${k}"><span class="nv-ico ${L.ico}">${I[L.icon]}</span><span class="nv-row-main"><b>${esc(L.name)}</b><small>${esc(L.line)}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>
-          <p class="nv-note">「이전 리포트」 의 분석 탭을 그대로 담았어요. 같은 분석 결과를 다른 모양으로 보여 줘요.</p>` };
+          <p class="nv-note">「예전 화면」 의 분석 탭을 그대로 담았어요. 같은 분석 결과를 다른 모양으로 보여 줘요.</p>` };
     }
     /* 발표 태도(베타) — 그리기는 js/behavior_report.js(rv2Html, docs/report-v2/BEHAVIOR_SCREEN.md). 없으면 빈 상태(기조 R17).
        맨 위에 베타 배너 한 줄 한 번(기조 R6) — 닫기 없음 */
@@ -616,7 +620,7 @@
             ${LANES.length ? `<div class="rp-keys" aria-hidden="true"><span></span>${LANES.map(([, w]) => `<span>${w}</span>`).join('')}</div>` : ''}
             <div class="rp-axis">
               <div class="nv-track" role="slider" tabindex="0" aria-label="발표 시간축" aria-valuemin="0" aria-valuemax="${Math.round(dur)}">
-                ${V.slides.flatMap((s) => s.spans.map((sp) => `<span class="nv-band" style="left:${pct(sp.start)};width:${pct(sp.end - sp.start)}"><em>${s.no}${(sp.end - sp.start) / (dur || 1) < 0.1 ? '' : '장'}</em></span>`)).join('')}
+                ${V.slides.flatMap((s) => s.spans.map((sp) => `<span class="nv-band" style="left:${pct(sp.start)};width:${pct(sp.end - sp.start)}"><em>${s.no}${(sp.end - sp.start) / (dur || 1) < 0.07 ? '' : '장'}</em></span>`)).join('')}
               </div>
               ${LANES.map(([k, w]) => `<div class="rp-lane" role="group" aria-label="${w === '태도' ? '발표 태도 장면 · 베타' : '진단 근거'}">${MS.filter((m) => m.lane === k).map(marker).join('')}</div>`).join('')}
               <i class="nv-head"></i>

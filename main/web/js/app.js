@@ -5338,11 +5338,11 @@ function reportVerdict() {
 /* ── 리포트 2.0 (docs/report-v2/ · js/report_graph.js · js/report_v2.js) ─────────────────────────────
    같은 분석 결과(nf.pipelineOut · qa.live · 청중석)를 Evidence Graph 로 잇는 새 리포트. 옛 리포트는 그대로 두고 갈래만 나눈다.
    켜지는 곳: /VRShow 정면 창(rhShowcase, 10-16 사용자 「/VRShow 에 반영」) · 팀이 켠 localStorage 'cheokcheok:report-v2'=1.
-   「이전 리포트」 를 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
+   「예전 화면」(옛 「이전 리포트」) 을 누르면 그 탭(sessionStorage)에선 옛 화면. 파일은 처음 쓸 때만 받는다(첫 화면 무게 그대로). */
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs2';
 // 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
 const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs2';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv19', js: ['js/report_graph.js?v=rg3', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq3', 'js/report_v2.js?v=rv19'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv20', js: ['js/report_graph.js?v=rg3', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq3', 'js/report_v2.js?v=rv20'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5461,7 +5461,7 @@ async function renderReportV2(restoredAt) {
     onRoot: (root) => { app.dataset.rv2Root = root; },
     slideImage: (n) => (uploadedPdf && uploadedPdf.pdf ? slideThumb(n) : null),
     onLegacy: () => {
-      // 「이전 리포트」 — 이번 한 번만 옛 화면(새로고침하면 다시 리포트 2.0). 탭에 묶어 두면 돌아올 길이 없었다
+      // 「예전 화면」(옛 이름 「이전 리포트」 — 지난 회차 리포트로 읽혀 바꿈, 바퀴 5) — 이번 한 번만 옛 화면(새로고침하면 다시 리포트 2.0). 탭에 묶어 두면 돌아올 길이 없었다
       rv2Failed = true;
       delete app.dataset.rv2Root;
       if (rv2Handle) { rv2Handle.destroy(); rv2Handle = null; }
@@ -5548,7 +5548,7 @@ window.__rv2Legacy = (i, host) => {
     if (typeof paintDeckStage === 'function') paintDeckStage(host);
   } catch (err) {
     console.warn('[chuckchuck] legacy view', i, err);
-    host.innerHTML = '<p class="note">이 분석을 그리지 못했어요. 「이전 리포트」 에서 볼 수 있어요.</p>';
+    host.innerHTML = '<p class="note">이 분석을 그리지 못했어요. 왼쪽 위 「예전 화면」 에서 볼 수 있어요.</p>';
   }
 };
 // 리포트를 떠나면 재생을 멈추고 치운다 — 소리가 다음 화면까지 따라오지 않게. 샘플 동안 바꿔 둔 내 것도 되돌린다
