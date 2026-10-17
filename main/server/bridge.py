@@ -3968,7 +3968,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 if mine is not None:
                     _release_questions(q_key, mine)
                     mine = None
-                return fast
+                # _json 은 응답을 쓰고 None 을 돌려준다 — 값으로 판단하면 지금 방식이 뒤에서 또 돌았다(10-17 실험실: 응답 두 번 · F-26 · F-08 헛호출)
+                return self._json(200, fast)
         try:
             papers, memory, claims, degraded = self._question_inputs(body, found["graph"], slidedoc, llm)
             if not slidedoc:
@@ -4254,7 +4255,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
     def _ensemble_fast(self, body, found, slidedoc, transcript, track, q_key):
         """
         묶음이 준비돼 있으면(또는 만드는 중이면 그걸 기다려) 지금 방식 질문을 만들지 않고 묶음에서 바로 고른다 — 1·2번은 언제나 자료 묶음.
-        묶음이 없거나 실패 · 2개를 못 고르면 None (지금 방식으로 간다 — 예전과 같은 길).
+        돌려주는 값은 화면 사본(client_questions) — 응답은 부르는 쪽이 쓴다. 묶음이 없거나 실패 · 2개를 못 고르면 None (지금 방식으로 간다 — 예전과 같은 길).
         기준선(10-17 C1 실험실): 묶음은 발표 중에 이미 끝났는데 질문 줄이 지금 방식 질문(1차 심사 · 문헌 · 주장 · 생성 LLM)을 만드느라 37초 섰다.
         """
         from pipeline import f08_ensemble as FE
@@ -4282,7 +4283,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self._index_questions(body, track, payload)
         self._archive(body, "question_doc", payload)
         sys.stderr.write(f"[bridge] F-08 questions track={track} 묶음에서 바로 ({time.monotonic() - t0:.2f}s · 지금 방식 건너뜀)\n")
-        return self._json(200, client_questions(payload))
+        return client_questions(payload)
 
     def _ensemble_kick(self, body: dict, graph_raw: dict) -> None:
         """그래프가 나오는 순간(자료 올린 뒤 · 발표 전) 앙상블 묶음을 뒤에서 띄운다 — 질문 요청 때 기다리지 않게.

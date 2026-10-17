@@ -110,3 +110,14 @@ def test_문헌_검색_결과가_달라도_같은_요청으로_알아본다(buil
     ask(body(prefetch=True))
     ask(body())
     assert calls == ["10"]
+
+
+def test_묶음에서_바로_고르면_지금_방식은_안_돌고_응답도_한_번(builds, monkeypatch):
+    """10-17 발표를 들으며 준비: 빠른 길(_ensemble_fast)이 응답을 쓰고 None 을 돌려줘서 지금 방식 질문이 뒤에서 또 만들어지고
+    응답이 두 번 나갔다(실험실 C1 — F-26 · F-08 헛호출). 빠른 길이 값을 주면 지금 방식은 안 부르고, 응답은 한 번이다."""
+    calls, _ = builds
+    monkeypatch.setattr(bridge, "QA_ENS_FAST", True)
+    monkeypatch.setattr(bridge.Handler, "_ensemble_fast", lambda self, *a: {"questions": [{"id": "e01"}], "ensemble": {"fast": True}})
+    h = FakeHandler()
+    h._handle_questions(body(session_id="s-fast"))
+    assert calls == [] and len(h.sent) == 1 and h.sent[0][1]["ensemble"]["fast"] is True

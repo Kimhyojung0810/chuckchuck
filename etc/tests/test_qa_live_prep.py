@@ -256,8 +256,8 @@ def test_브리지_묶음이_있으면_질문_요청이_지금_방식을_건너�
     h._ensemble_questions = lambda *a, **k: bridge.Handler._ensemble_questions(h, *a, **k)
     h._index_questions = lambda *a, **k: bridge.Handler._index_questions(h, *a, **k)
     body = {"session_id": sid, "qa_run_id": "rAAAA1111", "talk_id": "tAAAA1111"}
-    code, out = bridge.Handler._ensemble_fast(h, body, {"graph": graph.to_dict()}, sd.to_dict(), None, "10", "questions:k")
-    assert code == 200 and len(out["questions"]) >= 2
+    out = bridge.Handler._ensemble_fast(h, body, {"graph": graph.to_dict()}, sd.to_dict(), None, "10", "questions:k")
+    assert isinstance(out, dict) and len(out["questions"]) >= 2      # 응답은 부르는 쪽이 한 번만 쓴다
     for q in out["questions"][:2]:
         checks = (q.get("basis") or {}).get("checks") or []
         assert "ensemble" in checks and any(c.startswith("pattern:P") for c in checks)
