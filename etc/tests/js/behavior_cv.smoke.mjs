@@ -245,6 +245,32 @@ test('리포트 카드 — 카메라 분석 없음이면 까닭 한 줄, 리포�
   eq(R.html(null), '', '기록 자체가 없으면 그리지 않는다');
 });
 
+test('리포트 2.0 화면 — 흰 카드 꼴 · 방향 낱말 · 첫 화면에 퍼센트 없음 · 감정 낱말 없음 · 질문 사실 한 줄 · 옛 리포트 접힌 줄', () => {
+  const side = (t) => ({ ...front(t), src: 'P', side: -1, eyes: 0 });
+  const res = L.analyze(script([[10, front, 1], [4.4, side, 2], [8, front, 2], [4.4, side, 3], [8, front, 3], [4.4, side, 3], [20, front, 4]]));
+  const qaRows = script([[12, front, 1], [3, side, 2], [9, front, 2], [4, front, 3]]).map((r) => ({ ...r, seg: r.seg.replace('s', 'q') }));
+  const qa = L.analyze(qaRows, { phase: 'qa' });
+  const b = { present: { ...res, raw: undefined }, qa: { ...qa, raw: undefined } };
+  const html = R.rv2Html(b, { titles: ['표지', '문제', '해법', '정리'], questions: ['첫 질문', '둘째 질문', '셋째 질문'] });
+  ok(html.includes('class="bh-rv2"') && html.includes('먼저 살펴볼 한 가지') && html.includes('bh-hero'), '흰 카드');
+  ok(!html.includes('section-title') && !html.includes('bh-beta'), '베타 꼬리표는 리포트 쪽 배너 하나만 (R6)');
+  ok(/화면 쪽 (짧아요|조금 짧아요|충분해요)/.test(html), '방향 낱말');
+  eq((html.match(/class="nv-row is-static bh-arow/g) || []).length >= 4, true, '갈래 넷 + 질문 줄');
+  const [top] = html.split('<details class="bh-fold bh-fold2">');
+  ok(!/\d+%/.test(top.replace(/<details class="bh-more">[\s\S]*?<\/details>/g, '')), '첫 화면에 퍼센트가 없다 (R7)');
+  ok(!/불안|긴장|자신감|초조|감정 상태/.test(html), '감정 낱말');
+  ok(html.includes('질문 1') && html.includes('첫 질문'), '질문별 줄');
+  const f1 = R.qaFact(b, 1);
+  ok(f1 && /^답하는 동안 화면 쪽을 향한 시간이 (짧아요|조금 짧아요|충분해요)$/.test(f1.text), `질문 사실 한 줄: ${f1 && f1.text}`);
+  eq(R.qaFact(b, 3), null, '8초가 안 되는 질문은 말하지 않는다');
+  eq(R.qaFact({ present: b.present, qa: L.none('카메라를 꺼 둬서', 'qa') }, 1), null, '잴 수 없으면 말하지 않는다');
+  const fold = R.foldHtml(b, { titles: ['표지', '문제', '해법', '정리'] });
+  ok(fold.startsWith('<details class="fold bh-oldfold"') && fold.includes('베타 · 총점에 안 들어가요'), '옛 리포트 접힌 줄 + 총점 밖 표시');
+  eq(R.foldHtml({ present: L.none('카메라를 꺼 두고 발표해서 카메라 분석은 없어요'), qa: null }), '', '카메라 기록이 없으면 옛 리포트 줄도 없다 (D-018)');
+  const off = R.rv2Html({ present: L.none('카메라를 꺼 두고 발표해서 카메라 분석은 없어요'), qa: null });
+  ok(off.includes('카메라를 켜고 발표하면 잴 수 있어요'), `잴 수 없음 + 고치는 법: ${off}`);
+});
+
 /* 자기검사 — 히스테리시스를 빼면 「한 장짜리 헛잡음」 시험이 깨져야 한다 */
 const DWELL_LINE = 'if (seq[i].t - seq[candStart].t + seq[i].dt >= cfg.minDwellMs) {';
 test('히스테리시스를 빼면 한 장짜리 헛잡음 시험이 깨진다', () => {

@@ -139,6 +139,11 @@
     const W = L ? L.WORDS.gaze.words : ['짧아요', '조금 짧아요', '충분해요'];
     return v < lo ? W[0] : v < hi ? W[1] : W[2];
   }
+  function gazeLevel(v) {
+    const L = root.BehaviorCvLogic;
+    const lo = L ? L.CFG.gazeLo : 0.4; const hi = L ? L.CFG.gazeHi : 0.7;
+    return v < lo ? 0 : v < hi ? 1 : 2;
+  }
 
   function qaHtml(qa) {
     if (!qa) return '';
@@ -152,9 +157,9 @@
       </div>`;
   }
 
-  function noneHtml(p, qa) {
-    return `<section class="card bh-card" data-state="none" id="bhCard">
-        <h3 class="section-title">발표 태도<span class="bh-beta">${BETA}</span></h3>
+  function noneHtml(p, qa, bare = false) {
+    return `<section class="${bare ? 'bh-card is-bare' : 'card bh-card'}" data-state="none"${bare ? '' : ' id="bhCard"'}>
+        ${bare ? '' : `<h3 class="section-title">발표 태도<span class="bh-beta">${BETA}</span></h3>`}
         <p class="bh-none"><b>${NONE_WORD}</b> · ${esc((p && p.why) || '카메라 분석이 없었어요')}</p>
         <p class="note">다음 발표에서 카메라를 켜 두면 얼굴 방향 · 몸 · 손 움직임을 같이 짚어 줘요. 영상은 이 기기 안에서만 분석해요.</p>
         ${qaHtml(qa)}
@@ -162,12 +167,12 @@
   }
 
   /** 옛 리포트 카드 통째 */
-  function html(b, { titles = null } = {}) {
+  function html(b, { titles = null, bare = false } = {}) {
     if (!b || (!b.present && !b.qa)) return '';
     const p = b.present;
-    if (!okOf(p)) return noneHtml(p, b.qa);
-    return `<section class="card bh-card" data-state="ok" id="bhCard">
-        <h3 class="section-title">발표 태도<span class="bh-beta">${BETA}</span></h3>
+    if (!okOf(p)) return noneHtml(p, b.qa, bare);
+    return `<section class="${bare ? 'bh-card is-bare' : 'card bh-card'}" data-state="ok"${bare ? '' : ' id="bhCard"'}>
+        ${bare ? '' : `<h3 class="section-title">발표 태도<span class="bh-beta">${BETA}</span></h3>`}
         <p class="note bh-lede">카메라로 본 얼굴 방향 · 몸 · 손 움직임을 본 그대로 적었어요. 표정이나 마음은 짐작하지 않아요.</p>
         ${firstHtml(p, titles)}
         ${areasHtml(p)}
@@ -177,20 +182,200 @@
       </section>`;
   }
 
-  /** 리포트 2.0 홈의 입구 한 줄 — 「더 살펴보기」 묶음에 들어간다 */
+  /** 리포트 2.0 홈의 입구 한 줄 — 리포트 쪽(report_v2.js behaviorRow)이 headline() 으로 직접 그린다. 옛 호출을 위해 남긴다 */
   function rv2Row(b, { I = {}, esc: e = esc } = {}) {
     if (!b || (!b.present && !b.qa)) return '';
     const h = headline(b);
-    return `<button type="button" class="nv-row" data-push="attitude"><span class="nv-ico i-gray">${I.people || ''}</span>
+    return `<button type="button" class="nv-row" data-push="attitude"><span class="nv-ico i-gray">${I.cam || I.people || ''}</span>
       <span class="nv-row-main"><b>발표 태도 <small class="bh-beta-inline">베타</small></b><small>${e(h.oneLine)}</small></span><span class="nv-val">${e(h.word)}</span><i class="nv-chev">${I.chev || ''}</i></button>`;
   }
 
-  /** 리포트 2.0 화면 하나 — 카드 본문을 그대로 쓴다 */
-  function rv2Screen(b, { titles = null } = {}) {
-    return { title: '발표 태도', short: '발표 태도', eyebrow: BETA, html: `<div class="bh-rv2">${html(b, { titles }) || `<p class="nv-empty">${NONE_WORD}</p>`}</div>` };
+  /* ═══ 리포트 2.0 화면 (docs/report-v2/BEHAVIOR_SCREEN.md) — 흰 카드 · iOS 묶음 목록 · 3단계 낱말 + 점 셋. 퍼센트는 「자세히 보기」 안에만 ═══ */
+
+  const L = () => root.BehaviorCvLogic || null;
+  /** 지표 낱말 — 화면용 묶음엔 word 가 있고, 서버 보관 요약(summaryOf)엔 level 만 있다 */
+  function wordOf(k, m) {
+    if (!m || !m.ok) return '';
+    if (m.word) return m.word;
+    const W = L() && L().WORDS[k];
+    return W && Number.isInteger(m.level) ? W.words[m.level] || '' : '';
+  }
+  function lookOf(k, m) {
+    if (!m || !m.ok) return false;
+    if (typeof m.look === 'boolean') return m.look;
+    const W = L() && L().WORDS[k];
+    return !!(W && Number.isInteger(m.level) && W.look[m.level]);
+  }
+  /** 잴 수 없던 까닭 + 고치는 법 (당근 오류 문구 — 「~하면 잴 수 있어요」). 까닭에 이미 방법이 붙어 있으면 그대로 */
+  const FIX = [
+    [/20초가 안 돼요/, '20초 넘게 발표하면 잴 수 있어요'],
+    [/충분히 자주 보지/, '다른 탭과 프로그램을 닫고 발표하면 잴 수 있어요'],
+    [/거의 없었어요|잡힌 시간이 짧았어요|기록이 없어요/, '카메라 가운데에 앉아 발표하면 잴 수 있어요'],
+    [/따라가지 못했어요|모자랐어요/, '얼굴을 가리지 않고 카메라 가운데에 있으면 잴 수 있어요'],
+    [/재지 못했어요/, '상반신이 화면에 들어오게 앉으면 잴 수 있어요'],
+    [/꺼 두고|꺼 둬서/, '카메라를 켜고 발표하면 잴 수 있어요'],
+    [/열리지 않아서/, '브라우저에서 카메라를 허용하면 잴 수 있어요'],
+    [/녹음 파일로/, '리허설에서 카메라를 켜고 발표하면 잴 수 있어요'],
+  ];
+  function whyFix(why) {
+    const w = String(why || '').trim();
+    if (!w) return '카메라 가운데에 앉아 다시 발표하면 잴 수 있어요';
+    if (/잴 수 있어요|—/.test(w)) return w;
+    const f = FIX.find(([re]) => re.test(w));
+    return f ? `${w} — ${f[1]}` : w;
+  }
+  const LOOK_ICON = '<svg class="bh-look-i" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6v4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.2" r="1" fill="currentColor"/></svg>';
+  const dotsHtml = (lv) => (Number.isInteger(lv) && lv >= 0 ? `<span class="bh-dots" aria-hidden="true">${[0, 1, 2].map((k) => `<i${k <= lv ? ' class="on"' : ''}></i>`).join('')}</span>` : '');
+  const sceneChip = (where, sec, from) => [where, Number.isFinite(sec) ? `${fmtSec(sec)}${from ? '부터' : ''}` : ''].filter(Boolean).join(' · ');
+  const slideOfSeg = (seg) => (/^s\d+$/.test(seg || '') ? Number(seg.slice(1)) : 0);
+
+  /** 갈래 하나를 화면 줄로 — 낱말은 방향이 보이게(「화면 쪽 충분해요」), 점 셋은 그 양(짧아요 ●○○ … 충분해요 ●●●). 판정 아님 */
+  function areaView(a, M) {
+    const name = a.label || AREA_LABEL[a.key] || a.key;
+    if (!a.ok) return { key: a.key, name, ok: false, word: '이번엔 잴 수 없었어요', line: whyFix(a.line), lv: null, look: false };
+    if (a.key === 'gaze') {
+      const g = M.gaze;
+      const subs = ['lookaway', 'down'].filter((k) => M[k] && M[k].ok).map((k) => `${LABEL[k]} ${wordOf(k, M[k])}`);
+      return { key: a.key, name, ok: true, word: g && g.ok ? `화면 쪽 ${wordOf('gaze', g)}` : (a.word || ''), line: subs.join(' · '),
+        lv: g && g.ok ? g.level : null, look: ['gaze', 'lookaway', 'down'].some((k) => lookOf(k, M[k])) };
+    }
+    if (a.key === 'body') {
+      const sw = M.sway; const mv = M.movement;
+      if (sw && sw.ok) return { key: a.key, name, ok: true, word: `흔들림 ${wordOf('sway', sw)}`, line: mv && mv.ok ? `${LABEL.movement} ${wordOf('movement', mv)}` : '', lv: sw.level, look: lookOf('sway', sw) };
+      return { key: a.key, name, ok: true, word: `움직임 ${wordOf('movement', mv)}`, line: '좌우 흔들림은 이번엔 잴 수 없었어요', lv: mv && mv.ok ? mv.level : null, look: false };
+    }
+    if (a.key === 'hands') {
+      const g = M.gesture;
+      return { key: a.key, name, ok: true, word: `손 움직임 ${wordOf('gesture', g) || a.word || ''}`.trim(), line: a.line || '', lv: g && g.ok ? g.level : null, look: false };
+    }
+    const f = M.framing;
+    return { key: a.key, name, ok: true, word: a.word || wordOf('framing', f), line: a.line || '', lv: f && f.ok ? f.level : null, look: lookOf('framing', f) };
   }
 
-  const api = { headline, html, rv2Row, rv2Screen, valueText };
+  function rowHtml(v) {
+    return `<div class="nv-row is-static bh-arow${v.ok ? '' : ' is-off'}" data-look="${v.look ? 1 : 0}">
+        <span class="nv-row-main"><span class="bh-aname">${esc(v.name)}</span>
+          <b class="bh-aword">${v.look ? LOOK_ICON : ''}${esc(v.word)}</b>${v.line ? `<small class="bh-aline">${esc(v.line)}</small>` : ''}</span>
+        ${dotsHtml(v.lv)}</div>`;
+  }
+
+  /** 지난번(같은 덱) 대비 — 5%p 넘게 바뀐 것만, 방향 낱말로 (좋고 나쁨 말 없음) */
+  function prevLine(p, prev) {
+    const M = p.metrics || {};
+    if (!prev || !prev.metrics) return '';
+    const NAME = { gaze: '화면 쪽을 향한 시간', down: '아래를 본 시간', sway: '몸 좌우 흔들림', gesture: '손이 움직인 시간' };
+    const out = Object.keys(NAME).map((k) => {
+      const m = M[k]; const before = prev.metrics[k];
+      if (!m || !m.ok || !Number.isFinite(m.value) || !Number.isFinite(before)) return '';
+      const d = m.value - before;
+      return Math.abs(d) < 0.05 ? '' : `${NAME[k]}이 ${d > 0 ? '늘었어요' : '줄었어요'}`;
+    }).filter(Boolean);
+    return out.length ? `<p class="bh-prev"><b>지난번보다</b> ${esc(out.slice(0, 2).join(' · '))}</p>` : '';
+  }
+
+  function firstCard(p, h, titles) {
+    const f = p.first;
+    if (!f) {
+      return `<section class="bh-hero" aria-label="먼저 살펴볼 한 가지"><p class="bh-label">먼저 살펴볼 한 가지</p>
+        <p class="bh-head">크게 짚을 곳은 없었어요</p><p class="bh-tip">${esc(h.oneLine)}</p></section>`;
+    }
+    const title = f.slide && titles && titles[f.slide - 1] ? titles[f.slide - 1] : '';
+    const chip = sceneChip(f.slide ? `${f.slide}장` : (f.q ? `${f.q}번째 질문` : ''), f.sec, true);
+    return `<section class="bh-hero" aria-label="먼저 살펴볼 한 가지"><p class="bh-label">먼저 살펴볼 한 가지</p>
+        <p class="bh-head">${esc(f.text)}</p>
+        ${chip ? `<div class="bh-chips"><span class="bh-chip">${esc(chip)}</span>${title ? `<span class="bh-ttl">${esc(title)}</span>` : ''}</div>` : ''}
+        ${f.tip ? `<p class="bh-tip"><b>다음엔</b> ${esc(f.tip)}</p>` : ''}</section>`;
+  }
+
+  function scenesHtml(p, titles) {
+    const cards = (p.cards || []).filter((c) => !p.first || c.observation !== p.first.text);
+    if (!cards.length) return '';
+    return `<h3 class="nv-sec">장면별로 본 것</h3><div class="bh-scenes">${cards.map((c) => {
+      const s = c.scene || null;
+      const n = s ? slideOfSeg(s.seg) : 0;
+      const title = n && titles && titles[n - 1] ? titles[n - 1] : '';
+      const chip = s ? sceneChip(s.where || '', s.sec, false) : '';
+      return `<article class="bh-scene"><p class="bh-obs">${esc(c.observation)}</p>
+          <div class="bh-chips">${chip ? `<span class="bh-chip">${esc(chip)}</span>` : ''}${title ? `<span class="bh-ttl">${esc(title)}</span>` : ''}<span class="bh-conf">신뢰도 ${esc(c.conf || '낮음')}</span></div>
+          <details class="bh-more"><summary>측정값 · 비교 기준</summary><p>측정값 ${esc(c.value)}</p><p>비교 기준 ${esc(c.basis)}</p></details></article>`;
+    }).join('')}</div>`;
+  }
+
+  /** 질문별 화면 쪽 시간 — 8초 넘게 머문 질문만 (logic CFG.minSegMs). 없으면 [] */
+  function qaSegs(qa) {
+    if (!okOf(qa) || !((qa.metrics || {}).gaze || {}).ok) return [];
+    const min = L() ? L().CFG.minSegMs : 8000;
+    return (qa.segs || []).filter((s) => /^q\d+$/.test(s.seg || '') && Number.isFinite(s.gaze) && (s.enough === true || (s.enough === undefined && Number(s.dur || 0) * 1000 >= min)));
+  }
+
+  function qaSection(qa, questions) {
+    if (!qa) return '';
+    if (!okOf(qa)) {
+      return `<h3 class="nv-sec">Q&amp;A 하는 동안</h3><div class="nv-group">${rowHtml({ name: '화면 쪽을 향한 시간', ok: false, word: '이번엔 잴 수 없었어요', line: whyFix(qa.why), lv: null, look: false })}</div>`;
+    }
+    const g = (qa.metrics || {}).gaze || {};
+    const segs = qaSegs(qa);
+    const rows = segs.slice(0, 12).map((s) => {
+      const n = Number(s.seg.slice(1));
+      const lv = gazeLevel(s.gaze);
+      return rowHtml({ name: `질문 ${n}`, ok: true, word: `화면 쪽 ${gazeWord(s.gaze)}`, line: (questions && questions[n - 1]) || '', lv, look: lv === 0 });
+    }).join('');
+    return `<h3 class="nv-sec">Q&amp;A 하는 동안${g.ok ? `<small>화면 쪽 ${esc(wordOf('gaze', g))}</small>` : ''}</h3>
+      ${rows ? `<div class="nv-group bh-qrows">${rows}</div>` : `<p class="nv-note">${g.ok ? '질문마다 8초 넘게 답한 곳이 없어서 질문별로는 나누지 않았어요.' : esc(whyFix(g.why))}</p>`}`;
+  }
+
+  /** 리포트 2.0 「발표 태도」 화면 본문. opts = { titles: 장 제목[], questions: 질문 글[] }. 베타 배너는 리포트 쪽(attitude())이 한 번 그린다 */
+  function rv2Html(b, { titles = null, questions = null } = {}) {
+    if (!b || (!b.present && !b.qa)) return '';
+    const p = b.present;
+    const lead = '<p class="bh-lead">카메라로 본 얼굴 방향 · 몸 · 손 움직임을 본 그대로 적었어요. 카메라 각도와 조명에 따라 달라지고, 표정이나 마음은 짐작하지 않아요.</p>';
+    if (!okOf(p)) {
+      const st = p && p.status === 'unmeasured' ? 'unmeasured' : 'none';
+      const head = st === 'unmeasured' ? '이번엔 잴 수 없었어요' : '발표 동안 카메라 분석이 없었어요';
+      return `<div class="bh-rv2" data-state="${st}">${lead}
+        <section class="bh-hero is-off"><p class="bh-label">발표하는 동안</p><p class="bh-head">${head}</p><p class="bh-tip">${esc(whyFix(p && p.why))}</p></section>
+        ${qaSection(b.qa, questions)}</div>`;
+    }
+    const M = p.metrics || {};
+    const h = headline(b);
+    return `<div class="bh-rv2" data-state="ok">${lead}
+      ${firstCard(p, h, titles)}
+      ${prevLine(p, b.prev || p.prev)}
+      <h3 class="nv-sec">네 갈래로 본 것<small>점 셋은 양이에요</small></h3>
+      <div class="nv-group bh-areas2">${(p.areas || []).map((a) => rowHtml(areaView(a, M))).join('')}</div>
+      ${scenesHtml(p, titles)}
+      ${qaSection(b.qa, questions)}
+      ${detailHtml(p, b, titles).replace('<details class="bh-fold">', '<details class="bh-fold bh-fold2">')}
+    </div>`;
+  }
+
+  /** 리포트 2.0 화면 하나 */
+  function rv2Screen(b, opts = {}) {
+    return { title: '발표 태도', short: '발표 태도', eyebrow: BETA, html: rv2Html(b, opts) || `<p class="nv-empty">${NONE_WORD}</p>` };
+  }
+
+  /** Q&A 돌아보기의 질문 한 장에 붙이는 사실 한 줄 — n 번째 질문(1부터)에 8초 넘게 답했고 화면 쪽 시간을 잴 수 있었을 때만. 아니면 null */
+  function qaFact(b, n) {
+    const qa = b && b.qa;
+    const s = qaSegs(qa).find((x) => x.seg === `q${n}`);
+    if (!s) return null;
+    const word = gazeWord(s.gaze);
+    return { level: gazeLevel(s.gaze), word, text: `답하는 동안 화면 쪽을 향한 시간이 ${word}` };
+  }
+
+  /** 옛 리포트 요약 — 접힌 줄 하나(리포트 2.0 홈 줄과 같은 말). 펼치면 카드 본문. 카메라 기록이 없으면 그리지 않는다(D-018) */
+  function foldHtml(b, { titles = null } = {}) {
+    if (!b || (!b.present && !b.qa)) return '';
+    const h = headline(b);
+    if (h.status === 'none' && !okOf(b.qa)) return '';
+    const line = h.status === 'ok' ? h.oneLine : h.status === 'none' ? 'Q&A 동안만 쟀어요' : `이번엔 잴 수 없었어요 — ${h.oneLine}`;
+    return `<details class="fold bh-oldfold" id="bhCard">
+        <summary><span>발표 태도 <small class="bh-beta">${BETA}</small></span><span class="fold-meta">${esc(line)}</span></summary>
+        <div class="fold-body">${html(b, { titles, bare: true })}</div>
+      </details>`;
+  }
+
+  const api = { headline, html, rv2Row, rv2Screen, rv2Html, qaFact, foldHtml, whyFix, valueText };
   root.BehaviorReport = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

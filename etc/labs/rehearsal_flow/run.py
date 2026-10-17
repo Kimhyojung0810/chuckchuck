@@ -262,6 +262,8 @@ def run(args) -> Path:
         cam = B.plain_cam(B.OUT / "whitecam.mjpeg", (246, 246, 242))
     elif args.cam == "dark":
         cam = B.plain_cam(B.OUT / "darkcam.mjpeg", (22, 24, 28))
+    if args.cam_file:
+        cam = Path(args.cam_file)
     audio = (answer_audio(args.deck, args.say_sec) if args.real_stt and not args.audio
              else deck_audio(args.deck, args.rec_sec + 30, Path(args.audio) if args.audio else None))
     R: dict = {"args": vars(args), "audio": str(audio) if audio else None, "stages": {}, "layout": {}, "console": [], "requests": [],
@@ -324,6 +326,30 @@ def run(args) -> Path:
                 R["hash_trail"].append(h)
         page.on("framenavigated", on_nav)
         install(page, args, state)
+        if args.rubric_via:
+            # 채점 본문(behavior 포함)을 남기고 다른 브리지로 넘긴다 — 같은 본문에서 behavior 만 뺀 것도 채점해 총점이 같은지 본다 (발표 태도는 가중치 0)
+            import urllib.request
+
+            def _post(url: str, body: dict) -> dict:
+                req = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode(), headers={"Content-Type": "application/json"})
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    return json.loads(r.read())
+
+            def rubric_via(route):
+                body = json.loads(route.request.post_data or "{}")
+                (out / "rubric_req.json").write_text(json.dumps(body, ensure_ascii=False, indent=1))
+                url = args.rubric_via.rstrip("/") + "/api/v1/rubric"
+                with_b = _post(url, body)
+                without = _post(url, {k: v for k, v in body.items() if k != "behavior"})
+                (out / "rubric_with_behavior.json").write_text(json.dumps(with_b, ensure_ascii=False, indent=1))
+                (out / "rubric_without_behavior.json").write_text(json.dumps(without, ensure_ascii=False, indent=1))
+                R["rubric_check"] = {"has_behavior": bool(body.get("behavior")), "behavior_status": (body.get("behavior") or {}).get("status"),
+                                     "score_with": with_b.get("score"), "score_without": without.get("score"),
+                                     "beta": [(b.get("no"), b.get("status"), b.get("weight", None), b.get("score")) for b in with_b.get("beta", [])],
+                                     "beta_without": [(b.get("no"), b.get("status")) for b in without.get("beta", [])]}
+                print("  rubric_check", R["rubric_check"], flush=True)
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(with_b, ensure_ascii=False))
+            page.route("**/api/v1/rubric", rubric_via)
 
         def dump_state() -> None:
             (out / "state.json").write_text(json.dumps(page.evaluate(STATE_JS), ensure_ascii=False, indent=1))
@@ -643,6 +669,8 @@ def run(args) -> Path:
                     sweep(f"qa_ask{qi + 1}", settle=900)
                 first = qi != qi_prev
                 qi_prev = qi
+                if first and args.qa_dwell:
+                    page.wait_for_timeout(int(args.qa_dwell * 1000))
                 tj = time.time()
                 q = questions[qi] if qi < len(questions) else {}
                 if st["retell"]:
@@ -787,7 +815,19 @@ def run(args) -> Path:
                     page.click(".rv2 .nv-screen:last-child [data-push^='qa:']"); page.wait_for_timeout(800); shot("rv2_qa")
                     R["report_v2"]["qa"] = page.evaluate("""() => ({ better: !!document.querySelector('.rv2 .nv-screen:last-child .rq-better'),
                       grounds: document.querySelectorAll('.rv2 .nv-screen:last-child .rq-ground').length, turns: document.querySelectorAll('.rv2 .nv-screen:last-child .rq-t').length })""")
+                    R["report_v2"]["qa"]["beh_fact"] = page.evaluate("(document.querySelector('.rv2 .nv-screen:last-child .rq-beh')||{}).textContent || ''").strip()
                     page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                # 발표 태도(베타) — 홈 줄 하나 → 화면 (10-17 통합)
+                R["report_v2"]["attitude_row"] = page.evaluate("(document.querySelector('.rv2 .nv-screen:last-child .hm-beh')||{}).innerText || ''")
+                if page.query_selector(".rv2 .nv-screen:last-child [data-push='attitude']"):
+                    page.click(".rv2 .nv-screen:last-child [data-push='attitude']"); page.wait_for_timeout(900); shot("rv2_attitude")
+                    R["report_v2"]["attitude"] = page.evaluate("""() => ({ banner: document.querySelectorAll('.rv2 .nv-screen:last-child .hm-betabanner').length,
+                      rows: [...document.querySelectorAll('.rv2 .nv-screen:last-child .bh-arow')].map((r) => r.innerText.replace(/\\s+/g, ' ').trim()),
+                      head: (document.querySelector('.rv2 .nv-screen:last-child .bh-head')||{}).textContent || '' })""")
+                    page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                R["behavior"] = page.evaluate("""() => { const b = nf.behavior || null; const pick = (v) => v ? { status: v.status, why: v.why, areas: (v.areas||[]).map(a => [a.key, a.word]),
+                  first: v.first ? v.first.text : null, segs: (v.segs||[]).map(s => [s.seg, Math.round((s.dur||0)/100)/10, s.gaze]) } : null; return b ? { present: pick(b.present), qa: pick(b.qa) } : null; }""")
+                print("  behavior    ", json.dumps(R.get("behavior"), ensure_ascii=False)[:600], flush=True)
                 # 「질문은 이렇게 골랐어요」 (네 모델 후보 판, 10-17) — 홈 Q&A 카드 → 고른 과정 → 자리 · 3번+ 질문. 판은 /api/v1/qa/board 로 늦게 온다
                 try:
                     page.wait_for_selector(".rv2 .nv-screen:last-child [data-push='board']", timeout=8000)
@@ -863,6 +903,11 @@ def run(args) -> Path:
         finally:
             R["judge"] = state
             R["total_sec"] = round(time.time() - t_start, 1)
+            if args.storage_out:
+                try:
+                    ctx.storage_state(path=args.storage_out)
+                except Exception as e:  # noqa: BLE001
+                    print("  저장소 저장 실패", e)
             (out / "report.json").write_text(json.dumps(R, ensure_ascii=False, indent=1))
             b.close()
     return out
@@ -1064,6 +1109,10 @@ def main() -> int:
     ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
     ap.add_argument("--studio-skin", action="store_true", help="스튜디오 정면 창처럼 sx-studio 옷을 입힌다 (--viewport 를 창 크기로, 예: 1361x757)")
     ap.add_argument("--report-v2", dest="report_v2", action="store_true", help="리포트 2.0 으로 리포트를 그리고(팀 플래그) /VRShow 정면 창 갈래도 본다 (docs/report-v2/)")
+    ap.add_argument("--cam-file", default="", help="가짜 카메라로 흘릴 영상(y4m · mjpeg) — 발표 태도(카메라 분석)를 재려면 실제 얼굴이 든 정답 영상 (예: /data/models/_runs/behavior-cv/lab/clips/d0_clean.y4m)")
+    ap.add_argument("--rubric-via", default="", help="채점(/api/v1/rubric) 본문을 이 브리지(예: mock 모드 http://127.0.0.1:8846)로 넘기고 behavior 를 뺀 본문으로도 한 번 더 — 베타 항목 · 총점 불변을 과금 없이 본다")
+    ap.add_argument("--qa-dwell", type=float, default=0, help="질문마다 답하기 전에 이만큼(초) 화상판에 머문다 — 질문별 카메라 값(8초 넘게 머문 질문만)을 남기려고")
+    ap.add_argument("--storage-out", default="", help="끝난 뒤 브라우저 저장소(localStorage)를 이 파일로 — 다른 크기로 리포트를 다시 열어 찍을 때")
     ap.add_argument("--weave", action="store_true", help="Q&A 생각 엮기(10-13) — 엉성한 답 → 내 발언 · 꼬리질문 → 관점 바꾸기 → 다른 개념 → 건너뛰기 → 리포트 기록")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")

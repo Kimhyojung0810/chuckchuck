@@ -417,15 +417,18 @@
         html: `<div class="nv-group">${LEGACY.map((L, k) => `<button type="button" class="nv-row" data-push="legacy:${k}"><span class="nv-ico ${L.ico}">${I[L.icon]}</span><span class="nv-row-main"><b>${esc(L.name)}</b><small>${esc(L.line)}</small></span><i class="nv-chev">${I.chev}</i></button>`).join('')}</div>
           <p class="nv-note">「이전 리포트」 의 분석 탭을 그대로 담았어요. 같은 분석 결과를 다른 모양으로 보여 줘요.</p>` };
     }
-    /* 발표 태도(베타) — 그리기는 js/behavior_report.js(behavior-cv 브랜치). 없으면 빈 상태. 맨 위에 베타 안내 한 번(기조 R6) */
+    /* 발표 태도(베타) — 그리기는 js/behavior_report.js(rv2Html, docs/report-v2/BEHAVIOR_SCREEN.md). 없으면 빈 상태(기조 R17).
+       맨 위에 베타 배너 한 줄 한 번(기조 R6) — 닫기 없음 */
     function attitude() {
       const BR = window.BehaviorReport;
-      const banner = '<div class="nv-callout hm-betabanner"><b>시험 기능(베타)</b><p>총점에 안 들어가요. 카메라 각도와 조명에 따라 달라져요.</p></div>';
+      const banner = `<p class="hm-betabanner" role="note"><span class="hm-bb-i"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 7.2v4.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="4.8" r="1" fill="currentColor"/></svg></span><b>시험 기능</b><span>총점에 안 들어가요</span></p>`;
       if (!BR || !D.behavior || typeof BR.rv2Screen !== 'function') {
         return { title: '발표 태도', short: '발표 태도', html: `${banner}<div class="rq-empty"><span class="nv-ico i-gray">${I.cam}</span><div><b>카메라를 켜고 발표하면 시선과 자세를 볼 수 있어요</b><p>영상은 이 기기 안에서만 분석해요.</p></div></div>` };
       }
       let sc = null;
-      try { sc = BR.rv2Screen(D.behavior, { titles: (D.deck.slides || []).map((x) => x.title) }); } catch (_) { sc = null; }
+      try {
+        sc = BR.rv2Screen(D.behavior, { titles: (D.deck.slides || []).map((x) => x.title), questions: V.qa.map((q) => q.text) });
+      } catch (err) { console.warn('[report-v2] 발표 태도', err); sc = null; }
       return { title: '발표 태도', short: '발표 태도', html: `${banner}${(sc && sc.html) || '<p class="nv-empty">카메라 분석을 그리지 못했어요.</p>'}` };
     }
 

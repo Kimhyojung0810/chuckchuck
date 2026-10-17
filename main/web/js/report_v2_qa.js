@@ -152,6 +152,13 @@
       const ls = [...q.steps].reverse().find((s) => s.answer || s.claim);
       const lastSaid = ls ? `<p class="rq-bub">${ls.answer ? hl(ls.answer, ls.claim) : `<mark>${esc(ls.claim)}</mark>`}</p>${ls.claim && ls.answer ? '<p class="rq-why">밑줄은 판정이 붙잡은 내 말이에요</p>' : ''}`
         : (r.answer ? `<p class="rq-bub">${esc(r.answer)}</p>` : '');
+      // 발표 태도(베타) 사실 한 줄 — 이 질문에 8초 넘게 답했고 화면 쪽 시간을 잴 수 있었을 때만 (js/behavior_report.js qaFact). 판정과 무관한 곁말
+      let fact = null;
+      try {
+        const BR = window.BehaviorReport; const Dn = ctx.D && ctx.D();
+        if (BR && typeof BR.qaFact === 'function' && Dn && Dn.behavior) fact = BR.qaFact(Dn.behavior, V.qa.indexOf(q) + 1);
+      } catch (_) { fact = null; }
+      const factLine = fact ? `<button type="button" class="rq-beh" data-push="attitude"><span class="rq-beh-i">${I.cam || ''}</span><span class="rq-beh-t">${esc(fact.text)}</span><em>베타</em><i class="nv-chev">${I.chev}</i></button>` : '';
       return {
         title: q.text, short: '질문', size: 'md', eyebrow: `Q&A 돌아보기 · 질문 ${k + 1} / ${all.length}`,
         html: `
@@ -159,6 +166,7 @@
         ${t.node && t.node !== q.text ? `<p class="rq-aim">겨눈 곳 · ${esc(t.node)}</p>` : ''}
         ${chain ? `<h3 class="nv-sec">내 답과 꼬리질문<small>질문 → 내 답 → 꼬리질문</small></h3><ol class="rq-turns">${turns}${tail}</ol>`
           : lastSaid ? `<h3 class="nv-sec">내 답</h3><ol class="rq-turns"><li class="rq-t me">${lastSaid}</li></ol>` : ''}
+        ${factLine}
         <section class="nv-card rq-judge">
           <div class="rq-judge-head"><span class="nv-badge t-${b.tone}">${I[b.icon] || ''}</span><div><b>${esc(b.word)}</b>${meta(q) ? `<small>${esc(meta(q))}</small>` : ''}</div></div>
           ${r.summary ? `<p class="rq-summary">${esc(r.summary)}</p><p class="rq-src">AI 판정이 남긴 한 문장이에요</p>` : ''}

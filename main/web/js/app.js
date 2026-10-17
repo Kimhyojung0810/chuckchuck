@@ -5342,7 +5342,7 @@ function reportVerdict() {
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs2';
 // 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
 const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs2';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv16', js: ['js/report_graph.js?v=rg3', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq2', 'js/report_v2.js?v=rv15'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv17', js: ['js/report_graph.js?v=rg3', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq3', 'js/report_v2.js?v=rv16'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -6898,10 +6898,11 @@ function judgeLegendHtml(rows) {
   return keys.map(k => `<span><i class="dot st-${k}"></i>${STATUS[k]}</span>`).join('');
 }
 
-/** 발표 태도 (카메라 분석 · 베타) — 리허설에서 발표했을 때만 (nf.behavior · js/behavior_report.js). 총점에는 안 들어간다 */
+/** 발표 태도 (카메라 분석 · 베타) — 리허설에서 발표했을 때만 (nf.behavior · js/behavior_report.js). 총점에는 안 들어간다.
+    요약 탭엔 접힌 줄 하나(리포트 2.0 홈 줄과 같은 말 · D-018), 펼치면 갈래 · 장면 · 자세히. 카메라 기록이 없으면 줄도 없다 */
 function behaviorCardHtml() {
   if (rSampleMode || !nf || !nf.behavior || !window.BehaviorReport) return '';
-  try { return window.BehaviorReport.html(nf.behavior, { titles: activeTitles() }); }
+  try { return (window.BehaviorReport.foldHtml || window.BehaviorReport.html)(nf.behavior, { titles: activeTitles() }); }
   catch (err) { console.warn('[chuckchuck] 발표 태도 카드', err); return ''; }
 }
 

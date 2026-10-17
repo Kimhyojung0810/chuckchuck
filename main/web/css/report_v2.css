@@ -429,8 +429,18 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .hm-fix { margin-top: var(--gap); height: 48px; width: 100%; border-radius: 12px; background: var(--sun); color: var(--forest-deep); font-size: 1.0625rem; font-weight: 700; text-align: center; transition: transform .15s, filter .15s; }
 .rv2 .hm-fix:active { transform: scale(.98); filter: brightness(.96); }
 .rv2 .hm-beta { display: inline-block; justify-self: start; margin-bottom: 2px; padding: 2px 8px; border-radius: 999px; background: var(--accent-wash); color: var(--forest); font-size: .8125rem; font-weight: 700; }
-.rv2 .hm-betabanner { margin: 0 0 var(--gap); background: var(--accent-wash); }
-.rv2 .hm-betabanner b { color: var(--forest); }
+.rv2 .hm-betabanner { display: flex; align-items: center; gap: var(--tgap); margin: 0 0 var(--gap); padding: 12px 16px; border-radius: 16px; background: var(--accent-wash); color: var(--ink); font-size: .9375rem; line-height: 1.4; white-space: nowrap; overflow: hidden; }
+.rv2 .hm-betabanner b { color: var(--forest); font-weight: 700; }
+.rv2 .hm-betabanner > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.rv2 .hm-bb-i { flex: none; display: grid; width: 16px; height: 16px; color: var(--forest); } .rv2 .hm-bb-i svg { width: 16px; height: 16px; }
+
+/* Q&A 질문 한 장의 발표 태도 곁말 (베타) — 판정 카드보다 낮은 층: 13px · 회색 · 바탕 없음 */
+.rv2 .rq-beh { display: flex; align-items: center; gap: var(--tgap); width: 100%; min-height: 36px; margin: var(--tgap) 0 0; padding: 4px 4px; color: var(--ink-3); font-size: .8125rem; line-height: 1.4; text-align: left; }
+.rv2 .rq-beh-i { flex: none; display: grid; width: 16px; height: 16px; } .rv2 .rq-beh-i svg { width: 16px; height: 16px; }
+.rv2 .rq-beh-t { flex: 0 1 auto; min-width: 0; color: var(--ink-2); }
+.rv2 .rq-beh em { flex: none; font-style: normal; font-weight: 700; color: var(--forest); padding: 1px 6px; border-radius: 999px; background: var(--accent-wash); }
+.rv2 .rq-beh .nv-chev { flex: none; margin-left: auto; }
+.rv2 .rq-beh:active { opacity: .6; }
 
 /* Q&A 돌아보기 — 홈 요약 카드 */
 .rv2 .rq-card { display: grid; gap: var(--tgap); }
