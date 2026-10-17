@@ -19,6 +19,10 @@ export const STATIONS = [
   { key: 'practice', name: '연습',       line: '고칠 곳만 다시 · Q&A 전환점 돌아보기' },
 ]
 
+/* 정거장별 사진 환경 (scene/Environment.jsx ENV_NAMES) — 0 흐린 공연장(객석에서 무대 쪽, 창에 집중), 1 무대 위에서 본 객석
+   발표 · 질의응답 · 청중석만 무대 위 (10-17 사용자 「발표할 때는 관객이 있는 것처럼」 · 「자연은 안 어울린다」) */
+export const ENV_OF = [0, 1, 0, 1, 0, 0, 1, 0, 0]
+
 /* 정거장별 조명 (SPACE §3 · DESIGN_SYSTEM v3-3) — 따뜻한 중성 빛만(10-13 리뉴얼: 초록 빛 없음, 조용한 스튜디오).
    spot: 정면 스포트(cd) · 각(rad), cove: 빛 띠 밝기, amb: 방 전체, fog: 안개 끝(m) */
 export const LIGHT = [
@@ -44,6 +48,8 @@ export const slideSeconds = (cells) => {
   const d = Math.abs(cells)
   return SLIDE_MIN + SLIDE_ONE * Math.min(1, d) + SLIDE_MORE * Math.max(0, d - 1)
 }
+/* 단계 전환 = 제자리 페이드 (10-17 사용자 「토 나와」 — 곡선 미끄러짐 폐기, scene/CameraRig.jsx) */
+export const FADE_SEC = 0.42
 export const easeInOutSine = (p) => -(Math.cos(Math.PI * p) - 1) / 2
 export const HIDE_DOM = 60      // 정면에서 이만큼(°) 비켜나면 DOM 을 감춘다 (CSS 3D 뒤집힘 방지)
 

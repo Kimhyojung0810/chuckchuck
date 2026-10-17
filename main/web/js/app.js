@@ -5309,7 +5309,7 @@ function reportVerdict() {
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
 // 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
 const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs1';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv13', js: ['js/report_graph.js?v=rg1', 'js/report_qaboard.js?v=qb3', 'js/report_v2.js?v=rv12'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv18', js: ['js/report_graph.js?v=rg1', 'js/report_qaboard.js?v=qb3', 'js/report_desk.js?v=dk7', 'js/report_v2.js?v=rv13'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';

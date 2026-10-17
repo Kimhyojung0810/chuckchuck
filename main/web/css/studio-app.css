@@ -391,3 +391,28 @@ html, body { height: 100%; margin: 0; background: var(--room-void); overflow: hi
 .hud button.ds-step { cursor: pointer; font: inherit; font-size: 13px; }
 .hud button.ds-step:hover:not([aria-current="step"]) { color: var(--ink); background: rgb(255 255 255 / .55); }
 @media (max-width: 1180px) { .hud .ds-step .ds-mono { display: none; } .hud .ds-step { padding: 0 9px; } }
+
+/* ── 사진 환경 위 (10-17 visionOS 결 — scene/Environment.jsx) ──
+   바탕이 실사(들판 · 극장)라 맨 글자는 묻힌다. 떠 있는 글자 · 단추는 모두 유리 알약 위에 — 흐림 + 흰 막 + 얇은 빛 테두리 */
+.hud { background: none; }
+.hud__brand, .hud__steps, .hud__exit, .hud__note, .px-line, .px-mic__note {
+  background: rgb(255 255 255 / .62);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7); backdrop-filter: blur(24px) saturate(1.7);
+  box-shadow: inset 0 0 0 .5px rgb(255 255 255 / .7), 0 8px 24px rgb(0 0 0 / .10);
+  border-radius: 999px;
+}
+.hud__brand { height: 36px; padding: 0 14px 0 8px; }
+.hud__steps { flex: 0 1 auto; margin: 0 auto; padding: 3px; gap: 0; }
+.hud .ds-step { color: var(--ink-2); }
+.hud .ds-step[aria-current="step"] { background: rgb(255 255 255 / .95); box-shadow: 0 1px 4px rgb(0 0 0 / .08); }
+.hud__exit { height: 36px; border: 0; color: var(--ink); }
+.hud__note { padding: 6px 12px; color: var(--ink-2); }
+.px-line { display: inline-block; padding: 4px 12px; color: var(--ink); }
+.px-mic__note { padding: 3px 10px; color: var(--ink-2); }
+.px-mic__note--error { border-radius: 14px; color: var(--warn); }
+/* 폰 — 단계 알약엔 지금 단계 하나만 (나머지는 이름이 감춰져 빈 칸으로 늘어섰다) */
+@media (max-width: 720px) {
+  .hud__steps li:not(:has([aria-current="step"])) { display: none; }
+  .hud__steps li { border: 0 !important; margin: 0 !important; padding: 0 !important; }
+  .hud .ds-step { white-space: nowrap; padding: 0 12px; }
+}

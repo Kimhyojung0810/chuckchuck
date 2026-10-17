@@ -235,7 +235,9 @@ def test_서버_코드에_해외_AI_호스트가_없다():
 def test_웹_화면에_브라우저_음성인식이_없다():
     """크롬 Web Speech 는 음성을 구글 서버로 보낸다 (설계 §7) — 받아쓰기는 A.X 실시간(브리지 /api/v1/stt/live)으로만."""
     hits = [str(p.relative_to(ROOT)) for p in (ROOT / "main" / "web").rglob("*.js")
-            if "vendor" not in p.parts and "SpeechRecognition" in p.read_text(encoding="utf-8")]
+            # node_modules(스튜디오 빌드용, git 밖)는 화면에 실리지 않는다 — 이름이 .js 인 폴더(hls.js)도 있다
+            if p.is_file() and "vendor" not in p.parts and "node_modules" not in p.parts
+            and "SpeechRecognition" in p.read_text(encoding="utf-8")]
     assert hits == []
 
 

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { STATIONS, FOV, FOV_PHONE, EYE } from './config.js'
 import { rig } from './rig.js'
-import { Room } from './scene/Room.jsx'
+import { Hall } from './scene/Hall.jsx'
 import { Lights } from './scene/Lights.jsx'
 import { CameraRig } from './scene/CameraRig.jsx'
 import { GlassPass } from './scene/Glass.jsx'
@@ -34,7 +34,6 @@ export default function App() {
   const [at, setAt] = useState(0)
   const mic = useMicLevel()
   const live = useRef(null)
-  const quality = useRef(1)
   const htmlLayer = useRef(null)   // drei Html 이 붙을 고정 층 — 첫 Html 이 붙을 자리를 못 찾고 사라지던 것을 막는다
   const frameApi = useRef(null)
   const [fitH, setFitH] = useState(null)        // ① 업로드 창 = 내용 높이 (Frame onFit)
@@ -60,6 +59,13 @@ export default function App() {
   }, [])
   // 실험실 · 헤드리스용 — 상태를 읽고, 전환 중간 자세로 멈춰 찍는다
   useEffect(() => { window.studioDebug = { rig, go, frame: frameApi } }, [go])
+
+  // 시선 시차 — 마우스가 있는 쪽으로 고개를 살짝 돌린 듯 강연장이 반대로 조금 움직인다 (scene/Hall.jsx). 창은 그대로
+  useEffect(() => {
+    const on = (e) => { rig.px = (e.clientX / innerWidth) * 2 - 1; rig.py = (e.clientY / innerHeight) * 2 - 1 }
+    addEventListener('pointermove', on)
+    return () => removeEventListener('pointermove', on)
+  }, [])
 
   // 키보드 — → · Enter 주 버튼, ← 이전 화면 (SPACE §7). iframe 안에서 누른 키는 Frame 이 같은 규칙으로 받는다
   useEffect(() => {
@@ -120,7 +126,7 @@ export default function App() {
       children: <ScoreBoard data={k === at ? scoreData : null} w={L.graph.w} h={L.graph.h} k={k} /> })
     // 흐름을 따라 자라는 삐약이 (알 → 금 간 알 → 깨고 나옴 → 모자 · 닭, piyak/Companion.jsx) — 정거장마다 비어 있는 자리에
     // ② 발표는 웹캠 · 앞줄 관중이 주인공이라 자라는 삐약이는 쉰다(v3 — 메인 콘텐츠와 경쟁하지 않게). ④ 질의응답도 — 웹캠이 화면을 채운다
-    if (!vp.phone && k !== 1 && k !== 3) {
+    if (!vp.phone && k !== 1 && k !== 3 && !isReport(k)) {   // 리포트는 넓은 데스크가 창을 채운다 — 옆 삐약이 자리가 없다
       const at2 = k === 2 ? { x: L.app.x, y: L.app.y + L.app.h / 2 + 120 }                                       // 발표 채점 — 진행 창 아래
         : { x: L.app.x - (L.app.w / 2 + 130), y: L.app.y + L.app.h / 2 - 150 }
       // 화면 밖으로 잘리지 않게 (리포트처럼 창이 넓으면 옆 자리가 좁다)
@@ -133,10 +139,10 @@ export default function App() {
 
   return (
     <div className="sx-root ds-root" onPointerMove={onPointerMove} onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
-      <Canvas className="sx-canvas" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.0 }}
+      <Canvas className="sx-canvas" shadows="soft" dpr={[1, 1.5]} gl={{ antialias: true, powerPreference: 'high-performance', toneMappingExposure: 1.0 }}
         camera={{ fov: vp.phone ? FOV_PHONE : FOV, near: 0.05, far: 60, position: [0, EYE, 0] }}>
-        <color attach="background" args={['#F3F3F6']} />
-        <Scene stations={stations} at={at} quality={quality.current} portal={htmlLayer} W={W} H={H} Ls={Ls} />
+        <color attach="background" args={['#EEEAE4']} />
+        <Scene stations={stations} at={at} readLevel={readAppLevel} portal={htmlLayer} W={W} H={H} Ls={Ls} />
       </Canvas>
       <div className="sx-html" ref={htmlLayer} />
       <AppFrame rect={rect} onStation={go} api={frameApi} onFit={onFit} />
@@ -168,13 +174,13 @@ export default function App() {
   )
 }
 
-function Scene({ stations, at, quality, portal, W, H, Ls }) {
+function Scene({ stations, at, readLevel, portal, W, H, Ls }) {
   const coveRef = useRef([])
   return (
     <>
       <CameraRig />
       <Lights coveRef={coveRef} />
-      <Room coveRef={coveRef} quality={quality} />
+      <Hall readLevel={readLevel} />
       <GlassPass />
       {stations.map((panels, k) => (
         <Station key={k} k={k} active={k === at} panels={panels} portal={portal} W={Ls[k].app.w} H={Ls[k].app.h} L={Ls[k]} />

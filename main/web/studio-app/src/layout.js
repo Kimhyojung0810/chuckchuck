@@ -84,7 +84,8 @@ export function stationLayout(k, vp, opt = {}) {
   if (k === 1) return present(vp, opt.bigSlide)
   if (k === 2) return analysis(vp)
   if (k === 3) return qa(vp)
-  return single(vp, 0.72, 0.8, 1240, 860)
+  // 리포트(05~09) — 정거장마다 한 화면 데스크(js/report_desk.js)라 창을 넓게 (10-17 「화면에 맞게」)
+  return single(vp, 0.9, 0.84, 1400, 900)
 }
 
 /** 화면 좌표의 앱 창 자리 (iframe 이 멈췄을 때 정확히 겹칠 자리) */
