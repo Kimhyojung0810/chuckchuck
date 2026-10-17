@@ -348,7 +348,7 @@
       }
       const ev = grp.map(paceEv);
       const target = pace.target_sec ? `목표 ${Math.round(pace.target_sec / 60)}분` : '권장 시간';
-      add(`I:pace:${short ? 'short' : 'long'}`, { title: `${grp.length}개 장 모두 ${target}보다 ${short ? '짧게' : '길게'} 말했어요`, polarity: 'issue', criterion: 'time',
+      add(`I:pace:${short ? 'short' : 'long'}`, { title: paceGroupTitle(pace, grp.length, short), polarity: 'issue', criterion: 'time',
         impact: grp.some((s) => s.importance === 'core') ? 'high' : 'mid',
         why: pace.target_sec ? `전체 ${Math.round(pace.actual_sec)}초 · ${target}(${Math.round(pace.target_sec)}초) — 목표 시간은 발표 상황 설정에서 왔어요` : '',
         anchor: { slide_no: grp[0].slide_no }, source: { type: 'pace_doc', id: 'slides' } },
@@ -402,6 +402,20 @@
       else if (ev.some((e) => e.status === 'conflicting') || n.conflict) n.status = 'conflicting';
       n.rank = [TIER[n.impact] || 0, TIER[n.evidence] || 0, TIER[n.actionability] || 0];
     });
+  }
+
+  /** 장 여럿이 같은 쪽으로 어긋났을 때의 제목 — 전체가 목표와 같은 쪽이면 「발표가 목표 10분보다 7분 넘게 짧았어요」(전체 · 목표),
+      아니면 장 기준 「3개 장을 권장 시간보다 짧게 말했어요」. 장별 숫자는 근거 칩이 맡는다 (10-17 검토: 「3개 장 모두 목표 10분보다」 는 장과 전체 목표를 섞었다) */
+  function paceGroupTitle(pace, n, short) {
+    const tgt = Number(pace && pace.target_sec) || 0;
+    const act = Number(pace && pace.actual_sec) || 0;
+    const gap = tgt && act ? (short ? tgt - act : act - tgt) : 0;
+    if (gap > 0) {
+      const m = Math.round(tgt / 60);
+      const howMuch = gap >= 60 ? `${Math.floor(gap / 60)}분 넘게` : `${Math.round(gap)}초`;
+      return `발표가 목표 ${m}분보다 ${howMuch} ${short ? '짧았어요' : '길었어요'}`;
+    }
+    return `${n}개 장을 권장 시간보다 ${short ? '짧게' : '길게'} 말했어요`;
   }
 
   function marksOf(ctx, slideNo) {

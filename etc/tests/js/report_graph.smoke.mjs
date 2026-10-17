@@ -69,6 +69,7 @@ check('청중: refs 가 있는 개념 칭찬은 supported', node('R4').status ==
 check('청중: 결석은 대사가 근거가 아니다(missing)', node('R1').status === 'missing' && node('E:midm').absent === true);
 check('대체값 판정은 「판정 못 함」 인사이트 · 근거 없음으로 표시', node('I:unjudged:th') && node('I:unjudged:th').status === 'missing'
   && v.issues.some((i) => i.kind === 'insight_without_evidence' && i.id === 'I:unjudged:th'));
+check('시간: 묶은 제목은 전체 · 목표로 말한다(장과 목표를 섞지 않음)', node('I:pace:short').title === '발표가 목표 1분보다 50초 짧았어요');
 check('시간: 같은 쪽 장 둘은 인사이트 하나로', node('I:pace:short') && !node('I:pace:1') && g.out('I:pace:short', 'SUPPORTED_BY').length === 2);
 check('잘한 개념: 인용이 원문에 있을 때만', node('I:good:jip') && RG.evidencePath(g, 'I:good:jip').some((p) => p[2] === 'U3'));
 check('Q&A: 꼬리질문은 앞 답(claim)에 GROUNDED_IN', g.edges.some((e) => e.type === 'GROUNDED_IN' && e.from === 'F:q1:1' && e.to === 'A:qa:q1:1'));

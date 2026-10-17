@@ -5229,6 +5229,23 @@ function timeManagementReason() {
     : `${only.name}이 계획보다 ${Math.abs(only.pct)}% 모자랐어요.`;
 }
 
+/** 리포트 2.0 과 같은 헤드라인 — 근거 있는 1번 진단 제목(report_graph.js buildViewModel().headline). 그래프 파일이 없거나 실패하면 '' */
+function rv2SharedHeadline(out) {
+  const RG = window.ReportGraph;
+  if (!RG || !out) return '';
+  try {
+    const input = { reportId: 'head', transcript: out.transcript || null, graph: out.graph || null, alignment: out.alignment || null, flow: out.flow || null,
+      score: out.score || null, pace: out.pace || null, habits: out.habits || null, report: out.report || null, deck: { slides: [] } };
+    return RG.buildViewModel(RG.buildGraph(input), input).headline || '';
+  } catch (err) { console.warn('[chuckchuck] shared headline', err); return ''; }
+}
+/** 옛 리포트 머리가 리포트 2.0 과 같은 헤드라인을 쓰게 그래프 파일 하나만 받는다(가볍다 · 화면 없음). 늦으면 1.5초에서 넘어간다 */
+function ensureReportGraph() {
+  if (window.ReportGraph) return Promise.resolve();
+  const load = new Promise((ok) => { const el = document.createElement('script'); el.src = RV2_FILES.js[0]; el.onload = ok; el.onerror = ok; document.head.appendChild(el); });
+  return Promise.race([load, new Promise((r) => setTimeout(r, 1500))]);
+}
+
 function reportVerdict() {
   const live = isLiveReportSession();
   const real = realSummary();
@@ -5259,7 +5276,9 @@ function reportVerdict() {
          가장 안 중요한 말이 가장 크게 있었다. 판단은 헤드, 단서는 아래 작은 줄. */
       /* '전달됐어요' 를 '전달했어요' 로 바꾼 이유: 발표를 한 사람은 사용자다.
          피동으로 쓰면 잘한 게 누구 덕인지 흐려진다 (토스 능동적 말하기) */
-      headline: faultHeadline || (real.score >= 90 ? '아주 잘 전달했어요'
+      /* 결함이 없으면 리포트 2.0 과 같은 헤드라인(근거 있는 1번 진단 제목, D-014) — 같은 발표에서 옛 · 새 리포트가 서로 다른 말을 했다(10-17).
+         report_graph.js 를 못 받았을 때만 예전 점수 구간 문장 */
+      headline: faultHeadline || rv2SharedHeadline(out) || (real.score >= 90 ? '아주 잘 전달했어요'
         : real.score >= 75 ? '핵심은 잘 전달했어요'
           : real.score >= 60 ? '핵심은 전했고, 다듬을 곳이 보여요'
             : '다음 발표에서 더 좋아질 수 있어요'),
@@ -5313,7 +5332,7 @@ function reportVerdict() {
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs2';
 // 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
 const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs2';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv15', js: ['js/report_graph.js?v=rg2', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq1', 'js/report_v2.js?v=rv15'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv16', js: ['js/report_graph.js?v=rg3', 'js/report_qaboard.js?v=qb3', 'js/report_v2_qa.js?v=rq2', 'js/report_v2.js?v=rv15'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5611,6 +5630,7 @@ async function renderReport() {
   app.className = 'wide';
   // 객석 수다는 70초쯤 걸린다. 여기서부터 받아 두면 요약·판정을 보는 동안 채워진다
   prefetchChatter();
+  if (!rSampleMode) await ensureReportGraph();
   const s = reportSessionMeta();
   const v = reportVerdict();
   /* 녹음이 자료와 아예 다른 내용이라는 판정(f04)이 있으면 리포트 맨 위에서

@@ -128,7 +128,8 @@
         const ask = i === 0 ? '' : `<li class="rq-t ai"><p class="rq-who">꼬리질문${q.steps[i - 1].move && MOVE[q.steps[i - 1].move] ? ` · ${MOVE[q.steps[i - 1].move]}` : ''}</p><p class="rq-bub">${esc(q.steps[i - 1].followup)}</p></li>`;
         const said = s.answer ? hl(s.answer, s.claim) : s.claim ? `<mark>${esc(s.claim)}</mark>` : '';
         const tv = TURN[s.verdict];
-        return `${ask}<li class="rq-t me"><p class="rq-who">내 답${q.steps.length > 1 ? ` ${i + 1}` : ''}${tv ? ` · <span class="v-${tv[1]}">${tv[0]}</span>` : ''}</p>
+        const last = i === q.steps.length - 1 && q.steps.length > 1;
+        return `${ask}<li class="rq-t me${last ? ' is-last' : ''}"><p class="rq-who">내 답${q.steps.length > 1 ? ` ${i + 1}` : ''}${last ? ' · 마지막 답' : ''}${tv ? ` · <span class="v-${tv[1]}">${tv[0]}</span>` : ''}</p>
           <p class="rq-bub">${said || '<span class="rq-dim">이 답은 저장되지 않았어요</span>'}</p>${s.claim && s.answer ? '<p class="rq-why">밑줄은 판정이 붙잡은 내 말이에요</p>' : ''}</li>`;
       }).join('');
       const tail = q.steps.length && q.steps[q.steps.length - 1].followup
@@ -146,6 +147,8 @@
           ${bt.keep && !bt.goodAsIs ? `<p class="rq-keep"><b>내 답에서 살릴 말</b>「${esc(bt.keep)}」</p>` : ''}
           <p class="rq-note">새로 지은 문장이 아니에요. 그래프의 주장 문장 · 자료 원문 · 예상 질문의 모범답에서 가져왔어요.</p></article>` : '';
       const others = all.filter((x) => x !== q);
+      // 답 하나는 한 곳에만 — 꼬리질문이 있으면 사슬 안에서(마지막 답 표시), 없으면 「내 답」 한 칸 (10-17 검토)
+      const chain = q.steps.length > 1 || !!tail;
       const ls = [...q.steps].reverse().find((s) => s.answer || s.claim);
       const lastSaid = ls ? `<p class="rq-bub">${ls.answer ? hl(ls.answer, ls.claim) : `<mark>${esc(ls.claim)}</mark>`}</p>${ls.claim && ls.answer ? '<p class="rq-why">밑줄은 판정이 붙잡은 내 말이에요</p>' : ''}`
         : (r.answer ? `<p class="rq-bub">${esc(r.answer)}</p>` : '');
@@ -154,7 +157,8 @@
         html: `
         ${tags ? `<div class="rq-tags is-top">${tags}</div>` : ''}
         ${t.node && t.node !== q.text ? `<p class="rq-aim">겨눈 곳 · ${esc(t.node)}</p>` : ''}
-        ${lastSaid ? `<h3 class="nv-sec">내 답${q.steps.length > 1 ? '<small>마지막으로 한 답</small>' : ''}</h3><ol class="rq-turns"><li class="rq-t me">${lastSaid}</li></ol>` : ''}
+        ${chain ? `<h3 class="nv-sec">내 답과 꼬리질문<small>질문 → 내 답 → 꼬리질문</small></h3><ol class="rq-turns">${turns}${tail}</ol>`
+          : lastSaid ? `<h3 class="nv-sec">내 답</h3><ol class="rq-turns"><li class="rq-t me">${lastSaid}</li></ol>` : ''}
         <section class="nv-card rq-judge">
           <div class="rq-judge-head"><span class="nv-badge t-${b.tone}">${I[b.icon] || ''}</span><div><b>${esc(b.word)}</b>${meta(q) ? `<small>${esc(meta(q))}</small>` : ''}</div></div>
           ${r.summary ? `<p class="rq-summary">${esc(r.summary)}</p><p class="rq-src">AI 판정이 남긴 한 문장이에요</p>` : ''}
@@ -162,7 +166,6 @@
         </section>
         ${(bt.missing || []).length ? `<h3 class="nv-sec">이번 답에서 빠진 것</h3><ul class="nv-card rq-miss">${bt.missing.map((m) => `<li>${esc(m)}</li>`).join('')}</ul><p class="nv-note">AI 판정이 짚은 점이에요.</p>` : ''}
         ${better}
-        ${q.steps.length > 1 || tail ? `<h3 class="nv-sec">꼬리질문 사슬<small>질문 → 내 답 → 꼬리질문</small></h3><ol class="rq-turns">${turns}${tail}</ol>` : ''}
         ${ctx.QBS ? ctx.QBS.link(q.text) : ''}
         ${others.length ? `<h3 class="nv-sec">다른 질문</h3><div class="nv-group">${others.map((x) => `<button type="button" class="nv-row" data-push="qa:${esc(x.id)}"><span class="nv-row-main"><b>${esc(x.text)}</b></span>${chip(x)}<i class="nv-chev">${I.chev}</i></button>`).join('')}</div>` : ''}`,
         cta: ctx.EMBED ? null : { label: '질문 다시 받아 보기', attr: 'data-href="index.html#/rehearsal/qa"', icon: I.redo },

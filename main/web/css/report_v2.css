@@ -509,6 +509,7 @@ body.rv2-page { margin: 0; background: #F2F2F7; }
 .rv2 .rq-t.ai .rq-bub { background: var(--surface); color: var(--ink); border-bottom-left-radius: 6px; }
 .rv2 .rq-t.me .rq-dim { color: rgba(255, 255, 255, .78); }
 .rv2 .rq-why { margin: var(--tgap) 4px 0; font-size: .8125rem; color: var(--ink-3); }
+.rv2 .rq-turns + .rq-judge { margin-top: var(--gap); }
 
 /* 기준별 점수 — 약한 순 · 비중 · 고정폭 숫자 */
 .rv2 .sc-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 4px; margin: 0 4px var(--gap); }
