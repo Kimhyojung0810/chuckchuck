@@ -5127,14 +5127,29 @@ function rv2TranscriptExtras(t) {
 }
 
 /** Q&A 흐름 — 질문(기대 답 포함)과 결과(claim · 꼬리질문 trail). 리포트 2.0 05 화면 「전환점」 재료 */
+/* 10-17 리포트 개편(Q&A 돌아보기): 판정 한 문장 · 다시 볼 장 · 닫힌 까닭 · 빠진 점 · 턴마다의 답 · 판정 근거 줄 · 묻는 방식을 버리지 않는다.
+   모두 qa_live.js 가 이미 받은 값이고(새 판정 없음), localStorage 5MB 때문에 글자 수 · 개수에 상한을 둔다 */
+const RV2_QA_CHECK = /^(?:pattern:|by:|gist_|signal:|fallback_template$|ensemble$)/;
+const rv2Cut = (t, n) => { const s = String(t || '').trim(); return s.length > n ? `${s.slice(0, n - 1)}…` : s; };
+const rv2Grounds = (gs) => (Array.isArray(gs) ? gs : []).slice(0, 4).map((g) => ({ slide_no: Number(g.slide_no) || 0, quote: rv2Cut(g.quote, 80),
+  role: g.role || '', note: rv2Cut(g.note, 100), ref: String(g.ref || '').slice(0, 12) })).filter((g) => g.quote);
 function rv2QaSnapshot() {
   const L = typeof qa !== 'undefined' && qa && qa.live;
   if (!L || !Array.isArray(L.results) || !L.results.length) return null;
   return {
     questions: (L.questions || []).map((q) => ({ id: q.id, node_id: q.node_id, label: q.label, question: q.question,
-      answer_gist: q.answer_gist || '', evidence_slide_no: q.evidence_slide_no || null, slide_nos: q.slide_nos || [] })),
+      answer_gist: q.answer_gist || '', evidence_slide_no: q.evidence_slide_no || null, slide_nos: q.slide_nos || [],
+      evidence_quote: rv2Cut(q.evidence_quote, 240), why: rv2Cut(q.why, 160), trap: !!q.trap, gist_withheld: !!q.gist_withheld,
+      checks: ((q.basis && q.basis.checks) || []).filter((c) => RV2_QA_CHECK.test(String(c))).slice(0, 8) })),
     results: L.results.map((r) => ({ id: r.id, label: r.label, question: r.question, answer: r.answer || '', verdict: r.verdict,
-      setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0, trail: r.trail || [] })),
+      setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0, hintLevel: r.hintLevel || 0,
+      mastered: r.mastered, closeReason: r.closeReason || '', viaCoach: !!r.viaCoach, revealed: !!r.revealed, retold: !!r.retold,
+      gaveUp: !!r.gaveUp, unasked: !!r.unasked, stopped: !!r.stopped, switchedTo: r.switchedTo || '',
+      summary: rv2Cut(r.summary, 240), lookSlides: Array.isArray(r.lookSlides) ? r.lookSlides.slice(0, 3) : [],
+      missing: (r.missing || []).slice(0, 3).map((m) => rv2Cut(m, 120)), closeGist: rv2Cut(r.closeGist, 400), grounds: rv2Grounds(r.grounds),
+      trail: (r.trail || []).slice(-4).map((t) => ({ q: t.q || '', claim: t.claim || '', ...(t.a ? { a: rv2Cut(t.a, 300) } : {}),
+        ...(t.v ? { v: t.v } : {}), ...(t.move ? { move: t.move } : {}), ...(t.grounds && t.grounds.length ? { grounds: rv2Grounds(t.grounds) } : {}),
+        ...(t.missing && t.missing.length ? { missing: t.missing.slice(0, 3).map((m) => rv2Cut(m, 120)) } : {}) })) })),
     // 네 모델이 고른 질문이었나 · 그 판을 다시 받을 세션 (리포트 「질문은 이렇게 골랐어요」)
     ensemble: !!(L.ensemble && L.ensemble.active), sessionId: L.sessionId || '', runId: L.runId || '',
   };
@@ -5298,7 +5313,7 @@ function reportVerdict() {
 const RV2_SAMPLE_JS = 'js/report_sample.js?v=rs1';
 // 「질문은 이렇게 골랐어요」 샘플 판 (etc/labs/report_v2/make_qa_board.py — 부스 시연 덱 · 10/17 실험의 실제 네 모델 묶음)
 const RV2_QA_BOARD_SAMPLE_JS = 'js/report_qaboard_sample.js?v=qbs1';
-const RV2_FILES = { css: 'css/report_v2.css?v=rv13', js: ['js/report_graph.js?v=rg1', 'js/report_qaboard.js?v=qb3', 'js/report_v2.js?v=rv12'] };
+const RV2_FILES = { css: 'css/report_v2.css?v=rv13', js: ['js/report_graph.js?v=rg2', 'js/report_qaboard.js?v=qb3', 'js/report_v2.js?v=rv12'] };
 let rv2Loading = null;
 let rv2Handle = null;
 let rv2AudioUrl = '';
@@ -5405,6 +5420,7 @@ async function renderReportV2(restoredAt) {
     qa: (qa.live && Array.isArray(qa.live.results) && qa.live.results.length) ? { questions: qa.live.questions || [], results: qa.live.results } : (nf.rv2Qa || null),
     chatter: chatterCache || null,
     qaBoard: board, qaBoardState: boardState,
+    behavior: nf.behavior || null,   // 발표 태도(베타) — js/behavior_report.js 가 그린다
     saved: restoredAt ? ` (${stampText(restoredAt)})` : '',
   });
   if (rv2Handle) rv2Handle.destroy();

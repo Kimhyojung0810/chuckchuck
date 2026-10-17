@@ -226,7 +226,11 @@
     const results = (qa && qa.results) || [];
     qs.forEach((q) => {
       const id = `Q:${q.id}`;
-      g.add(id, 'Question', { type: 'question_doc', id: q.id }, { text: q.question, label: q.label, gist: q.answer_gist || '', anchor: { slide_no: q.evidence_slide_no || (q.slide_nos || [])[0] } });
+      // 10-17 Q&A 돌아보기: 묻는 방식(checks — pattern:P1 · by:모델 · gist_polished …) · 자료 인용 줄 · 함정 여부도 잇는다. 옛 저장본은 없다(빈 값)
+      const checks = (Array.isArray(q.checks) ? q.checks : ((q.basis && q.basis.checks) || [])).map(String);
+      g.add(id, 'Question', { type: 'question_doc', id: q.id }, { text: q.question, label: q.label, gist: q.answer_gist || '', node_id: q.node_id || '',
+        checks, evidence_quote: q.evidence_quote || '', evidence_slide_no: q.evidence_slide_no || 0, trap: !!q.trap, why_ask: q.why || '',
+        anchor: { slide_no: q.evidence_slide_no || (q.slide_nos || [])[0] } });
       if (q.node_id && g.nodes.has(`C:${q.node_id}`)) g.link('REFERENCES', id, `C:${q.node_id}`, { type: 'question_doc', id: q.id });
       (q.slide_nos || []).forEach((n) => { if (g.nodes.has(sid(n))) g.link('REFERENCES', id, sid(n), { type: 'question_doc', id: q.id }); });
     });
@@ -236,8 +240,11 @@
       trail.forEach((step, k) => {
         const ans = `A:qa:${r.id}:${k + 1}`;
         const grounded = !!step.claim && (k < trail.length - 1 ? true : norm(r.answer).includes(norm(step.claim)));
-        g.add(ans, 'Answer', { type: 'qa.results.trail', id: `${r.id}#${k}` }, { claim: step.claim || '', text: k === trail.length - 1 ? r.answer : '',
-          verdict: k === trail.length - 1 ? r.verdict : '', status: step.claim ? (grounded ? 'supported' : 'inferred') : 'missing' });
+        const last = k === trail.length - 1;
+        // 턴마다 내 답 원문(step.a — 10-17 부터 저장) · 그 턴의 판정 낱말 · 꼬리질문 수 · 판정 근거 줄 · 빠진 점. 옛 기록은 마지막 답만 있다
+        g.add(ans, 'Answer', { type: 'qa.results.trail', id: `${r.id}#${k}` }, { claim: step.claim || '', text: step.a || (last ? r.answer : ''),
+          verdict: step.v || (last ? r.verdict : ''), move: step.move || '', grounds: step.grounds || [], missing: step.missing || [],
+          status: step.claim ? (grounded ? 'supported' : 'inferred') : 'missing' });
         if (k === 0) g.link('RESPONDS_TO', ans, `Q:${r.id}`, { type: 'qa.results', id: r.id });
         const next = trail[k + 1];
         if (next) {
@@ -247,7 +254,10 @@
           g.link('RESPONDS_TO', `A:qa:${r.id}:${k + 2}`, fu, { type: 'qa.results.trail', id: `${r.id}#${k + 1}` });
         }
       });
-      g.nodes.get(`Q:${r.id}`).result = { verdict: r.verdict, setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0 };
+      g.nodes.get(`Q:${r.id}`).result = { verdict: r.verdict, setAside: r.setAside || '', passed: !!r.passed, turns: r.turns || 0, hintUsed: r.hintUsed || 0,
+        hintLevel: r.hintLevel || 0, mastered: r.mastered, closeReason: r.closeReason || '', viaCoach: !!r.viaCoach, revealed: !!r.revealed, retold: !!r.retold,
+        gaveUp: !!r.gaveUp, unasked: !!r.unasked, stopped: !!r.stopped, switchedTo: r.switchedTo || '', answer: r.answer || '',
+        summary: r.summary || '', lookSlides: Array.isArray(r.lookSlides) ? r.lookSlides : [], missing: r.missing || [], grounds: r.grounds || [], closeGist: r.closeGist || '' };
     });
   }
 
@@ -288,13 +298,13 @@
         : { kind: 'slide', target: slide, route: '#/rehearsal', label: `${slide}장 다시 설명하기`, available: true };
       const deckLine = g.nodes.get(`V:deck:${it.node_id}`);
       const actions = [];
-      if (q && q.answer_gist) actions.push({ kind: 'explain', text: q.answer_gist, basis: `질문 생성(F-08)의 기대 답 · ${q.evidence_slide_no || slide}장`, practice,
+      if (q && q.answer_gist) actions.push({ kind: 'explain', text: q.answer_gist, basis: `예상 질문의 모범답 · 자료 ${q.evidence_slide_no || slide}장`, practice,
         source: { type: 'question_doc.answer_gist', id: q.id }, anchor: { slide_no: q.evidence_slide_no || slide } });
       else if (deckLine) actions.push({ kind: 'explain', text: deckLine.text, basis: `자료 ${slide}장 원문`, practice, source: deckLine.source, anchor: { slide_no: slide } });
-      else actions.push({ kind: 'explain', text: '', basis: '제안 문장 없음 — 자료 장을 보며 다시 설명', practice, status: 'missing', source: { type: 'none', id: it.node_id } });
+      else actions.push({ kind: 'explain', text: '', basis: '제안 문장이 없어요 — 자료 장을 보며 다시 설명해요', practice, status: 'missing', source: { type: 'none', id: it.node_id } });
       if (a.ui_status === 'na') {
         add(`I:unjudged:${it.node_id}`, { title: `「${c.label || it.node_id}」 는 판정하지 못했어요`, polarity: 'unknown', criterion: 'content',
-          impact: c.kind === 'thesis' ? 'high' : 'low', why: '분석이 대체값으로 끝나 말했는지 확인 못 함 (decided_by: fallback)', anchor: { slide_no: slide },
+          impact: c.kind === 'thesis' ? 'high' : 'low', why: '분석이 끝까지 판정하지 못해서 말했는지 확인하지 못했어요', anchor: { slide_no: slide },
           source: { type: 'alignment_doc.items', id: it.node_id } }, [], [`C:${it.node_id}`, sid(slide)], actions);
       } else if (it.verdict === 'missing' || it.verdict === 'contradiction') {
         add(`I:concept:${it.node_id}`, { title: it.verdict === 'missing' ? `「${c.label}」 를 말로 전하지 못했어요` : `「${c.label}」 를 자료와 다르게 말했어요`,
@@ -322,7 +332,7 @@
     const paceEv = (s) => addEvidence(g, ctx, `V:pace:${s.slide_no}`, { kind: 'time', slide_no: s.slide_no,
       start_sec: (marksOf(ctx, s.slide_no) || {}).start_sec, end_sec: (marksOf(ctx, s.slide_no) || {}).end_sec,
       text: `${s.slide_no}장 실제 ${Math.round(s.actual_sec)}초 · 권장 ${Math.round(s.recommended_sec)}초`, source: { type: 'pace_doc.slides', id: String(s.slide_no) } });
-    const paceAct = (s) => ({ kind: 'time', text: `${s.slide_no}장을 약 ${Math.round(s.recommended_sec)}초로 맞춰 다시 말해 봐요`, basis: '말하기 분석(F-17) 권장 시간',
+    const paceAct = (s) => ({ kind: 'time', text: `${s.slide_no}장을 약 ${Math.round(s.recommended_sec)}초로 맞춰 다시 말해 봐요`, basis: '말하기 분석의 권장 시간',
       practice: { kind: 'slide', target: s.slide_no, route: '#/rehearsal', label: `${s.slide_no}장 다시 연습`, available: true }, source: { type: 'pace_doc.slides', id: String(s.slide_no) } });
     const groups = [off.filter((s) => s.delta_sec < 0), off.filter((s) => s.delta_sec >= 0)];
     groups.forEach((grp, gi) => {
@@ -464,13 +474,26 @@
     });
     const score = input.score || {};
     const report = input.report || {};
+    // 10-17 리포트 개편 D2: 판정이 흔들린 진단(실제로 말했는데 「빠뜨림」 등)은 「먼저 고칠 것」 위에서 빼고 「판정을 못 한 것」 으로 모은다
+    const issueViews = issues.map(view);
+    const fixes = issueViews.filter((x) => x.status !== 'conflicting');
+    const shaky = issueViews.filter((x) => x.status === 'conflicting');
+    const items = score.items || [];
+    const itemName = (no) => ((items.find((it) => it.no === no) || {}).name) || `${no}번 항목`;
+    const itemWhy = (no) => { const it = items.find((x) => x.no === no) || {}; return it.note || it.evidence || ''; };
+    const crit = (score.clusters || []).map((k) => ({ key: k.key, name: k.name, average: k.average, weight: k.weight, scored: k.status === 'scored' }));
+    const weakest = crit.filter((k) => k.scored).sort((a, b) => a.average - b.average)[0] || null;
     return {
       reportId: g.reportId,
       title: (g.nodes.get('P') || {}).title || '',
       duration_sec: (g.nodes.get('P') || {}).duration_sec,
-      score: score.score != null ? { value: score.score, situation: score.situation_label || '', criteria: (score.clusters || []).map((k) => ({ key: k.key, name: k.name, average: k.average, scored: k.status === 'scored' })) } : null,
-      headline: report.one_liner || '',
-      issues: issues.map(view), strengths: strengths.map(view), unknown: unknown.map(view),
+      score: score.score != null ? { value: score.score, situation: score.situation_label || '', criteria: crit, weakest,
+        unmeasured: (score.unmeasured || []).map((no) => ({ no, name: itemName(no), why: itemWhy(no) })),
+        excluded: (score.excluded || []).map((no) => ({ no, name: itemName(no) })) } : null,
+      // D1: 헤드라인 = 근거 있는 1번 진단 제목. F-19 총평(자유 글)은 「AI 총평」 으로 내린다
+      headline: fixes[0] ? fixes[0].title : '',
+      ai: { one_liner: report.one_liner || '', strengths: report.strengths || [], weaknesses: report.weaknesses || [], actions: report.actions || [] },
+      issues: issueViews, fixes, shaky, strengths: strengths.map(view), unknown: unknown.map(view),
       evaluators: all.filter((n) => n.type === 'Evaluator' && n.role === 'audience').map((e) => ({
         id: e.id, key: e.id.slice(2), name: e.name, model: e.model, lane: e.lane, absent: !!e.absent,
         remarks: g.in(e.id, 'PRODUCED_BY').filter((r) => r.type === 'Remark').map((r) => ({ id: r.id, text: r.text, mood: r.mood, status: r.status, why: r.why || '',
@@ -479,9 +502,60 @@
       slides: all.filter((n) => n.type === 'Slide').map((s) => ({ no: s.slide_no, title: s.title,
         spans: all.filter((t) => t.type === 'TimeSpan' && t.anchor.slide_no === s.slide_no).map((t) => ({ start: t.anchor.start_sec, end: t.anchor.end_sec, estimated: !!t.estimated })) })),
       utterances: all.filter((n) => n.type === 'Utterance').map((u) => ({ id: u.id, text: u.text, start: u.anchor.start_sec, end: u.anchor.end_sec, slide_no: u.anchor.slide_no })),
-      qa: all.filter((n) => n.type === 'Question').map((q) => ({ id: q.id, text: q.text, label: q.label, gist: q.gist, result: q.result || null,
-        steps: chainOf(g, q.id) })),
+      qa: all.filter((n) => n.type === 'Question').map((q) => {
+        const steps = chainOf(g, q.id);
+        const result = q.result || null;
+        return { id: q.id, text: q.text, label: q.label, gist: q.gist, result, steps,
+          bucket: result ? qaBucket(result) : 'unasked', topic: qaTopic(q, input), better: qaBetter(q, result, steps, input) };
+      }),
     };
+  }
+
+  /* ─── Q&A 돌아보기 (10-17 리포트 개편 §3) — 새 판정 · 새 문장 없음. 있는 값을 고르고 잇기만 한다 ─────────────────── */
+  /** 닫힌 질문 하나를 넷 중 하나로 — qa_live.js liveBucket 과 같은 규칙(이 파일은 따로 읽혀서 옮겨 둔다). 다른 주제로 · 건너뛰기는 「넘김」 */
+  function qaBucket(r) {
+    if (!r) return 'skipped';
+    if (r.revealed) return r.retold ? 'retold' : 'skipped';
+    if (r.unasked || r.stopped || r.verdict === 'skipped' || r.setAside) return 'skipped';
+    const closed = r.mastered === undefined ? !!r.passed : !!r.mastered;
+    if (!closed || r.gaveUp) return 'skipped';
+    const forced = r.closeReason ? ['rounds', 'guard', 'explained'].includes(r.closeReason) : (!!r.mastered && r.verdict !== 'good');
+    if (forced || (r.hintLevel || 0) >= 3 || r.viaCoach) return 'helped';
+    return 'self';
+  }
+  const KIND_OF = (input, nodeId) => {
+    const pick = (nodes) => (nodes || []).find((n) => n.id === nodeId);
+    return pick((input.graph || {}).nodes) || pick(((input.qa_board || {}).graph || {}).nodes) || null;
+  };
+  /** 질문 주제 — 그래프 층(핵심 주장 · 주장 · 개념) · 자료 장 · 묻는 방식(pattern) · 질문한 모델(by) */
+  function qaTopic(q, input) {
+    const n = q.node_id ? KIND_OF(input, q.node_id) : null;
+    const tag = (pre) => ((q.checks || []).find((c) => c.startsWith(pre)) || '').slice(pre.length);
+    return { layer: n ? (n.kind || n.layer || '') : '', node: n ? n.label : '', slide: q.evidence_slide_no || (q.anchor && q.anchor.slide_no) || 0,
+      pattern: tag('pattern:'), by: tag('by:'), signal: tag('signal:'), trap: !!q.trap,
+      auto: (q.checks || []).includes('fallback_template') };
+  }
+  const refLine = (ref) => { const m = /^S(\d+)-(\d+)/.exec(String(ref || '')); return m ? Number(m[2]) : 0; };
+  /** 「이렇게 답하면 좋아요」 30초 뼈대 — ① 결론(겨눈 주장 문장, 개념이면 부모 사슬을 올라간 주장) ② 근거 한 줄(판정 근거 줄 → 질문의 자료 인용) ③ 모범답 요지 */
+  function qaBetter(q, r, steps, input) {
+    const n = q.node_id ? KIND_OF(input, q.node_id) : null;
+    let top = n; let guard = 0;
+    while (top && top.kind === 'concept' && top.parent_id && guard < 6) { guard += 1; top = KIND_OF(input, top.parent_id) || null; }
+    const conclusion = top && top.kind !== 'concept' ? top.label : (n ? n.label : q.label || '');
+    const grounds = [...((r && r.grounds) || []), ...steps.flatMap((s) => s.grounds || [])];
+    const gr = grounds.find((x) => x.role === 'missing') || grounds.find((x) => x.role === 'covered') || grounds[0] || null;
+    const ground = gr ? { slide: gr.slide_no || 0, line: refLine(gr.ref), quote: gr.quote, from: 'judge' }
+      : q.evidence_quote ? { slide: q.evidence_slide_no || 0, line: 0, quote: q.evidence_quote, from: 'question' } : null;
+    const checks = q.checks || [];
+    const template = checks.includes('gist_template');
+    const gist = template ? '' : (q.gist || (r && r.closeGist) || '');
+    const claims = steps.map((s) => s.claim).filter(Boolean);
+    const keep = claims[claims.length - 1] || '';
+    const bucket = r ? qaBucket(r) : 'unasked';
+    const overlap = (a, b) => { const A = norm(a); const B = norm(b); return !!A && !!B && (A.includes(B) || B.includes(A)); };
+    return { conclusion, conclusionKind: top ? top.kind || '' : '', ground, gist, polished: checks.includes('gist_polished'), template,
+      keep, goodAsIs: bucket === 'self' && !!gist && claims.some((c) => overlap(c, gist)),
+      missing: ((r && r.missing) || []).slice(0, 3) };
   }
 
   /** 질문 하나의 전환점 — 질문 → 답(claim) → 꼬리질문 → 답 … */
@@ -492,13 +566,14 @@
     while (ans && guard < 8) {
       guard += 1;
       const fu = g.in(ans.id, 'GROUNDED_IN').find((n) => n.type === 'FollowUp');
-      steps.push({ claim: ans.claim, answer: ans.text, verdict: ans.verdict, status: ans.status, followup: fu ? fu.text : '' });
+      steps.push({ claim: ans.claim, answer: ans.text, verdict: ans.verdict, status: ans.status, followup: fu ? fu.text : '',
+        move: ans.move || '', grounds: ans.grounds || [], missing: ans.missing || [] });
       ans = fu ? g.in(fu.id, 'RESPONDS_TO').find((n) => n.type === 'Answer') : null;
     }
     return steps;
   }
 
-  const api = { SCHEMA, segmentUtterances, locateQuote, buildGraph, validate, evidencePath, buildViewModel };
+  const api = { SCHEMA, segmentUtterances, locateQuote, buildGraph, validate, evidencePath, buildViewModel, qaBucket };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.ReportGraph = api;
 })(typeof window !== 'undefined' ? window : globalThis);

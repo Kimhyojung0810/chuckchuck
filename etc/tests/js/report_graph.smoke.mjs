@@ -74,6 +74,28 @@ check('잘한 개념: 인용이 원문에 있을 때만', node('I:good:jip') && 
 check('Q&A: 꼬리질문은 앞 답(claim)에 GROUNDED_IN', g.edges.some((e) => e.type === 'GROUNDED_IN' && e.from === 'F:q1:1' && e.to === 'A:qa:q1:1'));
 const vmodel = RG.buildViewModel(g, input);
 check('Q&A: 전환점 사슬 질문 → claim → 꼬리질문 → 답', vmodel.qa[0].steps.length === 2 && vmodel.qa[0].steps[0].followup.startsWith('「다 높아서」'));
+// 10-17 Q&A 돌아보기 — 턴 답 · 근거 줄 · 묻는 방식 · 30초 뼈대(있는 값만)
+const qaIn = { ...input, graph: { ...input.graph, nodes: [...input.graph.nodes.slice(0, 1), { id: 'cl', label: '행동 지표를 같이 봐야 한다', kind: 'claim', parent_id: 'th', slide_nos: [2] },
+    { ...input.graph.nodes[1], parent_id: 'cl' }, input.graph.nodes[2]] },
+  qa: { questions: [{ id: 'q1', node_id: 'jip', question: '왜 행동 지표인가요?', label: '행동 지표', answer_gist: '별점은 몰려서 구별이 안 돼요', slide_nos: [2],
+    evidence_slide_no: 2, evidence_quote: '| 재주문율 | 별점과 따로 논다 |', checks: ['pattern:P1', 'by:solar4', 'gist_polished'] }],
+  results: [{ id: 'q1', answer: '별점이 다 높아서요', verdict: 'partial', mastered: true, closeReason: 'explained', viaCoach: true, summary: '구별이 안 된다는 점을 짚었어요',
+    missing: ['재주문율'], trail: [{ q: '왜 행동 지표인가요?', claim: '다 높아서', a: '별점이 다 높아서 그래요', v: 'partial', move: 'challenge',
+      grounds: [{ slide_no: 2, quote: '재주문율은 별점과 따로 논다', role: 'missing', ref: 'S2-3' }] }, { q: '「다 높아서」 는 왜 문제죠?', claim: '별점이 다 높아서요' }] }] } };
+const qv = RG.buildViewModel(RG.buildGraph(qaIn), qaIn).qa[0];
+check('Q&A 돌아보기: 턴마다 내 답 원문 · 꼬리질문 수', qv.steps[0].answer === '별점이 다 높아서 그래요' && qv.steps[0].move === 'challenge' && qv.steps[1].answer === '별점이 다 높아서요');
+check('Q&A 돌아보기: 질문 주제 = 그래프 층 · 자료 장 · 묻는 방식 · 질문한 모델', qv.topic.layer === 'concept' && qv.topic.slide === 2 && qv.topic.pattern === 'P1' && qv.topic.by === 'solar4');
+check('Q&A 돌아보기: 갇힘 출구로 닫힌 질문은 「도움 받아」', qv.bucket === 'helped' && RG.qaBucket({ verdict: 'good', mastered: true, closeReason: 'good' }) === 'self'
+  && RG.qaBucket({ setAside: 'skip' }) === 'skipped');
+check('30초 뼈대: 개념 질문의 결론은 부모 사슬의 주장 문장', qv.better.conclusion === '행동 지표를 같이 봐야 한다' && qv.better.conclusionKind === 'claim');
+check('30초 뼈대: 근거는 판정 근거 줄(장 · 줄 번호) → 모범답(자료 줄로 확인) · 빠진 점', qv.better.ground.slide === 2 && qv.better.ground.line === 3
+  && qv.better.ground.from === 'judge' && qv.better.gist === '별점은 몰려서 구별이 안 돼요' && qv.better.polished && qv.better.missing[0] === '재주문율');
+const tplIn = { ...qaIn, qa: { ...qaIn.qa, questions: [{ ...qaIn.qa.questions[0], checks: ['gist_template'] }] } };
+check('30초 뼈대: 모범답이 자료 되읊기(gist_template)면 ③ 을 숨긴다', RG.buildViewModel(RG.buildGraph(tplIn), tplIn).qa[0].better.gist === '');
+const vmc = RG.buildViewModel(g, input);
+check('홈: 판정이 흔들린 진단은 「먼저 고칠 것」 에서 빼고 따로 모은다', vmc.fixes.every((x) => x.status !== 'conflicting') && vmc.shaky.every((x) => x.status === 'conflicting')
+  && vmc.fixes.length + vmc.shaky.length === vmc.issues.length && vmc.headline === (vmc.fixes[0] || {}).title);
+check('화면 글에 개발 용어(decided_by · F-08)가 없다', !JSON.stringify(vmc).match(/decided_by|F-0\d|F-1\d/));
 check('검증: 시험 그래프에 끊긴 엣지 없음', !v.issues.some((i) => i.kind === 'dangling'));
 g.edges.push({ id: 'X', type: 'POINTS_TO', from: 'V:said:jip', to: 'U99', source: { type: 't', id: '' } });
 check('검증: 끊긴 엣지를 잡는다', RG.validate(g).issues.some((i) => i.kind === 'dangling' && i.end === 'U99'));

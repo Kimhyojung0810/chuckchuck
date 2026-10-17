@@ -319,6 +319,18 @@ function liveGroundsView(v, shownQuote = '') {
     }));
 }
 
+/**
+ * 판정 근거 줄의 저장 모양 — 리포트 「Q&A 돌아보기」 가 장 · 줄 번호 칩으로 그린다(10-17). 화면 모양(liveGroundsView)과 달리 escape 하지 않은 원문이고,
+ * 저장본(localStorage 5MB) 때문에 넷 · 80자까지만. ref(「S2-3」)는 줄 번호 칩 재료다.
+ */
+function liveGroundsSlim(v) {
+  return (Array.isArray(v && v.grounds) ? v.grounds : [])
+    .filter((g) => g && LIVE_GROUND_ROLE[g.role] && String(g.quote || '').trim())
+    .slice(0, 4)
+    .map((g) => ({ slide_no: Math.max(0, Number(g.slide_no) || 0), quote: String(g.quote).trim().slice(0, 80), role: g.role,
+      note: String(g.note || '').trim().slice(0, 100), ref: String(g.ref || '').slice(0, 12) }));
+}
+
 /** 다시 볼 장 — 빠진 줄·어긋난 줄의 장 번호(겹침 없이, 나온 차례로 둘까지). 결과 한 줄(liveResultRow)과 장 그림이 쓴다. */
 function liveGroundSlides(v) {
   const nos = (Array.isArray(v && v.grounds) ? v.grounds : [])
@@ -1715,6 +1727,10 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       clarify: v.coach_stage === 'clarify',
       // 이번 답에서 내가 실제로 한 핵심 발언 — 서버가 답 원문에 있는 구절인지 확인한 것만 온다(f09 _answer_claim). 꼬리질문이 이 발언에서 이어진다 (10-13 생각 엮기)
       claim: v.claim || '',
+      // 리포트 「Q&A 돌아보기」 재료 (10-17) — 판정이 이미 싣고 온 꼬리질문 수 · 판정 근거 줄 · 빠진 점. 코칭(막힘 사다리) 응답은 판정이 아니라 싣지 않는다
+      move: v.move || '',
+      grounds: v.coach_stage ? [] : liveGroundsSlim(v),
+      missing: v.coach_stage ? [] : (v.missing_points || []).filter(Boolean).slice(0, 3).map((p) => String(p).slice(0, 120)),
     });
     L.lastJudgement = v;
     // 판정 사다리가 지금 들고 있는 것보다 짧지 않으면 그걸로 갈아탄다. **짧아지면 안 버린다** —
@@ -2264,6 +2280,16 @@ function revealHalf(q, v) {
   return points.length > 0;
 }
 
+/** 닫는 질문의 빠진 점 · 판정 근거 줄 — 마지막으로 채점된 턴(코칭 · 되묻기 제외)에서. 리포트 「Q&A 돌아보기」 재료(10-17), 새 판정 없음 */
+function liveCloseExtras(L, record) {
+  const scored = (L.turns || []).filter((t) => !t.gaveUp && !t.clarify && t.verdict);
+  const last = scored[scored.length - 1] || {};
+  const out = {};
+  if (!(record && record.missing) && (last.missing || []).length) out.missing = last.missing;
+  if (!(record && record.grounds) && (last.grounds || []).length) out.grounds = last.grounds;
+  return out;
+}
+
 function closeLiveQuestion(record) {
   const L = qa.live;
   dropLiveMic();
@@ -2272,7 +2298,12 @@ function closeLiveQuestion(record) {
     ...record, turns: L.turn, hintLevel: L.hintLevel,
     hintUsed: Math.max(0, (L.hintLevel || 0) - (L.hintAuto || 0)),
     // 생각의 흔적 (10-13 qa_weave.js) — 이 질문에서 물은 말과 그때 내 핵심 발언. 다음 질문으로 넘어가도 왼쪽 실에 남는다
-    trail: (L.turns || []).filter((t) => !t.gaveUp && !t.clarify).slice(-4).map((t) => ({ q: t.question || '', claim: t.claim || '' })),
+    // 10-17 리포트 「Q&A 돌아보기」: 턴마다 내 답 원문(a) · 판정 낱말(v) · 꼬리질문 수(move) · 판정 근거 줄 · 빠진 점도 남긴다 — 예전엔 닫는 순간 버려졌다
+    trail: (L.turns || []).filter((t) => !t.gaveUp && !t.clarify).slice(-4).map((t) => ({ q: t.question || '', claim: t.claim || '',
+      ...(t.answer ? { a: String(t.answer).slice(0, 300) } : {}), ...(t.verdict ? { v: t.verdict } : {}), ...(t.move ? { move: t.move } : {}),
+      ...(t.grounds && t.grounds.length ? { grounds: t.grounds } : {}), ...(t.missing && t.missing.length ? { missing: t.missing } : {}) })),
+    // 닫힌 판정의 빠진 점 · 근거 줄 — 마지막으로 채점된 턴 것 (record 가 이미 실었으면 그것)
+    ...liveCloseExtras(L, record),
   });
   L.qi++;
   L.turn = 0;
@@ -2343,6 +2374,8 @@ function finishLiveQuestion(q, v, answer) {
     summary: v.summary_sentence || '',
     // 닫는 판정이 가리킨 다시 볼 장 (빠진 줄·어긋난 줄 — 2026-10-01). 결과 한 줄이 「자료 N장 다시 보기」 로 적는다
     lookSlides: v.verdict === 'good' ? [] : liveGroundSlides(v),
+    // 닫을 때 보여 준 기대 답(해설 → 판정 응답의 골자 → 질문의 골자) — 함정 질문은 화면 사본에 골자가 없어서 여기서만 온다. 리포트 「이렇게 답하면 좋아요」 재료
+    closeGist: liveWholeSentences(closeGist).slice(0, 400),
   });
 }
 
@@ -2372,6 +2405,7 @@ function revealLiveAnswer() {
   // 쓴 글이라서다. 없으면 F-08 이 미리 만들어 둔 골자를 쓴다.
   const model = liveRevealModel(q, v);
   if (model || !liveNeedsReveal(q, v) || L.judgeFailed) {
+    if (model) record.closeGist = liveWholeSentences(model).slice(0, 400);   // 리포트 「이렇게 답하면 좋아요」 재료 (10-17)
     enterRetell(model || v.summary_sentence, record);
     growStream();
     refreshLiveChrome();
@@ -2389,6 +2423,7 @@ function revealLiveAnswer() {
     hideCoachThinking();
     setLiveBusy(false);
     if (L.retell) return;
+    if (gist) record.closeGist = liveWholeSentences(gist).slice(0, 400);
     enterRetell(gist || v.summary_sentence, record);
     saveSession('qa-flow', qa);
     growStream();

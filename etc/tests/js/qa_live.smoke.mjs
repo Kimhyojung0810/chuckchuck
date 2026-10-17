@@ -928,10 +928,27 @@ test('건너뛰기 — 기록에는 남고 실패 · 헤드라인 분모로 안 
   eq(api.liveSkipQuestion(), true);
   const r = ctx.qa.live.results[0];
   eq([r.setAside, r.answer, r.answers, ctx.qa.live.qi], ['skip', '첫 답', 1, 1]);
-  eq(r.trail, [{ q: 'a?', claim: '첫 답' }], '생각의 흔적은 닫혀도 남는다');
+  eq(r.trail, [{ q: 'a?', claim: '첫 답', a: '첫 답', v: 'partial' }], '생각의 흔적은 닫혀도 남는다 — 턴 답 원문 · 판정 낱말도 (10-17 리포트 Q&A 돌아보기)');
   eq(api.liveResultRow(r).chip, '건너뜀');
   eq(api.liveResultSummary(ctx.qa.live.results).asked, 0, '분모에서 뺀다');
   eq(turns[turns.length - 1].kind, 'switch');
+});
+test('닫힌 질문은 턴마다의 답 · 판정 근거 줄 · 빠진 점 · 꼬리질문 수를 남긴다 (10-17 리포트 Q&A 돌아보기)', () => {
+  const { ctx, api } = weaveContext();
+  const g = { slide_no: 2, quote: '이벤트 매장의 평균 별점이 +0.34점 높았다', role: 'missing', note: '이 줄이 근거예요', ref: 'S2-3' };
+  ctx.qa.live = liveState(api, [{ id: 'q1', label: 'A', question: 'a?' }, { id: 'q2', label: 'B', question: 'b?' }], {
+    turn: 2, turns: [
+      { question: 'a?', answer: '첫 답', verdict: 'partial', claim: '첫 답', move: 'challenge', grounds: [g], missing: ['근거 수치'] },
+      { question: '(모르겠어요)', answer: '(모르겠어요)', verdict: 'unknown', gaveUp: true },
+    ],
+  });
+  api.liveSkipQuestion();
+  const r = ctx.qa.live.results[0];
+  eq(r.trail[0].move, 'challenge');
+  eq(r.trail[0].grounds[0].ref, 'S2-3');
+  eq(r.missing, ['근거 수치'], '마지막으로 채점된 턴의 빠진 점');
+  eq(r.grounds.length, 1);
+  eq(r.trail.length, 1, '「모르겠어요」 턴은 흔적에 안 넣는다');
 });
 test('건너뛴 질문은 연속을 끊지 않는다', () => {
   const { ctx, api } = weaveContext();
