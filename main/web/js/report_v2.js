@@ -663,7 +663,7 @@
           ${sc.unmeasured.length || sc.excluded.length ? `<details class="nv-card sc-fold"><summary>못 잰 항목 <b>${sc.unmeasured.length}</b>개 · 안 본 항목 <b>${sc.excluded.length}</b>개</summary>
             ${sc.unmeasured.length ? `<p class="sc-ai-k">못 잰 항목 — 재료가 없어서 점수에서 뺐어요</p><ul>${sc.unmeasured.map((u) => `<li><b>${esc(u.name)}</b>${u.why ? ` — ${esc(u.why)}` : ''}</li>`).join('')}</ul>` : ''}
             ${sc.excluded.length ? `<p class="sc-ai-k">안 본 항목 — 이 발표 상황엔 맞지 않아요</p><ul>${sc.excluded.map((u) => `<li>${esc(u.name)}</li>`).join('')}</ul>` : ''}</details>` : ''}
-          <p class="nv-note">39개 항목 → 7개 기준 채점 그대로예요. 같은 녹음도 채점할 때마다 조금씩 달라서 소수점은 보이지 않아요.</p>
+          <p class="nv-note">39개 항목 → 7개 기준 채점 그대로예요. 같은 녹음도 채점할 때마다 조금씩 달라서 소수점은 보이지 않아요.${behaviorRow() ? ' 카메라로 본 발표 태도는 시험 기능이라 이 점수에 넣지 않았어요.' : ''}</p>
           ${typeof window.__rv2Legacy === 'function' ? `<div class="nv-group" style="margin-top:16px"><button type="button" class="nv-row" data-push="legacy:4"><span class="nv-ico i-gray">${I.doc}</span><span class="nv-row-main"><b>항목별 근거</b><small>39개 항목의 점수와 근거 · 이 점수는 아닌 것 같을 때</small></span><i class="nv-chev">${I.chev}</i></button></div>` : ''}
           ${ai.one_liner || (ai.strengths || []).length ? `<details class="nv-card sc-fold"><summary>AI 총평 보기</summary>
             ${ai.one_liner ? `<p class="nv-body">${esc(ai.one_liner)}</p>` : ''}${aiList('강점', ai.strengths)}${aiList('약점', ai.weaknesses)}${aiList('할 일', ai.actions)}

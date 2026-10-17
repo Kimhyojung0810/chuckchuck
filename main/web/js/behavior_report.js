@@ -52,13 +52,30 @@
     return { status: 'ok', word, oneLine, first: p.first || null, topEvidence };
   }
 
+  /** 갈래 넷 — 리포트 2.0 화면과 같은 낱말(areaView: 「화면 쪽 조금 짧아요」 · 잴 수 없으면 까닭 + 고치는 법) */
   function areasHtml(p) {
-    return `<div class="bh-areas">${(p.areas || []).map((a) => `
-      <div class="bh-area" data-look="${a.ok && a.look ? '1' : '0'}">
-        <span class="bh-name">${esc(a.label || AREA_LABEL[a.key] || a.key)}</span>
-        <b class="bh-word">${esc(a.word)}</b>
-        <p class="bh-line">${esc(a.ok ? (a.line || '') : (a.line || '이번엔 잴 수 없었어요'))}</p>
-      </div>`).join('')}</div>`;
+    const M = p.metrics || {};
+    return `<div class="bh-areas">${(p.areas || []).map((a) => {
+      const v = areaView(a, M);
+      return `
+      <div class="bh-area" data-look="${v.look ? '1' : '0'}">
+        <span class="bh-name">${esc(v.name)}</span>
+        <b class="bh-word">${esc(v.word)}</b>
+        ${v.line ? `<p class="bh-line">${esc(v.line)}</p>` : ''}
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  /** 같은 장면을 두 지표가 짚으면(오래 눈 뗌 = 아래를 봄) 한 번만 — 장 · 시각(1초 안)이 같으면 앞의 것 */
+  function uniqCards(cards) {
+    const seen = [];
+    return cards.filter((c) => {
+      const s = c.scene;
+      if (!s || !Number.isFinite(s.sec)) return true;
+      if (seen.some((x) => x.seg === s.seg && Math.abs(x.sec - s.sec) <= 1)) return false;
+      seen.push({ seg: s.seg, sec: s.sec });
+      return true;
+    });
   }
 
   function firstHtml(p, titles) {
@@ -76,7 +93,7 @@
 
   /** 근거 카드 — 화면엔 관찰 · 장면 · 신뢰도, 측정값 · 비교 기준은 접힌 칸 */
   function cardsHtml(p, titles) {
-    const cards = (p.cards || []).filter((c) => !p.first || c.observation !== p.first.text);
+    const cards = uniqCards((p.cards || []).filter((c) => !p.first || c.observation !== p.first.text));
     if (!cards.length) return '';
     return `<h4 class="bh-sub">장면별로 본 것</h4>
       <ul class="bh-cards">${cards.map((c) => {
@@ -288,7 +305,7 @@
   }
 
   function scenesHtml(p, titles) {
-    const cards = (p.cards || []).filter((c) => !p.first || c.observation !== p.first.text);
+    const cards = uniqCards((p.cards || []).filter((c) => !p.first || c.observation !== p.first.text));
     if (!cards.length) return '';
     return `<h3 class="nv-sec">장면별로 본 것</h3><div class="bh-scenes">${cards.map((c) => {
       const s = c.scene || null;
@@ -328,7 +345,7 @@
   function rv2Html(b, { titles = null, questions = null } = {}) {
     if (!b || (!b.present && !b.qa)) return '';
     const p = b.present;
-    const lead = '<p class="bh-lead">카메라로 본 얼굴 방향 · 몸 · 손 움직임을 본 그대로 적었어요. 카메라 각도와 조명에 따라 달라지고, 표정이나 마음은 짐작하지 않아요.</p>';
+    const lead = '<p class="bh-lead">카메라로 본 얼굴 방향 · 몸 · 손 움직임을 그대로 적었어요. 각도와 조명에 따라 달라지고, 표정이나 마음은 짐작하지 않아요.</p>';
     if (!okOf(p)) {
       const st = p && p.status === 'unmeasured' ? 'unmeasured' : 'none';
       const head = st === 'unmeasured' ? '이번엔 잴 수 없었어요' : '발표 동안 카메라 분석이 없었어요';
@@ -341,7 +358,7 @@
     return `<div class="bh-rv2" data-state="ok">${lead}
       ${firstCard(p, h, titles)}
       ${prevLine(p, b.prev || p.prev)}
-      <h3 class="nv-sec">네 갈래로 본 것<small>점 셋은 양이에요</small></h3>
+      <h3 class="nv-sec">네 갈래로 본 것<small>점이 찰수록 많았어요</small></h3>
       <div class="nv-group bh-areas2">${(p.areas || []).map((a) => rowHtml(areaView(a, M))).join('')}</div>
       ${scenesHtml(p, titles)}
       ${qaSection(b.qa, questions)}
