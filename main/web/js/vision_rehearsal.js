@@ -166,6 +166,8 @@ function visionCamToggle() {
 }
 
 function visionCoachStop() {
+  // 녹음이 끝난 뒤 멈추면 이번 발표의 마지막 장까지 보낸다. 녹음 중 「다시 듣기」 로 받아쓰기만 다시 여는 것이면 발표는 이어진다
+  if (typeof qaListenEnd === 'function' && !(typeof nf !== 'undefined' && nf && nf.mic === 'on')) qaListenEnd();
   if (visionCoach.timer) clearInterval(visionCoach.timer);
   visionCoach.timer = 0;
   if (visionCoach.dictation) {
@@ -319,6 +321,10 @@ function visionCoachSample() {
   visionPaintCue(r.cue);
   const heard = visionCoachText();
   visionSetIf($('#vrCaption'), 'textContent', heard ? heard.slice(-42) : '');
+  // 발표를 들으며 3번+ 질문 준비 — 확정문을 지금 보던 장에 붙인다 (js/qa_listen.js · 녹음 중일 때만)
+  if (typeof qaListenTick === 'function' && typeof nf !== 'undefined' && nf) {
+    qaListenTick(visionCoach.final || '', Number(nf.slide) || 1, nf.mic === 'on', nf.sessionId || '');
+  }
 }
 
 function visionMicErrorText(err) {
@@ -701,6 +707,7 @@ function visionSlideTurned(next, prev) {
   if (!layer) return;
   visionSyncProgress();
   if (next !== 1) visionHintDone();
+  if (typeof qaListenTurn === 'function') qaListenTurn(next, prev);   // 떠난 장의 발화를 보낸다 (js/qa_listen.js)
   const stage = layer.querySelector('#vrSlide .vr-slide-stage');
   const no = layer.querySelector('#slideNo');
   [stage, no].forEach((el) => {

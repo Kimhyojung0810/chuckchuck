@@ -43,7 +43,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <!-- 녹음 SDK 모듈 사슬(chuckchuck_bridge → /sdk/index.js → recorder·slide_marks·rehearsal → rehearsal-recorder)을
      처음부터 나란히 받는다. 안 그러면 한 단을 받아야 다음 단을 알아서 공개 경로의 왕복(~0.2초)이 세 번 줄을 선다.
      브리지가 ?v= 를 내용 해시로 바꿔 넣어 모듈 안의 import 주소와 같아진다 (main/server/static_assets.py) -->
-<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkxbc18">
+<link rel="modulepreload" href="js/chuckchuck_bridge.js?v=qkxbc19">
 <link rel="modulepreload" href="/sdk/index.js?v=s1">
 <link rel="modulepreload" href="/sdk/recorder.js?v=s1">
 <link rel="modulepreload" href="/sdk/slide_marks.js?v=s1">
@@ -167,7 +167,9 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <!-- 음성 시각화 window.ChuckVoice — 발표 하단 Bars(orb-ui) · Q&A 삐약이 구(GradientOrb)/Bars. 원본 studio-app/src/voice, npm run build (10-13) -->
   <script src="js/voice-viz.js?v=vv3" data-bundle="beta"></script>
   <script src="js/vision_cue.js?v=vr4" data-bundle="beta"></script>
-  <script src="js/vision_rehearsal.js?v=vr34" data-bundle="beta"></script>
+  <!-- 발표를 들으며 3번+ 질문 준비 — 장을 넘길 때마다 그 장의 발화를 /api/v1/qa/live 로 (10-17) -->
+  <script src="js/qa_listen.js?v=ql1" data-bundle="beta"></script>
+  <script src="js/vision_rehearsal.js?v=vr35" data-bundle="beta"></script>
   <!-- 부스 Q&A 무대 #/booth/qa — 카메라 판단(OpenCV.js 는 이 화면에서만 받는다) · 화면 흐름 -->
   <script src="js/booth_cv.js?v=bq4" data-bundle="beta"></script>
   <script src="js/booth_ops.js?v=bo10" data-bundle="beta"></script>
@@ -176,7 +178,7 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
   <script src="js/qa_weave.js?v=qw3" data-bundle="beta"></script>
   <script src="js/qa_stage.js?v=qs2" data-bundle="beta"></script>
   <!-- 리허설 한 줄 흐름 #/rehearsal — 고르기 → 비전 리허설 → 분석 기다림 → 글라스 화상판 → 리포트. 위 파일들의 전역을 호출 시점에 찾는다 -->
-  <script src="js/rehearsal.js?v=rh53" data-bundle="beta"></script>
+  <script src="js/rehearsal.js?v=rh54" data-bundle="beta"></script>
   <!-- 부스 모바일 체험 투어 #/tour/* — 녹화 응답 재생(API · 카메라 0). 순수 판단 → 셸 · 시작/자료/끝 → 발표 · 분석 · 질문 · 리포트 순서 -->
   <link rel="stylesheet" href="css/tour.css?v=tr13" data-bundle="tour">
   <script src="js/funnel.js?v=fn2" data-bundle="tour"></script>
@@ -201,8 +203,8 @@ CSS·JS를 불러와 척척발표 연습 화면을 띄웁니다.
 <script src="js/qa_live.js?v=qlbc40"></script>
 <!-- 3D 무대. three.js 번들(700KB)은 이 파일이 #/graph 에 처음 들어갈 때만 받는다 -->
 <script src="js/graph3d.js?v=qkv4"></script>
-<script src="js/app.js?v=qlbc89"></script>
+<script src="js/app.js?v=qlbc90"></script>
 <!-- chuckchuck F-03/F-04 SDK (demo bridge 서버에서 /sdk 제공) -->
-<script type="module" src="js/chuckchuck_bridge.js?v=qkxbc18"></script>
+<script type="module" src="js/chuckchuck_bridge.js?v=qkxbc19"></script>
 </body>
 </html>

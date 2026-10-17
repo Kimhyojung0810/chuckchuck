@@ -1207,6 +1207,7 @@ async function rhReanalyzeWithRecording(btn) {
   saveSession('qa-flow', qa);
   if (typeof chatterCache !== 'undefined') chatterCache = null;
   if (typeof visionCoachStop === 'function') visionCoachStop();
+  if (typeof qaListenDrop === 'function') qaListenDrop(nf.sessionId);
   if (typeof visionResetReactions === 'function') visionResetReactions();
   nf.visionSeen = false;
   nf.backstage = [];
@@ -1257,6 +1258,7 @@ async function rhFinishWithFile(sheet, file, knownDurationSec = 0) {
   }
   // 라이브로 말한 동안 쌓인 삐약이 반응은 이 녹음의 것이 아니다 — 리포트가 녹음 위에 반응을 얹지 않게 비운다
   if (typeof visionCoachStop === 'function') visionCoachStop();
+  if (typeof qaListenDrop === 'function') qaListenDrop(nf.sessionId);   // 라이브 발화도 이 녹음의 것이 아니다 — 3번+ 재료에서 뺀다
   if (typeof visionResetReactions === 'function') visionResetReactions();
   nf.visionSeen = false;
   // 녹음 중이었으면 녹음 시계를 멈추고 「발표 중」 을 내린다 — useUploadedRecording 은 녹음기만 멈춘다
@@ -1458,10 +1460,43 @@ function rhWatchCamAlive() {
   }, 1000);
 }
 
-/** 질문 재료(그래프 · 정합 · 흐름)가 모였으면 질문을 만든다 — 일반 앱 #/qa 와 같은 함수 · 같은 3개 트랙 */
+/**
+ * 일찍 시작 (2026-10-17 발표를 들으며 준비) — 1·2번은 자료 묶음에서 고르므로 받아쓰기 · 정합 · 흐름이 필요 없다. 서버가 묶음이 준비됐다고
+ * 하면(/api/v1/qa/pool/status early) 분석을 기다리지 않고 Q&A 를 연다. 분석은 뒤에서 계속 돌고, 끝나면 3번+ 재료와 리포트가 된다.
+ * 돌려주는 값은 쓸 그래프(발표하는 동안 미리 만든 것) — 아직이면 null. 서버에는 1.5초에 한 번만 묻는다.
+ */
+let rhPoolPoll = { sid: '', at: 0, busy: false, early: false };
+function rhEarlyQaGraph() {
+  if (typeof nf === 'undefined' || !nf || !nf.sessionId || !nf.pipelineStartedAt) return null;
+  const pre = (typeof precompute !== 'undefined' && precompute && typeof precomputeKey === 'function'
+    && precompute.key === precomputeKey() && precompute.state) ? precompute.state.graph : null;
+  const graph = (nf.pipelineOut && nf.pipelineOut.graph) || pre;
+  const bridge = window.ChuckchuckBridge;
+  if (!graph || !bridge || typeof bridge.qaPoolStatus !== 'function') return null;
+  if (rhPoolPoll.sid !== nf.sessionId) rhPoolPoll = { sid: nf.sessionId, at: 0, busy: false, early: false };
+  if (rhPoolPoll.early) return graph;
+  if (!rhPoolPoll.busy && Date.now() - rhPoolPoll.at > 1500) {
+    rhPoolPoll.busy = true;
+    const mine = rhPoolPoll;
+    bridge.qaPoolStatus(nf.sessionId)
+      .then((r) => { mine.early = !!(r && r.early); if (mine.early) rhWaitTick(); })
+      .catch(() => {})
+      .finally(() => { mine.busy = false; mine.at = Date.now(); });
+  }
+  return null;
+}
+
+/** 질문 재료(그래프 · 정합 · 흐름)가 모였으면 질문을 만든다 — 일반 앱 #/qa 와 같은 함수 · 같은 3개 트랙. 묶음이 준비됐으면 그래프만으로(일찍 시작) */
 function rhKickQuestions() {
-  if (typeof pipelineQaReady !== 'function' || !pipelineQaReady()) return;
+  if (typeof pipelineQaReady !== 'function') return;
   if (qaLiveActive() || qaBuilding || qaBuildFailed) return;
+  if (!pipelineQaReady()) {
+    const graph = rhEarlyQaGraph();
+    if (!graph) return;
+    if (!(nf.pipelineOut && nf.pipelineOut.graph)) nf.pipelineOut = { ...(nf.pipelineOut || {}), graph };
+    if (typeof qaListenEnd === 'function') qaListenEnd();     // 발표의 마지막 장까지 보낸다 — 3번+ 재료
+    console.info('[chuckchuck] 자료 질문이 준비돼 분석을 기다리지 않고 질문을 시작해요');
+  }
   qa.mode = REHEARSAL_QA_TRACK;
   qa.started = true;
   qa.aud = qaAudienceWord();   // 발표 상황에서 고른 자리의 사람 — 화상판 삐약이 이름표(booth_call.js bcRole). 질문 · 판정 요청에는 안 실린다

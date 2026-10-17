@@ -65,6 +65,31 @@ SPOKEN = {
 # 비전 리허설에서 잴 글자 — 카메라 위 이름표 · 위 알약 · 조작줄 · 자료 창 자막 (--cam white|dark)
 VISION_TEXT = ["#vrCall .vr-name", "#vrCall .vr-status", "#vrCall .vr-pill:not(.rh-brand)", "#vrCall .rh-brand > span", "#vrCall .rh-brand small", "#vrCall .vr-rec .rec-copy > span", "#vrCall .vr-rec .rec-live",
                "#vrCall .vr-rec .rec-clock", "#vrCall .vr-nav[data-slide-nav='1']", "#vrCall .vr-caption", "#vrCall .vr-hear"]
+TALK_BUNDLES = {   # --talk-script auto — 덱 → 그 덱 발표의 받아쓰기가 든 묶음 (etc/bench/qa_ensemble_bench.py BUNDLES 와 같은 파일)
+    "배달앱별점인플레이션A": "/data/models/_runs/qa-route/bundles/booth_C1_delivery.json",
+    "급속충전배터리열화A": "/data/models/_runs/qa-route/bundles/booth_A1_battery.json",
+    "미세플라스틱물벼룩번식A": "/data/models/_runs/qa-route/bundles/booth_B1_microplastic.json",
+}
+
+
+def talk_script(path: str, deck: str) -> list[tuple[int, list[str]]]:
+    """묶음의 받아쓰기 → [(장 번호, [문장…])] 말한 순서대로 (같은 장 다시 들름은 합친다)."""
+    import re as _re
+    p = TALK_BUNDLES.get(deck, "") if path == "auto" else path
+    tr = json.loads(Path(p).read_text())["session"]["artifacts"]["transcript"]
+    out: list[tuple[int, list[str]]] = []
+    for seg in tr.get("by_slide") or []:
+        text = seg.get("text") or " ".join(w.get("text", "") for w in seg.get("words") or [])
+        sents = [x.strip() for x in _re.split(r"(?<=[.?!다요죠])\s+", text) if len(x.strip()) >= 2]
+        if not sents:
+            continue
+        if out and out[-1][0] == seg["slide_no"]:
+            out[-1][1].extend(sents)
+        else:
+            out.append((int(seg["slide_no"]), sents))
+    return out
+
+
 RECORD_PATHS = {
     "/api/v1/transcribe": "transcribe.json", "/api/v1/concepts": "concepts.json", "/api/v1/graph": "graph.json",
     "/api/v1/alignment": "alignment.json", "/api/v1/flow": "flow.json", "/api/v1/pace": "pace.json",
@@ -419,6 +444,9 @@ def run(args) -> Path:
                 finish_with_recording(live=True)
                 return
             cues = set()
+            if args.talk_script:
+                talk_by_script(cues)
+                return
             per = max(4, args.rec_sec // max(1, args.slides))
             t_rec = time.time()
             said = 0
@@ -439,6 +467,38 @@ def run(args) -> Path:
                                      "vision_cues": page.evaluate("(nf.visionCues||[]).length")})
             if args.until == "rehearse":
                 raise _Until()
+            page.click("#recEnd")
+
+        def talk_by_script(cues: set) -> None:
+            # 발표를 들으며 질문 준비(10-17) — 덱의 실제 발표 받아쓰기(묶음 json)를 장마다 문장 단위로 가짜 받아쓰기에 흘린다.
+            # 장의 문장이 다 나가면 다음 장으로 — 서버 /qa/live 가 장마다 받는 것을 실제 발표처럼 본다. 끝나면 「발표 마치기」.
+            script = talk_script(args.talk_script, args.deck)
+            t_rec = time.time()
+            n_pages = page.evaluate("rehearsalCount()")
+            sent = 0
+            for i, (no, sents) in enumerate(script):
+                if no > n_pages:
+                    break
+                while page.evaluate("Number(nf.slide)") < no and page.is_visible('.vr-dock [data-slide-nav="1"]'):
+                    page.click('.vr-dock [data-slide-nav="1"]')
+                    page.wait_for_timeout(700)
+                for t in sents:
+                    page.evaluate("(t) => window.__fakeSay(t)", t)
+                    sent += 1
+                    page.wait_for_timeout(int(max(600, min(2600, len(t) * 45)) * args.talk_speed))
+                    cues.add(page.evaluate("(document.getElementById('vrBird')||{}).dataset?.cue || ''"))
+                if i == 0 and "vision_rec" not in R["layout"]:
+                    lay("vision_rec")
+                    shot("vision_recording")
+            page.wait_for_timeout(1200)
+            R["talk_script"] = {"slides": len(script), "sentences": sent, "sec": round(time.time() - t_rec, 1),
+                                "live_slides": page.evaluate("typeof qaListen !== 'undefined' && qaListen.state ? Object.keys(qaListen.state.slides).length : 0"),
+                                "talk": page.evaluate("typeof qaListen !== 'undefined' ? qaListen.talk : ''")}
+            mark("rehearse", t_rec, {"cues": sorted(cues), "slide": page.evaluate("nf.slide"), "sec": page.evaluate("nf.sec"),
+                                     "script": R["talk_script"]})
+            if args.until == "rehearse":
+                raise _Until()
+            R["talk_end_at"] = time.time()
             page.click("#recEnd")
 
         def finish_with_recording(live: bool) -> None:
@@ -607,7 +667,7 @@ def run(args) -> Path:
                 if all(v == "done" for v in st.values()) and "wait_ready" not in R["layout"]:
                     lay("wait_ready")
                     shot("wait_ready")
-                page.wait_for_timeout(1000)
+                page.wait_for_timeout(250 if args.talk_script else 1000)
             mark("wait", t0, {"steps": steps_seen,
                               "phase": page.evaluate("nf.pipelinePhase"), "reveal": page.evaluate("!!document.getElementById('f11RevealWrap')"),
                               "fail": page.evaluate("(document.getElementById('bqPrepFail')||{}).innerText || ''"),
@@ -618,6 +678,10 @@ def run(args) -> Path:
             # ── 4. 글라스 화상판 (기다림에서 저절로 들어온다) ───────────────────────
             t0 = time.time()
             page.wait_for_selector("#bqStage[data-screen='qa'][data-flow='rehearsal'] #stream .msg.q", timeout=30000, state="attached")
+            R["first_q_at"] = time.time()
+            if R.get("talk_end_at"):
+                R["end_to_q1_sec"] = round(R["first_q_at"] - R["talk_end_at"], 1)
+                print(f"  발표 끝 → 1번 질문 {R['end_to_q1_sec']}s", flush=True)
             page.wait_for_timeout(3000)
             sweep("qa_ask1", settle=1200)
             mark("qa_enter", t0, {"hash": page.evaluate("location.hash"), "flags": page.evaluate(FLAGS_JS),
@@ -1059,6 +1123,9 @@ def main() -> int:
     ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
     ap.add_argument("--studio-skin", action="store_true", help="스튜디오 정면 창처럼 sx-studio 옷을 입힌다 (--viewport 를 창 크기로, 예: 1361x757)")
     ap.add_argument("--report-v2", dest="report_v2", action="store_true", help="리포트 2.0 으로 리포트를 그리고(팀 플래그) /VRShow 정면 창 갈래도 본다 (docs/report-v2/)")
+    ap.add_argument("--talk-script", dest="talk_script", default="",
+                    help="발표 중 가짜 받아쓰기로 이 묶음(json · artifacts.transcript)의 장별 발화를 흘린다 — auto 면 덱에 맞는 부스 묶음 (10-17 발표를 들으며 준비)")
+    ap.add_argument("--talk-speed", dest="talk_speed", type=float, default=1.0, help="--talk-script 문장 사이 간격 배수 (작을수록 빨리)")
     ap.add_argument("--weave", action="store_true", help="Q&A 생각 엮기(10-13) — 엉성한 답 → 내 발언 · 꼬리질문 → 관점 바꾸기 → 다른 개념 → 건너뛰기 → 리포트 기록")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")

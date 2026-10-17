@@ -4902,6 +4902,7 @@ function nfStep4() {
         nf.pipelineError = null; // STT 성공분 유지 — 상단은 conceptsError 로 표시
       }
       console.info('[chuckchuck] pipeline ok', out);
+      if (typeof qaListenAfterAnalysis === 'function') qaListenAfterAnalysis(out);   // 받아쓰기 · 정합을 이 발표에 — 3번+ 재료 (js/qa_listen.js)
       prefetchLiveQuestions();   // 분석이 끝난 이 순간 질문을 미리 만든다 — 리빌을 보는 동안 준비된다
       // 발표가 끝난 이 순간부터 객석 수다를 받아 둔다. 질문 코칭 내용은 섞지
       // 않는다 — 수다는 F-07/F-11 결과만 보고 만들어지므로 여기서 확정된다.

@@ -901,6 +901,8 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
       session_id: sessionId || null,
       // 질문을 새로 받는 때가 곧 Q&A 한 판의 시작이다 — 판 값을 새로 (미리 만들기 prefetch 는 지금 판을 그대로)
       qa_run_id: qaRunId(sessionId, { fresh: !prefetch }),
+      // 이 판 앞의 발표(비전 리허설이 장마다 보낸 발화 · 음성 후보) — 3번+ 가 이 발표를 찾는다. 발표가 없었으면 빈 값
+      talk_id: talkRunId(sessionId) || undefined,
       graph,
       alignment,
       flow: flow || null,
@@ -947,6 +949,40 @@ export function qaRunId(sessionId, { fresh = false } = {}) {
     qaRun = { sid, id: `r${rnd}` };
   }
   return qaRun.id;
+}
+
+/**
+ * 발표 한 번의 구분 값 (2026-10-17 발표를 들으며 준비) — 비전 리허설이 녹음을 시작할 때 fresh 로 새로 만든다. 질문 요청 · /qa/next ·
+ * /qa/live 에 talk_id 로 싣는다. 같은 덱 세션을 여러 사람이 써도 서버가 발표 단위로 나눠 남의 발화가 섞이지 않는다.
+ * 만든 적이 없거나 세션이 바뀌었으면(다른 자료) 빈 문자열 — fresh 일 때만 만든다.
+ */
+let talkRun = { sid: null, id: '' };
+export function talkRunId(sessionId, { fresh = false } = {}) {
+  const sid = sessionId || 'flat';
+  if (fresh) {
+    const rnd = (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+      ? globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 20)
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    talkRun = { sid, id: `t${rnd}` };
+  }
+  return talkRun.sid === sid ? talkRun.id : '';
+}
+
+/** 발표 중 — 장 하나의 발화(지금까지 전체) · 닫힘 · 끝 · 정합을 보낸다 (/api/v1/qa/live, 202). 실패해도 발표는 그대로 */
+export async function qaLiveFeed(sessionId, talkId, { slide_no = 0, text = null, closed = false, final = false, alignment = null, transcript = null } = {}) {
+  if (!sessionId || !talkId) return null;
+  return qaApi('/api/v1/qa/live', {
+    method: 'POST',
+    json: { session_id: sessionId, talk_id: talkId, slide_no, text, closed: !!closed, final: !!final, ...(alignment ? { alignment } : {}),
+      ...(transcript ? { transcript: slimTranscript(transcript) } : {}) },
+    timeoutMs: 8000,
+  });
+}
+
+/** 네 모델 묶음(1·2번 자료 질문)이 준비됐나 — {ensemble, ready, early}. graph 를 주면 아직 안 띄웠을 때 띄운다. LLM 없음 */
+export async function qaPoolStatus(sessionId, graph = null) {
+  if (!sessionId) return { ensemble: false, ready: false };
+  return qaApi('/api/v1/qa/pool/status', { method: 'POST', json: { session_id: sessionId, ...(graph ? { graph } : {}) }, timeoutMs: 5000 });
 }
 
 export async function judgeQaAnswer(sessionId, { onWait = null, stillWanted = null, ...req }) {
@@ -1010,7 +1046,8 @@ const ENSEMBLE_NEXT_TIMEOUT_MS = 6000;
 export async function ensembleNextQuestion(sessionId, { asked = [], prefetch = false } = {}) {
   return qaApi('/api/v1/qa/next', {
     method: 'POST',
-    json: { session_id: sessionId || null, asked, prefetch: !!prefetch, qa_run_id: qaRunId(sessionId) },
+    json: { session_id: sessionId || null, asked, prefetch: !!prefetch, qa_run_id: qaRunId(sessionId),
+      talk_id: talkRunId(sessionId) || undefined },
     timeoutMs: ENSEMBLE_NEXT_TIMEOUT_MS,
   });
 }
@@ -1172,6 +1209,9 @@ export async function suggestContext(slideDoc) {
 
 window.ChuckchuckBridge = {
   qaRunId,
+  talkRunId,
+  qaLiveFeed,
+  qaPoolStatus,
   suggestContext,
   attachRehearsalRuntime,
   deleteSession,
