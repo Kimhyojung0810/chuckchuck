@@ -233,3 +233,23 @@ def test_어긋남_신호가_없으면_good_판정은_그대로_닫힌다():
     out = DLG.apply(judged(verdict="good", score=85), t, talk, respeak=False)
     assert out.verdict == "good" and out.mastered and not out.dialogue["read_conflict_cap"]
 
+
+def test_판정과_상관없는_검사에_걸리면_판정을_기다리지_않고_미리_다시_말한다(monkeypatch):
+    long_react = "「상황마다 좀 다를 것」이라고 했죠. 그 말이 실험실의 가속 조건과 실제 사용자의 충전 조건 차이를 어떻게 설명하는지는 아직 빠졌어요."
+    llm = TalkLLM({**GOOD_TALK, "react": long_react},
+                  respeak={"react": "「상황마다 좀 다를 것」이라고 했죠. 기준이 아직 흐려요.", "ask": "어떤 조건에서 그렇다는 말이에요?"})
+    monkeypatch.setattr(DLG, "_llm", lambda name=None: llm)
+    t = ti()
+    talk = DLG._talk_with(t, "fake")
+    assert talk.early is not None and talk.early[0] == "clarify"           # 판정 전에 이미 띄웠다
+    out = DLG.apply(judged(), t, [talk])
+    assert out.dialogue["source"] == "respeak" and out.dialogue["respeak_early"] is True
+    assert sum("이미 정해졌다" in s for s in llm.systems) == 1               # 다시 말하기는 한 번만
+
+
+def test_challenge_반응이_자료_내용을_먼저_말하면_다시_말하게_한다():
+    assert DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.")
+    assert not DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 그 말과 부딪혀요.")
+    assert not DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 그걸 어떻게 말해요?")
+    assert DLG.quote_problem("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.", "회전율은 정상관이에요", "challenge") == ["deck_claim"]
+    assert DLG.quote_problem("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.", "회전율은 정상관이에요", "connect") == []

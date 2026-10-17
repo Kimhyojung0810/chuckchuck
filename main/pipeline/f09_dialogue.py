@@ -102,7 +102,7 @@ STYLE = """말투 명세 (어기면 코드가 문장을 버린다):
 MOVE_SHAPES = {
     "connect": "답이 건너뛴 고리 하나(근거 → 주장, 주장 → 상위 주장)를 묻는다. 발표자가 말한 것은 살리고, 그 말과 결론 사이에 빠진 「왜」 하나만. 빠진 내용을 말해 주지 마라.",
     "clarify": "흐린 말이 정확히 무엇을 뜻하는지 묻는다 — 「(흐린 말)이라고 했는데, 무엇이 어떻게 다르다는 뜻이에요?」 꼴. 구체적인 조건 하나를 떠올리게 한다.",
-    "challenge": "어긋난 말과 자료가 부딪히는 지점을 가리키고 직접 견주게 한다 — 「(그 말)이라고 했는데, 자료 N장은 어떻게 말해요?」 꼴. 자료가 실제로 뭐라고 하는지(값 · 방향 · 정답 문장)는 말하지 마라 — 장만 가리킨다.",
+    "challenge": "어긋난 말과 자료가 부딪히는 지점을 가리키고 직접 견주게 한다 — 「(그 말)이라고 했는데, 자료 N장은 어떻게 말해요?」 꼴. 자료가 실제로 뭐라고 하는지(값 · 방향 · 정답 문장)는 말하지 마라 — 장만 가리킨다. 「자료 N장은 (내용)이라고 말해요」 는 버려진다 — 「자료 N장과 부딪혀요」 처럼 어긋난다는 것만.",
     "explore": "반대 의견을 존중하고 그렇게 본 이유를 묻는다. 자료의 어느 결과와 견줘 볼지 묻는다 — 정답을 들이밀지 마라.",
     "refocus": "답이 질문과 다른 이야기다. 그 말을 짧게 받고(무시하지 마라), 질문이 묻는 핵심(질문의 대상)으로 돌아오는 쉬운 질문 하나 — 정답 · 모범답의 결론은 질문 안에도 넣지 마라.",
     "recite": "옮긴 자료 문장의 한 마디를 인용하고, 자료 문장을 옮기기만 했다는 것을 짚고, 그 문장이 질문이 묻는 「왜 · 충분한가 · 어떻게 이어지나」 에 어떻게 답이 되는지 자기 말로 잇게 묻는다.",
@@ -243,6 +243,9 @@ class TalkResult:
     ok: bool = False
     error: str = ""
     model: str = ""
+    #: 미리 다시 말하기 (10-17 tune) — 읽기 콜 문장이 판정과 상관없는 검사(길이 · 되풀이 · 누설)에 걸렸으면 판정을 기다리지 않고
+    #: 같은 수로 다시 말하기를 띄워 둔 것: (수, Future). apply 가 정책의 수와 같으면 이것을 받아 쓴다.
+    early: tuple | None = None
 
 
 def _llm(name: str | None = None):
@@ -342,7 +345,22 @@ def _talk_with(ti: TalkInput, name: str) -> TalkResult:
         return TalkResult(error=f"{type(e).__name__}: {str(e)[:120]}", model=name)
     out = dialogue_talk(ti, llm=engine)
     out.model = out.model or name
+    if out.ok and respeak_on() and early_respeak_on() and out.move:
+        r = with_quote(soft_trim(tidy_react(out.react)), _anchor_for(out.move, out.read, out.anchor), ti.answer, out.move)
+        probs = check_turn(r, out.ask, ti, need_ask=True, numbers_ok=str(ti.slide_no or "")) + quote_problem(r, ti.answer, out.move)
+        if probs:
+            no = out.read.get("conflict_slide") or 0
+            extra = f"답과 어긋나는 자료: {no}장" if out.move == "challenge" and no else ""
+            fut = _POOL.submit(_ai_calllog.carry(dialogue_respeak, "F-09-respeak"), ti, out.move,
+                               _anchor_for(out.move, out.read, out.anchor), extra, llm=engine)
+            out.early = (out.move, fut)
     return out
+
+
+def early_respeak_on() -> bool:
+    """미리 다시 말하기 — 기본 켬(`QA_DIALOGUE_EARLY_RESPEAK=0` 으로 끔). dev b0 판: 다시 말하기 241번 중 47%(문장 45자 초과) · 16%(되풀이)는
+    판정과 상관없는 검사였다 — 판정(p50 3.6초)이 끝나기 전에 읽기 콜(1.8초)을 받아 바로 고쳐 쓰게 하면 판정 뒤 기다림이 없다."""
+    return (os.environ.get("QA_DIALOGUE_EARLY_RESPEAK", "1") or "1").strip().lower() not in ("0", "off", "false", "no")
 
 
 # ─── 구절 · 검사 ─────────────────────────────────────────────────────────────────────────────
@@ -547,7 +565,24 @@ def with_quote(react: str, anchor: str, answer: str, move: str) -> str:
 
 
 def quote_problem(react: str, answer: str, move: str) -> list[str]:
-    return [] if move in _NO_QUOTE_MOVES or quoted_anchor(react, answer) else ["no_quote"]
+    out = [] if move in _NO_QUOTE_MOVES or quoted_anchor(react, answer) else ["no_quote"]
+    return out + (["deck_claim"] if move == "challenge" and deck_claim(react) else [])
+
+
+#: challenge 의 반응이 자료가 실제로 뭐라고 하는지 말해 버린 문장 — 「자료 13장은 역상관이라고 말해요」 (10-17 tune dev 가린 라벨: 틀린 전제
+#: 반응의 52%). 「자료 N장은 그 말과 부딪혀요 · 다르게 말해요」 처럼 **어긋난다는 것만** 가리키는 문장은 괜찮다. 물음 문장은 보지 않는다.
+_DECK_SAYS_RE = re.compile(r"자료\s*\d+\s*장[은이에의]?\s*(?P<body>.+?)\s*(?:라고|이라고|고)?\s*(?:말해요|보여요|보여줘요|보여 줘요|적혀 있어요|판정해요|읽어요|설명해요|나와요|해요)\.?$")
+_POINT_ONLY_RE = re.compile(r"부딪|어긋|다르|달라|반대|맞지 않|안 맞|어떻게|그 말|그 방향|그 값|그 수치")
+
+
+def deck_claim(react: str) -> bool:
+    for sent in sentences_of(react):
+        if sent.rstrip().endswith(("?", "？")):
+            continue
+        m = _DECK_SAYS_RE.search(_strip_quotes(sent))
+        if m and not _POINT_ONLY_RE.search(m.group("body")):
+            return True
+    return False
 
 
 def quoted_anchor(react: str, answer: str) -> str:
@@ -792,11 +827,16 @@ def apply(judgement: QaJudgement, ti: TalkInput, talks, *, gave_up: bool = False
         react, ask, _ = candidate(chosen)
         source = "llm"
     meta["llm_problems"] = candidate(base)[2] if base else []
-    # 2) 수가 다르거나 검사에 걸림 → 정해진 수로 다시 말하기 (한 콜)
+    # 2) 수가 다르거나 검사에 걸림 → 정해진 수로 다시 말하기 (한 콜). 읽기 콜이 같은 수로 미리 다시 말하기를 띄워 뒀으면 그것을 받는다
     if not source and (respeak if respeak is not None else respeak_on()) and got:
-        extra = _judge_note(judgement, move)
-        fut = _POOL.submit(_ai_calllog.carry(dialogue_respeak, "F-09-respeak"), ti, move, anchor, extra,
-                           llm=llm or (_llm(base.model) if base and base.model else None))
+        early = next((t.early[1] for t in ok_talks if t.early and t.early[0] == move), None)
+        meta["respeak_early"] = early is not None
+        if early is not None:
+            fut = early
+        else:
+            extra = _judge_note(judgement, move)
+            fut = _POOL.submit(_ai_calllog.carry(dialogue_respeak, "F-09-respeak"), ti, move, anchor, extra,
+                               llm=llm or (_llm(base.model) if base and base.model else None))
         try:
             r2, a2, sec2 = fut.result(timeout=respeak_budget_sec())
         except Exception:  # noqa: BLE001 — 늦으면 코드 틀 (호출은 뒤에서 끝나고 기록은 남는다)
