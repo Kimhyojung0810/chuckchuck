@@ -74,6 +74,19 @@ $PY run.py score --run baseline_1017               # 예측은 그대로, 다시
 사람이 쓴 해석은 같은 폴더 `notes.md` 에 두면 다시 채점해도 보고서 끝에 붙는다. 기준 결과: `runs/baseline_1017/report.md`(참조 엔진) · `runs/engine_5e3dd16/report.md`(브라우저 엔진 첫 측정).
 브라우저 실험은 127.0.0.1:8835~8839 중 빈 포트를 쓴다(8799 · 8800 은 안 건드림). 영상 길이만큼 실시간으로 돈다(전체 ≈ 25분).
 
+### 빠르게 돌리기 (바퀴 3)
+```bash
+node replay_logic.mjs engine_<run> rp_x                       # logic 만 바꿨을 때 — 저장된 engine_rows 를 지금 logic 으로 (preds 아래 모든 갈래)
+LOGIC_CFG='{"gestThr":0.045}' node replay_logic.mjs engine_<run> rp_y   # 문턱만 바꿔 보기
+node node_engine.mjs --run n_x --jobs 14 [--phase-ms 67] [--proc-fps 3] [--in-fps 15] [--fx '{"bgSkinOn":0.3}'] [--debug 1]
+                                                              # 특징까지 노드에서(opencv.js 그대로) — 25편 ≈ 30초. 그다음 run.py score --run n_x
+$PY decimate.py d8_hd30 2 d8_hd15                             # 같은 영상을 15fps 로 솎기(정답 · 바코드는 원래 번호) — 15 vs 30fps 입력 비교
+```
+- **위상 잡음**: 5fps 처리는 15fps 영상의 3장마다 한 장이라, 어느 장부터 뽑느냐(0 · 67 · 133ms)에 손짓 영상별 재현율이 ±0.15 까지 흔들린다(합성 손은 0.3~0.7초마다 멈칫한다).
+  노드로 기법을 고를 땐 세 위상 평균을 보고(`--label p0 --phase-ms 0` …), 싣기 전엔 브라우저로 다시 잰다. 노드 값은 브라우저와 몇 %p 다르다(줄이기 · 시계) — 기법 비교용.
+- `--proc-fps 3` 은 느린 기기(엔진이 3fps 로 내려감)를 흉내 낸다. 흔들림은 대역 위끝 0.45×fps 가 1.5Hz 아래면 「잴 수 없었어요」(qreport.gates.sway = sway_fps).
+- HD 영상(d8_*)은 기본 목록에서 빠진다 — `--clips d8_hd30,d8_hd15`(브라우저는 `--include-hd`).
+
 ### 참조 엔진 변형 (ref_engine.py `VARIANTS`)
 | 이름 | 무엇 |
 |---|---|

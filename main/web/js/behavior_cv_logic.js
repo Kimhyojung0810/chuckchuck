@@ -35,6 +35,7 @@
     // 흔들림: 얼굴 가운데 x(얼굴 폭 단위)의 0.3~1.5Hz 반복 성분. 자세 흔들림 연구가 보는 대역(서 있는 사람 몸 흔들림 ≈ 0.1~1Hz)에 걸음 · 체중 옮김을 더한 설계값
     swayLoHz: 0.3, swayHiHz: 1.5,
     swayWinMs: 8000, swayStepMs: 2000, swayFs: 5,   // 8초 창 · 2초 걸음 — 실험실 참조 엔진(주파수 오차 중앙 0.005Hz). 1.5Hz 를 보려면 처리 5fps 유지
+    swayNyq: 0.45,          // 잴 수 있는 대역 위끝 = 0.45 × 처리 fps (나이퀴스트 0.5 에 떨림 여유). 이게 swayHiHz 아래인 창(≈ 3.3fps 미만)은 재지 않는다
     swayAmp: 0.12,          // 대역 진폭이 얼굴 폭의 이만큼(≈ 2cm, 봉우리 간 0.3 폭) 넘으면 흔들림 창 — 근거조사 §1-4 권장(봉우리 간 0.1 폭)보다 높게 둔 건 Haar 상자 떨림(±0.03 폭) 때문 (설계값 · 검증 전)
     swayShare: 0.55,        // 대역 힘이 전체(0.05Hz~)의 이 몫 넘을 때만 — 천천히 자리 옮김은 흔들림이 아니다 (실험실 sway_ratio)
     // 대역 아래쪽(0.3~0.42Hz)은 느린 이동(0.12Hz)이 끝날 때의 꺾임이 새어 들어오는 자리다 — 거기 봉우리면 대역 몫이 0.85 넘게 깨끗할 때만 (실험실 s07 오탐 10초 → 0)
@@ -45,11 +46,18 @@
     moveLo: 0.05, moveHi: 0.15,
     // 손짓 — 손 크기 덩어리의 움직인 피부 넓이 / 얼굴 넓이(features gs). 최근 3장 중 2장 넘으면 켜짐 (실험실 gest_thr 0.035)
     gestThr: 0.035,
+    // 켜짐 = 최근 3장 중 2장, 꺼짐 = 최근 2장이 다 문턱 아래일 때 (히스테리시스 — 흐림 · 압축에서 손 덩어리가 한 장씩 끊겨 켜짐이 깜빡였다, 실험실 바퀴 3)
+    gestOnN: 2, gestOnWin: 3, gestHoldN: 1, gestOffWin: 2,
+    gestSoftK: 0.7,         // 무른 켜짐 · 유지 기준(gestThr × 이 값) — 문턱 언저리에서 손짓 시작이 장마다 흔들렸다(d8 2장 손짓 비율 위상별 표준편차 5.3 → 3.9%p, 바퀴 3)
+    gestBridgeMs: 3000,     // 장 넘김으로 뺀 줄(최대 이만큼) 뒤 gestBridgeWin 장 중 gestBridgeN 장이 문턱 위면 넘김 동안도 손짓을 잰다 (gestureFlags)
+    gestBridgeWin: 4, gestBridgeN: 2,
+    gestResetMs: 1000,      // 이만큼 넘게 못 잰 뒤엔 손짓 상태기계를 처음부터
     gestOn: 0.05, gestOff: 0.025,   // 옛 줄(gs 없음, hl/hr/hf)용
     slideGuardMs: 1000,     // 장 넘김 앞뒤 1초는 움직임 · 손짓에서 뺀다 (자료를 넘기는 손 · 몸 — 실험실 권고 6)
     sceneSpike: 0.35,       // 화면 전체에서 바뀐 점이 이 몫 넘는 장(조명 · 카메라 흔들림 · 장면 바뀜)은 움직임 · 손짓에서 뺀다
     // ── 품질 게이트 ──
     minDurMs: 20000, minFrames: 40, minFps: 2.5,
+    targetFps: 5,           // 화면이 보내려는 속도(js/behavior_cv.js TICK_MS 200) — 품질 보고의 「처리한 장 몫」 분모
     minPresence: 0.6,       // 얼굴(또는 사람)이 있는 시간이 이 아래면 방향 지표를 재지 않는다 (계획 §2)
     darkBr: 40,             // 평균 밝기 이 아래 줄은 어둡다 (계획 §2 「밝기 ≥ 40」)
     maxDark: 0.3,           // 어두운 줄이 이보다 많으면 못 잼
@@ -73,6 +81,7 @@
   };
 
   const VERSION = 1;
+  const SWAY_LOWFPS = '이 기기에서 화면을 1초에 3장 남짓만 봐서 빠른 좌우 흔들림(1.5Hz 까지)을 잴 수 없었어요';
   const UNMEASURED = '이번엔 잴 수 없었어요';
 
   const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -275,22 +284,27 @@
   function swayWindows(seq, cfg = CFG) {
     const okState = (x) => x.state === 'front' || x.state === 'face';
     const pts = seq.filter((x) => x.row.box && okState(x)).map((x) => ({ t: x.t, v: x.row.box[0] + x.row.box[2] / 2, w: x.row.box[2], seg: x.row.seg || '' }));
-    if (pts.length < 8) return [];
+    const out = [];
+    out.lowFps = 0;   // 처리 속도가 모자라 못 잰 창 수 (품질 보고 · 게이트)
+    if (pts.length < 8) return out;
     const fw = median(pts.map((p) => p.w)) || 0.1;
     const P = pts.map((p) => ({ ...p, v: p.v / fw }));
+    const T = seq.map((x) => x.t);
     const t0 = seq[0].t; const tEnd = seq[seq.length - 1].t;
-    const fps = fpsOf(seq);
-    const out = [];
+    const fs = cfg.swayFs;
     for (let a = t0; a + cfg.swayWinMs <= tEnd + 1; a += cfg.swayStepMs) {
       const b = a + cfg.swayWinMs;
+      // 이 창에서 실제로 처리한 속도 — 대역 위끝(swayHiHz)이 swayNyq × 처리 fps 를 넘으면 그 창은 재지 않는다.
+      // 3fps 면 위끝 1.35Hz 라 1.4Hz 흔들림이 겹쳐 접혀 엉뚱한 값이 나온다 (바퀴 3 — 저fps 는 「잴 수 없었어요」)
+      const nRows = T.filter((t) => t >= a && t < b).length;
+      const winFps = nRows / (cfg.swayWinMs / 1000);
+      if (cfg.swayNyq * winFps < cfg.swayHiHz) { out.lowFps += 1; continue; }
       const inWin = P.filter((p) => p.t >= a && p.t < b);
-      const cover = inWin.length / Math.max(1, ((b - a) / 1000) * fps);
+      const cover = inWin.length / Math.max(1, nRows);   // 처리한 장 중 얼굴 자리가 있는 몫 — 기기 속도와 상관없게
       if (cover < cfg.swayCover || inWin.length < 8) continue;
-      const fs = Math.min(cfg.swayFs, Math.round(fps));
-      const x = resample(inWin, a, b, fs);
+      const x = resample(inWin, a, b, fs);   // 고른 5Hz 로 다시 뽑는다 — 3.4~5fps 어디서든 같은 격자 (15 vs 30fps 입력 · 기기 속도에 값이 흔들리지 않게)
       if (!x) continue;
-      const hi = Math.min(cfg.swayHiHz, 0.49 * fs);
-      const r = bandOf(x, fs, cfg.swayLoHz, hi);
+      const r = bandOf(x, fs, cfg.swayLoHz, cfg.swayHiHz);
       if (!r) continue;
       out.push({ start: a, end: b, amp: r.amp, share: r.share, freq: r.freq, on: r.amp >= cfg.swayAmp && (r.share >= cfg.swayPure || (r.share >= cfg.swayShare && r.freq >= cfg.swayLowF)), seg: inWin[inWin.length >> 1].seg });   // 창 가운데의 장
     }
@@ -320,25 +334,39 @@
     return out;
   }
 
-  /** 움직임 · 손짓에서 뺄 줄 — 장 넘김 앞뒤 slideGuardMs, 화면 전체가 크게 바뀐 장(sceneSpike) */
-  function excluded(seq, cfg = CFG) {
+  /** 움직임 · 손짓에서 뺄 줄 — 장 넘김 앞뒤 slideGuardMs('turn'), 화면 전체가 크게 바뀐 장(sceneSpike, 'spike'). 안 빼면 '' */
+  function excludedWhy(seq, cfg = CFG) {
     const turns = [];
     for (let i = 1; i < seq.length; i += 1) if ((seq[i].row.seg || '') !== (seq[i - 1].row.seg || '')) turns.push(seq[i].t);
-    return seq.map((x) => Number(x.row.mea) > cfg.sceneSpike || turns.some((t) => Math.abs(x.t - t) <= cfg.slideGuardMs));
+    return seq.map((x) => (Number(x.row.mea) > cfg.sceneSpike ? 'spike' : turns.some((t) => Math.abs(x.t - t) <= cfg.slideGuardMs) ? 'turn' : ''));
   }
+  function excluded(seq, cfg = CFG) { return excludedWhy(seq, cfg).map(Boolean); }
 
-  /** 손짓 켜짐/꺼짐 — 손 자리를 잴 수 있는 줄만 (null = 못 잼). gs 가 있으면 최근 3장 중 2장, 옛 줄은 히스테리시스 */
-  function gestureFlags(seq, cfg = CFG) {
-    const ex = excluded(seq, cfg);
+  /**
+   * 손짓 켜짐/꺼짐 상태기계 — skip[i] 인 줄은 건너뛴다(null). gs 줄: 최근 gestOnWin 장 중 gestOnN 장이 문턱 위면 켜짐,
+   * 켜진 뒤엔 최근 gestOffWin 장 중 gestHoldN 장만 넘어도 유지 (히스테리시스 — 흐림 · 압축에서 손 덩어리가 한 장씩 끊겨 켜짐이 깜빡였다, 실험실 바퀴 3).
+   * 옛 줄(gs 없음, hl/hr/hf)은 gestOn/gestOff 히스테리시스
+   */
+  function gestureRun(seq, skip, cfg) {
     let on = false;
     const recent = [];
+    let lastT = -Infinity;
     return seq.map((x, i) => {
       const r = x.row;
-      if (!x.present || ex[i]) return null;
+      if (!x.present || skip[i]) return null;
+      // 1초 넘게 못 잰 뒤(장 넘김 · 자리 비움)는 처음부터 — 앞에서 남은 표로 켜짐을 잇지 않는다 (s08 손짓 → 장 넘김 → 가만한 손 오탐)
+      if (x.t - lastT > cfg.gestResetMs) { recent.length = 0; on = false; }
+      lastT = x.t;
       if (Number.isFinite(r.gs)) {
-        recent.push(r.gs > cfg.gestThr);
-        if (recent.length > 3) recent.shift();
-        return recent.filter(Boolean).length >= 2;
+        recent.push(r.gs);
+        if (recent.length > Math.max(cfg.gestOnWin, cfg.gestOffWin)) recent.shift();
+        const win = recent.slice(-cfg.gestOnWin);
+        const nOn = win.filter((g) => g > cfg.gestThr).length;
+        // 문턱 언저리(손이 잠깐 멈췄다 움직임) — 반 문턱 넘은 장이 gestOnN 장이고 평균이 문턱 위면 켜짐. 한 장짜리 큰 값만으로는 안 켜진다
+        const soft = cfg.gestSoftK > 0 && win.filter((g) => g > cfg.gestThr * cfg.gestSoftK).length >= cfg.gestOnN && win.reduce((a, b) => a + b, 0) / win.length > cfg.gestThr;
+        const nHold = recent.slice(-cfg.gestOffWin).filter((g) => g > cfg.gestThr * (cfg.gestSoftK > 0 ? cfg.gestSoftK : 1)).length;
+        on = on ? nHold >= cfg.gestHoldN : (nOn >= cfg.gestOnN || soft);
+        return on;
       }
       const vals = [r.hl, r.hr, r.hf].filter(Number.isFinite);
       if (!vals.length || !Number.isFinite(r.body)) return null;
@@ -346,6 +374,30 @@
       on = on ? g >= cfg.gestOff : g >= cfg.gestOn;
       return on;
     });
+  }
+
+  /**
+   * 손짓 켜짐/꺼짐 — 손 자리를 잴 수 있는 줄만 (null = 못 잼).
+   * 장 넘김 앞뒤(slideGuardMs)는 자료를 넘기는 손 때문에 빼되, **넘김 뒤 gestBridgeWin 장 안에 손짓이 다시 gestOnN 장 넘게 보이면**
+   * 넘김 동안도 손짓을 잰다 — 장을 넘기는 사이에도 이어진 손짓이다(넘기는 손 하나는 넘김 뒤까지 이어지지 않는다). 손짓 재현율 .49 → (바퀴 3)
+   */
+  function gestureFlags(seq, cfg = CFG) {
+    const why = excludedWhy(seq, cfg);
+    const flags = gestureRun(seq, why.map(Boolean), cfg);
+    if (!(cfg.gestBridgeMs > 0) || !why.includes('turn')) return flags;
+    const all = gestureRun(seq, why.map((w) => w === 'spike'), cfg);   // 넘김 줄도 센 상태기계
+    for (let i = 0; i < seq.length; i += 1) {
+      if (why[i] !== 'turn') continue;
+      let b = i; while (b < seq.length && why[b] === 'turn') b += 1;
+      const after = seq.slice(b, b + cfg.gestBridgeWin).filter((x) => Number(x.row.gs) > cfg.gestThr).length;
+      if (b < seq.length && after >= cfg.gestBridgeN && seq[b].t - seq[i].t <= cfg.gestBridgeMs) {
+        for (let k = i; k < b; k += 1) flags[k] = all[k];
+        // 이은 뒤 몇 장은 이어 센 상태기계를 따른다 — 넘김 뒤 처음부터 다시 세느라 켜짐이 잠깐 끊기지 않게
+        for (let k = b; k < Math.min(seq.length, b + cfg.gestOnWin + cfg.gestOffWin) && !why[k] && flags[k] !== all[k]; k += 1) flags[k] = all[k];
+      }
+      i = b;
+    }
+    return flags;
   }
 
   /* ─── 5. 품질 ───────────────────────────────────────────────────────────── */
@@ -357,10 +409,17 @@
     const frontRows = seq.filter((x) => x.row.src === 'F');
     const presentRows = seq.filter((x) => x.present);
     const ms = seq.map((x) => x.row.ms).filter(Number.isFinite);
+    // 처리 속도 — 목표(targetFps)만큼 봤나 · 대역 위끝을 못 재는 느린 간격(> 1 / (swayHiHz / swayNyq) 초)이 얼마였나
+    const span = seq.length > 1 ? seq[seq.length - 1].t - seq[0].t : 0;
+    const slowGap = (1000 * cfg.swayNyq) / cfg.swayHiHz;
+    let slowMs = 0;
+    for (let i = 1; i < seq.length; i += 1) { const g = seq[i].t - seq[i - 1].t; if (g > slowGap) slowMs += g; }
     return {
       dur: total,
       frames: seq.length,
       fps: fpsOf(seq),
+      processed: span > 0 ? Math.min(1, (seq.length - 1) / ((span / 1000) * cfg.targetFps)) : 0,
+      slow: span > 0 ? slowMs / span : 0,
       presence: total ? present / total : 0,
       dark: seq.length ? seq.filter((x) => Number(x.row.br) < cfg.darkBr).length / seq.length : 1,
       bright: median(seq.map((x) => x.row.br).filter(Number.isFinite)),
@@ -376,26 +435,50 @@
     };
   }
 
-  /** 지표마다 게이트 — 통과면 '', 아니면 사람이 고칠 수 있는 까닭 */
-  function gateWhy(kind, q, cfg = CFG) {
-    if (q.dur < cfg.minDurMs || q.frames < cfg.minFrames) return '카메라로 본 시간이 20초가 안 돼요';
-    if (q.fps < (kind === 'movement' || kind === 'gesture' ? 2 : cfg.minFps)) return '이 기기에서 화면을 충분히 자주 보지 못했어요';
-    if (q.dark > cfg.maxDark) return '화면이 어두웠어요 — 얼굴 앞쪽을 밝게 하면 잴 수 있어요';
-    if (kind === 'framing') return q.presence < 0.3 ? '얼굴이 화면에 거의 없었어요' : '';
-    if (q.noc > 0.5 && (kind === 'gaze' || kind === 'lookaway' || kind === 'down')) return '캐스케이드 없는 예비 모드라 얼굴 방향은 재지 않았어요';
+  /** 게이트 까닭 — 짧은 코드(서버 품질 보고 qreport.gates) → 사람이 고칠 수 있는 말 */
+  const GATE_TEXT = {
+    short: '카메라로 본 시간이 20초가 안 돼요',
+    fps: '이 기기에서 화면을 충분히 자주 보지 못했어요',
+    dark: '화면이 어두웠어요 — 얼굴 앞쪽을 밝게 하면 잴 수 있어요',
+    noface: '얼굴이 화면에 거의 없었어요',
+    noc: '캐스케이드 없는 예비 모드라 얼굴 방향은 재지 않았어요',
+    noperson: '사람이 화면에 거의 없었어요',
+    nobody: '몸이 화면에 거의 안 보였어요 — 카메라를 조금 멀리 두면 잴 수 있어요',
+    presence: '얼굴이 화면에 잡힌 시간이 짧았어요',
+    far: '카메라에서 너무 멀어요 — 조금 가까이 오면 잴 수 있어요',
+    backlit: '뒤쪽이 밝아(역광) 얼굴이 어두웠어요 — 얼굴 앞쪽을 밝히면 잴 수 있어요',
+    blur: '화면이 흐렸어요 — 카메라 렌즈를 닦거나 초점을 맞추면 잴 수 있어요',
+    eyes: '눈 위치를 거의 못 찾았어요 — 안경 반사 · 앞머리 · 조명 때문일 수 있어요',
+    track: '얼굴 자리를 이어서 따라가지 못했어요',
+    sway_fps: SWAY_LOWFPS,
+    sway_win: '얼굴 자리를 10초 넘게 이어서 따라간 구간이 모자랐어요',
+    move_none: '몸 영역의 움직임을 재지 못했어요',
+    hands_none: '손 자리를 재지 못했어요',
+  };
+
+  /** 지표마다 게이트 코드 — 통과면 '' */
+  function gateCode(kind, q, cfg = CFG) {
+    if (q.dur < cfg.minDurMs || q.frames < cfg.minFrames) return 'short';
+    if (q.fps < (kind === 'movement' || kind === 'gesture' ? 2 : cfg.minFps)) return 'fps';
+    if (q.dark > cfg.maxDark) return 'dark';
+    if (kind === 'framing') return q.presence < 0.3 ? 'noface' : '';
+    if (q.noc > 0.5 && (kind === 'gaze' || kind === 'lookaway' || kind === 'down')) return 'noc';
     if (kind === 'movement' || kind === 'gesture') {
-      if (q.presence < 0.3) return '사람이 화면에 거의 없었어요';
-      if (q.body < cfg.minBody) return '몸이 화면에 거의 안 보였어요 — 카메라를 조금 멀리 두면 잴 수 있어요';
+      if (q.presence < 0.3) return 'noperson';
+      if (q.body < cfg.minBody) return 'nobody';
       return '';
     }
-    if (q.presence < cfg.minPresence) return '얼굴이 화면에 잡힌 시간이 짧았어요';
-    if (q.face !== null && q.face < cfg.minFaceW) return '카메라에서 너무 멀어요 — 조금 가까이 오면 잴 수 있어요';
-    if (q.backlit !== null && q.backlit < cfg.backlit) return '뒤쪽이 밝아(역광) 얼굴이 어두웠어요 — 얼굴 앞쪽을 밝히면 잴 수 있어요';
-    if (q.blur !== null && q.blur < cfg.blurMin) return '화면이 흐렸어요 — 카메라 렌즈를 닦거나 초점을 맞추면 잴 수 있어요';
-    if (kind === 'down' && q.eyes < cfg.minEyes) return '눈 위치를 거의 못 찾았어요 — 안경 반사 · 앞머리 · 조명 때문일 수 있어요';
-    if (kind === 'sway' && q.track < cfg.minTrack) return '얼굴 자리를 이어서 따라가지 못했어요';
+    if (q.presence < cfg.minPresence) return 'presence';
+    if (q.face !== null && q.face < cfg.minFaceW) return 'far';
+    if (q.backlit !== null && q.backlit < cfg.backlit) return 'backlit';
+    if (q.blur !== null && q.blur < cfg.blurMin) return 'blur';
+    if (kind === 'down' && q.eyes < cfg.minEyes) return 'eyes';
+    if (kind === 'sway' && q.track < cfg.minTrack) return 'track';
     return '';
   }
+
+  /** 지표마다 게이트 — 통과면 '', 아니면 사람이 고칠 수 있는 까닭 */
+  function gateWhy(kind, q, cfg = CFG) { const c = gateCode(kind, q, cfg); return c ? GATE_TEXT[c] : ''; }
 
   /** 측정 품질 → 신뢰도 낱말. 문턱 자체가 검증 전이라 「높음」 은 측정이 깨끗했다는 뜻이지 판정이 맞았다는 뜻이 아니다 */
   function confidence(kind, q, cfg = CFG) {
@@ -443,10 +526,12 @@
     framing: `얼굴 폭이 화면의 ${Math.round(CFG.sizeLo * 100)}~${Math.round(CFG.sizeHi * 100)}% 면 알맞아요 (설계값)`,
   };
 
+  const unmeasured = (kind, gate) => ({ kind, label: WORDS[kind].label, ok: false, word: UNMEASURED, why: GATE_TEXT[gate], gate, basis: BASIS[kind] });
+
   function metric(kind, q, value, lvl, extra = {}, cfg = CFG) {
-    const why = gateWhy(kind, q, cfg);
+    const gate = gateCode(kind, q, cfg);
     const W = WORDS[kind];
-    if (why) return { kind, label: W.label, ok: false, word: UNMEASURED, why, basis: BASIS[kind] };
+    if (gate) return { kind, label: W.label, ok: false, word: UNMEASURED, why: GATE_TEXT[gate], gate, basis: BASIS[kind] };
     return { kind, label: W.label, ok: true, value: rd(value), level: lvl, word: W.words[lvl], look: !!W.look[lvl],
       conf: confidence(kind, q, cfg), basis: BASIS[kind], tip: W.look[lvl] ? W.tip : '', ...extra };
   }
@@ -521,6 +606,21 @@
   // 왼쪽 · 오른쪽은 화면에 따로 쓰지 않는다 — 옆얼굴 검출이 약해 대부분 「방향 모름」 이라 가를 수 있는 때가 드물다 (실험실 권고 3). 안의 상태 이름은 실험실 채점용으로 둔다
   const SIDE_WORD = { left: '다른 곳', right: '다른 곳', down: '아래', away: '다른 곳' };
 
+  /**
+   * 조사 붙이기 — 앞 낱말 끝 글자의 받침을 보고 을/를 · 이/가 · 은/는 · 으로/로 · 과/와 중 하나 (「아래을」 같은 틀린 문장 막기).
+   * 받침 ㄹ 뒤 「으로」 는 「로」(「길로」). 한글이 아니면(숫자 · 영문) 받침 없음으로 본다
+   */
+  const JOSA = { 을: ['을', '를'], 를: ['을', '를'], 이: ['이', '가'], 가: ['이', '가'], 은: ['은', '는'], 는: ['은', '는'], 으로: ['으로', '로'], 로: ['으로', '로'], 과: ['과', '와'], 와: ['과', '와'] };
+  function josa(word, p) {
+    const w = String(word || '');
+    const pair = JOSA[p] || [p, p];
+    const c = w.charCodeAt(w.length - 1);
+    if (!(c >= 0xac00 && c <= 0xd7a3)) return w + pair[1];
+    const jong = (c - 0xac00) % 28;
+    if (pair[0] === '으로' && jong === 8) return w + '로';
+    return w + (jong ? pair[0] : pair[1]);
+  }
+
   function mainDir(states) {
     const ms = { 다른곳: 0, 아래: 0 };
     Object.entries(states || {}).forEach(([k, v]) => { if (k === 'down') ms.아래 += v; else if (k !== 'front') ms.다른곳 += v; });
@@ -534,7 +634,7 @@
     const scene = (seg, t, dur) => ({ seg, where: where(seg), sec: sec(t - t0), dur: sec(dur) });
     if (M.lookaway.ok) {
       res.raw.look.slice().sort((a, b) => b.dur - a.dur).slice(0, 3).forEach((r) => {
-        out.push({ kind: 'lookaway', observation: `${where(r.seg) || '발표 중'}에서 ${sec(r.dur)}초 동안 화면 쪽이 아니라 ${mainDir(r.states)}을 향했어요`,
+        out.push({ kind: 'lookaway', observation: `${where(r.seg) || '발표 중'}에서 ${sec(r.dur)}초 동안 화면 쪽이 아니라 ${josa(mainDir(r.states), '을')} 향했어요`,
           value: `${sec(r.dur)}초 · 주로 ${mainDir(r.states)}`, basis: `${cfg.lookAwayMs / 1000}초 넘게 이어지면 짚어요 (설계값 · 검증 전)`,
           scene: scene(r.seg, r.start, r.dur), conf: M.lookaway.conf, tip: WORDS.lookaway.tip });
       });
@@ -677,14 +777,14 @@
       lookaway: metric('lookaway', q, m.look.length / minutes, level3(m.look.length / minutes, cfg.awayPerMinLo, cfg.awayPerMinHi), {
         n: m.look.length, total: sec(sum(m.look.map((r) => r.dur))), longest: m.look.length ? sec(Math.max(...m.look.map((r) => r.dur))) : 0 }, cfg),
       down: metric('down', q, m.downShare, level3(m.downShare || 0, cfg.downLo, cfg.downHi), { n: m.downs.length }, cfg),
-      sway: sway.length < 2
-        ? { kind: 'sway', label: WORDS.sway.label, ok: false, word: UNMEASURED, why: gateWhy('sway', q, cfg) || '얼굴 자리를 10초 넘게 이어서 따라간 구간이 모자랐어요', basis: BASIS.sway }
+      sway: sway.length < 2 || sway.lowFps > sway.length
+        ? unmeasured('sway', gateCode('sway', q, cfg) || (sway.lowFps > sway.length ? 'sway_fps' : 'sway_win'))
         : metric('sway', q, swayShare, level3(swayShare, cfg.swayLo, cfg.swayHi), { windows: sway.length, amp: rd(median(sway.map((w) => w.amp))) }, cfg),
       movement: m.move === null
-        ? { kind: 'movement', label: WORDS.movement.label, ok: false, word: UNMEASURED, why: gateWhy('movement', q, cfg) || '몸 영역의 움직임을 재지 못했어요', basis: BASIS.movement }
+        ? unmeasured('movement', gateCode('movement', q, cfg) || 'move_none')
         : metric('movement', q, m.move, level3(m.move, cfg.moveLo, cfg.moveHi), {}, cfg),
       gesture: m.gesture === null
-        ? { kind: 'gesture', label: WORDS.gesture.label, ok: false, word: UNMEASURED, why: gateWhy('gesture', q, cfg) || '손 자리를 재지 못했어요', basis: BASIS.gesture }
+        ? unmeasured('gesture', gateCode('gesture', q, cfg) || 'hands_none')
         : metric('gesture', q, m.gesture, level3(m.gesture, cfg.gestLo, cfg.gestHi), speechSplit(m, cfg), cfg),
       framing: metric('framing', q, m.size || 0, m.size === null ? 1 : (m.size < cfg.sizeLo ? 0 : m.size > cfg.sizeHi ? 2 : 1), { off: rd(m.off), offside: m.off !== null && m.off > cfg.offCenter }, cfg),
     };
@@ -730,6 +830,12 @@
       v: VERSION, phase: res.phase, status: res.status, why: String(res.why || '').slice(0, 120),
       dur: sec(q.dur), frames: q.frames, fps: rd(q.fps, 2), ms_p50: q.msP50, ms_p90: q.msP90,
       quality: { presence: rd(q.presence), dark: rd(q.dark), bright: rd(q.bright, 1), blur: rd(q.blur, 1), face: rd(q.face), eyes: rd(q.eyes), track: rd(q.track), body: rd(q.body) },
+      // 품질 보고(바퀴 3, 더하기만) — 실제 처리 속도 · 목표 대비 처리한 장 몫 · 느린 간격 몫 · 속도 때문에 못 잰 흔들림 창 · 못 잰 지표의 까닭 코드
+      qreport: {
+        fps: rd(q.fps, 2), target: cfg.targetFps, processed: rd(q.processed), slow: rd(q.slow),
+        sway_lowfps: res.raw && res.raw.sway ? res.raw.sway.lowFps || 0 : 0,
+        gates: Object.fromEntries(METRIC_KEYS.filter((k) => res.metrics[k] && !res.metrics[k].ok && res.metrics[k].gate).map((k) => [k, res.metrics[k].gate])),
+      },
       metrics,
       areas: (res.areas || []).map((a) => ({ key: a.key, ok: a.ok, level: a.level, word: a.word })),
       first: res.first ? { kind: res.first.kind, area: res.first.area, text: String(res.first.text).slice(0, 160), slide: res.first.slide, q: res.first.q, sec: res.first.sec } : null,
@@ -753,7 +859,7 @@
     return { v: VERSION, phase, status: 'none', why: String(why || '카메라 분석이 없었어요'), metrics: {}, segs: [], cards: [] };
   }
 
-  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, confidence, measure, bySeg, cards, analyze, summaryOf, none, where };
+  const api = { CFG, VERSION, UNMEASURED, WORDS, BASIS, METRIC_KEYS, AREAS, areasOf, firstFix, gestureFlags, excluded, excludedWhy, bodySpeed, rawDir, states, runs, hysteresis, bandOf, swayWindows, quality, gateWhy, gateCode, GATE_TEXT, confidence, measure, bySeg, cards, analyze, summaryOf, none, where, josa };
   root.BehaviorCvLogic = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));

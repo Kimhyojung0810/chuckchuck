@@ -3236,6 +3236,9 @@ BEHAVIOR_METRICS = ("gaze", "lookaway", "down", "sway", "movement", "gesture", "
 BEHAVIOR_AREAS = ("gaze", "body", "hands", "frame")
 BEHAVIOR_EVENTS = ("lookaway", "down", "sway")
 BEHAVIOR_CONF = ("높음", "보통", "낮음")
+#: 못 잰 지표의 까닭 코드 (behavior_cv_logic.js GATE_TEXT 와 같은 목록) — 품질 보고 qreport.gates 의 값
+BEHAVIOR_GATES = ("short", "fps", "dark", "noface", "noc", "noperson", "nobody", "presence", "far", "backlit", "blur", "eyes",
+                  "track", "sway_fps", "sway_win", "move_none", "hands_none")
 #: 목록 · 글 상한 (behavior_cv_logic.js CFG.maxSegs · maxEvents 와 같다)
 BEHAVIOR_MAX_SEGS = 60
 BEHAVIOR_MAX_EVENTS = 40
@@ -3293,6 +3296,20 @@ def _behavior_metric(d: Any) -> dict | None:
     return out
 
 
+def _behavior_qreport(d: Any) -> dict:
+    """품질 보고(2026-10-17 바퀴 3, 더하기만) — 처리 속도 · 목표 대비 처리한 장 몫 · 느린 간격 몫 · 속도 탓에 못 잰 흔들림 창 · 못 잰 지표의 까닭 코드.
+    없거나 모양이 아니면 {} (옛 요약과 호환)."""
+    if not isinstance(d, dict):
+        return {}
+    gates = d.get("gates") if isinstance(d.get("gates"), dict) else {}
+    return {
+        "fps": _bnum(d.get("fps"), 0, 120, 2), "target": _bnum(d.get("target"), 0, 120, 2),
+        "processed": _bnum(d.get("processed"), 0, 1), "slow": _bnum(d.get("slow"), 0, 1),
+        "sway_lowfps": _bint(d.get("sway_lowfps"), 0, 100000),
+        "gates": {k: gates[k] for k in BEHAVIOR_METRICS if gates.get(k) in BEHAVIOR_GATES},
+    }
+
+
 @dataclass
 class BehaviorSummary:
     """
@@ -3315,6 +3332,7 @@ class BehaviorSummary:
     first: dict | None = None
     segs: list = field(default_factory=list)
     events: list = field(default_factory=list)
+    qreport: dict = field(default_factory=dict)   # 품질 보고 — 옛 요약엔 없다({})
 
     def metric(self, key: str) -> dict | None:
         m = self.metrics.get(key)
@@ -3326,7 +3344,7 @@ class BehaviorSummary:
             "dur": self.dur, "frames": self.frames, "fps": self.fps, "ms_p50": self.ms_p50, "ms_p90": self.ms_p90,
             "quality": dict(self.quality), "metrics": dict(self.metrics), "areas": list(self.areas),
             "first": dict(self.first) if self.first else None,
-            "segs": list(self.segs), "events": list(self.events),
+            "segs": list(self.segs), "events": list(self.events), "qreport": dict(self.qreport),
         }
 
     @classmethod
@@ -3367,6 +3385,7 @@ class BehaviorSummary:
             dur=_bnum(d.get("dur"), 0, 36000, 1), frames=_bint(d.get("frames"), 0, 10_000_000), fps=_bnum(d.get("fps"), 0, 120, 2),
             ms_p50=_bnum(d.get("ms_p50"), 0, 100000, 1), ms_p90=_bnum(d.get("ms_p90"), 0, 100000, 1),
             quality=quality, metrics=metrics, areas=areas, first=first, segs=segs, events=events,
+            qreport=_behavior_qreport(d.get("qreport")),
         )
         if out.status == "ok" and not any(m.get("ok") for m in metrics.values()):
             out.status = "unmeasured"

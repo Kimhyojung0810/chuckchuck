@@ -151,6 +151,24 @@ test('흔들림 — 0.6Hz 좌우 반복은 잡고, 가만히 · 천천히 자리
   eq(c.metrics.sway.value, 0, '천천히 옮김');
 });
 
+test('3fps 로 느려지면 흔들림은 「잴 수 없었어요」(1.4Hz 가 대역 위끝 0.45×fps 를 넘음) · 품질 보고에 속도와 까닭 코드', () => {
+  const at = (step, secs, make) => Array.from({ length: Math.round((secs * 1000) / step) }, (_, k) => ({ ...make(k * step), seg: 's1' }));
+  const sway14 = (t) => front(t, { box: [0.41 + 0.06 * Math.sin((2 * Math.PI * 1.4 * t) / 1000), 0.2, 0.18, 0.24] });
+  const slow = L.analyze(at(333, 60, sway14));
+  eq(slow.metrics.sway.ok, false, '3fps 흔들림');
+  eq(slow.metrics.sway.gate, 'sway_fps', '까닭 코드');
+  ok(/1초에 3장/.test(slow.metrics.sway.why), slow.metrics.sway.why);
+  eq(slow.metrics.gaze.ok, true, '시선은 3fps 에서도 잰다');
+  const qs = L.summaryOf(slow).qreport;
+  ok(qs && Math.abs(qs.fps - 3) < 0.1 && qs.target === 5 && qs.processed < 0.65 && qs.slow > 0.9 && qs.sway_lowfps > 20, JSON.stringify(qs));
+  eq(qs.gates.sway, 'sway_fps', '보고 까닭');
+  const fast = L.summaryOf(L.analyze(at(200, 60, sway14)));
+  ok(fast.qreport.processed > 0.98 && fast.qreport.slow === 0 && fast.qreport.sway_lowfps === 0 && !fast.qreport.gates.sway, JSON.stringify(fast.qreport));
+  ok(fast.metrics.sway.ok && fast.metrics.sway.value > 0.8, `5fps 1.4Hz 흔들림 ${JSON.stringify(fast.metrics.sway)}`);
+  // 옛 키는 그대로 (서버 BehaviorSummary 와 리포트가 읽는 이름)
+  ['v', 'phase', 'status', 'why', 'dur', 'frames', 'fps', 'ms_p50', 'ms_p90', 'quality', 'metrics', 'areas', 'first', 'segs', 'events'].forEach((k) => ok(k in fast, `키 ${k}`));
+});
+
 test('역광(얼굴이 화면보다 많이 어두움)이면 방향 지표는 까닭과 함께 빠진다', () => {
   const r = L.analyze(script([[30, (t) => front(t, { br: 170, fb: 60 })]]));
   ok(!r.metrics.gaze.ok && /역광/.test(r.metrics.gaze.why), r.metrics.gaze.why);
@@ -171,10 +189,27 @@ test('손짓(gs) — 3장 중 2장 · 장 넘김 앞뒤 1초 · 화면 전체가
   const f = L.gestureFlags(seq);
   const at = (sec) => f[seq.findIndex((x) => x.t >= sec * 1000)];
   eq(at(5), false, '3장 중 1장만 켜진 앞쪽');
-  eq(at(10), null, '장 넘김 바로 뒤');
+  eq(at(10), true, '장 넘김 바로 뒤 — 넘김 뒤에도 손짓이 이어지면 넘김 동안도 잰다 (바퀴 3)');
   eq(at(15), true, '뒤쪽');
+  // 자료를 넘기는 손 — 넘김 무렵 0.8초만 움직이고 그친다 → 넘김 앞뒤 1초는 여전히 빼고(null), 그 뒤는 꺼짐
+  const flip = L.states(script([[10, (t) => front(t, { gs: 0 }), 1], [0.8, (t) => front(t, { gs: 0.2 }), 2], [9.2, (t) => front(t, { gs: 0 }), 2]]));
+  const ff = L.gestureFlags(flip);
+  const fat = (sec) => ff[flip.findIndex((x) => x.t >= sec * 1000)];
+  eq(fat(10.2), null, '넘기는 손만 — 넘김 앞뒤는 뺀다');
+  eq(fat(12), false, '넘김 뒤 꺼짐');
   const spike = L.states(script([[10, (t) => front(t, { gs: 0.08, mea: 0.6 })]]));
   ok(L.gestureFlags(spike).every((v) => v === null), '화면 전체가 바뀐 장');
+});
+
+test('손짓 히스테리시스 — 켜진 뒤 손 덩어리가 한 장씩 끊겨도(흐림 · 압축) 켜짐을 유지, 2장 내리 조용하면 끈다', () => {
+  const rows = script([[3, (t) => front(t, { gs: 0 })], [6, (t, k) => front(t, { gs: k % 2 === 0 ? 0.1 : 0 })], [4, (t) => front(t, { gs: 0 })]]);
+  const seq = L.states(rows);
+  const f = L.gestureFlags(seq);
+  const on = f.slice(16, 45).filter((v) => v === true).length;
+  ok(on >= 27, `켜짐 유지 ${on}/29`);
+  eq(f[f.length - 1], false, '조용해진 뒤 꺼짐');
+  const noHys = L.measure(seq, { ...L.CFG, gestHoldN: 2 }).gesture;   // 히스테리시스를 빼면 깜빡인다 — 하네스가 차이를 잡는지
+  ok(noHys < L.measure(seq).gesture - 0.15, `히스테리시스가 켜짐 시간을 늘린다 ${noHys} vs ${L.measure(seq).gesture}`);
 });
 
 test('손짓 · 말소리 — 말할 때만 손이 움직이면 그렇게 쓴다 (많을수록 좋다고 안 쓴다)', () => {
@@ -273,6 +308,21 @@ test('리포트 2.0 화면 — 흰 카드 꼴 · 방향 낱말 · 첫 화면에 
 
 /* 자기검사 — 히스테리시스를 빼면 「한 장짜리 헛잡음」 시험이 깨져야 한다 */
 const DWELL_LINE = 'if (seq[i].t - seq[candStart].t + seq[i].dt >= cfg.minDwellMs) {';
+test('조사 — 낱말 받침을 보고 을/를 · 이/가 · 은/는 · 으로/로 (「아래을」 금지)', () => {
+  eq(L.josa('아래', '을'), '아래를', '아래');
+  eq(L.josa('다른 곳', '을'), '다른 곳을', '다른 곳');
+  eq(L.josa('화면 쪽', '을'), '화면 쪽을', '화면 쪽');
+  eq(L.josa('아래', '이'), '아래가', '이/가');
+  eq(L.josa('화면 쪽', '은'), '화면 쪽은', '은/는');
+  eq(L.josa('아래', '으로'), '아래로', '으로/로 받침 없음');
+  eq(L.josa('다른 곳', '으로'), '다른 곳으로', '으로/로 받침');
+  eq(L.josa('길', '으로'), '길로', 'ㄹ 받침은 로');
+  // 근거 카드 문장 — 아래를 오래 본 이탈 구간
+  const rows = script([[10, front, 1], [5, (t) => front(t, { box: [0.41, 0.2 + 0.1, 0.18, 0.24] }), 2], [10, front, 2], [5, (t) => lost(t), 2], [10, front, 3]]);
+  const all = L.analyze(rows).cards.map((c) => c.observation).join(' / ');
+  ok(!/아래을|다른 곳를|쪽를/.test(all), all);
+});
+
 test('히스테리시스를 빼면 한 장짜리 헛잡음 시험이 깨진다', () => {
   if (!SRC.includes(DWELL_LINE)) throw new Error(`hysteresis 가 바뀌었어요. 이 자기검사도 같이 고쳐야 해요: ${DWELL_LINE}`);
   const B = loadLogic(SRC.replace(DWELL_LINE, 'if (true) {'));

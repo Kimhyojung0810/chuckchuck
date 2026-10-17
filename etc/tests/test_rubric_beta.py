@@ -15,13 +15,15 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re as _re
 from email.message import Message
+from pathlib import Path
 
 import pytest
 
 import server.bridge as bridge
 from pipeline import rubric_v3
-from pipeline.contracts import BEHAVIOR_MAX_BYTES, BehaviorSummary, RubricScore, Transcript, Word
+from pipeline.contracts import BEHAVIOR_GATES, BEHAVIOR_MAX_BYTES, BehaviorSummary, RubricScore, Transcript, Word
 from pipeline.f14_rubric import presence_items, score_rubric
 from pipeline.providers.llm_base import LLMProvider
 from server.session_archive import SessionArchive
@@ -150,6 +152,24 @@ def test_이상한_값은_걸러진다():
     items = {i.no: i for i in presence_items(weird)}
     assert items[41].status == "unmeasured"
     assert BehaviorSummary.from_dict([1, 2]) is None
+
+
+def test_품질_보고는_더하기만_옛_요약도_그대로_읽는다():
+    # 옛 요약(qreport 없음)은 빈 보고로 — 나머지 값은 그대로
+    old = BehaviorSummary.from_dict(BEHAVIOR_OK).to_dict()
+    assert old["qreport"] == {} and old["metrics"]["gaze"]["value"] == 0.81 and old["fps"] == 4.96
+    qr = {"fps": 3.02, "target": 5, "processed": 0.604, "slow": 0.98, "sway_lowfps": 27,
+          "gates": {"sway": "sway_fps", "down": "eyes", "evil": "dark", "gaze": "<script>"}}
+    d = BehaviorSummary.from_dict({**BEHAVIOR_OK, "qreport": qr}).to_dict()
+    assert d["qreport"] == {"fps": 3.02, "target": 5, "processed": 0.604, "slow": 0.98, "sway_lowfps": 27,
+                            "gates": {"down": "eyes", "sway": "sway_fps"}}
+    weird = BehaviorSummary.from_dict({**BEHAVIOR_OK, "qreport": {"fps": "빠름", "processed": 7, "gates": [1]}}).to_dict()["qreport"]
+    assert weird["fps"] is None and weird["processed"] == 1 and weird["gates"] == {}
+    assert BehaviorSummary.from_dict({**BEHAVIOR_OK, "qreport": "x"}).to_dict()["qreport"] == {}
+    # 브라우저 logic 의 까닭 코드 목록과 같아야 한다 (한쪽만 늘면 서버가 조용히 버린다)
+    js = (Path(__file__).resolve().parents[2] / "main/web/js/behavior_cv_logic.js").read_text(encoding="utf-8")
+    block = js[js.index("const GATE_TEXT = {"): js.index("};", js.index("const GATE_TEXT = {"))]
+    assert set(_re.findall(r"^\s+(\w+):", block, _re.M)) == set(BEHAVIOR_GATES)
 
 
 def test_저장본의_베타_가중치는_0으로_읽는다():
