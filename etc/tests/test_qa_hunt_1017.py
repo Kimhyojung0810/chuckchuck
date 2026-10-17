@@ -185,3 +185,12 @@ def test_앙상블_모범답은_자료로_다듬어졌으면_해설에_쓴다(mo
     assert J._explain_text(q, "", deck).startswith("환불과 재주문은")
     plain = _q("행동 지표", answer_gist=q.answer_gist, evidence_slide_no=3, evidence_quote="제언")
     assert not J._explain_text(plain, "", deck).startswith("환불과 재주문은")         # 앙상블이 아니면 예전처럼 자료 대조
+
+
+@pytest.mark.parametrize("raw, want", [
+    ("그 근거를 설명해 주실 수 있나요?", "그 근거를 설명해 줄 수 있나요?"),
+    ("2장에서 거의 설명하지 않으셨어요. 왜 그런지 설명해 주실 수 있을까요?", "2장에서 거의 설명하지 않았어요. 왜 그런지 설명해 줄 수 있을까요?"),
+    ("발표에서 강조하신 부분은 왜 중요한가요?", "발표에서 강조한 부분은 왜 중요한가요?"),
+])
+def test_앙상블_질문의_높임을_푼다(raw, want):
+    assert FE.tidy({"question": raw, "answer": "모범답이에요."})["question"] == want

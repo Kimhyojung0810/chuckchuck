@@ -361,6 +361,15 @@ class Pool:
                 "calls": [c.to_dict() for c in self.calls], "timings": self.timings, "models": self.models}
 
 
+#: `_plain_speech` 가 못 푸는 높임 — 10-17 버그 사냥: 음성 후보 3번+ 질문이 「설명해 주실 수 있을까요?」「거의 설명하지 않으셨어요」 로
+#: 그대로 나갔다(CLAUDE §3-1 과도한 경어 금지). 질문 문장만 고친다 — 뜻은 그대로.
+_HON_FIX = (
+    (re.compile(r"주실\s+수"), "줄 수"), (re.compile(r"않으셨"), "않았"), (re.compile(r"(?<=[가-힣])하셨"), "했"),
+    (re.compile(r"보셨"), "봤"), (re.compile(r"주셨"), "줬"), (re.compile(r"(?<=[가-힣])하신(?=\s)"), "한"),
+    (re.compile(r"(?<=[가-힣])하실(?=\s)"), "할"),
+)
+
+
 def tidy(c: dict) -> dict:
     """말투만 다듬는다 — 물음 끝 해요체(`_polite_question`), 모범답 해요체(`_polite_statement`), 「…니다요」 같은 섞인 끝.
     내용은 바꾸지 않는다."""
@@ -368,6 +377,8 @@ def tidy(c: dict) -> dict:
     q = _second_person(_plain_speech(str(c.get("question") or "").strip()))
     a = re.sub(r"(니다|습니다)요(?=[.!]?\s*$|[.!]\s)", r"\1", str(c.get("answer") or "").strip())
     q = re.sub(r"주시겠어요\?", "주세요.", q)
+    for pat, rep in _HON_FIX:
+        q = pat.sub(rep, q)
     q, a = _strip_line_ids(q), _strip_line_ids(a)
     out = {**c, "question": _polite_question(q), "answer": _polite_statement(_plain_speech(a))}
     if c.get("why"):
