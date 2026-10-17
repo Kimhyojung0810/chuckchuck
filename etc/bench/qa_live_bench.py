@@ -40,6 +40,15 @@ QB.BUNDLES.update(BUNDLES)
 DECKS = ("C1", "A1", "B1", "sleep", "clinic", "glucose", "pitch", "vitd", "invest_long")
 #: 1·2번 답 — 1번은 반쯤(약점 신호가 생기게), 2번은 좋은 답
 A_KINDS = ("partial", "good")
+#: 방식 — base(지금) · live(새 구조 전부) · 떼어 보기: live_nospread(장 퍼짐 끔) · live_nodigest(장별 요지 끔) · live_nocand(발표 중 후보 끔)
+MODES = {
+    "base": {"digest": False, "spread": False, "live": False},
+    "live": {"digest": True, "spread": True, "live": True},
+    "live_nospread": {"digest": True, "spread": False, "live": True},
+    "live_nodigest": {"digest": False, "spread": True, "live": True},
+    "live_nocand": {"digest": True, "spread": True, "live": False},
+}
+ACTIVE_MODES = [m.strip() for m in (os.environ.get("QA_LIVE_BENCH_MODES") or "base,live").split(",") if m.strip() in MODES]
 N_AFTER = 3          # 3 · 4 · 5번
 
 
@@ -81,8 +90,9 @@ def _asked_from(c: dict, q, ans: str, v: dict) -> dict:
 
 def run_after(mode: str, pool, art: dict, opening_asked: list[dict], live: list[dict], seed: int) -> list[dict]:
     """3·4·5번 — prod 처럼 앞 답 하나 뒤처진 음성 라운드(n번을 고를 땐 n-2번까지의 답) + 고르기."""
-    os.environ["QA_ENS_DIGEST"] = "1" if mode == "live" else "0"
-    os.environ["QA_PICK_SPREAD"] = "1" if mode == "live" else "0"
+    cfg = MODES[mode]
+    os.environ["QA_ENS_DIGEST"] = "1" if cfg["digest"] else "0"
+    os.environ["QA_PICK_SPREAD"] = "1" if cfg["spread"] else "0"
     asked = list(opening_asked)
     out = []
     for n in range(3, 3 + N_AFTER):
@@ -93,7 +103,7 @@ def run_after(mode: str, pool, art: dict, opening_asked: list[dict], live: list[
         vsec = time.monotonic() - t0
         calls: list = []
         t1 = time.monotonic()
-        nxt = FE.choose_next(pool, vr, asked, seed=seed + n, calls=calls, live=live if mode == "live" else None)
+        nxt = FE.choose_next(pool, vr, asked, seed=seed + n, calls=calls, live=live if cfg["live"] else None)
         if not nxt:
             break
         q = FE.to_question(nxt, n)
@@ -130,7 +140,7 @@ def one(deck: str, rep: int, out_dir: Path, judges: list[str]) -> dict:
     t1 = time.monotonic()
     talk = run_live_talk(art)
     live_sec = time.monotonic() - t1
-    modes = {m: run_after(m, pool, art, opening_asked, talk["candidates"], seed) for m in ("base", "live")}
+    modes = {m: run_after(m, pool, art, opening_asked, talk["candidates"], seed) for m in ACTIVE_MODES}
     # 핵심성 심판 — 두 방식의 3~5번을 섞어 가린 채 (QB.eval_sets · CORE_SYSTEM)
     sets = {m: [{"question": r["question"], "author": r["by"], "node_id": r["node_id"], "trap": r["trap"]} for r in rs]
             for m, rs in modes.items()}
@@ -177,15 +187,16 @@ def report(out_dir: Path) -> int:
     if not rows:
         print("결과가 없어요")
         return 1
-    agg = {m: {"n": 0, "late": 0, "spread": [], "core": [], "micro": [], "transplant": [], "sub": 0, "live": 0} for m in ("base", "live")}
+    names = list(dict.fromkeys(m for r in rows for m in r["modes"]))
+    agg = {m: {"n": 0, "late": 0, "spread": [], "core": [], "micro": [], "transplant": [], "sub": 0, "live": 0} for m in names}
     ready = {"rounds": 0, "by_end": 0, "by_q3": 0, "cands": [], "calls": 0, "ok": 0}
     open12 = {"n": 0, "deck": 0}
     print(f"{'덱':12s} {'장':>3s} | {'base 장':16s} | {'live 장':16s} | 발표 중 라운드(준비 초 / 발표 끝 초)")
     for r in rows:
         n = r["slides"]
         late_cut = n * 2 / 3
-        for m in ("base", "live"):
-            rs = r["modes"][m]
+        for m in names:
+            rs = r["modes"].get(m, [])
             a = agg[m]
             a["n"] += len(rs)
             a["late"] += sum(1 for x in rs if x["slide_no"] > late_cut)
@@ -194,7 +205,7 @@ def report(out_dir: Path) -> int:
             a["live"] += sum(1 for x in rs if x["origin"] == "live")
         for s, items in _scores(r).items():
             for it in items:
-                if it["core"] is None:
+                if it["core"] is None or s not in agg:
                     continue
                 agg[s]["core"].append(it["core"])
                 agg[s]["micro"].append(it["micro"])
@@ -228,9 +239,9 @@ def report(out_dir: Path) -> int:
     # 반복마다 — 잡음 폭(같은 방식 판끼리 흔들림)을 본다
     for rep in sorted({r["rep"] for r in rows}):
         line = []
-        for m in ("base", "live"):
-            xs = [x for r in rows if r["rep"] == rep for x in r["modes"][m]]
-            late = sum(1 for r in rows if r["rep"] == rep for x in r["modes"][m] if x["slide_no"] > r["slides"] * 2 / 3)
+        for m in names:
+            xs = [x for r in rows if r["rep"] == rep for x in r["modes"].get(m, [])]
+            late = sum(1 for r in rows if r["rep"] == rep for x in r["modes"].get(m, []) if x["slide_no"] > r["slides"] * 2 / 3)
             cores = [it["core"] for r in rows if r["rep"] == rep for it in _scores(r).get(m, []) if it["core"] is not None]
             line.append(f"{m} 뒷1/3 {late / max(1, len(xs)):.2f} 핵심성 {statistics.mean(cores) if cores else float('nan'):.2f} "
                         f"대신 {sum(1 for x in xs if x['substituted'])} 발표중 {sum(1 for x in xs if x['origin'] == 'live')}")
