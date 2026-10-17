@@ -566,7 +566,8 @@
           scene: scene(w.seg, w.start, w.end - w.start), conf: M.sway.conf, tip: WORDS.sway.tip });
       }
     }
-    if (M.gesture.ok && M.gesture.speak !== null && M.gesture.silent !== null) {
+    // 말할 때도 쉴 때도 손이 거의 안 움직였으면 견줄 거리가 없다 — 「비슷했어요」 카드를 내지 않는다 (헤드리스 사진: 0% · 0% 에 「비슷」)
+    if (M.gesture.ok && M.gesture.speak !== null && M.gesture.silent !== null && Math.max(M.gesture.speak, M.gesture.silent) >= 0.05) {
       const d = M.gesture.speak - M.gesture.silent;
       out.push({ kind: 'gesture_speech',
         observation: d > 0.1 ? '말하는 동안 손이 쉴 때보다 자주 움직였어요' : d < -0.1 ? '쉬는 동안 손이 말할 때보다 자주 움직였어요' : '말할 때와 쉴 때 손이 움직인 정도가 비슷했어요',
@@ -620,11 +621,11 @@
     }
     if (key === 'hands') {
       const g = M.gesture;
-      if (g && Number.isFinite(g.speak) && Number.isFinite(g.silent)) {
+      if (g && Number.isFinite(g.speak) && Number.isFinite(g.silent) && Math.max(g.speak, g.silent) >= 0.05) {
         const d = g.speak - g.silent;
         return d > 0.1 ? '말할 때 손이 더 자주 움직였어요' : d < -0.1 ? '쉴 때 손이 더 자주 움직였어요' : '말할 때와 쉴 때 비슷하게 움직였어요';
       }
-      return '손 자리 움직임만 봤어요 — 많고 적음에 좋고 나쁨은 없어요';
+      return g && g.ok && g.value < 0.05 ? '손이 화면에서 거의 움직이지 않았어요' : '손 자리 움직임만 봤어요 — 많고 적음에 좋고 나쁨은 없어요';
     }
     const f = M.framing;
     return f && f.offside ? '얼굴이 화면 가운데에서 비껴 있었어요' : '얼굴 크기 · 자리를 봤어요';

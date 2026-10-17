@@ -32,11 +32,12 @@
   /** 지표 숫자를 사람 말로 (자세히 보기 안에서만) */
   function valueText(k, m) {
     if (!m || !m.ok) return '';
-    if (k === 'lookaway') return `${m.n || 0}번 · 가장 길게 ${m.longest || 0}초 · 1분에 ${(m.value || 0).toFixed(1)}번`;
+    if (k === 'lookaway') return m.n ? `${m.n}번 · 가장 길게 ${Math.round(m.longest || 0)}초 · 1분에 약 ${(m.value || 0) < 1 ? (m.value || 0).toFixed(1) : Math.round(m.value)}번` : '없었어요';
     if (k === 'movement') return `몸 영역 ${pct(m.value)} (0.2초 사이 바뀐 점)`;
     if (k === 'framing') return `얼굴 폭 ${pct(m.value)}${Number.isFinite(m.off) ? ` · 가운데에서 ${pct(m.off)} 비낌` : ''}`;
-    if (k === 'sway') return `흔들린 10초 창 ${pct(m.value)}${Number.isFinite(m.amp) ? ` · 진폭 얼굴 폭의 ${pct(m.amp)}` : ''}`;
-    if (k === 'gesture') return `${pct(m.value)}${Number.isFinite(m.speak) ? ` · 말할 때 ${pct(m.speak)} · 쉴 때 ${pct(m.silent)}` : ''}`;
+    if (k === 'sway') return m.value ? `흔들린 8초 창 ${pct(m.value)}${Number.isFinite(m.amp) ? ` · 진폭 대략 얼굴 폭의 ${pct(m.amp)}` : ''}` : '없었어요';
+    if (k === 'gesture') return `${m.value ? pct(m.value) : '거의 없었어요'}${Number.isFinite(m.speak) ? ` · 말할 때 ${pct(m.speak)} · 쉴 때 ${pct(m.silent)}` : ''}`;
+    if (k === 'down' && !m.value) return '없었어요';
     return pct(m.value);
   }
 
@@ -105,15 +106,15 @@
     const q = p.quality || {};
     const rows = ORDER.filter((k) => M[k]).map((k) => {
       const m = M[k];
-      return `<tr data-ok="${m.ok ? 1 : 0}"><th scope="row">${esc(LABEL[k])}</th><td><b>${esc(m.ok ? (m.word || '') : '이번엔 잴 수 없었어요')}</b></td>
-        <td>${esc(m.ok ? valueText(k, m) : (m.why || ''))}${m.ok && prevText(k, m, b.prev) ? `<small>${esc(prevText(k, m, b.prev))}</small>` : ''}</td>
-        <td>${m.ok ? `신뢰도 ${esc(m.conf || '낮음')}` : ''}</td></tr>`;
+      return `<tr data-ok="${m.ok ? 1 : 0}"><th scope="row">${esc(LABEL[k])}</th><td class="bh-w"><b>${esc(m.ok ? (m.word || '') : '이번엔 잴 수 없었어요')}</b></td>
+        <td class="bh-v">${esc(m.ok ? valueText(k, m) : (m.why || ''))}${m.ok && prevText(k, m, b.prev) ? `<small>${esc(prevText(k, m, b.prev))}</small>` : ''}</td>
+        <td class="bh-c">${m.ok ? `신뢰도 ${esc(m.conf || '낮음')}` : ''}</td></tr>`;
     }).join('');
     const bases = ORDER.filter((k) => M[k] && M[k].basis).map((k) => `<li><b>${esc(LABEL[k])}</b> ${esc(M[k].basis)}</li>`).join('');
     const segs = (p.segs || []).filter((s) => s.enough !== false && Number.isFinite(s.gaze !== undefined ? s.gaze : NaN));
     const segRows = segs.slice(0, 40).map((s) => {
       const n = /^s\d+$/.test(s.seg) ? Number(s.seg.slice(1)) : 0;
-      return `<tr><th scope="row">${esc(segWhere(s.seg))}${n && titles && titles[n - 1] ? ` <small>${esc(titles[n - 1])}</small>` : ''}</th><td>${pct(s.gaze)}</td><td>${pct(s.down)}</td><td>${pct(s.gesture)}</td><td>${s.lookaway || 0}</td></tr>`;
+      return `<tr><th scope="row">${esc(segWhere(s.seg))}${n && titles && titles[n - 1] ? ` <small>${esc(titles[n - 1])}</small>` : ''}</th><td data-k="화면 쪽">${pct(s.gaze)}</td><td data-k="아래">${pct(s.down)}</td><td data-k="손">${pct(s.gesture)}</td><td data-k="3초+ 벗어남">${s.lookaway ? `${s.lookaway}번` : '없음'}</td></tr>`;
     }).join('');
     const dur = Number.isFinite(q.dur) ? Math.round(q.dur / 1000) : (Number.isFinite(p.dur) ? Math.round(p.dur) : null);
     const fps = Number.isFinite(q.fps) ? q.fps : p.fps;
@@ -135,7 +136,8 @@
   function gazeWord(v) {
     const L = root.BehaviorCvLogic;
     const lo = L ? L.CFG.gazeLo : 0.4; const hi = L ? L.CFG.gazeHi : 0.7;
-    return v < lo ? '짧아요' : v < hi ? '보통이에요' : '길어요';
+    const W = L ? L.WORDS.gaze.words : ['짧아요', '조금 짧아요', '충분해요'];
+    return v < lo ? W[0] : v < hi ? W[1] : W[2];
   }
 
   function qaHtml(qa) {
