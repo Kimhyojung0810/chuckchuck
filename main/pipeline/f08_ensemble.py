@@ -652,9 +652,24 @@ def voice_prompt(signals: list[dict], deck: Deck, asked: list[dict], transcript_
     return "\n".join(parts)
 
 
+#: 3번+ 질문의 꼴 — 10-17 r2 · r4 · r6 가린 라벨(120)에서 핵심이 아닌 3번+ 의 대부분이 「자료에서 뭐라고 했나 · 구체적으로 무엇인가 ·
+#: 정말 ~인가 · 수치를 함께 말해」 같은 확인이었다. 신호가 드러낸 빈틈을 「왜 · 어떻게 이어지나 · 충분한가 · 무엇이 바뀌면」 으로 묻게 한다 (QA_VOICE_WHY=0 이면 끔)
+VOICE_WHY_ADDENDUM = """
+- 「자료에서 뭐라고 했나요 · 구체적으로 무엇인가요 · 정말 가장 ~인가요 · 수치를 함께 말해 주세요」 처럼 **확인**을 시키지 않는다.
+  신호가 드러낸 빈틈을 「왜 그런가 · 어떻게 결론으로 이어지나 · 그 근거로 충분한가 · 무엇이 바뀌면 결론이 달라지나」 로 묻는다."""
+
+
+def voice_why_on() -> bool:
+    return (os.environ.get("QA_VOICE_WHY") or "1").strip().lower() not in ("0", "false", "off", "no")
+
+
+def voice_system() -> str:
+    return VOICE_SYSTEM + (VOICE_WHY_ADDENDUM if voice_why_on() else "")
+
+
 def ens_voice(name: str, llm: LLMProvider, signals: list[dict], deck: Deck, asked: list[dict], transcript_text: str,
               calls: list, temperature: float = 0.4) -> list[dict]:
-    data = _complete(llm, "voice", calls, system=VOICE_SYSTEM, user=voice_prompt(signals, deck, asked, transcript_text),
+    data = _complete(llm, "voice", calls, system=voice_system(), user=voice_prompt(signals, deck, asked, transcript_text),
                      temperature=temperature, max_tokens=GEN_MAX_TOKENS)
     return _voice_items(data, signals, name, calls)
 
@@ -673,7 +688,8 @@ LIVE_ADDENDUM = """
 
 
 def live_system() -> str:
-    return LIVE_SYSTEM + ("" if (os.environ.get("QA_LIVE_PROMPT") or "v2").strip().lower() == "v1" else LIVE_ADDENDUM)
+    return (LIVE_SYSTEM + ("" if (os.environ.get("QA_LIVE_PROMPT") or "v2").strip().lower() == "v1" else LIVE_ADDENDUM)
+            + (VOICE_WHY_ADDENDUM if voice_why_on() else ""))
 
 
 def ens_live_voice(name: str, llm: LLMProvider, signals: list[dict], deck: Deck, transcript_text: str, calls: list,
@@ -824,7 +840,10 @@ _RECALL_RE = re.compile(
     r"(?:유지율|수치|값|비율|오즈비|OR|점수|퍼센트)(?:이|가|는)?\s*(?:어떻게|얼마나)\s*달라(?:졌|지|져)|"
     r"(?:을|를)\s*함께\s*말해|어떤\s*성분|"
     # r4 가린 라벨에서 더 나온 꼴 — 「하나씩 짚어」 · 「결과값을 말할」 · 「구체적으로 어떻게 묶었」 · 「~ 외에 무엇이 더」
-    r"하나씩\s*(?:짚|설명|말|꼽)|(?:결과값|수치|값)을\s*말|구체적으로\s*어떻게\s*(?:묶|고정|맞추|맞췄)|(?:외에|말고)\s*무엇이\s*더")
+    r"하나씩\s*(?:짚|설명|말|꼽)|(?:결과값|수치|값)을\s*말|구체적으로\s*어떻게\s*(?:묶|고정|맞추|맞췄)|(?:외에|말고)\s*무엇이\s*더|"
+    # r6 — 「구체적으로 무엇으로 맞추셨는지」 · 「구체적으로 어떻게 설명했나요」(발표에서 한 말 되묻기) · 「어떤 두 해의 수치」 · 「경향을 함께 설명」 · 「정말 가장 …인지」
+    r"구체적으로\s*무엇(?:으로|을)\s*(?:맞추|고정|정했|썼)|구체적으로\s*어떻게\s*설명했|어떤\s*(?:두|세)\s*(?:해|시점|구간)의?\s*(?:수치|값)|"
+    r"경향을\s*함께\s*설명|정말\s*가장\s*[가-힣]+(?:지|인지)\s")
 
 
 def recall_ask(question: str) -> bool:
