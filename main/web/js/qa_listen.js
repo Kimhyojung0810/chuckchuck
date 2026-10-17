@@ -51,7 +51,7 @@ function qaListenReduce(state, ev) {
 
 /* ─── 화면 쪽 (비전 리허설) ──────────────────────────────────────────────────── */
 
-const qaListen = { on: false, sid: '', talk: '', state: null, baseFinal: '', pool: { sid: '', early: false, at: 0 } };
+const qaListen = { on: false, off: false, sid: '', talk: '', state: null, baseFinal: '', pool: { sid: '', early: false, at: 0 } };
 
 /** 발표하는 동안 1·2번 자료 묶음이 준비됐는지 미리 본다 — 발표를 마치는 순간 기다림 화면이 서버에 다시 묻지 않고 바로 Q&A 를 연다 */
 function qaListenPeekPool() {
@@ -60,7 +60,12 @@ function qaListenPeekPool() {
   if (qaListen.pool.sid === qaListen.sid && (qaListen.pool.early || Date.now() - qaListen.pool.at < 4000)) return;
   const sid = qaListen.sid;
   qaListen.pool = { sid, early: false, at: Date.now() };
-  bridge.qaPoolStatus(sid).then((r) => { if (qaListen.pool.sid === sid) qaListen.pool.early = !!(r && r.early); }).catch(() => {});
+  bridge.qaPoolStatus(sid).then((r) => {
+    if (qaListen.pool.sid !== sid) return;
+    qaListen.pool.early = !!(r && r.early);
+    // 서버가 네 모델 Q&A · 발표 중 준비를 안 켰으면 장마다 보내지 않는다(공개 서비스 기본값이 꺼짐일 수 있다)
+    if (r && (r.ensemble === false || r.live === false)) qaListen.off = true;
+  }).catch(() => {});
 }
 
 /** 기다림 화면(js/rehearsal.js)이 묻는다 — 이 세션의 묶음이 발표 중에 준비됐다고 들었나 */
@@ -76,12 +81,14 @@ function qaListenBegin(sessionId, finalSoFar = '') {
   qaListen.sid = String(sessionId);
   qaListen.talk = bridge.talkRunId(sessionId, { fresh: true });
   qaListen.state = { slides: {}, lastFinal: String(finalSoFar || ''), cur: Number((typeof nf !== 'undefined' && nf && nf.slide) || 1), sent: {} };
+  qaListen.off = false;
+  qaListenPeekPool();       // 켜져 있는지 · 묶음이 준비됐는지 발표 시작 때 한 번
   return true;
 }
 
 function qaListenPost(items) {
   const bridge = window.ChuckchuckBridge;
-  if (!bridge || typeof bridge.qaLiveFeed !== 'function' || !qaListen.talk) return;
+  if (!bridge || typeof bridge.qaLiveFeed !== 'function' || !qaListen.talk || qaListen.off) return;
   items.forEach((it) => bridge.qaLiveFeed(qaListen.sid, qaListen.talk, it).catch(() => {}));
 }
 

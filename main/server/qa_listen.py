@@ -34,6 +34,8 @@ SIGS_PER_ROUND = int(os.environ.get("QA_LIVE_SIGS", "4"))
 MIN_SIGS = int(os.environ.get("QA_LIVE_MIN_SIGS", "2"))
 #: 서버 전체에서 동시에 도는 발표 중 라운드 상한 (부스에서 여러 사람이 동시에 발표해도 429 폭주를 막는다)
 GLOBAL_ROUNDS = int(os.environ.get("QA_LIVE_GLOBAL", "4"))
+#: 라운드 후보가 다 버려졌을 때 한 번 더 부를 모델 (빈 값이면 다시 안 부른다)
+RETRY_MODELS = [m.strip() for m in (os.environ.get("QA_LIVE_RETRY_MODELS") or "exaone").split(",") if m.strip()]
 #: 쌓는 후보 상한 (판 하나)
 CANDS_MAX = 24
 
@@ -163,6 +165,11 @@ class Listener:
             t0 = time.time()
             try:
                 vr = FE.live_round(deck, sigs, speech_of, models=self.models, llms=self.llms)
+                if vr is not None and not vr.candidates and RETRY_MODELS and self.models is None:
+                    # 후보가 다 거르기에 걸렸다 — 다른 회사 모델로 한 번만 더(10-17 실험실 m8 B1: 4개 다 버림 → 3번을 묶음에서 냄)
+                    vr2 = FE.live_round(deck, sigs, speech_of, models=RETRY_MODELS, llms=self.llms)
+                    vr = FE.VoiceRound(vr.signals, vr2.candidates, vr.dropped + vr2.dropped, vr.calls + vr2.calls,
+                                       round(vr.sec + vr2.sec, 2))
             except Exception as e:  # noqa: BLE001 — 발표 중 준비가 실패해도 발표 · 질문은 그대로 간다
                 sys.stderr.write(f"[qa-listen] 라운드 실패: {type(e).__name__}: {str(e)[:120]}\n")
                 vr = None

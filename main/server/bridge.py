@@ -1351,6 +1351,8 @@ QA_ENS_FAST = (os.environ.get("QA_ENS_FAST") or "1").strip().lower() not in ("0"
 QA_LIVE_SKIP_EMPTY = (os.environ.get("QA_LIVE_SKIP_EMPTY") or "1").strip().lower() not in ("0", "false", "off", "no")
 #: 묶음이 준비됐으면 브라우저가 받아쓰기 · 정합 · 흐름을 기다리지 않고 Q&A 를 바로 연다 (1·2번은 자료 묶음이라 그것들이 필요 없다)
 QA_EARLY_START = (os.environ.get("QA_EARLY_START") or "1").strip().lower() not in ("0", "false", "off", "no")
+#: 3번+ 후보가 하나도 없을 때 이번 음성 라운드를 더 기다리는 초 (화면은 6초 · 최종 선택은 3.5초 상한 — 합이 넘지 않게)
+NEXT_GRACE_SEC = float(os.environ.get("QA_ENS_NEXT_GRACE_SEC", "1.5"))
 _RUN_TALK = "run_talk:"      # Q&A 한 판 → 그 판 앞의 발표(talk_id) — 질문 요청이 잇는다
 
 
@@ -4456,6 +4458,13 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             vr = fut.result(timeout=float(body.get("wait_sec") or NEXT_WAIT_SEC))
         except Exception:  # noqa: BLE001 — 늦으면 바로 앞 답까지로 만든 음성 후보(질문을 낼 때 미리 띄운 것), 그것도 없으면 묶음에서
             vr = STORE.get_triage(last_key)
+        if NEXT_GRACE_SEC > 0 and not (vr and vr.candidates) and not FE.live_options(live, asked) and not body.get("wait_sec"):
+            # 음성 · 발표 중 후보가 하나도 없다 — 묶음에서 대신 내기 전에 이번 라운드를 조금 더 기다린다(화면 상한 6초 · 선택 상한 3.5초 안).
+            # 10-17 실험실 m8 B1: 판정이 빨라져(미리 판정) 1번이 뜬 지 24초 만에 3번을 물었고, 음성 라운드는 아직이라 묶음에서 냈다
+            try:
+                vr = fut.result(timeout=NEXT_GRACE_SEC)
+            except Exception:  # noqa: BLE001
+                vr = STORE.get_triage(last_key)
         t0 = time.monotonic()
         pick_calls: list = []
         nxt = FE.choose_next(pool, vr, asked, calls=pick_calls, **({"live": live} if live else {}))   # 발표 중 후보가 없으면 예전 호출 그대로
