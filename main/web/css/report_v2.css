@@ -588,3 +588,5 @@ html.sx-studio #app.rv2-host { position: fixed; inset: 0; height: auto; z-index:
 @media (prefers-reduced-motion: reduce) {
   .rv2 *, .rv2 *::before, .rv2 *::after { animation: none !important; transition: none !important; }
 }
+.rv2 .rq-t.is-again { max-width: 100%; }   /* 꼬리질문 없이 같은 질문에 다시 답한 턴 — 말풍선 없이 곁말 한 줄 (바퀴 6) */
+.rv2 .rq-t.is-again .rq-who { margin: 0 4px; font-weight: 600; }

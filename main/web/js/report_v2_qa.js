@@ -26,6 +26,19 @@
   const ROLE = { covered: '짚은 줄', missing: '빠진 줄', conflict: '다시 볼 줄' };
   const PATTERN_FALLBACK = { P1: '핵심 주장', P2: '근거 충분성', P3: '빈 고리', P4: '결론을 좌우하는 조건', P5: '주장 잇기', P6: '방법 선택',
     P7: '한계 · 반례', P8: '개념의 역할', P9: '함정', P10: '옮겨 쓰기', voice: '발표를 듣고' };
+  /** 띄어쓰기 · 문장부호를 뺀 비교용 글 */
+  const squash = (t) => String(t || '').replace(/[\s.,!?·…「」『』"'“”‘’()\[\]~\-]/g, '');
+  /** claim 이 text 안 어디인지 [시작, 끝] — 띄어쓰기 · 문장부호를 무시하고 찾는다(4글자 미만 · 못 찾으면 null) */
+  function claimAt(text, claim) {
+    const t = String(text || ''); const c = squash(claim);
+    if (c.length < 4) return null;
+    const at = t.indexOf(String(claim || '').trim());
+    if (at >= 0 && String(claim).trim()) return [at, at + String(claim).trim().length];
+    const pos = []; let flat = '';
+    for (let k = 0; k < t.length; k += 1) { const ch = squash(t[k]); if (ch) { flat += ch; pos.push(k); } }
+    const f = flat.indexOf(c);
+    return f < 0 ? null : [pos[f], pos[f + c.length - 1] + 1];
+  }
   const plainDeck = (t) => String(t || '').replace(/\|\s*-{3,}\s*/g, ' ').replace(/^\s*\|\s*|\s*\|\s*$/g, '').replace(/\s*\|\s*/g, ' · ')
     .replace(/(?:·\s*){2,}/g, '· ').replace(/\s{2,}/g, ' ').trim();
 
@@ -117,7 +130,11 @@
       const b = B(q);
       const t = q.topic || {};
       const bt = q.better || {};
-      const hl = (text, claim) => { const at = claim ? text.indexOf(claim) : -1; return at < 0 ? esc(text) : `${esc(text.slice(0, at))}<mark>${esc(claim)}</mark>${esc(text.slice(at + claim.length))}`; };
+      // 판정이 붙잡은 말(claim)에 밑줄 — 서버는 띄어쓰기 · 문장부호를 빼고 원문에 있는지 본다(f09 _answer_claim). 화면도 그렇게 찾고, 못 찾으면 밑줄 · 곁말 없이
+      const hl = (text, claim) => { const at = claimAt(text, claim); return at ? `${esc(text.slice(0, at[0]))}<mark>${esc(text.slice(at[0], at[1]))}</mark>${esc(text.slice(at[1]))}` : esc(text); };
+      const why = (s) => (s.answer && claimAt(s.answer, s.claim) ? '<p class="rq-why">밑줄은 판정이 붙잡은 내 말이에요</p>' : '');
+      // 꼬리질문이 비었거나 처음 질문 그대로면(판정이 꼬리질문을 안 줘 같은 질문에 다시 답한 턴) 말풍선 · 수 이름 없이 한 줄만
+      const sameQ = (t) => !String(t || '').trim() || squash(t) === squash(q.text);
       const tags = [layerChip(q), t.slide ? `<span class="rq-tag">자료 ${esc(t.slide)}장</span>` : '',
         pattern(t.pattern) ? `<span class="rq-tag">묻는 방식 · ${esc(pattern(t.pattern))}</span>` : '',
         model(t.by) ? `<span class="rq-tag">${esc(model(t.by))}가 물었어요</span>` : '',
@@ -125,14 +142,16 @@
 
       // 주고받은 말 — 질문 → 내 답 → (꼬리질문 · 수) → 내 답 …
       const turns = q.steps.map((s, i) => {
-        const ask = i === 0 ? '' : `<li class="rq-t ai"><p class="rq-who">꼬리질문${q.steps[i - 1].move && MOVE[q.steps[i - 1].move] ? ` · ${MOVE[q.steps[i - 1].move]}` : ''}</p><p class="rq-bub">${esc(q.steps[i - 1].followup)}</p></li>`;
+        const fu = i === 0 ? '' : q.steps[i - 1].followup;
+        const ask = i === 0 ? '' : sameQ(fu) ? '<li class="rq-t ai is-again"><p class="rq-who">같은 질문에 다시 답했어요</p></li>'
+          : `<li class="rq-t ai"><p class="rq-who">꼬리질문${q.steps[i - 1].move && MOVE[q.steps[i - 1].move] ? ` · ${MOVE[q.steps[i - 1].move]}` : ''}</p><p class="rq-bub">${esc(fu)}</p></li>`;
         const said = s.answer ? hl(s.answer, s.claim) : s.claim ? `<mark>${esc(s.claim)}</mark>` : '';
         const tv = TURN[s.verdict];
         const last = i === q.steps.length - 1 && q.steps.length > 1;
         return `${ask}<li class="rq-t me${last ? ' is-last' : ''}"><p class="rq-who">내 답${q.steps.length > 1 ? ` ${i + 1}` : ''}${last ? ' · 마지막 답' : ''}${tv ? ` · <span class="v-${tv[1]}">${tv[0]}</span>` : ''}</p>
-          <p class="rq-bub">${said || '<span class="rq-dim">이 답은 저장되지 않았어요</span>'}</p>${s.claim && s.answer ? '<p class="rq-why">밑줄은 판정이 붙잡은 내 말이에요</p>' : ''}</li>`;
+          <p class="rq-bub">${said || '<span class="rq-dim">이 답은 저장되지 않았어요</span>'}</p>${why(s)}</li>`;
       }).join('');
-      const tail = q.steps.length && q.steps[q.steps.length - 1].followup
+      const tail = q.steps.length && !sameQ(q.steps[q.steps.length - 1].followup)
         ? `<li class="rq-t ai"><p class="rq-who">꼬리질문</p><p class="rq-bub">${esc(q.steps[q.steps.length - 1].followup)}</p></li>` : '';
 
       // 30초 뼈대 — 있는 값만. 셋 다 비면 칸을 안 그린다
@@ -150,7 +169,7 @@
       // 답 하나는 한 곳에만 — 꼬리질문이 있으면 사슬 안에서(마지막 답 표시), 없으면 「내 답」 한 칸 (10-17 검토)
       const chain = q.steps.length > 1 || !!tail;
       const ls = [...q.steps].reverse().find((s) => s.answer || s.claim);
-      const lastSaid = ls ? `<p class="rq-bub">${ls.answer ? hl(ls.answer, ls.claim) : `<mark>${esc(ls.claim)}</mark>`}</p>${ls.claim && ls.answer ? '<p class="rq-why">밑줄은 판정이 붙잡은 내 말이에요</p>' : ''}`
+      const lastSaid = ls ? `<p class="rq-bub">${ls.answer ? hl(ls.answer, ls.claim) : `<mark>${esc(ls.claim)}</mark>`}</p>${why(ls)}`
         : (r.answer ? `<p class="rq-bub">${esc(r.answer)}</p>` : '');
       // 발표 태도(베타) 사실 한 줄 — 이 질문에 8초 넘게 답했고 화면 쪽 시간을 잴 수 있었을 때만 (js/behavior_report.js qaFact). 판정과 무관한 곁말
       let fact = null;
@@ -183,5 +202,5 @@
     return { qa, card, BUCKET, meta };
   }
 
-  if (typeof window !== 'undefined') window.ReportV2Qa = { screens, BUCKET, plainDeck };
+  if (typeof window !== 'undefined') window.ReportV2Qa = { screens, BUCKET, plainDeck, claimAt };
 })();

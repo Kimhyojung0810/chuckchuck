@@ -133,6 +133,36 @@ const rv2Src = readFileSync(path.join(WEB, 'js/report_v2.js'), 'utf8');
 check('다시 보기는 「그 순간 듣기」 로 열 때만 바로 소리를 낸다(다시 그리기 · 복원에선 안 튼다)', /autoPlayNext = false; select\(el, pick, \{ sound \}\)/.test(rv2Src) && /function goMoment\(route\) \{ if \(busy\) return; autoPlayNext = !!audio;/.test(rv2Src));
 check('옛 시트(nv-sheet)는 걷었다 — 표시는 한 줄 설명으로', !/nv-sheet/.test(rv2Src) && !/nv-sheet/.test(css));
 
+// ─── 가벼운 판정(QA_JUDGE_LEAN=1, main b21f684) 모양 — 바퀴 6. 실 판정 코드로 만든 응답(etc/labs/rehearsal_flow/lean_judge_shape.py)을
+// qa_live 가 남기는 trail 모양으로: 근거 note 30자 안 · claim 25자 안(띄어쓰기 다름) · 꼬리질문은 엔진/코드 틀이 씀 · 같은 질문에 다시 답한 턴 · 닫힌 턴 ───
+{
+  const Q0 = sample.qa.questions[0];
+  const A1 = '2C 충전은 실험실에서 한 거라서 상황마다 좀 다를 것 같아요. 셀 수도 적어서 용량이 깎였다고 단정하긴 어려워요.';
+  const G = [{ slide_no: 2, quote: '2C 충전 셀은 500회 뒤 용량 82%, 0.5C 충전 셀은 91%', role: 'missing', note: '속도 효과를 보이는 줄이에요', ref: 'S2-1' }];
+  const leanIn = { ...sample, qa: { questions: [Q0], results: [{ id: Q0.id, label: Q0.label, question: Q0.question, answer: '속도만 바꿨으니 속도 효과로 읽을 수 있어요.',
+    verdict: 'good', score: 82, passed: true, mastered: true, closeReason: 'good', summary: '조건 차이는 짚었지만 속도 효과로 읽을 근거는 아직 빠졌어요.', turns: 3,
+    grounds: G, missing: ['충전 속도만 바꾼 비교라는 점'], trail: [
+      { q: Q0.question, claim: '셀수도 적어서', a: A1, v: 'partial', move: 'connect', grounds: G, missing: ['충전 속도만 바꾼 비교라는 점'] },
+      { q: '그 차이가 왜 속도 때문이에요?', claim: '', a: '온도는 같았어요.', v: 'partial', move: 'connect' },
+      { q: Q0.question, claim: '속도 효과로', a: '속도만 바꿨으니 속도 효과로 읽을 수 있어요.', v: 'good', move: 'deepen' }] }] } };
+  const LV = RG.buildViewModel(RG.buildGraph({ ...leanIn, reportId: 'lean' }), leanIn);
+  const LQ = qctx.window.ReportV2Qa.screens({ esc: esc2, I: {}, asset: (x) => x, V: () => LV, D: () => leanIn, QB: () => null, QBS: null, slideTag: () => '', EMBED: false });
+  const lh = LQ.qa(LV.qa[0].id).html;
+  check('LEAN: 띄어쓰기가 다른 짧은 claim 도 밑줄 · 곁말', /<mark>셀 수도 적어서<\/mark>/.test(lh) && /밑줄은 판정이 붙잡은 내 말이에요/.test(lh));
+  check('LEAN: 엔진이 쓴 꼬리질문은 말풍선 + 수 이름', /꼬리질문 · 이어 묻기<\/p><p class="rq-bub">그 차이가 왜 속도 때문이에요\?/.test(lh));
+  check('LEAN: 처음 질문 그대로 다시 받은 턴은 꼬리질문 말풍선 · 수 이름 없이 한 줄', /같은 질문에 다시 답했어요/.test(lh)
+    && (lh.match(/class="rq-bub">[^<]*리뷰 이벤트 가설/g) || []).length === 0);
+  check('LEAN: 짧은 근거 note 는 줄 아래 · 빠진 것 · 판정 한 문장', /속도 효과를 보이는 줄이에요/.test(lh) && /이번 답에서 빠진 것/.test(lh) && /AI 판정이 남긴 한 문장/.test(lh));
+  const empty = { ...leanIn, qa: { questions: [Q0], results: [{ ...leanIn.qa.results[0], summary: '', grounds: [], missing: [], lookSlides: [],
+    trail: [{ q: Q0.question, claim: '답에 없는 말이에요', a: '모르겠지만 조건이 달라요.', v: 'partial' }] }] } };
+  const EV = RG.buildViewModel(RG.buildGraph({ ...empty, reportId: 'lean0' }), empty);
+  const eh = qctx.window.ReportV2Qa.screens({ esc: esc2, I: {}, asset: (x) => x, V: () => EV, D: () => empty, QB: () => null, QBS: null, slideTag: () => '', EMBED: false }).qa(EV.qa[0].id).html;
+  check('LEAN: 근거 · 빠진 점 · 한 문장이 없으면 그 칸 머리도 없다 · 원문에 없는 claim 은 밑줄 · 곁말 없음',
+    !/이번 답에서 빠진 것/.test(eh) && !/AI 판정이 남긴/.test(eh) && !/rq-grounds/.test(eh) && !/<mark>/.test(eh) && !/밑줄은/.test(eh) && /<h3 class="nv-sec">내 답<\/h3>/.test(eh));
+  const CA = qctx.window.ReportV2Qa.claimAt;
+  check('claimAt: 그대로 · 띄어쓰기 무시 · 4글자 미만 · 없음', String(CA('가나 다라마', '다라')) === 'null' && String(CA('가나 다라마바', '나다라마')) === '1,6' && CA('abc', '') === null && CA('가나다라', '마바사아') === null);
+}
+
 // 하네스 자가 검사 — 범위 밖 규칙을 넣으면 잡는가
 const badLoose = ['body', '.rv2 .ok'].filter((x) => !/^(\.rv2\b|body\.rv2-page\b|#app\.rv2-host\b)/.test(x));
 check('하네스가 회귀를 잡는다', badLoose.length === 1);
