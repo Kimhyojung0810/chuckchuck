@@ -366,7 +366,7 @@ class Pool:
 _HON_FIX = (
     (re.compile(r"주실\s+수"), "줄 수"), (re.compile(r"않으셨"), "않았"), (re.compile(r"(?<=[가-힣])하셨"), "했"),
     (re.compile(r"보셨"), "봤"), (re.compile(r"주셨"), "줬"), (re.compile(r"(?<=[가-힣])하신(?=\s)"), "한"),
-    (re.compile(r"(?<=[가-힣])하실(?=\s)"), "할"),
+    (re.compile(r"(?<=[가-힣])하실(?=\s)"), "할"), (re.compile(r"(?<![가-힣])보신(?=\s)"), "본"),
 )
 
 

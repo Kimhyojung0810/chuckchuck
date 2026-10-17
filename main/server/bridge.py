@@ -4134,7 +4134,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if getattr(doc, "_ensemble", None):
             payload["ensemble"] = doc._ensemble        # 화면엔 작은 표시만 (client_questions 가 뺀다) · 후보 판은 보관본
         # 폴백 재료로 만든 묶음은 짧게만 든다 — 미리 만들기 → 시작 한 쌍은 나눠 쓰고, 그 뒤 요청은 재료부터 다시 시도한다 (B-03)
-        transient = [c for c in degraded if c in TRANSIENT_DEGRADED]
+        transient = [c for c in degraded if c in TRANSIENT_DEGRADED] or (["ensemble_missed"] if getattr(doc, "_ensemble_missed", False) else [])
         STORE.set_triage(q_key, payload, ttl=FALLBACK_TTL_SEC if transient else None)
         if not transient and not degraded:
             _stage_cache_put("questions", _questions_disk_key(q_key), payload)
@@ -4186,6 +4186,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         sid = str(_session_id_of(body) or "")
         pool = self._ensemble_pool(sid, found["graph"], slidedoc, claims, wait=ENSEMBLE_POOL_WAIT_SEC)
         if pool is None:
+            # 묶음이 늦었거나 넘어졌다 — 지금 방식 질문으로 가되, 이 결과를 오래 들고 있지 않는다(_build_questions_payload).
+            # 10-17 버그 사냥: 묶음이 45초를 넘긴 판의 지금 방식 질문이 같은 덱 세션의 질문 캐시(디스크 포함)에 남아, 묶음이 다 만들어진
+            # 뒤에도 그 덱의 모든 방문객이 네 모델 질문을 못 받았다
+            doc._ensemble_missed = True
             return doc
         n = max(2, QA_TRACK_LIMITS.get(doc.track, 3))
         picked = FE.pick_session(pool, transcript, n)

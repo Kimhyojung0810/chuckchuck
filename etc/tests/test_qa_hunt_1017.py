@@ -209,3 +209,12 @@ def test_꼬리질문_틀이_다_쓰였는데_구절이_없으면_그_말을_지
     ti = SimpleNamespace(slide_no=0, asked=[], avoid=[q for _, q in DLG._TEMPLATES["refocus"]])
     react, _ = DLG.template_turn("refocus", "", ti)
     assert "그 말" not in react
+
+
+def test_네_모델_묶음이_늦은_판의_질문은_짧게만_든다(monkeypatch):
+    monkeypatch.setattr(FE, "enabled", lambda: True)
+    monkeypatch.setattr(bridge, "_mock", lambda: False)
+    h = SimpleNamespace(_ensemble_pool=lambda *a, **k: None)
+    doc = SimpleNamespace(track="10", questions=[])
+    out = bridge.Handler._ensemble_questions(h, doc, {"session_id": SID}, {"graph": {}}, {"slides": []}, None, None)
+    assert out is doc and out._ensemble_missed is True
