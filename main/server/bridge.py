@@ -57,6 +57,7 @@ from server import shield  # noqa: E402
 from server import live_stt  # noqa: E402
 from server import tour_events  # noqa: E402
 from server import qa_board  # noqa: E402 — 네 모델 Q&A 후보 판 (4단계 리포트)
+from server import qa_listen  # noqa: E402 — 발표를 들으며 3번+ 질문 준비 (/api/v1/qa/live)
 from server.session_archive import SessionArchive, git_sha  # noqa: E402
 from server.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from server import clova_transcript  # noqa: E402
@@ -150,6 +151,8 @@ PAID_PATHS = frozenset({
     # 네 모델 Q&A (2026-10-17, QA_ENSEMBLE) — 묶음은 모델마다 1~2콜 + 서로 평가, 다음 질문은 음성 4콜 + 선택 1콜
     "/api/v1/qa/pool",
     "/api/v1/qa/next",
+    # 발표 중 장을 넘길 때마다 — 다 들은 장의 새 신호가 있으면 음성 후보(모델 1~2개). 판마다 라운드 상한이 따로 있다 (server/qa_listen.py)
+    "/api/v1/qa/live",
     "/api/v1/strategy",
     # F-24 는 학술 검색 API(+검색어 번역 LLM 1콜)를 부른다
     "/api/v1/papers",
@@ -1339,6 +1342,24 @@ ENSEMBLE_POOL_WAIT_SEC = float(os.environ.get("QA_ENS_POOL_WAIT_SEC", "45"))
 NEXT_WAIT_SEC = float(os.environ.get("QA_ENS_NEXT_WAIT_SEC", "0.5"))
 #: 다음 질문 요청의 앞 질문 문장 상한 (본문에서 올 때)
 QA_QUESTION_MAX = 400
+#: 질문 요청이 앙상블 묶음이 준비돼 있으면 지금 방식 질문(1차 심사 · 문헌 · 주장 · 생성 LLM)을 건너뛰고 묶음에서 바로 고른다
+#: (2026-10-17 발표를 들으며 준비 — 기준선 C1: 받아쓰기·정합이 끝난 뒤 질문 줄만 37초). 0 이면 예전처럼 지금 방식을 다 만든 뒤 바꿔 낀다.
+QA_ENS_FAST = (os.environ.get("QA_ENS_FAST") or "1").strip().lower() not in ("0", "false", "off", "no")
+#: 3번+ 고르기에서 앞 답이 아직 없을 때(1번을 낼 때 미리 띄우는 것) 발표 중 후보가 있으면 네 모델 음성 라운드를 건너뛴다 — 같은 신호를 두 번 만든다
+QA_LIVE_SKIP_EMPTY = (os.environ.get("QA_LIVE_SKIP_EMPTY") or "1").strip().lower() not in ("0", "false", "off", "no")
+#: 묶음이 준비됐으면 브라우저가 받아쓰기 · 정합 · 흐름을 기다리지 않고 Q&A 를 바로 연다 (1·2번은 자료 묶음이라 그것들이 필요 없다)
+QA_EARLY_START = (os.environ.get("QA_EARLY_START") or "1").strip().lower() not in ("0", "false", "off", "no")
+_RUN_TALK = "run_talk:"      # Q&A 한 판 → 그 판 앞의 발표(talk_id) — 질문 요청이 잇는다
+
+
+def _live_materials(sid: str):
+    """발표 중 준비의 재료 — 그래프(묶음을 띄울 때 남긴 것 → 세션 아티팩트)와 자료 본문. 둘 중 하나라도 없으면 None."""
+    graph = STORE.get_triage("ens_graph:" + str(sid)) or (STORE.artifacts(_store_sid(sid)) or {}).get("graph")
+    slidedoc = ARCHIVE.read_artifact(sid, "slide_doc") if sid else None
+    return (graph, slidedoc) if graph and slidedoc else None
+
+
+LISTENER = qa_listen.Listener(STORE, _live_materials, lambda key, fn: _FLIGHTS.run(key, fn))
 
 
 def _store_put(key: str, value):
@@ -2423,6 +2444,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_qa_pool(raw)
         if parsed.path == "/api/v1/qa/next":
             return self._handle_qa_next(raw)
+        if parsed.path == "/api/v1/qa/live":
+            return self._handle_qa_live(raw)
+        if parsed.path == "/api/v1/qa/pool/status":
+            return self._handle_qa_pool_status(raw)
         if parsed.path == "/api/v1/qa/board":
             return self._handle_qa_board(raw)
         # 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다
@@ -3901,6 +3926,13 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                     sys.stderr.write(f"[bridge] F-08 questions track={track} 만들던 것을 {time.time() - t0:.1f}초 기다려 씀 ({label})\n")
                     self._index_questions(body, track, ready)
                     return self._json(200, client_questions(ready))
+        if QA_ENS_FAST:
+            fast = self._ensemble_fast(body, found, slidedoc, transcript, track, q_key)
+            if fast is not None:
+                if mine is not None:
+                    _release_questions(q_key, mine)
+                    mine = None
+                return fast
         try:
             papers, memory, claims, degraded = self._question_inputs(body, found["graph"], slidedoc, llm)
             if not slidedoc:
@@ -3931,6 +3963,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         STORE.put_questions(sid, track, payload)
         self._bind_board(body, payload)
         run = qa_run_of(body)
+        talk = qa_listen.talk_of(body)
+        if run and talk and not body.get("prefetch"):
+            STORE.set_triage(_RUN_TALK + run_key(sid, run), talk)
         if run and not body.get("prefetch"):
             # 이 판의 발표 받아쓰기 · 정합 — /qa/next 가 세션 저장소(마지막 사람 것) 대신 읽는다. 이 사람이 들고 온 본문 값만
             # (세션 저장소로 채우면 다시 남의 것이 된다 · 안 보냈으면 발화 없이 고른다)
@@ -4121,8 +4156,12 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         nodes = sorted((n.get("id"), n.get("label"), n.get("kind"), n.get("parent_id"))
                        for n in (graph_raw or {}).get("nodes", []) if isinstance(n, dict))
         key = "ens_pool:" + fingerprint(nodes, fingerprint(slidedoc) if slidedoc else None, FE.model_names(), FE.assign_mode(), sid)
+        if sid and graph_raw:
+            STORE.set_triage("ens_graph:" + sid, graph_raw)    # 발표 중 준비(/qa/live)가 장마다 신호를 볼 그래프
         hit = STORE.get_triage(key)
         if hit is not None:
+            if sid:
+                STORE.set_triage("ens_sid:" + sid, key)
             return hit
         claims_raw = claims.to_dict() if hasattr(claims, "to_dict") else claims
 
@@ -4172,6 +4211,39 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                          f"작성={[c['model'] for c in picked]} {pool.timings}\n")
         return doc
 
+    def _ensemble_fast(self, body, found, slidedoc, transcript, track, q_key):
+        """
+        묶음이 준비돼 있으면(또는 만드는 중이면 그걸 기다려) 지금 방식 질문을 만들지 않고 묶음에서 바로 고른다 — 1·2번은 언제나 자료 묶음.
+        묶음이 없거나 실패 · 2개를 못 고르면 None (지금 방식으로 간다 — 예전과 같은 길).
+        기준선(10-17 C1 실험실): 묶음은 발표 중에 이미 끝났는데 질문 줄이 지금 방식 질문(1차 심사 · 문헌 · 주장 · 생성 LLM)을 만드느라 37초 섰다.
+        """
+        from pipeline import f08_ensemble as FE
+        from pipeline.contracts import QuestionDoc
+
+        if not FE.enabled() or not slidedoc or _mock():
+            return None
+        t0 = time.monotonic()
+        doc = QuestionDoc(file_name=str(slidedoc.get("file_name") or ""), total_slides=int(slidedoc.get("total_slides") or 0),
+                          track=track, model="")
+        # 일찍 시작한 Q&A 는 일괄 받아쓰기가 아직 없다 — 이 판 앞의 발표(talk_id)에서 쌓은 장별 발화로 1·2번의 「이미 잘 설명함」 을 본다
+        talk = qa_listen.talk_of(body)
+        if transcript is None and talk:
+            heard = LISTENER.speech_of(str(_session_id_of(body) or ""), talk)
+            if heard:
+                from pipeline.contracts import Transcript as _T
+                transcript = _T.from_dict({"by_slide": [{"slide_no": n, "start_sec": 0, "end_sec": 0, "text": t
+                                                         } for n, t in sorted(heard.items())]})
+        doc = self._ensemble_questions(doc, body, found, slidedoc, None, transcript)
+        if not getattr(doc, "_ensemble", None):
+            return None
+        payload = _with_degraded(with_hint_ladders(doc.to_dict(), doc.questions), [])
+        payload["ensemble"] = {**doc._ensemble, "fast": True}
+        STORE.set_triage(q_key, payload)
+        self._index_questions(body, track, payload)
+        self._archive(body, "question_doc", payload)
+        sys.stderr.write(f"[bridge] F-08 questions track={track} 묶음에서 바로 ({time.monotonic() - t0:.2f}s · 지금 방식 건너뜀)\n")
+        return self._json(200, client_questions(payload))
+
     def _ensemble_kick(self, body: dict, graph_raw: dict) -> None:
         """그래프가 나오는 순간(자료 올린 뒤 · 발표 전) 앙상블 묶음을 뒤에서 띄운다 — 질문 요청 때 기다리지 않게.
         10-17 실험실: 질문 요청 때 처음 띄우면 부하가 있을 때 45초 안에 못 끝나 지금 방식 질문으로 떨어졌다."""
@@ -4198,8 +4270,59 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
         if not found["graph"] or not slidedoc:
             return self._json(409, {"error": "not_ready", "message": "자료 분석이 끝나야 후보를 만들 수 있어요."})
-        self._ensemble_pool(str(_session_id_of(body) or ""), found["graph"], slidedoc, body.get("claims"), wait=0)
-        return self._json(202, {"ensemble": True, "started": True})
+        sid = str(_session_id_of(body) or "")
+        pool = self._ensemble_pool(sid, found["graph"], slidedoc, body.get("claims"), wait=0)
+        key = STORE.get_triage("ens_sid:" + sid) if sid else None
+        ready = pool is not None or bool(key and STORE.get_triage(key) is not None)
+        return self._json(200 if ready else 202, {"ensemble": True, "started": True, "ready": ready,
+                                                  "live": qa_listen.enabled()})
+
+    def _handle_qa_pool_status(self, raw: bytes):
+        """
+        {session_id} → {ensemble, ready, early, live} — 1·2번 자료 묶음이 준비됐나(고를 후보 2개 이상). LLM 없음 · 요청 제한 밖(기다림 화면이 1~2초마다 본다).
+        안 띄워졌으면 **서버가 아는 그래프로만** 띄운다(본문 그래프로 띄우지 않는다 — 아무 그래프나 보내 묶음 LLM 을 태우는 길을 막는다).
+        early=1 이면 브라우저가 받아쓰기 · 정합을 기다리지 않고 Q&A 를 바로 연다 (QA_EARLY_START).
+        """
+        from pipeline import f08_ensemble as FE
+
+        body = json.loads(raw or b"{}")
+        sid = str(_session_id_of(body) or "")
+        if not FE.enabled() or not sid or _mock():
+            return self._json(200, {"ensemble": False, "ready": False, "early": False})
+        key = STORE.get_triage("ens_sid:" + sid)
+        pool = STORE.get_triage(key) if key else None
+        if pool is None:
+            mats = _live_materials(sid)
+            if mats:
+                pool = self._ensemble_pool(sid, mats[0], mats[1], None, wait=0)
+        ready = pool is not None and len(pool.winners()) >= 2
+        return self._json(200, {"ensemble": True, "ready": ready, "early": QA_EARLY_START and ready,
+                                "live": qa_listen.enabled()})
+
+    def _handle_qa_live(self, raw: bytes):
+        """
+        발표 중 — {session_id, talk_id, slide_no, text, closed?, final?, alignment?} → 202 {slides, closed, final, kicked}.
+        text 는 그 장에서 지금까지 확정된 발화 **전체**(바꿔 쓴다 · 멱등). closed=그 장을 떠났다 → 다 들은 장의 새 신호로 음성 후보를 뒤에서.
+        final=발표를 마쳤다. alignment=분석이 끝난 정합(흐림 · 어긋남 신호). talk_id 가 없거나 앙상블이 꺼져 있으면 아무것도 쌓지 않는다.
+        """
+        body = json.loads(raw or b"{}")
+        sid = str(_session_id_of(body) or "")
+        talk = qa_listen.talk_of(body)
+        if not qa_listen.enabled() or not sid or not talk:
+            return self._json(200, {"live": False})
+        try:
+            slide_no = int(body.get("slide_no") or 0)
+        except (TypeError, ValueError):
+            slide_no = 0
+        text = body.get("text")
+        al = body.get("alignment") if isinstance(body.get("alignment"), dict) else None
+        tr = body.get("transcript") if isinstance(body.get("transcript"), dict) else None
+        got = LISTENER.put(sid, talk, slide_no=max(0, min(slide_no, 400)),
+                           text=str(text)[:8000] if isinstance(text, str) else None,
+                           closed=bool(body.get("closed")), final=bool(body.get("final")), alignment=al, transcript=tr)
+        st = LISTENER.state(sid, talk)
+        return self._json(202, {"live": True, **got, "candidates": len(st.get("candidates") or []),
+                                "rounds": len(st.get("rounds") or [])})
 
     def _handle_qa_next(self, raw: bytes):  # noqa: C901
         """
@@ -4227,11 +4350,24 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # 이 판이 질문을 받을 때 들고 온 받아쓰기를 쓰고, 없으면(메모리가 지남 · 다시 띄움) 발화 없이 고른다
             speech = STORE.get_triage(_RUN_SPEECH + run_key(sid, run)) or {}
             found["transcript"], found["alignment"] = speech.get("transcript"), speech.get("alignment")
+        # 이 판 앞의 발표(talk_id) — 발표 중에 쌓은 장별 발화 · 음성 후보 (같은 덱 세션의 남의 발표는 talk 이 달라 안 보인다)
+        talk = qa_listen.talk_of(body) or str(STORE.get_triage(_RUN_TALK + run_key(sid, run)) or "")
+        on = bool(talk) and qa_listen.enabled()
+        heard = LISTENER.speech_of(sid, talk) if on else {}
+        live = LISTENER.candidates(sid, talk) if heard else []
+        speech_of = None
+        if not found.get("transcript") and on:
+            # 일찍 시작한 Q&A — 질문을 받을 땐 일괄 받아쓰기가 없었다. 분석이 끝나 브라우저가 붙인 것 → 발표 중 쌓은 장별 발화 순
+            found["transcript"] = LISTENER.transcript(sid, talk)
+            found["alignment"] = found.get("alignment") or LISTENER.alignment(sid, talk)
+            if not found["transcript"] and heard:
+                speech_of = heard
         states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
             q = next(iter(STORE.find_questions(sid, str(a.get("question_id") or ""))), None) or {}
             st = states.get(q.get("node_id", "")) or {}
             asked.append({"question": q.get("question") or str(a.get("question") or "")[:QA_QUESTION_MAX],
+                          "slide_no": int((q.get("slide_nos") or [0])[0] or q.get("evidence_slide_no") or 0),
                           "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
                           "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3],
                           "state": st.get("state", ""), "skipped": st.get("skipped", "")})
@@ -4239,9 +4375,15 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         vkey = "ens_voice:" + fingerprint(pool_key, run, [(a["question"], a["verdict"], a["answer"]) for a in asked])
         last_key = "ens_voice_last:" + run_key(str(pool_key), run)
 
+        if speech_of is not None:
+            vkey += ":heard:" + fingerprint(sorted(speech_of.items()))
+
         def make_round():
+            if not asked and live and QA_LIVE_SKIP_EMPTY:
+                return FE.VoiceRound([], [], [], [], 0.0)          # 앞 답이 없으면 발표 중 후보가 같은 신호를 이미 다뤘다 — 네 모델을 또 부르지 않는다
             vr_ = STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
-                pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked))
+                pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked,
+                speech_of=speech_of))
             STORE.set_triage(last_key, vr_)       # 가장 최근에 끝난 음성 후보 — 이번 답 몫이 아직이면 한 답 앞의 것을 쓴다
             return vr_
 
@@ -4254,22 +4396,23 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             vr = STORE.get_triage(last_key)
         t0 = time.monotonic()
         pick_calls: list = []
-        nxt = FE.choose_next(pool, vr, asked, calls=pick_calls)
+        nxt = FE.choose_next(pool, vr, asked, calls=pick_calls, live=live)
         if not nxt:
             return self._json(200, {"question": None, "done": True})
-        self._ensemble_round(body, len(asked) + 1, nxt, vr, pick_calls, time.monotonic() - t0)
+        self._ensemble_round(body, len(asked) + 1, nxt, vr, pick_calls, time.monotonic() - t0, live=live)
         q = FE.to_question(nxt, len(asked) + 1)
         payload = {"questions": [q.to_dict()]}
         STORE.remember_questions(sid, f"ens:{q.id}", payload)
         STORE.put_questions(sid, f"ens:{q.id}", payload)
         out = client_questions(with_hint_ladders(payload, [q]))["questions"][0]
         sys.stderr.write(f"[bridge] F-08 앙상블 다음 q={q.id} 작성={nxt.get('model')} 대신냄={nxt.get('substituted')} "
-                         f"신호={nxt.get('signal_kind')} 고르기 {time.monotonic() - t0:.2f}s\n")
+                         f"신호={nxt.get('signal_kind')} 출처={nxt.get('origin') or 'pool'} 장={nxt.get('slide_no')} "
+                         f"발표중후보={len(live)} 고르기 {time.monotonic() - t0:.2f}s\n")
         return self._json(200, {"question": out, "substituted": bool(nxt.get("substituted")),
                                 "pick_reason": nxt.get("pick_reason", ""), "signal": nxt.get("signal_kind") or "",
-                                "by": nxt.get("model", "")})
+                                "by": nxt.get("model", ""), "origin": nxt.get("origin") or "pool"})
 
-    def _ensemble_round(self, body: dict, n: int, nxt: dict, vr, pick_calls: list, sec: float) -> None:
+    def _ensemble_round(self, body: dict, n: int, nxt: dict, vr, pick_calls: list, sec: float, live=None) -> None:
         """3번+ 질문 하나의 고른 과정(음성 신호 · 네 모델 후보 · 버림 · 최종 선택)을 후보 판에 잇는다. 실패해도 질문은 나간다."""
         try:
             sid = str(_session_id_of(body) or "")
@@ -4277,7 +4420,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             b = STORE.get_triage(key) if sid else None
             if not b:
                 return
-            b = qa_board.with_round(b, qa_board.round_record(n, nxt, vr, pick_calls, sec, paths_from=b["graph"]["nodes"]))
+            b = qa_board.with_round(b, qa_board.round_record(n, nxt, vr, pick_calls, sec, paths_from=b["graph"]["nodes"],
+                                                             live=live))
             STORE.set_triage(key, b)
             self._archive(body, "qa_ensemble_board", b)
         except Exception as e:  # noqa: BLE001 — 판은 리포트 재료다. 질문을 막지 않는다

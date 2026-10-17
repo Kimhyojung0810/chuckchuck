@@ -90,7 +90,8 @@ def _slim_cand(c: dict) -> dict:
     return {k: c[k] for k in keep if k in c}
 
 
-def round_record(n: int, nxt: dict, vr, pick_calls, sec: float, *, paths_from: list[dict] | None = None) -> dict:
+def round_record(n: int, nxt: dict, vr, pick_calls, sec: float, *, paths_from: list[dict] | None = None,
+                 live: list[dict] | None = None) -> dict:
     """3번 이후 한 질문 — 음성 신호 · 네 모델 후보(통과 · 버림) · 최종 선택. vr 은 f08_ensemble.VoiceRound 또는 None."""
     signals = list(getattr(vr, "signals", None) or [])
     rec = {
@@ -123,6 +124,9 @@ def round_record(n: int, nxt: dict, vr, pick_calls, sec: float, *, paths_from: l
         "calls": _calls(list(getattr(vr, "calls", None) or []) + list(pick_calls or [])),
         "voice_sec": float(getattr(vr, "sec", 0.0) or 0.0),
         "pick_sec": round(float(sec), 2),
+        # 발표를 들으며 준비한 후보(장을 넘길 때 만든 것, 2026-10-17) — origin: live(발표 중) · answer(앞 답까지) · pool(자료 묶음)
+        "origin": nxt.get("origin") or "pool",
+        "live_candidates": [_slim_cand(c) for c in live or []],
     }
     if paths_from is not None and rec["node_id"]:
         rec["path"] = path_labels(paths_from, rec["node_id"])
