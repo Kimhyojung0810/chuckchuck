@@ -3877,12 +3877,15 @@ def judge_answer(
     talk_futs = DLG.start(ti) if ti is not None else []
 
     key_extra = f"{question.id}|{_deck_fingerprint(slidedoc)}"
+    # 가벼운 판정 (2026-10-17 tune, `QA_JUDGE_LEAN`) — 꼬리질문 엔진이 반응 · 꼬리질문을 쓰는 판(엔진 켬)에서는 판정 LLM 이 react ·
+    # followup 을 쓰지 않는다. 판정 출력의 29%(dev 1,186콜 평균 글자)가 그 둘인데 엔진이 99.6% 덮어썼다 — 말 끝 → 다음 말 지연의 몫이다.
+    lean = JUDGE_LEAN_NOTE if (ti is not None and judge_lean_on()) else ""
     t_judge = time.monotonic()
     try:
-        data = _call(engine, user, extra_system=tier_brief, key_extra=key_extra)
+        data = _call(engine, user, extra_system=tier_brief + lean, key_extra=key_extra)
     except JudgeError:
         # 파싱 실패는 대부분 그 실행의 출력 문제다. 한 번은 다시 묻고, 또 깨지면 실패로 둔다
-        data = _call(engine, user, extra_system=tier_brief + JSON_RETRY_NUDGE, key_extra=key_extra)
+        data = _call(engine, user, extra_system=tier_brief + lean + JSON_RETRY_NUDGE, key_extra=key_extra)
 
     judged = _normalize(
         _haeyo_data(data), question, engine.name, round_no,
@@ -3919,6 +3922,23 @@ def judge_answer(
 
 #: 외운 답(자료 문장 옮기기)의 점수 상한 — 통과(70) 아래.
 RECITAL_SCORE_MAX = 60
+
+JUDGE_LEAN_NOTE = """
+
+[이번 판정의 출력 줄이기] 심사위원의 한 마디(react)와 후속 질문(followup)은 다른 사람이 따로 쓴다.
+- react 와 followup 은 판정과 상관없이 **언제나 빈 문자열 ""** 로 둔다.
+- grounds 의 note 는 **30자 안 한 문장**으로 — 그 줄이 질문의 어디에 답이 되는지만 (「이 줄이 품질 가설을 기각한 근거예요」 꼴).
+- claim 은 답 원문에서 낱말 그대로 옮긴 **핵심 한 마디(25자 안)** 다 — 답 전체를 옮기지 마라.
+나머지 칸(verdict · score · summary_sentence · missing_points · covered_parts · premise_corrected)은 규칙대로 쓴다."""
+
+
+def judge_lean_on() -> bool:
+    """
+    판정 LLM 이 react · followup 을 쓰지 않고 근거 note · claim 을 짧게 (꼬리질문 엔진이 켜진 판정만). 기본 켬 — 끄기 `QA_JUDGE_LEAN=0`.
+    dev 2판(L1 · 판정 solar4): 판정 출력 토큰 p50 310 → 223 · 판정 콜 p50 3.7 → 3.0초, 판정 기준표(모범답 good · 자기 말 통과 · 외운 답 ·
+    엉뚱한 답 · 틀린 전제 막음)는 기준선(B1) 잡음 폭 안 (docs/qa-ensemble/TUNE_REPORT.md).
+    """
+    return (os.environ.get("QA_JUDGE_LEAN", "1") or "1").strip().lower() not in ("0", "off", "false", "no")
 
 
 def _pattern_of(question: Question) -> str:

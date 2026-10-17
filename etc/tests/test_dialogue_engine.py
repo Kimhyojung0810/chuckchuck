@@ -253,3 +253,23 @@ def test_challenge_반응이_자료_내용을_먼저_말하면_다시_말하게_
     assert not DLG.deck_claim("「정상관」이라고 했죠. 자료 13장은 그걸 어떻게 말해요?")
     assert DLG.quote_problem("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.", "회전율은 정상관이에요", "challenge") == ["deck_claim"]
     assert DLG.quote_problem("「정상관」이라고 했죠. 자료 13장은 역상관이라고 말해요.", "회전율은 정상관이에요", "connect") == []
+
+
+def test_가벼운_판정은_엔진이_켜진_판정에만_react_followup_을_비우라고_한다(monkeypatch):
+    from pipeline import f09_judge as J
+    seen = []
+
+    class Rec(LLMProvider):
+        name = "rec"
+
+        def complete(self, *, system, user, temperature=0.2, max_tokens=4096, json_mode=False):
+            seen.append(system)
+            return json.dumps({"verdict": "partial", "score": 60, "react": "", "summary_sentence": "s", "missing_points": [],
+                               "followup": "", "claim": "", "grounds": []}, ensure_ascii=False)
+
+    J.clear_judge_cache()
+    judge_answer(q(), ANSWER, llm=Rec(), dialogue=False)                      # 엔진 끔 — 예전 출력 그대로
+    assert "출력 줄이기" not in seen[-1]
+    assert J.judge_lean_on()
+    monkeypatch.setenv("QA_JUDGE_LEAN", "0")
+    assert not J.judge_lean_on()
