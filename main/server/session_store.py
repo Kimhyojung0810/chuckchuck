@@ -75,10 +75,17 @@ def fingerprint(*parts: object) -> str:
     return h.hexdigest()
 
 
+#: 세션 하나가 들고 있는 질문 트랙 상한. 3번+ 질문(ens:) · 관점 바꾸기(reframe:)는 판마다 트랙이 하나씩 늘고, 부스 덱 세션은 하루 내내
+#: 쓰여 만료되지 않는다 — 상한 없이 쌓이면 판정마다 도는 find_questions 가 길어진다 (10-17 버그 사냥). 쓰인 트랙은 맨 뒤로 와서 살아남는다.
+MAX_TRACKS = 256
+
+
 def _newest_last(tracks: dict | None, track: str, payload: dict) -> dict:
-    """{트랙: 질문 묶음} 에 넣되 **방금 만든 트랙이 맨 뒤** 에 오게 — 순서가 곧 최근성이다 (find_questions 가 뒤에서 읽는다)."""
+    """{트랙: 질문 묶음} 에 넣되 **방금 만든 트랙이 맨 뒤** 에 오게 — 순서가 곧 최근성이다 (find_questions 가 뒤에서 읽는다). 오래된 것부터 MAX_TRACKS 까지만."""
     out = {k: v for k, v in (tracks or {}).items() if k != track}
     out[track] = payload
+    if len(out) > MAX_TRACKS:
+        out = dict(list(out.items())[-MAX_TRACKS:])
     return out
 
 

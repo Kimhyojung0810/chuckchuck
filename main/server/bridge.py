@@ -1392,6 +1392,8 @@ TRANSIENT_DEGRADED = frozenset({
 #: 꼬리질문 엔진의 세션 기록 (2026-10-17 5단계) — 노드 이해 상태(다음 질문 고르기)와 이미 한 말(되풀이 금지).
 _DLG_NODES = "dlg_nodes:"
 _DLG_SAID = "dlg_said:"
+_ENS_JUDGED = "ens_judged:"   # Q&A 한 판에서 판정을 받은 질문 id — 후보 판(/qa/board)에 실제로 물은 3번+ 질문만 보이게
+ENS_JUDGED_MAX = 64
 _RUN_SPEECH = "run_speech:"   # Q&A 한 판이 질문을 받을 때의 발표 받아쓰기 · 정합 (/qa/next 의 음성 후보 재료 — 세션 저장소는 마지막 사람 것)
 DLG_SAID_MAX = 16
 
@@ -1433,6 +1435,28 @@ def _dialogue_note(sid: str | None, judgement) -> None:
         STORE.set_triage(_DLG_SAID + sid, said)
     except Exception as e:  # noqa: BLE001
         sys.stderr.write(f"[bridge] 꼬리질문 엔진 기록 실패: {type(e).__name__}\n")
+
+
+def _note_judged(key: str, qid: str) -> None:
+    """이 판에서 판정을 받은 질문 id 를 남긴다 (후보 판의 3번+ 기록 거르기 · `board_asked_only`)."""
+    if not key or not qid:
+        return
+    seen = list(STORE.get_triage(_ENS_JUDGED + key) or [])
+    if qid not in seen:
+        STORE.set_triage(_ENS_JUDGED + key, [*seen, qid][-ENS_JUDGED_MAX:])
+
+
+def board_asked_only(b: dict, judged: list | None) -> dict:
+    """
+    판의 3번+ 기록은 **실제로 물은 질문만** — 이 판에서 판정을 받은 질문 id(`ens_judged:`)에 든 것. 화면은 다음 질문 요청을 6초만
+    기다리고 늦으면 준비한 질문으로 간다(qa_live liveEnsembleAdvance) — 그때 서버가 늦게 고른 질문이 판에 「물은 질문」 으로 남았다
+    (10-17 버그 사냥: 선택 모델 44초 · 리포트 판에 한 번도 안 나온 질문). 기록이 없으면(브리지를 다시 띄움) 그대로 둔다.
+    """
+    if not judged or not b.get("rounds"):
+        return b
+    seen = set(judged)
+    rounds = [r for r in b["rounds"] if not r.get("question_id") or r["question_id"] in seen]
+    return b if len(rounds) == len(b["rounds"]) else {**b, "rounds": rounds}
 
 
 def _with_degraded(payload: dict, degraded: list[str]) -> dict:
@@ -3640,6 +3664,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         본문을 여기서 한 번 더 읽는다 (핸들러도 읽는다). 과금 경로 본문은 수 MB 안이라 LLM 한 콜에 비하면 공짜다.
         """
         sid_raw = None
+        run = ""
+        body_read = False   # 큰 본문(녹음)은 열쇠 자리만 찾는다 — 보관소 목록(시연 덱인가)도 안 읽는다
         if path != "/api/v1/parse" and raw:
             if len(raw) <= JSON_BODY_MAX:
                 try:
@@ -3648,6 +3674,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                     body = None
                 if isinstance(body, dict):
                     sid_raw = body.get("session_id")
+                    run = qa_run_of(body)
+                    body_read = True
             else:
                 # 녹음(base64)처럼 큰 본문은 다 풀지 않고 열쇠 자리만 찾는다 — 42MB 를 칸 하나 정하려고 두 번 풀 수는 없다
                 m = _SESSION_ID_RE.search(raw)
@@ -3656,6 +3684,13 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             sid_raw = self._path_segment_after(path, "sessions")
         sid = _store_sid(sid_raw)
         if sid and sid != FLAT_SESSION_ID:
+            # 같은 파일 세션은 여러 사람이 나눠 쓴다 (부스 · 시연 덱은 미리 파싱한 세션 하나 — CONTRACT §6). 세션 칸 하나로 세면 같은 덱을 고른
+            # 방문객끼리 분당 30회를 나눠 써 판정 · 다음 질문이 429 로 밀렸다 (10-17 버그 사냥: 같은 덱 세 판 동시에 판정 · /qa/next 가 429).
+            # Q&A 한 판(qa_run_id)이 실린 요청은 그 판 칸으로, 판 값이 없는 시연 덱 요청(분석 단계)은 세션 + 사람(IP) 칸으로 센다.
+            if run:
+                return f"session:{sid}:{run}"
+            if body_read and _deck_session_known(sid):
+                return f"session:{sid}@{self._client_key()}"
             return "session:" + sid
         return "client:" + self._client_key()
 
@@ -4229,7 +4264,11 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             found["transcript"], found["alignment"] = speech.get("transcript"), speech.get("alignment")
         states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
-            q = next(iter(STORE.find_questions(sid, str(a.get("question_id") or ""))), None) or {}
+            # 같은 id 가 여럿일 수 있다 — 질문 id 는 자리 번호 + 노드(e03-<노드>)라 준비한 3번과 고른 3번, 같은 덱 세션을 나눠 쓴 남의 판이
+            # 같은 id 를 쓴다(10-17 버그 사냥). 화면이 문장을 실어 보내면 그 문장인 것을 고른다
+            same = STORE.find_questions(sid, str(a.get("question_id") or ""))
+            text = str(a.get("question") or "").strip()
+            q = next((x for x in same if text and str(x.get("question") or "").strip() == text), None) or next(iter(same), None) or {}
             st = states.get(q.get("node_id", "")) or {}
             asked.append({"question": q.get("question") or str(a.get("question") or "")[:QA_QUESTION_MAX],
                           "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
@@ -4257,11 +4296,14 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         nxt = FE.choose_next(pool, vr, asked, calls=pick_calls)
         if not nxt:
             return self._json(200, {"question": None, "done": True})
-        self._ensemble_round(body, len(asked) + 1, nxt, vr, pick_calls, time.monotonic() - t0)
         q = FE.to_question(nxt, len(asked) + 1)
+        self._ensemble_round(body, len(asked) + 1, {**nxt, "question_id": q.id}, vr, pick_calls, time.monotonic() - t0)
         payload = {"questions": [q.to_dict()]}
-        STORE.remember_questions(sid, f"ens:{q.id}", payload)
-        STORE.put_questions(sid, f"ens:{q.id}", payload)
+        # 트랙 열쇠에 판을 넣는다 — 질문 id(e03-<노드>)는 자리 번호 + 노드라 같은 덱 세션을 나눠 쓴 다른 판도 같은 id 를 낸다. 예전엔
+        # ens:<id> 하나를 뒷사람이 덮어써 앞사람의 답이 뒷사람 질문(다른 문장 · 모범답)으로 채점됐다(question_mismatch, 10-17 버그 사냥)
+        track = f"ens:{run}:{q.id}" if run else f"ens:{q.id}"
+        STORE.remember_questions(sid, track, payload)
+        STORE.put_questions(sid, track, payload)
         out = client_questions(with_hint_ladders(payload, [q]))["questions"][0]
         sys.stderr.write(f"[bridge] F-08 앙상블 다음 q={q.id} 작성={nxt.get('model')} 대신냄={nxt.get('substituted')} "
                          f"신호={nxt.get('signal_kind')} 고르기 {time.monotonic() - t0:.2f}s\n")
@@ -4300,7 +4342,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             b = kept if isinstance(kept, dict) and str(kept.get("qa_run_id") or "") == run else None
         if not b or not b.get("candidates"):
             return self._json(404, {"board": None, "message": "이 세션엔 네 모델이 고른 기록이 없어요."})
-        return self._json(200, {"board": b})
+        return self._json(200, {"board": board_asked_only(b, STORE.get_triage(_ENS_JUDGED + run_key(_store_sid(sid), run)))})
 
     def _memory_for(self, body: dict):
         """
@@ -4634,6 +4676,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                                     "message": "답변을 판정하지 못했어요. 잠시 뒤 다시 답해 주세요."})
         on_server = qsrc in ("server", "archive", "mismatch")
         _dialogue_note(run_key(store_sid, qa_run_of(body)) if store_sid else None, judgement)
+        if store_sid and on_server:
+            _note_judged(run_key(store_sid, qa_run_of(body)), question.id)
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
             f"수={judgement.move or '-'}/{(judgement.dialogue or {}).get('source') or '-'} 시도={len(body.get('history') or []) + 1} "
@@ -4703,8 +4747,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             sys.stderr.write(f"[bridge] F-09 reframe 실패 q={question.id} 관점={perspective}: {e}\n")
             return self._json(422, {"error": "reframe_failed", "message": "이 관점으로는 자료에서 물을 거리를 못 찾았어요. 다른 관점을 골라 주세요."})
         payload = {"questions": [fresh.to_dict()]}
-        STORE.remember_questions(store_sid, f"reframe:{fresh.id}", payload)
-        STORE.put_questions(store_sid, f"reframe:{fresh.id}", payload)
+        run = qa_run_of(body)   # 같은 덱 세션을 나눠 쓰는 판끼리 같은 관점 질문 id 를 덮어쓰지 않게 (ens 트랙과 같은 까닭)
+        track = f"reframe:{run}:{fresh.id}" if run else f"reframe:{fresh.id}"
+        STORE.remember_questions(store_sid, track, payload)
+        STORE.put_questions(store_sid, track, payload)
         sys.stderr.write(f"[bridge] F-09 reframe q={question.id} → {fresh.id}\n")
         return self._json(200, {"question": client_questions(payload)["questions"][0], "perspective": perspective,
                                 "perspective_name": PERSPECTIVES[perspective][0]})
@@ -4816,6 +4862,28 @@ def _deck_session(sid: str | None) -> bool:
         _DECK_SHAS.update(at=now, shas=frozenset(_deck_shas().keys()))
     rec = ARCHIVE.manifest(sid)
     return bool(rec and rec.upload_sha256 and rec.upload_sha256 in _DECK_SHAS["shas"])
+
+
+_DECK_SHAS_REFRESH = threading.Lock()
+
+
+def _deck_session_known(sid: str | None) -> bool:
+    """`_deck_session` 의 **기다리지 않는** 판 — 요청 제한 칸을 정할 때 쓴다. 덱 원본 sha 묶음은 덱 파일(녹음 포함 수백 MB)을 다 읽어 만드는데,
+    요청 스레드에서 만들면 과금 요청 하나가 10초 선다(10-17 버그 사냥 테스트에서 실측). 묶음이 낡았으면 뒤에서 다시 만들고 지금 것으로 답한다."""
+    if not sid:
+        return False
+    if time.monotonic() - _DECK_SHAS["at"] > BOOTH_SHAS_TTL_SEC and _DECK_SHAS_REFRESH.acquire(blocking=False):
+        def refresh():
+            try:
+                _DECK_SHAS.update(at=time.monotonic(), shas=frozenset(_deck_shas().keys()))
+            finally:
+                _DECK_SHAS_REFRESH.release()
+        threading.Thread(target=refresh, name="deck-shas", daemon=True).start()
+    shas = _DECK_SHAS["shas"]
+    if not shas:
+        return False
+    rec = ARCHIVE.manifest(sid)
+    return bool(rec and rec.upload_sha256 and rec.upload_sha256 in shas)
 
 
 def _booth_session(sid: str | None) -> bool:
