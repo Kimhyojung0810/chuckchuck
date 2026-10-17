@@ -18,6 +18,7 @@ ConceptGraph + AlignmentDoc + FlowDiff → ChatterDoc.
 
 from __future__ import annotations
 
+import contextvars
 import os
 import re
 import time
@@ -761,7 +762,7 @@ def build_chatter(
         # with 블록은 나갈 때 join 하므로 아래 타임아웃이 무의미해진다.
         pool = ThreadPoolExecutor(max_workers=len(live))
         try:
-            futures = {sp: pool.submit(one, sp) for sp in live}
+            futures = {sp: pool.submit(contextvars.copy_context().run, one, sp) for sp in live}  # 호출 로그 범위를 일꾼에게
             deadline = time.monotonic() + CHATTER_SPEAKER_TIMEOUT_SEC
             for speaker in live:
                 try:

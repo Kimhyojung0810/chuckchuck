@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import os
 from concurrent.futures import ThreadPoolExecutor
 
@@ -492,8 +493,10 @@ def _score_llm(
 
     merged: dict[int, tuple[int, str, str]] = {}
     with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(batches))) as pool:
-        for got in pool.map(lambda nos: _ask_batch(engine, ev, nos), batches):
-            merged.update(got)
+        # 맥락은 제출하는 스레드에서 묶음마다 복사한다 — 호출 로그(_ai_calllog)의 요청 범위가 일꾼으로 따라간다
+        futs = [pool.submit(contextvars.copy_context().run, _ask_batch, engine, ev, nos) for nos in batches]
+        for fut in futs:
+            merged.update(fut.result())
     return merged
 
 

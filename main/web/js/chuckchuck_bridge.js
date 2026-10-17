@@ -9,6 +9,7 @@ import {
   PresentationRecorder,
   SlideMarkTracker,
 } from '/sdk/index.js';
+import { canLiveStt, startLiveStt } from './live_stt.js?v=ls3';
 
 const STORE_KEY = 'cheokcheok:chuckchuck-session';
 
@@ -890,7 +891,7 @@ export async function registerSessionArtifacts(sessionId, artifacts) {
 }
 
 /** F-08: 내 그래프·정합으로 예상 질문을 만든다 (플랫 경로) */
-export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId, prefetch, fresh }) {
+export async function buildQuestions({ graph, alignment, flow, transcript, context, track, sessionId, prefetch, fresh, newRun }) {
   // apiBase() 를 빼면 안 된다 — fetchWithTimeout 은 URL 을 그대로 쓴다.
   // 같은 오리진에서는 멀쩡히 돌지만 프론트/백엔드를 나눠 올리면 404 로 죽는다.
   const res = await fetchWithTimeout(apiBase() + '/api/v1/questions', {
@@ -898,6 +899,9 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       session_id: sessionId || null,
+      // 질문을 새로 받는 때가 곧 Q&A 한 판의 시작이다 — 판 값을 새로 (미리 만들기 prefetch 는 지금 판을 그대로)
+      // newRun=false — 진행 중인 판에서 더 받는 질문(「다른 주제로」 묶음)은 판을 바꾸지 않는다 (10-17: 메뉴만 열어도 판이 갈렸다)
+      qa_run_id: qaRunId(sessionId, { fresh: newRun === undefined ? !prefetch : !!newRun }),
       graph,
       alignment,
       flow: flow || null,
@@ -929,6 +933,40 @@ export async function buildQuestions({ graph, alignment, flow, transcript, conte
  * stillWanted() 가 거짓이면(그새 다음 질문으로 갔거나 화면을 떠났으면) 다시 보내지 않고 code='cancelled' 로 끝낸다.
  * 끝까지 막히면 마지막 오류를 그대로 던진다 (err.rateLimited 가 참이면 요청 제한 — 판정 실패 출구로 세지 않는다).
  */
+/**
+ * Q&A 한 판의 구분 값 (2026-10-17) — 판정 · /qa/next · 질문 요청에 qa_run_id 로 싣는다. 서버는 앞 답 · 음성 후보 · 이해 상태 · 이미 한 말을
+ * 세션이 아니라 이 판 단위로 나눈다 — 같은 파일(부스 덱)을 올린 사람끼리 세션이 같아도 기록이 섞이지 않게.
+ * 세션이 바뀌면 새로 만든다. 화면이 Q&A 를 새로 시작할 때 fresh=true 로 부른다.
+ */
+/* 판 값은 이 탭의 sessionStorage 에도 둔다 (10-17 버그 사냥) — 메모리에만 두면 Q&A 중 새로고침 · 리포트 새로고침 때 새 값이 생겨
+   서버의 판(앞 답 · 이해 상태 · 이미 한 말 · 3번+ 기록 · 판의 받아쓰기)과 끊기고, 리포트 「질문은 이렇게 골랐어요」 가 404 였다. */
+const QA_RUN_KEY = 'cheokcheok:qa-run';
+const QA_RUN_RE = /^[A-Za-z0-9_-]{4,48}$/;
+function loadQaRun() {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(QA_RUN_KEY) || 'null');
+    if (v && typeof v.sid === 'string' && QA_RUN_RE.test(String(v.id || ''))) return { sid: v.sid, id: v.id };
+  } catch (_) { /* 저장소를 못 쓰면 메모리만 */ }
+  return { sid: null, id: '' };
+}
+let qaRun = loadQaRun();
+export function qaRunId(sessionId, { fresh = false } = {}) {
+  const sid = sessionId || 'flat';
+  if (fresh || qaRun.sid !== sid || !qaRun.id) {
+    const rnd = (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+      ? globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 20)
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    qaRun = { sid, id: `r${rnd}` };
+    try { sessionStorage.setItem(QA_RUN_KEY, JSON.stringify(qaRun)); } catch (_) { /* 넘치면 메모리만 */ }
+  }
+  return qaRun.id;
+}
+/** 지금 판 값을 바꾸지 않고 읽기만 — 그 세션의 판이 없으면 "" (리포트가 다른 세션을 열 때 진행 중인 판을 갈아 끼우지 않게) */
+export function qaRunPeek(sessionId) {
+  const sid = sessionId || 'flat';
+  return qaRun.sid === sid ? qaRun.id : '';
+}
+
 export async function judgeQaAnswer(sessionId, { onWait = null, stillWanted = null, ...req }) {
   for (let attempt = 0; ; attempt += 1) {
     try {
@@ -947,9 +985,23 @@ export async function judgeQaAnswer(sessionId, { onWait = null, stillWanted = nu
   }
 }
 
-async function judgeOnce(sessionId, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown, artifacts }) {
+/**
+ * 미리 판정 (2026-10-17 tune · 브리지 server/qa_spec.py) — judgeQaAnswer 와 **같은 본문**에 speculative 를 실어 보낸다. 브리지는 판정만
+ * 뒤에서 돌리고 202 를 바로 준다 · 기록은 남기지 않는다. 진짜 보내기가 같은 본문이면 그 판정을 받아 쓴다. 실패해도 조용히 false.
+ */
+export async function prejudgeQaAnswer(sessionId, req) {
   const sid = sessionId || 'flat';
-  const body = {
+  try {
+    await qaApi(`/api/v1/sessions/${sid}/qa/judge`, { method: 'POST', json: { ...judgeBody(sid, req), speculative: true }, timeoutMs: 8000 });
+    return true;
+  } catch (err) {
+    console.info('[chuckchuck] 미리 판정 건너뜀', err && (err.code || err.message));
+    return false;
+  }
+}
+
+function judgeBody(sid, { questionId, answer, history, question, giveUp, priorAnswers, hintsShown }) {
+  return {
     session_id: sid,
     question_id: questionId,
     answer,
@@ -961,7 +1013,14 @@ async function judgeOnce(sessionId, { questionId, answer, history, question, giv
     prior_answers: priorAnswers || [],
     // 보여준 힌트 — 코치가 힌트와 이어지는 말로 반응한다 (일방향 힌트 방지)
     hints_shown: hintsShown || [],
+    qa_run_id: qaRunId(sid),
   };
+}
+
+async function judgeOnce(sessionId, req) {
+  const sid = sessionId || 'flat';
+  const { artifacts } = req;
+  const body = judgeBody(sid, req);
   const path = `/api/v1/sessions/${sid}/qa/judge`;
   try {
     return await qaApi(path, { method: 'POST', json: body, timeoutMs: JUDGE_TIMEOUT_MS });
@@ -979,113 +1038,60 @@ async function judgeOnce(sessionId, { questionId, answer, history, question, giv
  * perspective: example(실제 사례) · evidence(근거) · counter(반례) · cause(원인) · effect(결과).
  * 서버가 새 질문을 이 세션의 질문 색인에 올리므로 그대로 judgeQaAnswer 로 채점된다. 실패하면 던진다(err.code: reframe_failed 등).
  */
+/** 다음 질문 고르기 요청 상한 — 서버는 음성 후보를 0.5초만 기다리고 없으면 묶음에서 바로 낸다. 넘으면 준비한 질문으로 간다 */
+const ENSEMBLE_NEXT_TIMEOUT_MS = 6000;
+
+/**
+ * 네 모델 Q&A — 3번 이후 다음 질문 (docs/qa-ensemble/CONTRACT.md §3, 서버 QA_ENSEMBLE=1 일 때만 질문 묶음에 ensemble 칸이 있다).
+ * prefetch=true 면 지금까지의 답으로 음성 후보 만들기를 뒤에서 시작만 하고 바로 돌아온다(질문을 낼 때마다 부른다).
+ */
+export async function ensembleNextQuestion(sessionId, { asked = [], prefetch = false } = {}) {
+  return qaApi('/api/v1/qa/next', {
+    method: 'POST',
+    json: { session_id: sessionId || null, asked, prefetch: !!prefetch, qa_run_id: qaRunId(sessionId) },
+    timeoutMs: ENSEMBLE_NEXT_TIMEOUT_MS,
+  });
+}
+
 export async function reframeQaQuestion(sessionId, { questionId, question, perspective }) {
   const sid = sessionId || 'flat';
   return qaApi(`/api/v1/sessions/${sid}/qa/reframe`, {
     method: 'POST',
-    json: { session_id: sid, question_id: questionId, question: question || null, perspective },
+    json: { session_id: sid, question_id: questionId, question: question || null, perspective, qa_run_id: qaRunId(sid) },
     timeoutMs: JUDGE_TIMEOUT_MS,
   });
 }
 
-/** 실시간 받아쓰기 언어. 발표는 한국어라 고정한다. */
-const DICTATION_LANG = 'ko-KR';
-
-/** Web Speech API 오류 코드 → 사람 말. 코드를 그대로 보여 주면 뭘 하라는 건지 모른다. */
-const DICTATION_ERRORS = {
-  'not-allowed': '마이크 권한이 없어요.',
-  'service-not-allowed': '브라우저가 받아쓰기를 막았어요.',
-  'audio-capture': '마이크를 찾지 못했어요.',
-  network: '받아쓰기 서버에 닿지 못했어요.',
-};
-
-/** 브라우저가 실시간 받아쓰기를 해 주는가. Chrome·Edge 는 되고 Safari·Firefox 는 안 된다. */
+/**
+ * 브라우저가 실시간 받아쓰기를 열 수 있는가 — 마이크 · 오디오 처리 · WebSocket · https.
+ * 2026-10-15 부터 받아쓰기는 SKT A.X 실시간 STT(브리지 /api/v1/stt/live)다. 예전 Web Speech(크롬만, 음성을 구글로 보냄)는 뺐다 —
+ * 국내 AI 트랙 규정. 이제 사파리 · 파이어폭스도 실시간으로 받아쓴다.
+ */
 export function hasLiveDictation() {
-  return typeof (window.SpeechRecognition || window.webkitSpeechRecognition) === 'function';
+  return canLiveStt(window);
 }
 
 /**
- * 말하는 대로 글자가 나오는 실시간 받아쓰기 (Web Speech API).
+ * 말하는 대로 글자가 나오는 실시간 받아쓰기 (A.X realtime STT · js/live_stt.js).
  *
- * `startAnswerRecording` 은 다 말한 뒤 파일을 통째로 올려 STT 를 돌리므로 구조상
- * 실시간이 안 된다. 이쪽은 브라우저가 확정 전 조각(interim)까지 흘려 주므로
- * 말하는 중에 글자가 뜬다.
- *
- * **대신 브라우저 기능이라 지원이 갈리고, 크롬은 음성을 구글 서버로 보낸다.**
- * 못 쓰는 브라우저에서는 호출부가 녹음 + 자체 STT 로 되돌아간다.
+ * **글은 문장 단위로 온다** — A.X 는 확정 전 조각(interim)을 주지 않는다. 그래서 onText 의 interim 은 늘 빈 문자열이고,
+ * 말하는 중인지는 onSpeech(true/false, 서버 음성 감지 bos/eos)로 따로 알린다 — 화면은 그동안 「듣고 있어요…」 를 보인다.
+ * 연결 · 마이크는 뒤에서 열린다 — 실패하면 onError(문구, { code }) 한 번. 호출부는 녹음 + 받아쓰기(transcribeAnswer)로 되돌아간다.
  *
  * @param {{ onText: (parts: {final: string, interim: string}) => void,
- *           onError: (message: string) => void }} handlers
- * @returns {{ stop: () => string }} stop 은 확정된 전문을 준다
+ *           onError: (message: string, info?: {code: string}) => void,
+ *           onSpeech?: (speaking: boolean) => void, purpose?: 'answer'|'present' }} handlers
+ * @returns {{ stop: () => string, finish: () => Promise<string>, readonly speaking: boolean }}
+ *   stop 은 바로 끊고 확정된 전문을 준다 · finish 는 「다 말했어요」 — 남은 문장까지 받아 전문을 준다
  */
-export function startLiveDictation({ onText, onError }) {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (typeof Recognition !== 'function') {
+export function startLiveDictation({ onText, onError, onSpeech, purpose = 'answer' }) {
+  if (!hasLiveDictation()) {
     throw new Error('이 브라우저는 실시간 받아쓰기를 지원하지 않아요.');
   }
-  const rec = new Recognition();
-  rec.lang = DICTATION_LANG;
-  rec.continuous = true;       // 한 문장 끝났다고 멈추지 않는다
-  rec.interimResults = true;   // 확정 전 글자도 준다 — 이게 「실시간」의 핵심이다
-
-  let stopped = false;
-  let settled = '';
-  // 바로바로 끝나는 고리 막기 — aborted 등으로 시작하자마자 끝나면 onend 가 다시 start 를 불러 2초에 388번 돌았다 (10-02 사냥 2 #5).
-  // 짧게 끝나면 다시 잇는 간격을 늘리고(0.3·0.6·1.2·2.4초), 다섯 번 이어지면 멈추고 오류로 알린다(호출부가 버튼·타이핑으로 떨어진다)
-  let startedAt = 0;
-  let quickEnds = 0;
-  const QUICK_END_MS = 1500;
-  const QUICK_END_MAX = 5;
-  const begin = () => {
-    if (stopped) return;
-    startedAt = Date.now();
-    try { rec.start(); } catch (_) { /* 이미 도는 중 — onend 가 다시 온다 */ }
-  };
-
-  rec.onresult = (e) => {
-    // 멈춘 뒤 늦게 온 확정 조각은 버린다 — 비운 답 칸을 다시 채워 같은 답이 또 나갈 수 있었다 (사냥 2 #2)
-    if (stopped) return;
-    quickEnds = 0;
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const chunk = e.results[i][0].transcript;
-      if (e.results[i].isFinal) settled += chunk;
-      else interim += chunk;
-    }
-    onText({ final: settled, interim });
-  };
-  rec.onerror = (e) => {
-    // no-speech·aborted 는 알릴 일이 아니다 — 잠깐 말이 없었을 뿐, 곧 이어서 말한다.
-    if (e.error === 'no-speech' || e.error === 'aborted') return;
-    // 나머지(권한 거부·마이크 없음·네트워크)는 다시 시작해도 같은 오류가 난다.
-    // **여기서 안 끊으면** 크롬이 onerror 뒤에 onend 를 쏘고, onend 가 다시
-    // start() 를 불러 onerror 로 돌아오는 고리가 끝없이 돈다.
-    stopped = true;
-    onError(DICTATION_ERRORS[e.error] || `받아쓰기 오류: ${e.error}`);
-  };
-  rec.onend = () => {
-    // 크롬은 조용하면 제풀에 끊는다. 사용자가 멈춘 게 아니면 다시 잇는다.
-    if (stopped) return;
-    if (Date.now() - startedAt < QUICK_END_MS) quickEnds += 1;
-    else quickEnds = 0;
-    if (quickEnds >= QUICK_END_MAX) {
-      stopped = true;
-      onError('받아쓰기가 자꾸 끊겨요.');
-      return;
-    }
-    if (quickEnds) setTimeout(begin, 300 * 2 ** (quickEnds - 1));
-    else begin();
-  };
-  startedAt = Date.now();
-  rec.start();
-
-  return {
-    stop() {
-      stopped = true;
-      try { rec.stop(); } catch (_) { /* 이미 멈춤 */ }
-      return settled.trim();
-    },
-  };
+  return startLiveStt({
+    base: apiBase(), purpose, onText, onError, onSpeech,
+    workletUrl: new URL('./pcm_tap_worklet.js?v=pt1', import.meta.url).href,
+  });
 }
 
 /**
@@ -1203,6 +1209,8 @@ export async function suggestContext(slideDoc) {
 }
 
 window.ChuckchuckBridge = {
+  qaRunId,
+  qaRunPeek,
   suggestContext,
   attachRehearsalRuntime,
   deleteSession,
@@ -1222,7 +1230,9 @@ window.ChuckchuckBridge = {
   setQaApiBase,
   buildQuestions,
   judgeQaAnswer,
+  prejudgeQaAnswer,
   reframeQaQuestion,
+  ensembleNextQuestion,
   registerSessionArtifacts,
   RehearsalRecorder,
   PresentationRecorder,

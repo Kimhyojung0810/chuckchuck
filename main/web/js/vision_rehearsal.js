@@ -378,6 +378,7 @@ function visionCoachStart() {
   if (bridge && bridge.hasLiveDictation && bridge.hasLiveDictation()) {
     try {
       visionCoach.dictation = bridge.startLiveDictation({
+        purpose: 'present',     // 발표 중 받아쓰기 — 브리지 세션 상한이 답(5분)이 아니라 발표(20분). A.X 실시간 STT(10-15), 문장 단위
         onText: ({ final, interim }) => {
           visionCoach.final = final || '';
           visionCoach.interim = interim || '';

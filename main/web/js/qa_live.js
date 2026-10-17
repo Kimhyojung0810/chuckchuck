@@ -13,7 +13,8 @@
 const LIVE_VERDICT = {
   good:    { flag: 'won',  react: 'full',    word: '설득 완료' },
   partial: { flag: 'won',  react: 'partial', word: '부분 인정' },
-  wrong:   { flag: 'lost', react: 'none',    word: '미방어' },
+  // 「미방어」는 첫 wrong 직후 이탈 82%(10/7 부스)의 말이었다 — 지난 일을 이름 붙이지 않고 다음 할 일로 (2026-10-17 5단계). 색(--no)은 그대로
+  wrong:   { flag: 'lost', react: 'none',    word: '다시 짚어요' },
   unknown: { flag: 'lost', react: 'none',    word: '판정 보류' },
 };
 /* 등급을 낱말로 부르면 「치명도 치명」처럼 명사가 겹친다 — 한 줄로 말한다 */
@@ -63,11 +64,12 @@ let liveMicPending = '';
 /**
  * 실시간 받아쓰기가 이 세션에서 이미 죽었는가.
  *
- * `hasLiveDictation()` 은 **생성자가 있는지만** 본다. 크롬은 그 생성자를 늘
- * 노출하지만 실제 인식은 구글 서버로 나가므로, 망이 막히면 `onerror('network')`
- * 로 죽는다. 그런데 다음에 마이크를 다시 눌러도 `hasLiveDictation()` 은 여전히
+ * `hasLiveDictation()` 은 **브라우저가 열 수 있는지만** 본다(마이크 · WebSocket · 오디오 처리).
+ * 받아쓰기 서버(브리지 → A.X 실시간 STT, 2026-10-15 — 예전엔 크롬 Web Speech)에 못 닿거나 마이크가
+ * 막히면 onError 로 죽는데, 다음에 마이크를 다시 눌러도 `hasLiveDictation()` 은 여전히
  * true 라 **같은 길로 다시 들어가 똑같이 죽는다** — 부스에서 이게 걸리면 마이크가
  * 통째로 못 쓰게 된다 (2026-08-07 "지금 녹음이 잘 안되는듯" 의 유력한 원인).
+ * 단 세션 상한(limit) · 오래 조용함(idle)으로 끝난 것은 죽은 게 아니다 — 다시 누르면 다시 연다.
  *
  * 한 번 죽으면 이 세션 동안은 녹음 + 서버 STT 로 간다. 새로고침하면 다시 시도한다 —
  * 망이 돌아왔을 수 있는데 영영 막아 둘 이유는 없다.
@@ -566,6 +568,7 @@ function presentLiveQuestion() {
   const L = qa.live;
   if (L.asked === L.qi) return;
   L.asked = L.qi;
+  liveEnsemblePrefetch(L);
   const q = L.questions[L.qi];
   // 질문 묶음이 폴백 재료로 만들어졌으면(문헌 검색·주장 없이) 첫 질문 앞에 한 번 짧게 말한다 (09-30 WP-B degraded_notes)
   if (L.qi === 0 && Array.isArray(L.notes) && L.notes.length) {
@@ -1031,6 +1034,60 @@ function setCoachThinkingText(text) {
   if (span) span.textContent = text || '듣고 있어요';
 }
 
+/**
+ * 첫 박자 반응 (2026-10-17 5단계 · 음성UX 조사 R4) — 방금 한 답에서 뜻이 서는 마디 하나를 그대로 받아 「「…」라고 했죠」 로 먼저 보인다.
+ * 판정(LLM 1.9~4초)을 기다리는 동안 0.7초 안에 「내 말을 들었다」 를 느끼게 한다. 지어내지 않는다 — 답 원문 그대로, 없으면 "".
+ * 고르는 법: 문장·쉼표·잇는 말로 마디를 나눠 6~20자 마디 중 마지막 것(결론이 대개 뒤에 온다), 길면 어절에서 자른다.
+ */
+const LIVE_CUE_MIN = 6;
+const LIVE_CUE_MAX = 20;
+const LIVE_SLOW_CUE_MS = 5000;
+function liveFirstCue(answer) {
+  const text = String(answer || '').replace(/[「」『』"“”]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length < LIVE_CUE_MIN) return '';
+  const parts = text.split(/[.?!…]\s*|,\s*|\s(?:그래서|그런데|하지만|그리고|그러니까)\s/).map((x) => x.trim()).filter(Boolean);
+  const fit = parts.filter((x) => x.length >= LIVE_CUE_MIN && x.length <= LIVE_CUE_MAX);
+  let pick = fit.length ? fit[fit.length - 1] : (parts[parts.length - 1] || '');
+  if (pick.length > LIVE_CUE_MAX) {
+    const cut = pick.slice(0, LIVE_CUE_MAX);
+    const sp = cut.lastIndexOf(' ');
+    pick = sp >= LIVE_CUE_MIN ? cut.slice(0, sp) : cut;
+  }
+  pick = pick.replace(/(?:요|다)$/, (m) => m).trim();
+  return pick.length >= LIVE_CUE_MIN ? `「${pick}」라고 했죠. 자료와 맞춰 볼게요` : '';
+}
+
+/**
+ * 미리 판정 (2026-10-17 tune · 음성UX 조사 R3) — 화상판이 말 끝을 짐작한 순간(초읽기 시작 · 종결어미 문장 확정) 지금 답 칸의 글로
+ * **보낼 때와 같은 본문**을 speculative 로 보낸다(브리지 server/qa_spec.py). 판정만 뒤에서 돌고 기록은 진짜 보내기가 남긴다.
+ * 같은 물음 · 같은 답은 한 번만. 더 말해 답이 바뀌면 다시 보낸다(앞의 것은 서버가 버린다).
+ */
+let liveSpecKey = '';
+function liveSpeculate(answer) {
+  const L = qa.live;
+  const text = String(answer || '').trim();
+  if (!L || L.busy || L.retell || L.awaitEnd || !text) return false;
+  const q = L.questions[L.qi];
+  const br = window.ChuckchuckBridge;
+  if (!q || !br || typeof br.prejudgeQaAnswer !== 'function') return false;
+  const key = `${L.sessionId}|${L.qi}|${L.turn || 0}|${text}`;
+  if (liveSpecKey === key) return false;
+  liveSpecKey = key;
+  if (window.QaTurn) window.QaTurn.mark('spec');
+  // submitLiveAnswer 의 judgeQaAnswer 와 **같은 재료** — 서버가 본문 지문으로 짝을 찾는다
+  br.prejudgeQaAnswer(L.sessionId, {
+    questionId: q.id, answer: text, history: liveHistory(), question: q, giveUp: false,
+    priorAnswers: liveScoredAnswers(), hintsShown: liveHintsShown(),
+  });
+  return true;
+}
+
+/** 판정이 5초를 넘으면 무엇을 하는지 말한다 (R4) — 「자료 N장과 맞춰 보고 있어요」. */
+function liveSlowCue(q) {
+  const no = (q && (q.evidence_slide_no || (q.slide_nos || [])[0])) || 0;
+  return no ? `자료 ${no}장과 맞춰 보고 있어요` : '자료와 맞춰 보고 있어요';
+}
+
 /** 기다렸다 다시 보낼 때의 안내. 부스 booth_logic.retryWaitText 와 같은 말 */
 function liveRetryWaitText(secondsLeft, reason = 'rate') {
   const n = Math.max(0, Math.ceil(Number(secondsLeft) || 0));
@@ -1140,6 +1197,9 @@ function liveSwitchTo(how, next, line, extra = {}) {
     const at = L.questions.indexOf(next);
     if (at >= L.qi) L.questions.splice(at, 1);
     L.questions.splice(L.qi, 0, next);
+    // 사용자가 고른 질문이다 — 3번부터의 네 모델 고르기(liveEnsembleAdvance)가 이 자리를 갈아 끼우지 않게 (10-17 버그 사냥:
+    // 2번 이후 「다른 관점 · 반례」 를 고르면 고른 질문 대신 다른 질문이 떴다)
+    L.ensDone = { ...(L.ensDone || {}), [L.qi]: true };
   }
   pushTurn({ who: 'sys', kind: 'switch', how, text: line });
   saveSession('qa-flow', qa);
@@ -1199,7 +1259,7 @@ function liveWarmConceptPool() {
   const bridge = window.ChuckchuckBridge;
   const out = typeof nf !== 'undefined' && nf && nf.pipelineOut;
   if (!bridge || !bridge.buildQuestions || !out || !out.graph || typeof liveQuestionArgs !== 'function') return null;
-  const promise = bridge.buildQuestions(liveQuestionArgs(out, '10'))
+  const promise = bridge.buildQuestions({ ...liveQuestionArgs(out, '10'), newRun: false })
     .then((doc) => {
       const qs = (doc && doc.questions) || [];
       L.conceptPool = typeof attachQuestionPapers === 'function' ? attachQuestionPapers(qs, doc.papers) : qs;
@@ -1366,28 +1426,46 @@ function startDictationMic() {
      순수 부분은 booth_logic.js paintDictation 과 같다 (etc/tests/js/booth.smoke.mjs). */
   const pen = { base: ((ta && ta.value) || '').trim(), painted: (ta && ta.value) || '', from: 0, said: 0 };
   try {
-    liveMic = {
-      dictation: true,
-      session: window.ChuckchuckBridge.startLiveDictation({
-        onText: ({ final, interim }) => {
-          // 부스 자동 보내기가 「말이 멈췄나」 를 본다 — 마지막 글이 언제 왔고 확정 전 조각이 남았는지 (booth_call.js bcAutoTick)
-          if (liveMic) { liveMic.lastTextAt = Date.now(); liveMic.interim = interim; liveMic.final = final; }
-          paintLiveAnswer(pen, final + interim);
-        },
-        onError: (msg) => {
-          // 오류가 나면 인식기는 거기서 끝난다. 버튼을 안 되돌리면 이미 죽은
-          // 세션에 「받아쓰기 멈추기」가 남아 사용자가 헛클릭한다.
-          liveMic = null;
-          // 여기 오는 오류(권한 거부·마이크 없음·망)는 다시 시작해도 같은 결과다.
-          // 표시해 두지 않으면 다음에 눌러도 같은 길로 들어가 똑같이 죽는다.
-          // 여기서 곧바로 녹음을 시작하지는 않는다 — onError 는 비동기라 사용자
-          // 조작 권한이 이미 풀렸을 수 있고, 그러면 getUserMedia 가 막힌다.
+    const mic = { dictation: true, speaking: false, lastTextAt: 0, interim: '', final: '' };
+    mic.session = window.ChuckchuckBridge.startLiveDictation({
+      onText: ({ final }) => {
+        // A.X 는 문장이 끝나야 글을 준다 — interim(확정 전 조각)은 없다. 부스 자동 보내기가 「말이 멈췄나」 를
+        // 마지막 글 시각 · 말하는 중(speaking)으로 본다 (booth_call.js bcAutoSend)
+        mic.lastTextAt = Date.now(); mic.final = final; mic.speaking = false;
+        if (liveMic === mic && window.QaTurn) window.QaTurn.mark('final');   // 턴 시각 — 문장 확정 (js/qa_turn.js)
+        // 멈춘 뒤엔 버린다 — 비운 답 칸을 다시 채워 같은 답이 또 나갈 수 있었다 (사냥 2 #2). 「다 말했어요」로 마지막 문장을 받는 중만 예외
+        if (liveMic !== mic && !mic.finishing) return;
+        paintLiveAnswer(pen, final);
+        paintHearing(false);
+      },
+      onSpeech: (on) => {
+        // 서버가 말소리를 들었다(bos) · 그쳤다(eos) — 글자가 오기 전까지 「듣고 있어요…」 를 보인다. 더 말하면 자동 보내기를 접는다
+        mic.speaking = !!on; mic.lastTextAt = Date.now();
+        if (liveMic === mic && window.QaTurn) window.QaTurn.mark(on ? 'speech_on' : 'speech_off');
+        if (liveMic === mic && on && window.QaTurn) window.QaTurn.mark('speech_on_last');
+        if (liveMic === mic) paintHearing(!!on);
+      },
+      onError: (msg, info) => {
+        // 오류가 나면 받아쓰기는 거기서 끝난다. 버튼을 안 되돌리면 이미 죽은
+        // 세션에 「그만 말하기」가 남아 사용자가 헛클릭한다.
+        if (liveMic !== mic) return;
+        liveMic = null;
+        paintHearing(false);
+        // 권한 거부·마이크 없음·서버에 못 닿음은 다시 시작해도 같은 결과다.
+        // 표시해 두지 않으면 다음에 눌러도 같은 길로 들어가 똑같이 죽는다. (시간 다 됨 · 오래 조용함은 다시 열면 된다)
+        // 여기서 곧바로 녹음을 시작하지는 않는다 — onError 는 비동기라 사용자
+        // 조작 권한이 이미 풀렸을 수 있고, 그러면 getUserMedia 가 막힌다.
+        const code = info && info.code;
+        if (code !== 'limit' && code !== 'idle') {
           liveDictationDead = true;
           micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 녹음해서 받아쓸게요. 타이핑으로 답해도 돼요`);
-          setMicBtn('idle', !!(qa.live && qa.live.busy));
-        },
-      }),
-    };
+        } else {
+          micSay(`${escapeHtml(msg)} — 마이크를 한 번 더 누르면 이어서 받아써요`);
+        }
+        setMicBtn('idle', !!(qa.live && qa.live.busy));
+      },
+    });
+    liveMic = mic;
   } catch (err) {
     liveMicPending = '';
     // 시작조차 못 했으면 이 브라우저에서는 안 되는 것이다. 다음부터는 녹음으로 간다.
@@ -1437,6 +1515,7 @@ function dropLiveMic() {
   if (!mic) return;
   liveMic = null;
   liveMicPending = '';
+  paintHearing(false);
   try { mic.session.stop(); } catch (_) { /* 이미 멈춤 */ }
   setMicBtn('idle', !!(qa.live && qa.live.busy));
 }
@@ -1451,8 +1530,21 @@ async function stopLiveMic() {
   const idle = () => setMicBtn('idle', !!(qa.live && qa.live.busy));
 
   if (mic.dictation) {
-    // 실시간은 이미 입력창에 다 들어가 있다 — 뒤늦게 받아쓸 게 없다.
-    mic.session.stop();
+    // 실시간은 확정된 문장이 이미 입력창에 있다. 다만 A.X 는 문장이 끝나야 확정하므로, 말을 끝내자마자 누르면
+    // 마지막 문장이 아직 오는 중일 수 있다 — 「다 말했어요」(finish)로 남은 문장을 받아 칸에 담은 뒤 연다(최대 4초).
+    paintHearing(false);
+    if (typeof mic.session.finish === 'function') {
+      liveMicPending = 'transcribing';
+      setMicBtn('transcribing', true);
+      const L0 = qa.live;
+      mic.finishing = true;
+      try { await mic.session.finish(); } catch (_) { /* 받은 데까지 */ }
+      mic.finishing = false;
+      liveMicPending = '';
+      if (qa.live !== L0) return;
+    } else {
+      mic.session.stop();
+    }
     const ta = $('#liveAnswer');
     if (ta) {
       ta.focus();
@@ -1505,6 +1597,24 @@ function paintLiveAnswer(pen, spoken) {
   pen.painted = next;
   pen.said = raw.length;
   ta.scrollTop = ta.scrollHeight;
+}
+
+/**
+ * 「듣고 있어요…」 — 실시간 받아쓰기는 문장이 끝나야 글이 온다(A.X). 그 사이 말하고 있다는 것을 정직하게 보인다.
+ * 답 칸 아래 한 줄(#liveHearing)만 켜고 끈다 — 답 칸에는 아무것도 넣지 않는다(가짜 글이 답으로 나가면 안 된다).
+ */
+function paintHearing(on) {
+  const ta = $('#liveAnswer');
+  let el = $('#liveHearing');
+  if (!el && on && ta && ta.parentNode) {
+    el = document.createElement('p');
+    el.id = 'liveHearing';
+    el.className = 'live-hearing';
+    el.setAttribute('aria-live', 'polite');
+    el.textContent = '듣고 있어요…';
+    ta.insertAdjacentElement('afterend', el);
+  }
+  if (el) el.hidden = !on;
 }
 
 /**
@@ -1590,6 +1700,13 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
   growStream();
   setLiveBusy(true);
   showCoachThinking();
+  // 첫 박자 반응 (R4 — 말 끝 → 0.7초 안): 판정을 기다리는 동안 방금 한 말의 구절을 먼저 받아 준다(LLM 없이). 5초를 넘으면 무엇을 하는지 말한다
+  const cue = giveUp ? '' : liveFirstCue(answer);
+  if (cue) setCoachThinkingText(cue);
+  if (window.QaTurn) { window.QaTurn.mark('send'); window.QaTurn.mark('ack', { ackCue: !!cue }); }
+  const slowCue = typeof setTimeout === 'function' ? setTimeout(() => {
+    if (qa.live === L && L.busy) setCoachThinkingText(liveSlowCue(q));
+  }, LIVE_SLOW_CUE_MS) : 0;
   // 판정이 실패하면 입력창에 답을 되살린다 — 창을 비웠으므로, 안 되살리면
   // 「다시 시도」가 처음부터 다시 타이핑하기가 된다.
   let failedAnswer = '';
@@ -1616,6 +1733,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     // 다음 사람 질문을 닫고 대화에 붙었다 (10-02 버그 사냥 P0-A). 아래의 모든 쓰기(pushTurn · finishLiveQuestion 이 qa.live 를 다시 읽는다)보다 먼저
     if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }
     const m = LIVE_VERDICT[v.verdict] || LIVE_VERDICT.unknown;
+    if (window.QaTurn) window.QaTurn.mark('judged', { specHit: v.speculative_hit != null ? v.speculative_hit : null });
     // 이번 답이 「모르겠어요」 사다리의 되물음(둘 중 하나·빈칸)에 대한 답인가 — 바로 앞 응답이 그 단계였다 (liveRevealsHalf)
     const prevJudgement = L.lastJudgement;
     L.turn += 1;
@@ -1635,6 +1753,7 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
     const judgedHints = Array.isArray(v.hints) ? v.hints : [];
     if (judgedHints.length && judgedHints.length >= ((L.hintList || liveQuestionHints()).length)) L.hintList = judgedHints;
     L.judgeFailed = false;
+    if (slowCue) clearTimeout(slowCue);
     hideCoachThinking();
     // 폴백 표시(자료 본문 없이 판정 등)는 한 질문에 한 번만 짧게. 서버 질문을 못 찾은 것은 개발 로그로만 (09-30 WP-B)
     const notes = liveDegradedLines(v).filter((n) => !(L.notesShown || []).includes(n));
@@ -1679,13 +1798,18 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       });
     }
 
+    // 턴 시각 — 다음 말(반응 · 꼬리질문) 첫 글자가 화면에 붙었다. 이 턴을 닫는다 (다음 물음은 화상판이 새로 연다)
+    if (window.QaTurn) { window.QaTurn.mark('next'); window.QaTurn.finish('judged'); }
+
     // 닫는 기준은 **서버의 mastered 하나**다. passed 로 닫으면 요지만 맞힌 72점
     // 답이 곧바로 넘어가 되묻기가 아예 안 돈다 — 그게 이 화면이 밋밋했던 이유다.
     const done = v.mastered === undefined ? v.passed : v.mastered;
-    if (v.coach_stage === 'explain') {
-      // 해설을 받았다고 닫지 않는다 — 답을 봤으니 이제 한 번 말해 볼 차례다.
+    if (v.coach_stage === 'explain' && !done) {
+      // 옛 서버: 해설을 받았다고 닫지 않는다 — 답을 봤으니 이제 한 번 말해 볼 차례다.
       coachedRetell(q, v, answer);
     } else if (done) {
+      // 2026-10-17 5단계: 서버가 해설로 닫았으면(셋째 답 · 둘째 「모르겠어요」 — closed) 근거 장 해설을 보여 주고 다음 질문으로 간다.
+      // 실사용에서 같은 질문 연속 wrong 25번 · 4번 넘게 답한 쌍 8/13 이었다 — 한 번 더 붙들지 않는다.
       finishLiveQuestion(q, v, answer);
       closed = true;
     } else {
@@ -1696,6 +1820,8 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
       askAgain(v, v.round_no || L.turn, { skipMissing: shownMissing });
     }
   } catch (err) {
+    if (slowCue) clearTimeout(slowCue);
+    if (window.QaTurn) window.QaTurn.finish('error');
     if (qa.live !== L || L.questions[L.qi] !== q) { L.busy = false; return; }   // 옛 방문객의 실패도 지금 화면에 안 쓴다 (P0-A)
     hideCoachThinking();
     // 「모르겠어요」도 판정을 타므로, 서버가 죽으면 이 질문에 갇힌다.
@@ -1733,10 +1859,70 @@ async function submitLiveAnswer({ giveUp = false } = {}) {
  *
  * 마지막 질문이었으면 결과 화면으로 가야 하므로 그때만 renderQaLive 에 넘긴다.
  */
+/** 다음 질문 고르기에 보낼 앞 답들 — 서버 색인의 질문 id · 답 · 판정 (CONTRACT §3) */
+function liveEnsembleAsked(L) {
+  // 문장도 싣는다 — 질문 id(e03-<노드>)는 준비한 3번 · 고른 3번 · 같은 덱을 쓴 남의 판이 같이 쓸 수 있어 서버가 문장으로 고른다 (10-17)
+  return (L.results || []).map((r) => ({ question_id: String(r.id || ''), question: String(r.question || '').slice(0, 400),
+    answer: String(r.answer || '').slice(0, 1200), verdict: r.verdict || '' }));
+}
+
+/** 질문을 낼 때마다 — 지금까지의 답으로 음성 후보 만들기를 뒤에서 시작한다 (기다리지 않는다) */
+function liveEnsemblePrefetch(L) {
+  if (!L || !L.ensemble || !L.ensemble.active || typeof window === 'undefined') return;
+  const bridge = window.ChuckchuckBridge;
+  if (!bridge || !bridge.ensembleNextQuestion) return;
+  bridge.ensembleNextQuestion(L.sessionId, { asked: liveEnsembleAsked(L), prefetch: true }).catch(() => {});
+}
+
+/**
+ * 3번부터 — 네 모델이 발표를 다시 듣고 고른 질문으로 이 자리를 바꾼다. 늦거나 실패하면 준비한 질문 그대로 (기다리게 하지 않는다).
+ * 표시는 작게만 — 「네 모델이 발표를 다시 듣는 중이에요」 (자세한 후보 판은 리포트).
+ */
+async function liveEnsembleAdvance(L) {
+  const qi = L.qi;
+  let picked = false;
+  L.ensDone = { ...(L.ensDone || {}), [qi]: true };
+  showCoachThinking();
+  setCoachThinkingText('네 모델이 발표를 다시 듣는 중이에요');
+  try {
+    const bridge = typeof window !== 'undefined' ? window.ChuckchuckBridge : null;
+    if (!bridge || !bridge.ensembleNextQuestion) throw new Error('bridge 없음');
+    const res = await bridge.ensembleNextQuestion(L.sessionId, { asked: liveEnsembleAsked(L) });
+    if (qa.live !== L) return;
+    // 기다리는 사이 이 자리 질문이 이미 화면에 떴거나(다른 화면에 갔다 오면 renderQaLive 가 준비한 질문을 띄운다) 건너뛰기 · 다른 주제로
+    // 자리가 옮겨 갔으면 갈아 끼우지 않는다 — 화면엔 준비한 질문, 판정은 늦게 온 질문으로 채점되던 길 (10-17 버그 사냥)
+    if (L.qi !== qi || L.asked === qi) return;
+    const nq = res && res.question;
+    if (nq && nq.question) {
+      const same = (q) => q && (q.id === nq.id || q.question === nq.question);
+      if (!L.questions.slice(0, L.qi).some(same)) {
+        const later = L.questions.findIndex((q, i) => i > L.qi && same(q));
+        if (later > L.qi) L.questions.splice(later, 1);
+        L.questions.splice(L.qi, 1, { ...nq, ensembleBy: res.by || '', ensembleSubstituted: !!res.substituted });
+        picked = true;
+      }
+    }
+  } catch (err) {
+    console.info('[chuckchuck] 다음 질문 고르기가 늦어 준비한 질문으로 가요', err && err.message);
+  } finally {
+    if (qa.live === L) hideCoachThinking();
+  }
+  if (qa.live !== L || L.qi !== qi || L.asked === qi) return;
+  if (!picked) liveDropAskedNodes(L);
+  advanceLiveStream();
+}
+
+/** 준비한 질문으로 갈 때 — 앞에서 이미 물은 개념(네 모델이 고른 3번+ 질문이 다룬 것)이면 건너뛴다. 마지막 하나는 남긴다 */
+function liveDropAskedNodes(L) {
+  const asked = new Set(L.questions.slice(0, L.qi).map((q) => q && q.node_id).filter(Boolean));
+  while (L.qi < L.questions.length - 1 && asked.has((L.questions[L.qi] || {}).node_id)) L.questions.splice(L.qi, 1);
+}
+
 function advanceLiveStream() {
   const L = qa.live;
   if (qa.ended) return renderQaLive();
   if (L.qi >= L.questions.length) return enterLiveFinale();
+  if (L.ensemble && L.ensemble.active && L.qi >= 2 && !(L.ensDone || {})[L.qi]) return liveEnsembleAdvance(L);
   presentLiveQuestion();
   saveSession('qa-flow', qa);
   growStream();
@@ -1844,7 +2030,7 @@ function liveWonCount(results) {
  */
 function liveForcedClose(r) {
   if (!r || r.revealed || r.gaveUp) return false;
-  if (r.closeReason) return r.closeReason === 'rounds' || r.closeReason === 'guard';
+  if (r.closeReason) return r.closeReason === 'rounds' || r.closeReason === 'guard' || r.closeReason === 'explained';
   return !!r.mastered && r.verdict !== 'good';
 }
 
@@ -2157,7 +2343,7 @@ function closeLiveQuestion(record) {
  * 전체 화면 학습 카드로 갈아타지 않는 것은 그대로다 (2026-08-07 사용자 요청).
  */
 /** 닫힌 까닭별 마무리 카드 칩 — good 은 판정 낱말 그대로, 3라운드 출구는 그렇다고 말한다 (결과 화면 칩과 같은 말) */
-const CLOSE_CHIP = { rounds: '세 번째에 넘어갔어요', guard: '자료와 다시 맞춰 봐요' };
+const CLOSE_CHIP = { rounds: '세 번째에 넘어갔어요', guard: '자료와 다시 맞춰 봐요', explained: '같이 풀고 넘어가요' };
 
 function finishLiveQuestion(q, v, answer) {
   const L = qa.live;
@@ -2165,7 +2351,8 @@ function finishLiveQuestion(q, v, answer) {
   // 왜 닫혔나 — good(설득) · rounds(3라운드에서 통과 수준) · guard(가드에 막힌 채 3라운드). 결과 화면이 나눠 센다 (09-30 §10)
   const closeReason = v.close_reason || (v.verdict === 'good' ? 'good' : 'rounds');
   // 함정의 골자는 화면 사본에 없다(gist_withheld) — 닫힌 판정 응답이 싣고 온다 (09-30 WP-J2)
-  const closeGist = v.answer_gist || q.answer_gist || '';
+  // 갇힘 출구(explained — 셋째 답 · 둘째 「모르겠어요」)는 서버가 근거 장을 짚어 쓴 해설이 먼저다 (2026-10-17 5단계)
+  const closeGist = (closeReason === 'explained' && v.explanation) || v.answer_gist || q.answer_gist || '';
   pushTurn({
     who: 'sys', kind: 'done',
     flag: m.flag, outcome: v.verdict, word: CLOSE_CHIP[closeReason] || m.word,
@@ -2186,7 +2373,7 @@ function finishLiveQuestion(q, v, answer) {
     mastered: true,
     closeReason,
     // 「모르겠어요」 코칭(보기·빈칸)을 거쳐 닫혔나 — 결과에서 「도움 받아 닫힘」 으로 센다 (liveBucket · 09-30 C-09)
-    viaCoach: (L.turns || []).some((t) => t.gaveUp),
+    viaCoach: (L.turns || []).some((t) => t.gaveUp) || closeReason === 'explained',
     summary: v.summary_sentence || '',
     // 닫는 판정이 가리킨 다시 볼 장 (빠진 줄·어긋난 줄 — 2026-10-01). 결과 한 줄이 「자료 N장 다시 보기」 로 적는다
     lookSlides: v.verdict === 'good' ? [] : liveGroundSlides(v),

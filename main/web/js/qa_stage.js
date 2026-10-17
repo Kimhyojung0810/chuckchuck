@@ -512,14 +512,15 @@ function qsMetaHtml(scene, L) {
   return `<span class="qs-num">질문 ${Math.min(L.qi + 1, n)} / ${n}</span>${tag ? `<span aria-hidden="true">·</span><span class="qs-topic-name">${qsEsc(tag)}</span>` : ''}`;
 }
 
-/** 받아쓰는 중인 글 — 확정 글 + 아직 확정 안 된 끝(흐리게) */
+/** 받아쓰는 중인 글 — 확정 글 + 아직 확정 안 된 끝(흐리게). hearing: 말하는 중인데 문장이 아직 안 왔다(A.X 는 문장 단위 — 10-15) */
 function qsLiveText() {
   const ta = qsById('liveAnswer');
   const val = ta ? ta.value : '';
   const mic = typeof liveMic !== 'undefined' && liveMic ? liveMic : null;
   const interim = mic && mic.interim ? String(mic.interim) : '';
-  if (interim && val.endsWith(interim)) return { final: val.slice(0, val.length - interim.length), interim };
-  return { final: val, interim: '' };
+  const hearing = !!(mic && mic.dictation && mic.speaking);
+  if (interim && val.endsWith(interim)) return { final: val.slice(0, val.length - interim.length), interim, hearing };
+  return { final: val, interim: '', hearing };
 }
 
 /** claim 을 답 안에서 찾아 mark 로 — 없으면 답만 */
@@ -536,8 +537,10 @@ function qsSayHtml(scene, live) {
   if (p === 'thinking') return `<span class="qs-tx is-thinking">${qsEsc(scene.answer)}</span>`;
   if (p === 'done') return `<span class="qs-nudge">${qsEsc(live.endNote || '리포트에서 내 답과 자료 근거를 다시 볼 수 있어요')}</span>`;
   if (p === 'switching' || p === 'asking') return '';
-  const words = live.final || live.interim
-    ? `<span class="qs-tx">${qsEsc(live.final)}<span class="qs-int">${qsEsc(live.interim)}</span></span>` : '';
+  // 말하는 중이면 끝에 흐린 「듣고 있어요…」 — 답 칸에는 넣지 않는 표시일 뿐이다
+  const tail = live.interim || (live.hearing ? (live.final ? ' 듣고 있어요…' : '듣고 있어요…') : '');
+  const words = live.final || tail
+    ? `<span class="qs-tx">${qsEsc(live.final)}<span class="qs-int">${qsEsc(tail)}</span></span>` : '';
   if (help) return `${help}${words}`;
   return words;
 }

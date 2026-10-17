@@ -5,6 +5,7 @@ YEHS_demo 화면과 chuckchuck 모듈을 HTTP API(/api/v1/*)와 SDK(/sdk/*)로 �
 
 from __future__ import annotations
 
+import contextvars
 import functools
 import hashlib
 import hmac
@@ -25,7 +26,7 @@ import zipfile
 from collections import deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 DEMO_DIR = ROOT / "main" / "web"
@@ -34,6 +35,7 @@ SDK_DIR = ROOT / "main" / "pipeline" / "sdk"
 sys.path[:0] = [str(ROOT / "main"), str(ROOT / "etc"), str(ROOT)]
 
 from pipeline.config import settings  # noqa: E402
+from pipeline import _ai_calllog as ai_calllog  # noqa: E402 — 국내 AI API 호출 로그 (main() 이 install, _gate 가 요청 범위)
 
 from pipeline import (  # noqa: E402
     Context,
@@ -52,7 +54,10 @@ from pipeline.providers.stt_impl import media_tool  # noqa: E402
 from server.learning_jobs import refresh_learning_assets  # noqa: E402
 from server.rate_limit import RateLimiter  # noqa: E402
 from server import shield  # noqa: E402
+from server import live_stt
+from server import qa_spec  # noqa: E402
 from server import tour_events  # noqa: E402
+from server import qa_board  # noqa: E402 — 네 모델 Q&A 후보 판 (4단계 리포트)
 from server.session_archive import SessionArchive, git_sha  # noqa: E402
 from server.session_store import ARTIFACT_KEYS, SessionStore, fingerprint  # noqa: E402
 from server import clova_transcript  # noqa: E402
@@ -143,6 +148,9 @@ PAID_PATHS = frozenset({
     # 비대칭이 된다. 사람이 분당 30턴을 못 넘으므로 정상 사용엔 안 걸린다.
     # (세션 경로 /api/v1/sessions/{id}/qa/judge 는 아래 endswith 검사가 잡는다)
     "/api/v1/qa/judge",
+    # 네 모델 Q&A (2026-10-17, QA_ENSEMBLE) — 묶음은 모델마다 1~2콜 + 서로 평가, 다음 질문은 음성 4콜 + 선택 1콜
+    "/api/v1/qa/pool",
+    "/api/v1/qa/next",
     "/api/v1/strategy",
     # F-24 는 학술 검색 API(+검색어 번역 LLM 1콜)를 부른다
     "/api/v1/papers",
@@ -1050,6 +1058,16 @@ def _llm_identity(llm) -> str:
     return f"env:{primary}+{(os.environ.get('REASONING_FALLBACK') or '').strip().lower()}"
 
 
+def _qa_llm_identity(llm) -> str:
+    """질문(F-08) 키에 넣을 LLM — 기본 경로면 일마다 맡긴 모델(QA_TRIAGE_MODEL·QA_PHRASE_MODEL·QA_CHECK_MODEL)까지.
+    10-16 모델 나눠 맡기기: 환경변수로 질문 모델을 바꿔 다시 띄웠는데 옛 모델이 만든 질문(디스크 캐시)을 돌려주지 않게."""
+    if llm:
+        return str(llm)
+    from pipeline.providers.llm_route import route_identity
+
+    return f"{_llm_identity(llm)}|{route_identity()}"
+
+
 def _canon(cls, raw):
     """계약 모양(cls.from_dict → to_dict). 단계가 실제로 읽는 것만 남긴다 — 세션 표시·프론트가 붙인 키는 빠진다. 못 읽으면 날 것."""
     if raw is None:
@@ -1304,8 +1322,10 @@ class _Flights:
                     if self._jobs.get(key) is fut:
                         self._jobs.pop(key, None)
 
-        # 데몬 스레드 — 기다리는 요청이 제한 시간에 먼저 떠나도 일은 끝까지 해서 캐시를 채운다
-        threading.Thread(target=work, name=f"flight:{key[:40]}", daemon=True).start()
+        # 데몬 스레드 — 기다리는 요청이 제한 시간에 먼저 떠나도 일은 끝까지 해서 캐시를 채운다.
+        # 맥락을 복사해 넘긴다 — 호출 로그(_ai_calllog)의 요청 범위(팀인지 · run_id)가 뒤 스레드로 따라간다
+        ctx = contextvars.copy_context()
+        threading.Thread(target=ctx.run, args=(work,), name=f"flight:{key[:40]}", daemon=True).start()
         return fut
 
     def busy(self) -> list[str]:
@@ -1314,6 +1334,19 @@ class _Flights:
 
 
 _FLIGHTS = _Flights()
+#: 질문 요청이 앙상블 묶음을 기다리는 상한(초). 미리 만들기(prefetch)가 먼저 띄우므로 보통은 이미 있다. 넘기면 지금 방식 질문.
+ENSEMBLE_POOL_WAIT_SEC = float(os.environ.get("QA_ENS_POOL_WAIT_SEC", "45"))
+#: 다음 질문 요청이 음성 후보를 기다리는 상한(초) — 넘기면 묶음에서 바로 낸다 (PLAN 3단계: 2번 답 끝 → 3번 p95 ≤ 3초)
+NEXT_WAIT_SEC = float(os.environ.get("QA_ENS_NEXT_WAIT_SEC", "0.5"))
+#: 다음 질문 요청의 앞 질문 문장 상한 (본문에서 올 때)
+QA_QUESTION_MAX = 400
+
+
+def _store_put(key: str, value):
+    STORE.set_triage(key, value)
+    return value
+#: 실시간 받아쓰기 세션 칸 (main/server/live_stt.py — 전체 · 팀 몫 · IP 칸)
+LIVE_SLOTS = live_stt.Slots()
 
 
 # ─── 폴백은 폴백이라고 말한다 (09-30 B-03·G-A13/A19) ────────────────────────────────────────────────────
@@ -1355,6 +1388,76 @@ TRANSIENT_DEGRADED = frozenset({
     "claims_rule_only", "claims_failed", "claims_timeout",
     "papers_timeout", "papers_unavailable", "papers_partial", "papers_failed", "memory_failed",
 })
+
+
+#: 꼬리질문 엔진의 세션 기록 (2026-10-17 5단계) — 노드 이해 상태(다음 질문 고르기)와 이미 한 말(되풀이 금지).
+_DLG_NODES = "dlg_nodes:"
+_DLG_SAID = "dlg_said:"
+_ENS_JUDGED = "ens_judged:"   # Q&A 한 판에서 판정을 받은 질문 id — 후보 판(/qa/board)에 실제로 물은 3번+ 질문만 보이게
+ENS_JUDGED_MAX = 64
+_RUN_SPEECH = "run_speech:"   # Q&A 한 판이 질문을 받을 때의 발표 받아쓰기 · 정합 (/qa/next 의 음성 후보 재료 — 세션 저장소는 마지막 사람 것)
+DLG_SAID_MAX = 16
+
+
+_RUN_RE = re.compile(r"^[A-Za-z0-9_-]{4,48}$")
+
+
+def qa_run_of(body: dict) -> str:
+    """
+    Q&A 한 판의 구분 값 (`qa_run_id`, 2026-10-17) — 브라우저가 Q&A 를 시작할 때 만들어 판정 · /qa/next · 질문 요청에 싣는다.
+    파싱이 같은 파일의 세션을 재사용하므로(부스 덱은 미리 파싱한 세션 하나를 모두가 쓴다) 세션 id 만으로 나누면 같은 파일을 올린 사람끼리
+    3번 이후 기록(앞 답 · 음성 후보 · 이해 상태 · 이미 한 말)이 섞인다. 모양이 틀리면 "" (옛 클라이언트 — 세션 단위로 예전처럼).
+    """
+    run = str(body.get("qa_run_id") or "").strip()
+    return run if _RUN_RE.match(run) else ""
+
+
+def run_key(sid: str | None, run: str) -> str:
+    """세션 · 판 열쇠 — 판 값이 없으면 세션만 (예전 그대로)."""
+    return f"{sid}:{run}" if run else str(sid or "")
+
+
+def _dialogue_said(sid: str | None) -> list[str]:
+    return list(STORE.get_triage(_DLG_SAID + str(sid)) or []) if sid else []
+
+
+def _dialogue_note(sid: str | None, judgement) -> None:
+    """판정 하나로 노드 이해 상태를 갱신하고, 이번 반응 · 꼬리질문을 세션의 「이미 한 말」 에 더한다. 실패해도 판정은 그대로 나간다."""
+    if not sid:
+        return
+    try:
+        from pipeline import f09_dialogue as DLG  # noqa: PLC0415
+
+        states = dict(STORE.get_triage(_DLG_NODES + sid) or {})
+        if judgement.node_id:
+            states[judgement.node_id] = DLG.node_state(states.get(judgement.node_id), judgement)
+            STORE.set_triage(_DLG_NODES + sid, states)
+        said = [*_dialogue_said(sid), *(x for x in (judgement.react, judgement.followup) if x)][-DLG_SAID_MAX:]
+        STORE.set_triage(_DLG_SAID + sid, said)
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[bridge] 꼬리질문 엔진 기록 실패: {type(e).__name__}\n")
+
+
+def _note_judged(key: str, qid: str) -> None:
+    """이 판에서 판정을 받은 질문 id 를 남긴다 (후보 판의 3번+ 기록 거르기 · `board_asked_only`)."""
+    if not key or not qid:
+        return
+    seen = list(STORE.get_triage(_ENS_JUDGED + key) or [])
+    if qid not in seen:
+        STORE.set_triage(_ENS_JUDGED + key, [*seen, qid][-ENS_JUDGED_MAX:])
+
+
+def board_asked_only(b: dict, judged: list | None) -> dict:
+    """
+    판의 3번+ 기록은 **실제로 물은 질문만** — 이 판에서 판정을 받은 질문 id(`ens_judged:`)에 든 것. 화면은 다음 질문 요청을 6초만
+    기다리고 늦으면 준비한 질문으로 간다(qa_live liveEnsembleAdvance) — 그때 서버가 늦게 고른 질문이 판에 「물은 질문」 으로 남았다
+    (10-17 버그 사냥: 선택 모델 44초 · 리포트 판에 한 번도 안 나온 질문). 기록이 없으면(브리지를 다시 띄움) 그대로 둔다.
+    """
+    if not judged or not b.get("rounds"):
+        return b
+    seen = set(judged)
+    rounds = [r for r in b["rounds"] if not r.get("question_id") or r["question_id"] in seen]
+    return b if len(rounds) == len(b["rounds"]) else {**b, "rounds": rounds}
 
 
 def _with_degraded(payload: dict, degraded: list[str]) -> dict:
@@ -1619,6 +1722,16 @@ def standalone_page_for(url_path: str) -> str | None:
     return None
 
 
+_QA_QUERY_RE = re.compile(r"^qa_[a-z_]{2,20}$")
+
+
+def _qa_query(query: str) -> str:
+    """화면 주소를 해시로 돌려보낼 때 Q&A 실험 설정(`qa_turn` · `qa_eot` · `qa_send_ms` … js/qa_turn.js)만 실어 간다 (10-17 tune) —
+    예전엔 쿼리를 버려서 /booth/call?qa_turn=fast 가 기본값으로 열렸다. 값은 짧은 영숫자만."""
+    keep = [(k, v) for k, v in parse_qsl(query or "") if _QA_QUERY_RE.match(k) and re.fullmatch(r"[A-Za-z0-9_.-]{1,12}", v)]
+    return ("?" + urlencode(keep[:8])) if keep else ""
+
+
 def hash_route_for(url_path: str, locate) -> str | None:
     """
     주소창 경로 → 앱 해시 주소(``#/booth/call``). 화면 주소가 아니면 None.
@@ -1777,6 +1890,8 @@ class Handler(SimpleHTTPRequestHandler):
         _REQ.team = self._team_ok()
         self._local = shield.is_local_direct(self._peer(), self.headers)
         _REQ.trusted = _REQ.team or self._local
+        # 호출 로그의 요청 범위 — AI_CALLLOG=team 이면 팀(쿠키 · DEMO_DEV_ROUTES) 요청만 적는다 (pipeline/_ai_calllog.py)
+        ai_calllog.begin_request(team=_dev_open(), route=urlparse(self.path).path)
         try:
             return self._shield_gate()
         except OSError:
@@ -2064,6 +2179,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         return self._json(200, {
             "at": round(time.time(), 1),
             "paid": {**GATE.snapshot(), "queue_sec": PAID_QUEUE_SEC, "retry_sec": PAID_RETRY_SEC},
+            "live_stt": LIVE_SLOTS.snapshot(),
             "spend": {"per_hour_limit": PAID_PER_HOUR, "public_last_hour": SPEND.count("public"),
                       "per_ip_hour_limit": PAID_PER_HOUR_IP,
                       "exempt": sorted(SPEND_EXEMPT)},
@@ -2104,6 +2220,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 return self._json(200, {"team": _dev_open(), **({"dev": True} if DEV_ROUTES else {})})
             if parsed.path == "/api/v1/ops/shield":
                 return self._handle_ops_shield()
+            if parsed.path == "/api/v1/stt/live":
+                return self._handle_stt_live(parsed)
             if parsed.path == "/api/v1/cached-slidedoc":
                 return self._handle_cached_slidedoc(parsed)
             if parsed.path == "/api/v1/cached-transcript":
@@ -2130,7 +2248,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             hash_route = hash_route_for(parsed.path, STATIC.locate)
             if hash_route:
                 self.send_response(302)
-                self.send_header("Location", "/index.html" + hash_route)
+                self.send_header("Location", "/index.html" + _qa_query(parsed.query) + hash_route)
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return None
@@ -2336,10 +2454,85 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_qa_judge(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         if parsed.path == "/api/v1/qa/judge":
             return self._handle_qa_judge(raw)
+        if parsed.path == "/api/v1/qa/pool":
+            return self._handle_qa_pool(raw)
+        if parsed.path == "/api/v1/qa/next":
+            return self._handle_qa_next(raw)
+        if parsed.path == "/api/v1/qa/board":
+            return self._handle_qa_board(raw)
         # 「다른 주제로 → 같은 주제, 다른 관점」 (2026-10-13) — 서버 색인의 질문을 같은 개념 · 다른 관점으로 다시 쓴다
         if parsed.path.endswith("/qa/reframe") and "/api/v1/sessions/" in parsed.path:
             return self._handle_qa_reframe(raw, path_sid=self._path_segment_after(parsed.path, "sessions"))
         return self._json(404, {"error": "not found"})
+
+    # ── 실시간 받아쓰기 중계 (2026-10-15, main/server/live_stt.py) ─────────────────────────────────────────
+    # 크롬 Web Speech 는 음성을 구글로 보낸다(국내 AI 트랙 규정 위반) — 브라우저 ⇄ 여기 ⇄ SKT A.X realtime STT 로 바꿨다.
+    # 공개 방문자도 쓴다(Q&A 가 공개). 방패와 같은 규칙: 점검 깃발 · 분당 상한 · 시간당 천장 · 세션 칸(전체 · IP · 팀 몫).
+    # 막을 때도 WebSocket 은 열고 이유를 말한 뒤 닫는다 — 열기 전에 HTTP 로 거절하면 브라우저는 까닭을 못 읽는다.
+
+    def _handle_stt_live(self, parsed):
+        self.close_connection = True
+        problem = live_stt.handshake_problem(self.headers)
+        if problem:
+            return self._json(426, {"error": "websocket_required", "message": problem})
+        origin = (self.headers.get("Origin") or "").rstrip("/")
+        if not (self._same_origin() or (origin and origin in ALLOWED_ORIGINS)):
+            return self._json(403, {"error": "forbidden_origin", "message": "이 화면에서는 받아쓰기를 열 수 없어요."})
+        key = settings.ax_stt_api_key
+        reason = ""
+        if _mock() or not key:
+            reason = "unavailable"
+        trusted = bool(getattr(_REQ, "trusted", False))
+        if not reason and not trusted and LOCKDOWN.on():
+            EVENTS.add("lockdown_503")
+            reason = "busy"
+        if not reason and self._rate_limited(parsed.path, b"") is not None:
+            EVENTS.add("paid_429")
+            reason = "busy"
+        bucket = shield.ip_bucket(self._client_key())
+        got = False
+        if not reason:
+            got = LIVE_SLOTS.acquire(bucket, trusted)
+            if not got:
+                EVENTS.add("live_stt_busy")
+                SHIELD_LOG.write("live_stt", f"실시간 받아쓰기 칸이 다 찼어요 {LIVE_SLOTS.snapshot()} {bucket}")
+                reason = "busy"
+        counted = got and not trusted and PAID_PER_HOUR > 0
+        ip_key = ("ip:" + bucket) if counted and PAID_PER_HOUR_IP > 0 and self._counted() else ""
+        if counted:   # 세션 하나 = 과금 호출 하나로 공개 시간당 천장(IP · 전체)에 센다 — _handle_paid 와 같은 순서
+            if ip_key and not SPEND_IP.allow(ip_key):
+                reason = "busy"
+            elif not SPEND.allow("public"):
+                if ip_key:
+                    SPEND_IP.refund(ip_key)
+                reason = "busy"
+            if reason:
+                EVENTS.add("budget_503")
+        try:
+            self.send_response(101, "Switching Protocols")
+            self.send_header("Upgrade", "websocket")
+            self.send_header("Connection", "Upgrade")
+            self.send_header("Sec-WebSocket-Accept", live_stt.accept_value(self.headers["Sec-WebSocket-Key"].strip()))
+            self.end_headers()
+            purpose = (parse_qs(parsed.query).get("purpose") or ["answer"])[0]
+            max_sec = live_stt.PRESENT_MAX_SEC if purpose == "present" else live_stt.ANSWER_MAX_SEC
+            url = live_stt.upstream_url(settings.ax_stt_base_url)
+            relay = live_stt.Relay(self.connection, connect=lambda u: live_stt.connect_ax(u, key), url=url,
+                                   model=settings.ax_stt_streaming_model, max_sec=max_sec,
+                                   calllog=ai_calllog.record_live_session)
+            if reason:
+                relay.fail(reason)
+                relay._close()
+                return None
+            EVENTS.add("live_stt")
+            out = relay.run()
+            sys.stderr.write(f"[live-stt] {bucket} {purpose} {out}\n")
+            return None
+        except OSError:
+            return None
+        finally:
+            if got:
+                LIVE_SLOTS.release(bucket)
 
     def _handle_tour_event(self, raw: bytes):
         """
@@ -2981,6 +3174,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if cached is not None:
             sys.stderr.write(f"[bridge] F-07 graph 캐시 적중 {key}\n")
             self._archive(body, "concept_graph", cached)
+            self._ensemble_kick(body, cached)
             return self._json(200, _analysis_response(cached, list(cached.get("degraded") or [])))
 
         sys.stderr.write(
@@ -3008,12 +3202,14 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         if not degraded:
             _stage_cache_put("graph", key, payload)
         self._archive(body, "concept_graph", payload)
+        self._ensemble_kick(body, payload)
         return self._json(200, _analysis_response(payload, degraded))
 
     def _handle_alignment(self, raw: bytes):
         """F-11 · ConceptGraph + Transcript(+선택 Context) → AlignmentDoc."""
         from pipeline import align_speech
         from pipeline.contracts import ConceptGraph, Transcript
+        from pipeline.f11_align import judge_identity as align_judge_identity
 
         body = json.loads(raw or b"{}")
         if not body.get("graph") or not body.get("transcript"):
@@ -3042,8 +3238,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         _fake_delay("/api/v1/alignment")
         # 입력이 같으면 결과도 같다 — 부스의 같은 덱 · 같은 녹음은 두 번째부터 LLM 을 안 부른다 (계약 모양으로 센다, 세션 id 는 안 넣는다)
         al_key = None if _mock() else _stage_key(
-            "f11", _stage_version("alignment"), _llm_identity(llm), graph.to_dict(), transcript.to_dict(), ctx.to_dict(),
-            slidedoc, speech_match)
+            "f11", _stage_version("alignment"), _llm_identity(llm), align_judge_identity(), graph.to_dict(),
+            transcript.to_dict(), ctx.to_dict(), slidedoc, speech_match)
         cached_al = _stage_cache_get("alignment", al_key) if al_key else None
         if cached_al is not None:
             sys.stderr.write(f"[bridge] F-11 alignment 캐시 적중 {al_key}\n")
@@ -3252,7 +3448,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         habits = extract_habits(transcript, provider=provider, spans=spans)
         sys.stderr.write(
             f"[bridge] F-18 habits done REP={habits.repeat_cnt} FIL={habits.filler_cnt} "
-            f"PAUSE={habits.pause_cnt} provider={habits.provider}\n"
+            f"PAUSE={habits.pause_cnt} provider={habits.provider} detectors={habits.detectors}\n"
         )
         payload = habits.to_dict()
         self._archive(body, "habit_doc", payload)
@@ -3479,6 +3675,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         본문을 여기서 한 번 더 읽는다 (핸들러도 읽는다). 과금 경로 본문은 수 MB 안이라 LLM 한 콜에 비하면 공짜다.
         """
         sid_raw = None
+        run = ""
+        body_read = False   # 큰 본문(녹음)은 열쇠 자리만 찾는다 — 보관소 목록(시연 덱인가)도 안 읽는다
         if path != "/api/v1/parse" and raw:
             if len(raw) <= JSON_BODY_MAX:
                 try:
@@ -3487,6 +3685,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                     body = None
                 if isinstance(body, dict):
                     sid_raw = body.get("session_id")
+                    run = qa_run_of(body)
+                    body_read = True
             else:
                 # 녹음(base64)처럼 큰 본문은 다 풀지 않고 열쇠 자리만 찾는다 — 42MB 를 칸 하나 정하려고 두 번 풀 수는 없다
                 m = _SESSION_ID_RE.search(raw)
@@ -3495,6 +3695,13 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             sid_raw = self._path_segment_after(path, "sessions")
         sid = _store_sid(sid_raw)
         if sid and sid != FLAT_SESSION_ID:
+            # 같은 파일 세션은 여러 사람이 나눠 쓴다 (부스 · 시연 덱은 미리 파싱한 세션 하나 — CONTRACT §6). 세션 칸 하나로 세면 같은 덱을 고른
+            # 방문객끼리 분당 30회를 나눠 써 판정 · 다음 질문이 429 로 밀렸다 (10-17 버그 사냥: 같은 덱 세 판 동시에 판정 · /qa/next 가 429).
+            # Q&A 한 판(qa_run_id)이 실린 요청은 그 판 칸으로, 판 값이 없는 시연 덱 요청(분석 단계)은 세션 + 사람(IP) 칸으로 센다.
+            if run:
+                return f"session:{sid}:{run}"
+            if body_read and _deck_session_known(sid):
+                return f"session:{sid}@{self._client_key()}"
             return "session:" + sid
         return "client:" + self._client_key()
 
@@ -3703,7 +3910,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         # 4편 vs 3편), 문헌을 지문에 넣었더니 미리 만들기와 실제 요청이 서로를 못 알아보고 둘 다 LLM 을 불렀다.
         # 문헌·기억은 이 입력(그래프·본문·세션)에서 나오므로 세션 id 와 문헌 끄기 여부로 대신한다.
         q_key = "questions:" + fingerprint(
-            found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, str(llm),
+            found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(), track, _qa_llm_identity(llm),
             str(_session_id_of(body) or ""), bool(slidedoc), pace, body.get("papers") is False, body.get("memory") is False,
             # 코드 판 — F-08 과 재료(주장 F-26·문헌 F-24·기억 F-25)의 import 닫힘 전체. 주장·문헌의 **결과**는 넣지 않는다
             # (위 주석 — 넣으면 미리 만들기와 실제 요청이 서로를 못 알아본다). 대신 폴백으로 만든 묶음은 짧게만 든다.
@@ -3749,7 +3956,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # 옛 상황으로 고른 후보를 그대로 썼다 (triage 프롬프트는 둘 다 싣는다).
             # 본문도 1차 심사의 입력이다 (09-30 WP-J2 — WP-Q 요청: 탐침을 덱 전체로 검증하고 다른 발표 녹음을 거른다). 지문에 넣는다.
             cache_key = fingerprint(found["graph"], found["alignment"], found["flow"], found["transcript"], ctx.to_dict(),
-                                    str(llm), memory.to_dict() if memory else None, pace,
+                                    _qa_llm_identity(llm), memory.to_dict() if memory else None, pace,
                                     claims.to_dict() if claims else None, _stage_version("triage"),
                                     fingerprint(slidedoc) if slidedoc else None)
             return self._build_questions_payload(
@@ -3768,6 +3975,30 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         STORE.remember_questions(sid, track, payload)
         # 질문마다 basis(근거·자리·탐침·인용·검사)가 실려 있다 — 세션에 트랙별로 붙여 두어 나중에 되짚는다 (P1).
         STORE.put_questions(sid, track, payload)
+        self._bind_board(body, payload)
+        run = qa_run_of(body)
+        if run and not body.get("prefetch"):
+            # 이 판의 발표 받아쓰기 · 정합 — /qa/next 가 세션 저장소(마지막 사람 것) 대신 읽는다. 이 사람이 들고 온 본문 값만
+            # (세션 저장소로 채우면 다시 남의 것이 된다 · 안 보냈으면 발화 없이 고른다)
+            STORE.set_triage(_RUN_SPEECH + run_key(sid, run), {"transcript": body.get("transcript"), "alignment": body.get("alignment")})
+
+    def _bind_board(self, body: dict, payload: dict) -> None:
+        """
+        네 모델이 고른 질문을 받아 간 Q&A 한 판에 후보 판을 잇는다 — ens_board:<sid>:<run>. 캐시로 돌려준 질문도 같은 바탕을 쓴다.
+        같은 판에 이미 있으면(다른 트랙 · 다시 받기) 3번+ 기록을 이어 붙인다 (qa_board.board 의 prev). 판 값이 없는 옛 클라이언트는 세션 칸.
+        """
+        bkey = ((payload or {}).get("ensemble") or {}).get("board_key")
+        sid = str(_session_id_of(body) or "")
+        if not bkey or not sid:
+            return
+        base = STORE.get_triage(bkey)
+        if not base:
+            return
+        run = qa_run_of(body)
+        key = "ens_board:" + run_key(sid, run)
+        prev = STORE.get_triage(key)
+        b = qa_board.rebase(base, prev) if prev else base
+        STORE.set_triage(key, {**b, "qa_run_id": run})
 
     def _question_inputs(self, body: dict, graph_raw: dict, slidedoc, llm) -> tuple:
         """
@@ -3909,9 +4140,12 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             f"기억={remembered if memory else '-'} 주장={len(claims.claims) if claims else '-'}"
             f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
         )
+        doc = self._ensemble_questions(doc, body, found, slidedoc, claims, transcript)
         payload = _with_degraded(with_hint_ladders(doc.to_dict(), doc.questions), degraded)
+        if getattr(doc, "_ensemble", None):
+            payload["ensemble"] = doc._ensemble        # 화면엔 작은 표시만 (client_questions 가 뺀다) · 후보 판은 보관본
         # 폴백 재료로 만든 묶음은 짧게만 든다 — 미리 만들기 → 시작 한 쌍은 나눠 쓰고, 그 뒤 요청은 재료부터 다시 시도한다 (B-03)
-        transient = [c for c in degraded if c in TRANSIENT_DEGRADED]
+        transient = [c for c in degraded if c in TRANSIENT_DEGRADED] or (["ensemble_missed"] if getattr(doc, "_ensemble_missed", False) else [])
         STORE.set_triage(q_key, payload, ttl=FALLBACK_TTL_SEC if transient else None)
         if not transient and not degraded:
             _stage_cache_put("questions", _questions_disk_key(q_key), payload)
@@ -3919,6 +4153,211 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         self._index_questions(body, track, payload)
         self._archive(body, "question_doc", payload)
         return self._json(200, client_questions(payload))
+
+    # ── 네 모델 Q&A (2026-10-17, docs/qa-ensemble/PLAN.md) ──────────────────────────────────────────────
+    # QA_ENSEMBLE=1 일 때만. 묶음(f08_ensemble.build_pool)은 세션마다 한 번 — /qa/pool 로 자료 올릴 때 먼저 띄울 수 있고, 아니면
+    # 질문 미리 만들기(/questions prefetch)가 띄운다. 묶음이 없거나 2개 못 고르면 지금 방식 질문 그대로(QuestionDoc) 간다.
+
+    def _ensemble_pool(self, sid: str, graph_raw, slidedoc, claims, *, wait: float | None = None):
+        """세션 묶음 (캐시 → 만드는 중이면 기다림 → 새로). wait=0 이면 띄우기만 하고 None."""
+        from pipeline import f08_ensemble as FE
+
+        # 열쇠는 그래프의 노드(id · 라벨 · 종류 · 부모)만 — /graph 응답과 세션에 등록된 그래프는 곁가지 칸(degraded 등)이 달라
+        # 같은 묶음을 두 번 만들었다 (10-17 실험실 3판: 미리 띄운 것 6f86 · 질문 요청 e455)
+        nodes = sorted((n.get("id"), n.get("label"), n.get("kind"), n.get("parent_id"))
+                       for n in (graph_raw or {}).get("nodes", []) if isinstance(n, dict))
+        key = "ens_pool:" + fingerprint(nodes, fingerprint(slidedoc) if slidedoc else None, FE.model_names(), FE.assign_mode(), sid)
+        hit = STORE.get_triage(key)
+        if hit is not None:
+            return hit
+        claims_raw = claims.to_dict() if hasattr(claims, "to_dict") else claims
+
+        def work():
+            pool = FE.build_pool(graph_raw, slidedoc, claims_raw)
+            STORE.set_triage(key, pool)
+            if sid:
+                STORE.set_triage("ens_sid:" + sid, key)
+            return pool
+
+        fut = _FLIGHTS.run(key, work)
+        if wait == 0:
+            return None
+        try:
+            return fut.result(timeout=wait)
+        except Exception as e:  # noqa: BLE001 — 묶음이 늦거나 넘어지면 지금 방식으로 간다
+            sys.stderr.write(f"[bridge] F-08 앙상블 묶음 실패·늦음 — 지금 방식으로: {type(e).__name__}: {str(e)[:120]}\n")
+            return None
+
+    def _ensemble_questions(self, doc, body, found, slidedoc, claims, transcript):
+        from pipeline import f08_ensemble as FE
+        from pipeline.contracts import QA_TRACK_LIMITS
+
+        if not FE.enabled() or not slidedoc or _mock():
+            return doc
+        sid = str(_session_id_of(body) or "")
+        pool = self._ensemble_pool(sid, found["graph"], slidedoc, claims, wait=ENSEMBLE_POOL_WAIT_SEC)
+        if pool is None:
+            # 묶음이 늦었거나 넘어졌다 — 지금 방식 질문으로 가되, 이 결과를 오래 들고 있지 않는다(_build_questions_payload).
+            # 10-17 버그 사냥: 묶음이 45초를 넘긴 판의 지금 방식 질문이 같은 덱 세션의 질문 캐시(디스크 포함)에 남아, 묶음이 다 만들어진
+            # 뒤에도 그 덱의 모든 방문객이 네 모델 질문을 못 받았다
+            doc._ensemble_missed = True
+            return doc
+        n = max(2, QA_TRACK_LIMITS.get(doc.track, 3))
+        picked = FE.pick_session(pool, transcript, n)
+        if len(picked) < 2:
+            return doc
+        doc.questions = [FE.to_question(c, i + 1) for i, c in enumerate(picked)]
+        doc.model = "ensemble:" + "+".join(pool.models)
+        doc._ensemble = {"active": True, "models": pool.models, "n_candidates": len(pool.candidates),
+                         "timings": pool.timings, "next": "/api/v1/qa/next"}
+        # 후보 판(4단계 리포트) — 판의 바탕(후보 · 거르기 · 서로 평가 · 뽑힌 것)은 자료에서만 나온다. 질문 요청의 결과(캐시 포함)와 함께
+        # 묶음 열쇠로 들고 있다가, 질문을 받아 간 Q&A 한 판(qa_run_id)마다 ens_board:<sid>:<run> 으로 따로 잇는다 (_bind_board).
+        # 3번+ 기록(음성 신호 · 앞 답 인용)은 그 판 칸에만 붙는다 — 같은 덱을 올린 사람끼리 안 섞인다 (CONTRACT §6).
+        board = qa_board.board(pool.to_dict(), [c["uid"] for c in picked], found["graph"], track=str(doc.track or ""))
+        bkey = "ens_board_base:" + fingerprint(sid, board.get("candidates") and [c.get("uid") for c in board["candidates"]],
+                                                [c["uid"] for c in picked], str(doc.track or ""))
+        STORE.set_triage(bkey, board)
+        doc._ensemble["board_key"] = bkey
+        sys.stderr.write(f"[bridge] F-08 앙상블 n={len(picked)} 후보={len(pool.candidates)} 버림={len(pool.dropped)} "
+                         f"작성={[c['model'] for c in picked]} {pool.timings}\n")
+        return doc
+
+    def _ensemble_kick(self, body: dict, graph_raw: dict) -> None:
+        """그래프가 나오는 순간(자료 올린 뒤 · 발표 전) 앙상블 묶음을 뒤에서 띄운다 — 질문 요청 때 기다리지 않게.
+        10-17 실험실: 질문 요청 때 처음 띄우면 부하가 있을 때 45초 안에 못 끝나 지금 방식 질문으로 떨어졌다."""
+        try:
+            from pipeline import f08_ensemble as FE
+
+            sid = _session_id_of(body)
+            if not FE.enabled() or _mock() or not sid or not graph_raw:
+                return
+            slidedoc = ARCHIVE.read_artifact(sid, "slide_doc")
+            if slidedoc:
+                self._ensemble_pool(str(sid), graph_raw, slidedoc, None, wait=0)
+        except Exception as e:  # noqa: BLE001 — 미리 띄우기 실패는 질문 요청이 다시 시도한다
+            sys.stderr.write(f"[bridge] F-08 앙상블 미리 띄우기 실패: {type(e).__name__}: {str(e)[:120]}\n")
+
+    def _handle_qa_pool(self, raw: bytes):
+        """{session_id, graph?} → 묶음 만들기를 뒤에서 띄운다 (자료 올릴 때 · 발표 중). 202 로 바로 돌아온다."""
+        from pipeline import f08_ensemble as FE
+
+        body = json.loads(raw or b"{}")
+        if not FE.enabled():
+            return self._json(200, {"ensemble": False})
+        found = self._resolve(body, "graph")
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        if not found["graph"] or not slidedoc:
+            return self._json(409, {"error": "not_ready", "message": "자료 분석이 끝나야 후보를 만들 수 있어요."})
+        self._ensemble_pool(str(_session_id_of(body) or ""), found["graph"], slidedoc, body.get("claims"), wait=0)
+        return self._json(202, {"ensemble": True, "started": True})
+
+    def _handle_qa_next(self, raw: bytes):  # noqa: C901
+        """
+        {session_id, asked:[{question_id, answer, verdict}], prefetch?} → 다음 질문 (3번 이후).
+
+        prefetch=true 면 음성 후보(네 모델, 발표 받아쓰기 + 앞 답)를 뒤에서 만들기 시작하고 바로 돌아온다 — 프런트는 1번 질문을 낼 때,
+        그리고 답마다 부른다. 실제 요청은 NEXT_WAIT_SEC 만 음성 후보를 기다리고, 없으면 묶음의 남은 후보를 바로 낸다(substituted).
+        """
+        from pipeline import f08_ensemble as FE
+
+        body = json.loads(raw or b"{}")
+        sid = _store_sid(body.get("session_id"))
+        if not FE.enabled() or not sid:
+            return self._json(409, {"error": "ensemble_off", "message": "지금은 다음 질문을 미리 고르지 않아요."})
+        pool_key = STORE.get_triage("ens_sid:" + str(_session_id_of(body) or ""))
+        pool = STORE.get_triage(pool_key) if pool_key else None
+        if pool is None:
+            return self._json(409, {"error": "pool_missing", "message": "후보 묶음이 없어요. 질문을 먼저 만들어 주세요."})
+        found = self._resolve(body, "graph", "alignment", "transcript")
+        slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
+        asked = []
+        run = qa_run_of(body)                                       # Q&A 한 판 — 같은 파일 세션을 나눠 쓰는 사람끼리 안 섞이게
+        if run and "transcript" not in body:
+            # 발표 받아쓰기는 세션 저장소에 「마지막으로 올린 사람」 것만 있다 — 같은 덱 세션의 남의 발화를 3번 질문이 인용하면 안 된다.
+            # 이 판이 질문을 받을 때 들고 온 받아쓰기를 쓰고, 없으면(메모리가 지남 · 다시 띄움) 발화 없이 고른다
+            speech = STORE.get_triage(_RUN_SPEECH + run_key(sid, run)) or {}
+            found["transcript"], found["alignment"] = speech.get("transcript"), speech.get("alignment")
+        states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
+        for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
+            # 같은 id 가 여럿일 수 있다 — 질문 id 는 자리 번호 + 노드(e03-<노드>)라 준비한 3번과 고른 3번, 같은 덱 세션을 나눠 쓴 남의 판이
+            # 같은 id 를 쓴다(10-17 버그 사냥). 화면이 문장을 실어 보내면 그 문장인 것을 고른다
+            same = STORE.find_questions(sid, str(a.get("question_id") or ""))
+            text = str(a.get("question") or "").strip()
+            q = next((x for x in same if text and str(x.get("question") or "").strip() == text), None) or next(iter(same), None) or {}
+            st = states.get(q.get("node_id", "")) or {}
+            asked.append({"question": q.get("question") or str(a.get("question") or "")[:QA_QUESTION_MAX],
+                          "node_id": q.get("node_id", ""), "answer": str(a.get("answer") or "")[:ANSWER_MAX_CHARS],
+                          "verdict": str(a.get("verdict") or ""), "missing": list(a.get("missing") or [])[:3],
+                          "state": st.get("state", ""), "skipped": st.get("skipped", "")})
+        # 음성 후보는 판(qa_run_id)마다 — 앞 답(asked)이 프롬프트에 실리므로 다른 사람의 답과 같은 열쇠를 쓰면 안 된다
+        vkey = "ens_voice:" + fingerprint(pool_key, run, [(a["question"], a["verdict"], a["answer"]) for a in asked])
+        last_key = "ens_voice_last:" + run_key(str(pool_key), run)
+
+        def make_round():
+            vr_ = STORE.get_triage(vkey) or _store_put(vkey, FE.voice_round(
+                pool, found["graph"], slidedoc, found["transcript"], alignment=found["alignment"], asked=asked))
+            STORE.set_triage(last_key, vr_)       # 가장 최근에 끝난 음성 후보 — 이번 답 몫이 아직이면 한 답 앞의 것을 쓴다
+            return vr_
+
+        fut = _FLIGHTS.run(vkey, make_round)
+        if body.get("prefetch"):
+            return self._json(202, {"started": True})
+        try:
+            vr = fut.result(timeout=float(body.get("wait_sec") or NEXT_WAIT_SEC))
+        except Exception:  # noqa: BLE001 — 늦으면 바로 앞 답까지로 만든 음성 후보(질문을 낼 때 미리 띄운 것), 그것도 없으면 묶음에서
+            vr = STORE.get_triage(last_key)
+        t0 = time.monotonic()
+        pick_calls: list = []
+        nxt = FE.choose_next(pool, vr, asked, calls=pick_calls)
+        if not nxt:
+            return self._json(200, {"question": None, "done": True})
+        q = FE.to_question(nxt, len(asked) + 1)
+        self._ensemble_round(body, len(asked) + 1, {**nxt, "question_id": q.id}, vr, pick_calls, time.monotonic() - t0)
+        payload = {"questions": [q.to_dict()]}
+        # 트랙 열쇠에 판을 넣는다 — 질문 id(e03-<노드>)는 자리 번호 + 노드라 같은 덱 세션을 나눠 쓴 다른 판도 같은 id 를 낸다. 예전엔
+        # ens:<id> 하나를 뒷사람이 덮어써 앞사람의 답이 뒷사람 질문(다른 문장 · 모범답)으로 채점됐다(question_mismatch, 10-17 버그 사냥)
+        track = f"ens:{run}:{q.id}" if run else f"ens:{q.id}"
+        STORE.remember_questions(sid, track, payload)
+        STORE.put_questions(sid, track, payload)
+        out = client_questions(with_hint_ladders(payload, [q]))["questions"][0]
+        sys.stderr.write(f"[bridge] F-08 앙상블 다음 q={q.id} 작성={nxt.get('model')} 대신냄={nxt.get('substituted')} "
+                         f"신호={nxt.get('signal_kind')} 고르기 {time.monotonic() - t0:.2f}s\n")
+        return self._json(200, {"question": out, "substituted": bool(nxt.get("substituted")),
+                                "pick_reason": nxt.get("pick_reason", ""), "signal": nxt.get("signal_kind") or "",
+                                "by": nxt.get("model", "")})
+
+    def _ensemble_round(self, body: dict, n: int, nxt: dict, vr, pick_calls: list, sec: float) -> None:
+        """3번+ 질문 하나의 고른 과정(음성 신호 · 네 모델 후보 · 버림 · 최종 선택)을 후보 판에 잇는다. 실패해도 질문은 나간다."""
+        try:
+            sid = str(_session_id_of(body) or "")
+            key = "ens_board:" + run_key(sid, qa_run_of(body))
+            b = STORE.get_triage(key) if sid else None
+            if not b:
+                return
+            b = qa_board.with_round(b, qa_board.round_record(n, nxt, vr, pick_calls, sec, paths_from=b["graph"]["nodes"]))
+            STORE.set_triage(key, b)
+            self._archive(body, "qa_ensemble_board", b)
+        except Exception as e:  # noqa: BLE001 — 판은 리포트 재료다. 질문을 막지 않는다
+            sys.stderr.write(f"[bridge] F-08 앙상블 판 기록 실패: {type(e).__name__}: {str(e)[:120]}\n")
+
+    def _handle_qa_board(self, raw: bytes):
+        """
+        {session_id, qa_run_id} → 이 Q&A 판의 후보 판 (리포트 「질문은 이렇게 골랐어요」). 세션 메모리 → (동의 세션이면, 같은 판의) 보관본 순.
+        LLM 을 부르지 않는다. 판이 없으면 404 {board: null} — 이번 질문을 한 모델이 골랐거나(QA_ENSEMBLE=0 · 묶음 실패) 메모리가 지났다.
+        """
+        body = json.loads(raw or b"{}")
+        sid = _session_id_of(body)
+        if not sid:
+            return self._json(400, {"error": "bad_request", "message": "session_id 가 필요해요."})
+        run = qa_run_of(body)
+        b = STORE.get_triage("ens_board:" + run_key(sid, run))
+        if not b:
+            # 보관본은 세션에 하나뿐이다(마지막으로 쓴 판) — 내 판일 때만 준다. 같은 덱 세션을 나눠 쓴 남의 3번+ 기록을 주지 않는다
+            kept = ARCHIVE.read_artifact(sid, "qa_ensemble_board")
+            b = kept if isinstance(kept, dict) and str(kept.get("qa_run_id") or "") == run else None
+        if not b or not b.get("candidates"):
+            return self._json(404, {"board": None, "message": "이 세션엔 네 모델이 고른 기록이 없어요."})
+        return self._json(200, {"board": board_asked_only(b, STORE.get_triage(_ENS_JUDGED + run_key(_store_sid(sid), run)))})
 
     def _memory_for(self, body: dict):
         """
@@ -4197,11 +4636,18 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 "error": "session_missing",
                 "message": "세션 아티팩트가 없어요. 다시 등록하고 시도해 주세요.",
             })
+        run = qa_run_of(body)
+        speech = STORE.get_triage(_RUN_SPEECH + run_key(store_sid, run)) if (store_sid and run and "transcript" not in body) else None
+        if speech is not None:
+            # 이 판이 질문을 받을 때 들고 온 발표 받아쓰기 — 세션 저장소엔 같은 덱을 쓴 마지막 사람 것이 있다 (판이 없던 흐름은 예전처럼)
+            found["transcript"], found["alignment"] = speech.get("transcript"), speech.get("alignment")
         graph = ConceptGraph.from_dict(found["graph"]) if found["graph"] else None
         alignment = AlignmentDoc.from_dict(found["alignment"]) if found["alignment"] else None
         transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None
         ctx = Context.from_dict(found["context"] or body.get("context") or {})
-        llm = _pick_llm(body)
+        # 판정만 따로 고른다 (QA_JUDGE_LLM, 10-17) — 같은 답 230개 비교에서 solar4 가 외운 답 · 모호한 답 · 틀린 사실을 pro3 보다 잘 막았다.
+        # 다른 단계(그래프 · 질문 · 리포트)는 REASONING_BACKEND 그대로. "solar4+solar" 꼴이면 막힐 때(429 등) 예비로 넘어간다
+        llm = _pick_llm(body) or (os.environ.get("QA_JUDGE_LLM") or "").strip() or None
         # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본. F-08 과 같은 디스크
         # 보관소에서 session_id 로 찾는다 (프론트는 slidedoc 을 안 들고 있다).
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
@@ -4218,8 +4664,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         memory = self._memory_for(body)
         if memory is None and _memory_failed(_session_id_of(body)):
             degraded.append("memory_failed")
-        try:
-            judgement = judge_answer(
+        avoid = _dialogue_said(run_key(store_sid, qa_run_of(body)) if store_sid else None)
+
+        def run_judge():
+            return judge_answer(
                 question,
                 str(body.get("answer", "") or ""),
                 graph=graph,
@@ -4236,18 +4684,37 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 slidedoc=slidedoc,
                 # 지난 리허설 기억 (F-25) — 지난번에 빠졌던 점이 이번엔 나왔는지 본다. 포기하면 코칭 단계도 이것이 정한다
                 memory=memory,
+                # 세션에서 이미 한 반응 · 꼬리질문 — 꼬리질문 엔진이 되풀이하지 않는다 (2026-10-17 5단계 R9)
+                avoid=avoid,
             )
+        # 미리 판정 (2026-10-17 tune, server/qa_spec.py) — 화면이 말 끝을 짐작한 순간 같은 본문을 speculative 로 보낸다. 판정만 뒤에서
+        # 돌리고 바로 202. 진짜 요청은 같은 열쇠의 판정을 받아 쓰고 기록 · 대화 상태는 그때 남긴다(아래 그대로)
+        spec_key = qa_spec.key(store_sid, qa_run_of(body), question.to_dict(), body.get("answer"), body.get("history"),
+                               prior_answers_from(body), body.get("hints_shown"), bool(body.get("give_up")), llm, avoid,
+                               _session_id_of(body), bool(slidedoc))
+        if body.get("speculative") is True:
+            started = qa_spec.enabled() and qa_spec.start(spec_key, run_judge)
+            return self._json(202, {"speculative": True, "started": bool(started)})
+        spec_hit = qa_spec.take(spec_key) if qa_spec.enabled() else None
+        try:
+            judgement, spec_age = spec_hit if spec_hit is not None else (run_judge(), None)
         except JudgeError as e:
             sys.stderr.write(f"[bridge] F-09 judge failed: {e}\n")
             return self._json(502, {"error": "judge_failed",
                                     "message": "답변을 판정하지 못했어요. 잠시 뒤 다시 답해 주세요."})
         on_server = qsrc in ("server", "archive", "mismatch")
+        _dialogue_note(run_key(store_sid, qa_run_of(body)) if store_sid else None, judgement)
+        if store_sid and on_server:
+            _note_judged(run_key(store_sid, qa_run_of(body)), question.id)
         sys.stderr.write(
             f"[bridge] F-09 judge q={question.id} verdict={judgement.verdict} "
+            f"수={judgement.move or '-'}/{(judgement.dialogue or {}).get('source') or '-'} 시도={len(body.get('history') or []) + 1} "
+            f"판정={(judgement.dialogue or {}).get('judge_sec', '-')}s 엔진+={(judgement.dialogue or {}).get('sec_after_judge', '-')}s "
             f"passed={judgement.passed} stage={judgement.coach_stage!r} 질문={qsrc} "
             f"근거={'graph' if graph else '-'}/{'align' if alignment else '-'}"
             f"/{'stt' if transcript else '-'}/{'doc' if slidedoc else '-'}"
-            f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}\n"
+            f"{(' 폴백=' + ','.join(degraded)) if degraded else ''}"
+            f"{(f' 미리판정={spec_age}s전') if spec_age is not None else ''}\n"
         )
         # 화면 사본에서 뺀 기대 답(`client_questions`)은 **바로잡았거나(통과)·닫혔거나·해설 단계일 때** 판정 응답으로 준다 — 화면의
         # 「빠진 절반·완성 문장」(revealHalf)·마무리 카드(finishLiveQuestion)·해설 뒤 다시 말하기가 이것을 읽는다 (09-30 WP-J2).
@@ -4255,6 +4722,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         payload = _with_degraded(
             {**client_judgement(question, judgement), "grounded_on_server": on_server, "grounded_on_deck": bool(slidedoc)},
             degraded)
+        if spec_age is not None:
+            payload["speculative_hit"] = spec_age   # 미리 판정을 쓴 응답 — 미리 보낸 뒤 지난 초 (턴 시각 계측)
         # 질문·답·판정 한 턴을 남긴다 (동의 세션만). 사람이 고친 판정과 짝을 맞출 원본이다.
         # **서버가 만든 질문으로 채점한 턴만** 남긴다 — 본문 질문으로 채점한 턴은 기준을 믿을 수 없고, 남기면 F-25 기억과
         # 학습 묶음(learning_jobs)으로 흘러가 다음 리허설의 질문·판정 프롬프트에 실린다.
@@ -4309,8 +4778,10 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             sys.stderr.write(f"[bridge] F-09 reframe 실패 q={question.id} 관점={perspective}: {e}\n")
             return self._json(422, {"error": "reframe_failed", "message": "이 관점으로는 자료에서 물을 거리를 못 찾았어요. 다른 관점을 골라 주세요."})
         payload = {"questions": [fresh.to_dict()]}
-        STORE.remember_questions(store_sid, f"reframe:{fresh.id}", payload)
-        STORE.put_questions(store_sid, f"reframe:{fresh.id}", payload)
+        run = qa_run_of(body)   # 같은 덱 세션을 나눠 쓰는 판끼리 같은 관점 질문 id 를 덮어쓰지 않게 (ens 트랙과 같은 까닭)
+        track = f"reframe:{run}:{fresh.id}" if run else f"reframe:{fresh.id}"
+        STORE.remember_questions(store_sid, track, payload)
+        STORE.put_questions(store_sid, track, payload)
         sys.stderr.write(f"[bridge] F-09 reframe q={question.id} → {fresh.id}\n")
         return self._json(200, {"question": client_questions(payload)["questions"][0], "perspective": perspective,
                                 "perspective_name": PERSPECTIVES[perspective][0]})
@@ -4422,6 +4893,28 @@ def _deck_session(sid: str | None) -> bool:
         _DECK_SHAS.update(at=now, shas=frozenset(_deck_shas().keys()))
     rec = ARCHIVE.manifest(sid)
     return bool(rec and rec.upload_sha256 and rec.upload_sha256 in _DECK_SHAS["shas"])
+
+
+_DECK_SHAS_REFRESH = threading.Lock()
+
+
+def _deck_session_known(sid: str | None) -> bool:
+    """`_deck_session` 의 **기다리지 않는** 판 — 요청 제한 칸을 정할 때 쓴다. 덱 원본 sha 묶음은 덱 파일(녹음 포함 수백 MB)을 다 읽어 만드는데,
+    요청 스레드에서 만들면 과금 요청 하나가 10초 선다(10-17 버그 사냥 테스트에서 실측). 묶음이 낡았으면 뒤에서 다시 만들고 지금 것으로 답한다."""
+    if not sid:
+        return False
+    if time.monotonic() - _DECK_SHAS["at"] > BOOTH_SHAS_TTL_SEC and _DECK_SHAS_REFRESH.acquire(blocking=False):
+        def refresh():
+            try:
+                _DECK_SHAS.update(at=time.monotonic(), shas=frozenset(_deck_shas().keys()))
+            finally:
+                _DECK_SHAS_REFRESH.release()
+        threading.Thread(target=refresh, name="deck-shas", daemon=True).start()
+    shas = _DECK_SHAS["shas"]
+    if not shas:
+        return False
+    rec = ARCHIVE.manifest(sid)
+    return bool(rec and rec.upload_sha256 and rec.upload_sha256 in shas)
 
 
 def _booth_session(sid: str | None) -> bool:
@@ -4612,6 +5105,20 @@ def bind_refusal(host: str, mock: bool) -> str:
     )
 
 
+def _preload_habit_lora() -> None:
+    """HABIT_PROVIDER=lora 면 Mi:dm LoRA(REP·FIL) 를 뒤에서 미리 올린다 — 첫 분석이 22GB 로드를 기다리지 않게.
+    올리는 동안 들어온 습관 분석은 규칙으로 돌고 provider 가 heuristic(lora-loading) 으로 남는다."""
+    if _mock():
+        return
+    try:
+        from pipeline.f18_habits import preload_lora
+
+        if preload_lora():
+            print("  F-18 습관: Mi:dm LoRA 를 뒤에서 올리는 중 — 끝나기 전 요청은 규칙으로 대신해요", flush=True)
+    except Exception as e:  # noqa: BLE001 — 미리 올리기는 덤이다. 실패해도 서버는 뜬다
+        print(f"  ⚠ F-18 LoRA 미리 올리기 실패: {type(e).__name__}: {e}", flush=True)
+
+
 def main():
     host = settings.demo_host
     port = settings.demo_port
@@ -4646,9 +5153,13 @@ def main():
         # 질문 코칭의 답변 녹음은 10초 안팎(수백 KB)이라 정확히 그 구간이다 — 조용히 넘어가면 부스에서 "받아쓰기 실패" 로 나타난다.
         print("  ⚠ ffmpeg 이 없어요. 10MB 미만 녹음(질문 코칭 답변)의 WAF 우회가 꺼져 받아쓰기가 실패할 수 있어요 — "
               "`sudo apt-get install ffmpeg` (docs/DEPLOYMENT.md §STT)", flush=True)
+    ai_calllog.install(settings)
+    print(f"  AI 호출 로그: AI_CALLLOG={ai_calllog.mode()} · {ai_calllog.root()} · 대상 호스트 {sorted(ai_calllog.korean_hosts(settings))}",
+          flush=True)
     # 소켓을 먼저 묶는다 — 청소 스레드의 시연 덱 미리 파싱(_warm_decks_once)이 이 서버에 요청을 보낸다
     server = ReusableThreadingHTTPServer((host, port), Handler)
     _start_prune_loop()
+    _preload_habit_lora()
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:

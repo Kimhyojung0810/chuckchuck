@@ -21,7 +21,7 @@
 | F-13 | `main/pipeline/f13_score.py` | `AlignmentDoc`+`FlowDiff` → `PresentationScore` | 순수 함수 (LLM 없음) | `POST /api/v1/score` |
 | **F-14** | `main/pipeline/f14_rubric.py` | 파이프라인 산출물 → `RubricScore` | 채점표 v3 · 결정 19 + LLM 18 | `POST /api/v1/rubric` |
 | F-17 | `main/pipeline/f17_pace.py` | `Transcript`(+`Context`·`ConceptDoc`) → `PaceDoc` | 규칙 (LLM 없음) | `POST /api/v1/pace` |
-| F-18 | `main/pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA(REP) + heuristic(FIL·PAUSE) | `POST /api/v1/habits` |
+| F-18 | `main/pipeline/f18_habits.py` | `Transcript` → `HabitDoc` | 믿음 LoRA — REP 태거 + FIL 3시드 앙상블(어댑터 있으면) · PAUSE·빠진 태그는 규칙 ([`etc/habits_lora/`](etc/habits_lora/README.md)) | `POST /api/v1/habits` |
 | F-19 | `main/pipeline/f19_report.py` | `PaceDoc`+`HabitDoc`(+`Context`,`RubricScore`) → `ReportDoc` | Solar / A.X / 믿음 / 엑사원 | `POST /api/v1/report` |
 
 공통 계약은 `main/pipeline/contracts.py` 하나다. 설정은 `main/pipeline/config.py` (`settings.masked()`).
@@ -56,6 +56,25 @@ python -c "from pipeline.config import settings; print(settings.masked())"
 ```
 
 전문용어 인식률을 위해 `keywords=`(발표자료 키워드) 를 넘길 수 있다.
+
+### 실시간 받아쓰기 (2026-10-15 — 크롬 Web Speech 대체)
+
+Q&A 답 · 발표 중 받아쓰기는 브라우저 → 브리지 `/api/v1/stt/live`(WebSocket) → A.X `wss://…/v1/stt/realtime`
+(`A.X_STT_note_streaming`) 으로 간다 (`main/server/live_stt.py`, `main/web/js/live_stt.js`). 키는 브리지에만 있다.
+글은 **문장 단위**로 확정되고(확정 전 조각 없음), 말하는 동안은 「듣고 있어요…」 를 보인다. 실패하면 예전처럼 녹음 → batch 로 받아쓴다.
+상한 환경변수: `DEMO_LIVE_STT_MAX`(동시 16) · `DEMO_LIVE_STT_TEAM_RESERVED`(3) · `DEMO_LIVE_STT_IP`(IP 당 4) ·
+`DEMO_LIVE_STT_MAX_SEC`(답 300초) · `DEMO_LIVE_STT_PRESENT_SEC`(발표 1200초) · `DEMO_LIVE_STT_IDLE_SEC`(20초). 지금 칸은 `/api/v1/ops/shield` 의 `live_stt`.
+
+### 국내 AI API 호출 로그 (대회 제출용)
+
+브리지가 `requests` 로 보내는 국내 AI 호출(Upstage · A.X · Mi:dm · Friendli)과 실시간 받아쓰기 세션을 한 건씩
+`~/.local/state/chuckchuck/ai_calllog/<날짜>/<기능 코드>.jsonl` 에 남긴다 (`main/pipeline/_ai_calllog.py`, 헤더 · 키는 안 남김, 14일 보관).
+`AI_CALLLOG=team`(기본 — 팀 쿠키 · `DEMO_DEV_ROUTES` 요청만) · `all` · `off`. 기능명(=제출 파일명)은 `main/pipeline/ai_calllog_features.json`.
+
+```bash
+python etc/scripts/ai_calllog_export.py --list                       # 기능마다 실행 목록
+python etc/scripts/ai_calllog_export.py --since 2026-10-14 --out ~/meetings/제출/국내AI_API_호출로그_척척발표.zip
+```
 
 ## 빠른 시작
 
@@ -114,7 +133,8 @@ F-18 REP LoRA 를 쓰려면 **midm 환경 + CUDA** 로 브리지를 띄운다.
 # MOCK_EXTERNAL_APIS=false
 # 실 API 키들 + (선택) REASONING_BACKEND=midm 등
 # HABIT_PROVIDER=lora
-# CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter   # adapter_config.json 있는 폴더
+# 어댑터는 /data/models/_runs/habits-lora/{rep_seed42,fil_seed42,fil_seed43,fil_seed44}/final 에 두면 자동으로 찾는다
+# (다른 곳이면 CHUCKCHUCK_LORA_REP_PATH · CHUCKCHUCK_LORA_FIL_PATHS — etc/habits_lora/README.md)
 # CHUCKCHUCK_LORA_KINDS=REP
 
 # 2) 실행 (권장 스크립트 — 포트 기본 8799)
@@ -126,8 +146,8 @@ DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 스크립트가 하는 일:
 - `MIDM_PY`(기본: conda `midm` 의 python) 으로 `server.bridge` 실행
 - `HABIT_PROVIDER=lora`, `MOCK_EXTERNAL_APIS=false` 고정
-- `CHUCKCHUCK_LORA_PATH` 미지정 시 팀 서버 기본 adapter 경로를 씀  
-  → 로컬에 어댑터가 없으면 `.env` / 셸에서 경로를 명시할 것
+- 어댑터 경로를 비우면 `/data/models/_runs/habits-lora/` → 팀 서버 옛 경로 순으로 찾고, 찾은 REP·FIL 어댑터를 출력한다
+- 뜨자마자 뒤에서 LoRA 를 올린다 — 다 올리기 전 요청은 `provider=heuristic(lora-loading)`
 
 직접 실행하려면:
 
@@ -135,7 +155,8 @@ DEMO_PORT=8799 ./main/server/run_bridge_midm.sh
 conda activate midm
 export MOCK_EXTERNAL_APIS=false
 export HABIT_PROVIDER=lora
-export CHUCKCHUCK_LORA_PATH=/path/to/lora/adapter
+export CHUCKCHUCK_LORA_REP_PATH=/path/to/rep/adapter          # 기본 위치에 두었으면 생략
+export CHUCKCHUCK_LORA_FIL_PATHS=/p/fil_seed42/final,/p/fil_seed43/final,/p/fil_seed44/final
 export DEMO_PORT=8799
 python -m server.bridge
 ```

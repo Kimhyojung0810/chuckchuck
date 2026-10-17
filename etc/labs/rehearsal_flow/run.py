@@ -3,8 +3,11 @@
 분석 기다림(부스 「질문 준비」 모양) → 글라스 화상판(자동 받아쓰기로 답) → 상세 리포트(#/rehearsal/report) 까지 헤드리스 크롬으로 한 번 태운다.
 
 이 서버엔 웹캠 · 마이크가 없다. 카메라는 부스 실험실의 얼굴 영상(etc/labs/booth_qa face_cam), 마이크는 고른 덱의 실제 발표 녹음을
-앞에서 잘라 쓴다(ffmpeg). 받아쓰기(Web Speech)는 크롬 헤드리스에 없어서 가짜 webkitSpeechRecognition 을 심는다 —
-window.__fakeSay("말") 을 부르면 그 말이 확정 전 조각 → 확정으로 흘러 들어온다(비전 리허설의 삐약이 반응 · 화상판 자동 받아쓰기 둘 다).
+앞에서 잘라 쓴다(ffmpeg). 실시간 받아쓰기(브리지 /api/v1/stt/live → A.X, 10-15)는 기본은 흉내 낸다 — 그 WebSocket 만 가짜로 바꿔
+window.__fakeSay("말") 을 부르면 말소리 시작 → 문장 확정으로 흘러 들어온다(비전 리허설의 삐약이 반응 · 화상판 자동 받아쓰기 둘 다).
+--real-stt 면 흉내 없이 가짜 마이크 소리(덱 녹음 앞 --say-sec 초 + 조용함)를 진짜 A.X 가 받아쓴다(과금):
+
+    LD_LIBRARY_PATH=~/.local/lib/pwlibs .venv/bin/python etc/labs/rehearsal_flow/run.py --base http://127.0.0.1:8812 --real-stt --no-chatter
 
     # 실 API 한 번 — 받아쓰기 · 개념 · 그래프 · 정합 · 흐름 · 질문 · 판정 응답을 --record 폴더에 남긴다 (과금)
     LD_LIBRARY_PATH=/tmp/pwlibs/usr/lib/x86_64-linux-gnu .venv/bin/python etc/labs/rehearsal_flow/run.py \
@@ -77,38 +80,48 @@ STATE_JS = """() => {
            liveQa: (typeof qa !== 'undefined' && qa.live) ? qa.live : null };
 }"""
 
+# 실시간 받아쓰기 흉내 (2026-10-15 부터 받아쓰기는 브리지 /api/v1/stt/live → A.X 실시간 STT 다 — 예전 Web Speech 흉내를 바꿨다).
+# 그 주소로 여는 WebSocket 만 가짜로 바꾼다: 열리면 ready, window.__fakeSay("말") 이면 말소리 시작(speech on) → 문장(text) → 끝(speech off).
+# 과금 없이 화면 흐름만 본다. 진짜 A.X 로 보려면 --real-stt (가짜 마이크 소리를 실제로 받아쓴다 — 과금).
 FAKE_SPEECH_JS = """
 (() => {
+  const Real = window.WebSocket;
   const live = new Set();
   window.__fakeRecCount = 0;
-  window.__fakeSay = (text) => { live.forEach((r) => r.__say(String(text))); return live.size; };
-  window.__fakeListening = () => live.size;
-  class FakeRecognition {
-    constructor() { this.lang = ''; this.continuous = false; this.interimResults = false; this._on = false; this._done = []; }
-    start() { if (this._on) return; this._on = true; live.add(this); window.__fakeRecCount += 1; }
-    stop() { if (!this._on) return; this._on = false; live.delete(this); setTimeout(() => this.onend && this.onend(), 10); }
-    abort() { this.stop(); }
+  class FakeLive {
+    constructor(url) {
+      this.url = url; this.readyState = 0; this.binaryType = 'blob'; this.frames = 0;
+      live.add(this); window.__fakeRecCount += 1;
+      setTimeout(() => { if (this.readyState) return; this.readyState = 1; if (this.onopen) this.onopen({}); this._emit({ type: 'ready' }); }, 30);
+    }
+    send(data) {
+      if (typeof data !== 'string') { this.frames += 1; return; }
+      let m = {}; try { m = JSON.parse(data); } catch (_) { return; }
+      if (m.type === 'stop') setTimeout(() => { this._emit({ type: 'done', reason: 'stop' }); this.close(); }, 60);
+      else if (m.type === 'cancel') this.close();
+    }
+    close() {
+      if (this.readyState === 3) return;
+      this.readyState = 3; live.delete(this);
+      setTimeout(() => { if (this.onclose) this.onclose({ code: 1000 }); }, 10);
+    }
+    _emit(m) { if (this.readyState === 1 && this.onmessage) this.onmessage({ data: JSON.stringify(m) }); }
     __say(text) {
-      const words = text.split(' ');
-      const idx = this._done.length;
-      let i = 0;
-      const emit = () => {
-        if (!this._on) return;
-        i += 1;
-        const fin = i >= words.length;
-        const cur = Object.assign([{ transcript: (idx ? ' ' : '') + words.slice(0, i).join(' ') }], { isFinal: fin });
-        const results = this._done.slice();
-        results[idx] = cur;
-        if (fin) this._done[idx] = cur;
-        if (this.onresult) this.onresult({ resultIndex: idx, results });
-        if (!fin) setTimeout(emit, 110);
-      };
-      emit();
+      this._emit({ type: 'speech', on: true });
+      setTimeout(() => { this._emit({ type: 'speech', on: false }); this._emit({ type: 'text', text }); }, 150 + text.length * 8);
     }
   }
-  window.SpeechRecognition = FakeRecognition;
-  window.webkitSpeechRecognition = FakeRecognition;
+  const Wrapped = function (url, protocols) { return String(url).includes('/api/v1/stt/live') ? new FakeLive(url) : new Real(url, protocols); };
+  Object.assign(Wrapped, { CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3, prototype: Real.prototype });
+  window.WebSocket = Wrapped;
+  window.__fakeSay = (text) => { live.forEach((s) => s.__say(String(text))); return live.size; };
+  window.__fakeListening = () => live.size;
 })();
+"""
+# --real-stt: 진짜 받아쓰기 — 흉내 대신 「지금 받아쓰기가 열려 있나」 만 같은 이름으로 둔다 (qa_live.js liveMic)
+REAL_STT_JS = """
+window.__fakeSay = () => 0;
+window.__fakeListening = () => (typeof liveMic !== 'undefined' && liveMic && liveMic.dictation) ? 1 : 0;
 """
 
 LAYOUT_JS = """() => {
@@ -163,6 +176,8 @@ def deck_audio(deck: str, sec: int, src: Path | None = None) -> Path | None:
     name = DECK_AUDIO.get(deck)
     if src is None:
         src = ROOT / "main" / "decks" / deck / name if name else None
+        if src is not None and not src.exists():   # 맥에서 온 파일 이름은 한글이 NFD 라 이름으로는 못 찾는다
+            src = next((ROOT / "main" / "decks" / deck).glob("*.m4a"), None)
     ff = B.__dict__.get("find_ffmpeg")
     ff = (ff() if ff else None) or next((str(p) for p in [Path.home() / ".local/bin/ffmpeg"] if p.exists()), None)
     if not src or not src.exists() or not ff:
@@ -171,6 +186,25 @@ def deck_audio(deck: str, sec: int, src: Path | None = None) -> Path | None:
     if not dst.exists():
         OUT.mkdir(parents=True, exist_ok=True)
         subprocess.run([ff, "-y", "-loglevel", "error", "-t", str(sec), "-i", str(src), "-ac", "1", "-ar", "48000", "-sample_fmt", "s16", str(dst)], check=True)
+    return dst
+
+
+def answer_audio(deck: str, say_sec: int, quiet_sec: int = 25) -> Path | None:
+    """--real-stt 의 가짜 마이크 — 덱 녹음 앞 say_sec 초 + 조용함 quiet_sec 초. 크롬이 되풀이해 틀어서, 화상판 자동 받아쓰기가
+    말 → 쉼(2.2초) → 초읽기(3초) → 자동 보내기로 한 바퀴 돈다. 조용함이 없으면 녹음이 쉼 없이 이어져 자동 보내기가 안 걸린다."""
+    name = DECK_AUDIO.get(deck)
+    src = ROOT / "main" / "decks" / deck / name if name else None
+    if src is not None and not src.exists():   # 파일 이름의 한글이 NFD 로 저장돼 있으면 이름으로는 못 찾는다
+        src = next((ROOT / "main" / "decks" / deck).glob("*.m4a"), None)
+    ff = next((str(p) for p in [Path.home() / ".local/bin/ffmpeg"] if p.exists()), None) or "ffmpeg"
+    if not src or not src.exists():
+        return None
+    dst = OUT / f"{deck}_answer_{say_sec}s_quiet{quiet_sec}s.wav"
+    if not dst.exists():
+        OUT.mkdir(parents=True, exist_ok=True)
+        subprocess.run([ff, "-y", "-loglevel", "error", "-t", str(say_sec), "-i", str(src), "-f", "lavfi", "-t", str(quiet_sec),
+                        "-i", "anullsrc=r=48000:cl=mono", "-filter_complex", "[0:a]aresample=48000,aformat=channel_layouts=mono[a];[a][1:a]concat=n=2:v=0:a=1",
+                        "-ac", "1", "-ar", "48000", "-sample_fmt", "s16", str(dst)], check=True)
     return dst
 
 
@@ -228,7 +262,8 @@ def run(args) -> Path:
         cam = B.plain_cam(B.OUT / "whitecam.mjpeg", (246, 246, 242))
     elif args.cam == "dark":
         cam = B.plain_cam(B.OUT / "darkcam.mjpeg", (22, 24, 28))
-    audio = deck_audio(args.deck, args.rec_sec + 30, Path(args.audio) if args.audio else None)
+    audio = (answer_audio(args.deck, args.say_sec) if args.real_stt and not args.audio
+             else deck_audio(args.deck, args.rec_sec + 30, Path(args.audio) if args.audio else None))
     R: dict = {"args": vars(args), "audio": str(audio) if audio else None, "stages": {}, "layout": {}, "console": [], "requests": [],
                "contrast": {}, "turns": [], "flags": {}}
     state: dict = {"judge_calls": 0, "judge_log": []}
@@ -244,11 +279,11 @@ def run(args) -> Path:
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": VW, "height": VH}, device_scale_factor=args.dpr, locale="ko-KR",
                             permissions=["camera", "microphone"], is_mobile=args.mobile, has_touch=args.mobile)
-        ctx.add_init_script(FAKE_SPEECH_JS)
         if args.report_v2:   # 리포트 2.0 (docs/report-v2/) — 팀 플래그로 켠다. /VRShow 갈래는 리포트 단계 끝에서 따로 본다
             # /VRShow 안(정면 창 iframe 포함)에선 켜지 않는다 — 그 갈래는 플래그 없이 rhShowcase 로 켜져야 한다
             ctx.add_init_script("""try { const vr = /\\/vrshow/i.test(location.pathname) || (window.parent !== window && /\\/vrshow/i.test(window.parent.location.pathname));
               if (!vr) localStorage.setItem('cheokcheok:report-v2', '1'); } catch (_) {}""")
+        ctx.add_init_script(REAL_STT_JS if args.real_stt else FAKE_SPEECH_JS)
         if args.studio_skin:
             # /studio 정면 창(ui/Frame.jsx)이 iframe 문서에 입히는 것과 같이 — <html class="sx-studio"> + css/studio-skin.css
             ctx.add_init_script("""document.addEventListener('DOMContentLoaded', () => {
@@ -611,7 +646,7 @@ def run(args) -> Path:
                 tj = time.time()
                 q = questions[qi] if qi < len(questions) else {}
                 if st["retell"]:
-                    page.click("#liveSkipRetell") if page.is_visible("#liveSkipRetell") else page.click("#liveSend")
+                    page.evaluate("() => { const b = document.getElementById('liveSkipRetell') || document.getElementById('liveSend'); if (b) b.click(); }")
                     action = "skipretell"
                 elif args.answer == "try" and first:
                     # 체험 줄 — 엉성하게 답해 보기 → 코치의 되묻기 → 정답 보기 → 이 답으로 보내기 (qa_live.js liveTryHtml · 10-06)
@@ -643,20 +678,55 @@ def run(args) -> Path:
                             R["try"][-1]["model_result"] = last
                             print(f"  Q{qi + 1} model → {json.dumps(last, ensure_ascii=False)[:200]}", flush=True)
                     action = "try"
+                elif args.real_stt and not first:
+                    # 진짜 받아쓰기는 꼬리질문에도 저절로 다시 듣는다 — 같은 녹음을 또 보내면 판정만 쌓이므로 첫 답 하나만 받고
+                    # 「여기까지 하고 리포트 보기」 로 나간다 (판정 과금을 묶는다)
+                    R["real_stt_finish"] = True
+                    break
                 elif args.answer == "dictate" and first:
                     # 자동 받아쓰기 — 마이크가 저절로 켜지기를 기다렸다 말한다. 멈추면 2.2초 + 초읽기 3초 뒤 자동으로 보낸다
                     page.wait_for_function("window.__fakeListening() > 0", timeout=15000)
-                    text = (q.get("gist") if q.get("gist") and not q.get("trap") else None) or SPOKEN.get(args.deck) or B.ANSWERS.get(args.deck, B.ANSWERS["수익률격차"])
-                    page.evaluate("(t) => window.__fakeSay(t)", text)
-                    page.wait_for_timeout(3600)
-                    if qi == 0:
-                        lay("qa_countdown")
-                        shot("qa_countdown")
+                    if args.real_stt:
+                        # 진짜 A.X — 가짜 마이크가 덱 녹음을 말하고 쉰다. 「듣고 있어요…」 → 문장이 칸에 담김 → 쉼 → 초읽기 → 자동 보내기
+                        seen = {"hearing": False, "box": ""}
+                        n_me = page.evaluate("(qa.turns||[]).filter(t => t.who === 'me').length")
+                        t_dict = time.time()
+                        while time.time() - t_dict < 75:
+                            st2 = page.evaluate("""() => ({ box: (document.getElementById('liveAnswer')||{}).value || '',
+                                hearing: !!(typeof liveMic !== 'undefined' && liveMic && liveMic.speaking),
+                                stage: (document.querySelector('#qsSay .qs-int')||{}).textContent || '',
+                                sent: (qa.turns||[]).filter(t => t.who === 'me').length, busy: !!qa.live.busy })""")
+                            if st2["hearing"] and not seen["hearing"]:
+                                seen["hearing"] = True
+                                seen["stage_hearing"] = st2["stage"]
+                                if qi == 0:
+                                    shot("qa_hearing")
+                            if len(st2["box"]) > len(seen["box"]):
+                                seen["box"] = st2["box"]
+                                if qi == 0 and "box_shot" not in seen:
+                                    seen["box_shot"] = True
+                                    shot("qa_box_filled")
+                            if st2["sent"] > n_me or st2["busy"]:
+                                break
+                            page.wait_for_timeout(250)
+                        seen["sent"] = page.evaluate("(qa.turns||[]).filter(t => t.who === 'me').slice(-1).map(t => t.text)[0] || ''")
+                        seen["sec"] = round(time.time() - t_dict, 1)
+                        R.setdefault("real_stt", []).append({"qi": qi + 1, **{k: v for k, v in seen.items() if k != "box_shot"}})
+                        print(f"  Q{qi + 1} 실시간 받아쓰기 {seen['sec']}s · 듣고 있어요={seen['hearing']} · 칸: {seen['box'][:90]}", flush=True)
+                    else:
+                        text = (q.get("gist") if q.get("gist") and not q.get("trap") else None) or SPOKEN.get(args.deck) or B.ANSWERS.get(args.deck, B.ANSWERS["수익률격차"])
+                        page.evaluate("(t) => window.__fakeSay(t)", text)
+                        page.wait_for_timeout(3600)
+                        if qi == 0:
+                            lay("qa_countdown")
+                            shot("qa_countdown")
                     page.wait_for_function("qa.live.busy || qa.live.qi !== %d || (qa.live.turns||[]).length > 0" % qi, timeout=20000)
                     action = "dictate"
                 else:
-                    page.fill("#liveAnswer", SPOKEN.get(args.deck, "자료의 핵심은 이렇습니다."))
-                    page.click("#liveSend")
+                    # 10-13 Q&A 무대(qa_stage.js)는 답 칸 · 보내기를 「글로 쓰기」 뒤에 숨긴다 — 칸에 바로 넣고 보내기 함수를 부른다
+                    page.evaluate("""(t) => { if (typeof dropLiveMic === 'function') dropLiveMic();
+                        const ta = document.getElementById('liveAnswer'); ta.value = t; submitLiveAnswer(); }""",
+                                  SPOKEN.get(args.deck, "자료의 핵심은 이렇습니다."))
                     action = "type"
                 page.wait_for_timeout(400)
                 page.wait_for_function("qa.live && !qa.live.busy", timeout=180000)
@@ -672,10 +742,9 @@ def run(args) -> Path:
                     shot(f"q{qi + 1}_judged")
                 if not st["retell"] and page.evaluate("qa.live.qi === %d && !qa.live.awaitEnd && !qa.live.retell" % qi):
                     # 되묻기 — 두 번째부터는 「모르겠어요」 → 답 보고 넘어가기로 빠져나간다 (판정 과금을 묶는다)
-                    if page.is_visible("#liveReveal"):
-                        page.click("#liveReveal")
-                    elif page.is_visible("#liveStuck"):
-                        page.click("#liveStuck")
+                    # 10-13 무대는 이 버튼들을 행동 줄 뒤에 숨기기도 한다 — 보이든 말든 DOM 의 버튼을 누른다
+                    page.evaluate("() => { if (typeof dropLiveMic === 'function') dropLiveMic();"
+                                  " const b = document.getElementById('liveReveal') || document.getElementById('liveStuck'); if (b) b.click(); }")
                     page.wait_for_function("qa.live && !qa.live.busy", timeout=120000)
                     page.wait_for_timeout(800)
             page.wait_for_timeout(1500)
@@ -693,6 +762,9 @@ def run(args) -> Path:
             stayed = page.evaluate("location.hash === '#/rehearsal/qa' && !!document.querySelector('#bqStage[data-screen=qa]')")
             # Q&A 무대(qa_stage.js, 10-13)는 원래 단추를 숨기고 자기 단추로 누른다 — 숨은 원래 단추를 직접 누른다
             page.evaluate("document.getElementById('liveSeeResult').click()")
+            # 끝까지 왔으면 「결과 보기」, 아니면(진짜 받아쓰기는 첫 답 하나만) 「여기까지 하고 저장」 — 무대가 숨겨도 DOM 버튼을 누른다
+            page.evaluate("() => { if (typeof dropLiveMic === 'function') dropLiveMic();"
+                          " const b = document.getElementById('liveSeeResult') || document.getElementById('liveFinish'); if (b) b.click(); }")
             page.wait_for_function("location.hash.startsWith('#/rehearsal/report')", timeout=20000)
             page.wait_for_timeout(3000)
             sweep("report")
@@ -710,6 +782,20 @@ def run(args) -> Path:
                     sel = ".rv2 .nv-screen:last-child [data-push^='issue:']" if route == "issue" else f".rv2 .nv-screen:last-child [data-push='{route}']"
                     page.click(sel); page.wait_for_timeout(800); shot(f"rv2_{route}")
                     page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                # 「질문은 이렇게 골랐어요」 (네 모델 후보 판, 10-17) — 연습 → 고른 과정 → 자리 · 3번+ 질문. 판은 /api/v1/qa/board 로 늦게 온다
+                page.click(".rv2 .nv-screen:last-child [data-push='practice']"); page.wait_for_timeout(800)
+                try:
+                    page.wait_for_selector(".rv2 .nv-screen:last-child [data-push='board']", timeout=8000)
+                    page.click(".rv2 .nv-screen:last-child [data-push='board']"); page.wait_for_timeout(1500); shot("rv2_board")
+                    R["qa_board"] = page.evaluate("""() => ({ asked: document.querySelectorAll('.rv2 .nv-screen:last-child .qb-hit').length,
+                      funnel: [...document.querySelectorAll('.rv2 .qb-funnel b')].map(b => b.textContent), rounds: document.querySelectorAll('.rv2 .nv-screen:last-child [data-push^="round:"]').length })""")
+                    for pre in ("slot:", "round:"):
+                        if page.query_selector(f".rv2 .nv-screen:last-child .nv-group [data-push^='{pre}']"):
+                            page.click(f".rv2 .nv-screen:last-child .nv-group [data-push^='{pre}']"); page.wait_for_timeout(900); shot(f"rv2_board_{pre[:-1]}")
+                            page.click(".rv2 .nv-screen:last-child [data-back]"); page.wait_for_timeout(700)
+                except Exception as e:  # noqa: BLE001 — 판이 없는 리허설(QA_ENSEMBLE=0)은 진입 줄이 「한 모델이 골랐어요」
+                    R["qa_board"] = {"error": str(e)[:120], "entry": page.evaluate("(document.querySelector('.rv2 .qb-entry')||{}).innerText || ''")}
+                print("  qa_board    ", R.get("qa_board"), flush=True)
                 # /VRShow 갈래 — 플래그 없이도 정면 창 안에선 리포트 2.0 인가 (마지막 리포트로 연다)
                 vr = page.context.new_page()
                 vr.set_viewport_size({"width": 1512, "height": 860})
@@ -722,6 +808,13 @@ def run(args) -> Path:
                     vr.wait_for_timeout(5000)
                     R["vrshow_v2"] = fr.evaluate("""() => ({ on: !!document.querySelector('#app.rv2'), issues: document.querySelectorAll('.rv2 .nv-screen:last-child .nv-row[data-push^="issue:"]').length, legacy: !!document.querySelector('.rv2 [data-legacy]') })""")
                     vr.screenshot(path=str(out / "vrshow_report_v2.png"))
+                    if True:   # 다시 연 리포트(#/report/last)도 판을 세션 메모리 · 저장본에서 다시 얹는다
+                        vr.wait_for_timeout(2500)
+                        fr.evaluate("rv2Handle && rv2Handle.open('board')"); vr.wait_for_timeout(1600)
+                        vr.screenshot(path=str(out / "vrshow_board.png"))
+                        R["vrshow_board"] = fr.evaluate("(document.querySelector('.rv2 .nv-screen:last-child .nv-large')||{}).textContent || ''")
+                        fr.evaluate("(() => { const b = document.querySelector('.rv2 .nv-screen:last-child .nv-group [data-push^=\"slot:\"]'); if (b) b.click(); })()"); vr.wait_for_timeout(1200)
+                        vr.screenshot(path=str(out / "vrshow_board_slot.png"))
                 print("  vrshow_v2   ", R.get("vrshow_v2"), flush=True)
                 vr.close()
                 page.evaluate("try { localStorage.setItem('cheokcheok:report-v2', '1'); } catch (_) {}")
@@ -792,7 +885,7 @@ def run_reload(args) -> Path:
                  "--autoplay-policy=no-user-gesture-required"] + ([f"--use-file-for-fake-audio-capture={audio}"] if audio else [])
         b = p.chromium.launch(args=flags)
         ctx = b.new_context(viewport={"width": VW, "height": VH}, device_scale_factor=1, locale="ko-KR", permissions=["camera", "microphone"])
-        ctx.add_init_script(FAKE_SPEECH_JS)
+        ctx.add_init_script(REAL_STT_JS if args.real_stt else FAKE_SPEECH_JS)
         page = ctx.new_page()
         page.on("pageerror", lambda e: R["console"].append(f"pageerror: {e}"[:300]))
         page.on("console", lambda m: R["console"].append(f"{m.type}: {m.text}"[:300]) if m.type == "error" else None)
@@ -960,6 +1053,8 @@ def main() -> int:
     ap.add_argument("--tag", default="")
     ap.add_argument("--upload", default="", help="공개 방문자처럼 이 자료(PDF · PPTX)를 올려서 시작한다 (시연 덱 대신)")
     ap.add_argument("--audio", default="", help="가짜 마이크로 흘릴 녹음 파일 (기본: main/decks/<덱>/ 의 녹음)")
+    ap.add_argument("--real-stt", action="store_true", help="실시간 받아쓰기를 흉내 내지 않고 진짜 A.X 로 (가짜 마이크 소리를 받아쓴다 — 과금)")
+    ap.add_argument("--say-sec", type=int, default=12, help="--real-stt: 가짜 마이크의 말 길이 (그 뒤 25초 조용함, 되풀이)")
     ap.add_argument("--mobile", action="store_true", help="폰처럼 — is_mobile · has_touch")
     ap.add_argument("--no-chatter", action="store_true", help="객석 삐약이(/api/v1/chatter, 실 LLM 넷)를 막는다")
     ap.add_argument("--studio-skin", action="store_true", help="스튜디오 정면 창처럼 sx-studio 옷을 입힌다 (--viewport 를 창 크기로, 예: 1361x757)")

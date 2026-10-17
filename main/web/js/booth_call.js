@@ -495,13 +495,27 @@ function bcSpeak(text) {
    기존 받아쓰기(toggleLiveMic)와 보내기(submitLiveAnswer)를 그대로 부른다 — 질문 · 판정 요청은 그대로.
    - 켜는 때: 질문(되묻기 · 다시 말하기 포함)이 떠 있고 답 칸이 비었고, 판정 중 · 끝 카드 · 자리 비움 알림 · 처음으로 시트 · 탭 숨김이 아닐 때.
      물음마다 한 번 — 사람이 「그만 말하기」 로 끄면 그 물음에서는 다시 안 켠다
-   - 보내는 때: 확정된 글이 있고 확정 전 조각이 없고 마지막 글 뒤 2.2초 조용하면 3초 초읽기(삐약이 줄 + 「보내지 않기」).
-     더 말하면 초읽기를 접고, 타이핑하면 그 물음에서는 자동 보내기를 멈춘다
+   - 보내는 때: 확정된 글이 있고 말하는 중이 아니고(A.X 음성 감지 bos/eos — 10-15 부터 문장 단위라 확정 전 조각이 없다)
+     마지막 글 · 말소리 뒤 2.2초 조용하면 3초 초읽기(삐약이 줄 + 「보내지 않기」).
+     더 말하면(bos) 초읽기를 접고, 타이핑하면 그 물음에서는 자동 보내기를 멈춘다
    - 실시간 받아쓰기가 없는 브라우저 · 마이크 거부 · 망 오류(liveDictationDead)면 켜지 않는다 — 버튼 · 타이핑 그대로
    받아쓴 글은 답 칸(textarea)의 값만 바뀌어 감시(MutationObserver)에 안 걸리므로 짧은 주기로 돈다 — 화상판이 사라지면 스스로 멈춘다 */
 const BC_AUTO_TICK_MS = 300;
-const BC_AUTO_SILENCE_MS = 2200;
-const BC_AUTO_SEND_MS = 3000;
+// 말 끝 판단 상수 (음성UX 조사 R2·R3) — 기본은 그대로, 실험실은 주소 ?qa_silence_ms= · ?qa_send_ms= 로 바꿔 잰다 (2026-10-17 5단계).
+// 실기기 확인 없이 기본을 바꾸지 않는다.
+function bcTimingParam(name, fallback) {
+  try {
+    const v = Number(new URLSearchParams(window.location.search).get(name));
+    return Number.isFinite(v) && v >= 300 && v <= 8000 ? v : fallback;
+  } catch (_) { return fallback; }
+}
+const BC_AUTO_SILENCE_MS = bcTimingParam('qa_silence_ms', 2200);
+const BC_AUTO_SEND_MS = bcTimingParam('qa_send_ms', 3000);
+/* 2026-10-17 tune — 말 끝 판단 · 초읽기 · 미리 판정은 js/qa_turn.js(QaTurn) 설정을 따른다. 기본은 위 두 값 그대로(fixed) + 초읽기를
+   시작할 때 미리 판정. 실기기 확인 전 권고안은 ?qa_turn=fast(종결어미 0.9초 · 잇는 말 3.2초 · 초읽기 1.2초 · 문장 확정 때 미리 판정) */
+function bcTurnCfg() {
+  return window.QaTurn ? window.QaTurn.cfg() : { eot: 'fixed', silenceMs: BC_AUTO_SILENCE_MS, sendMs: BC_AUTO_SEND_MS, spec: 'off' };
+}
 
 function bcAutoLoop() {
   const host = document.getElementById('bcHost');
@@ -553,6 +567,7 @@ function bcAutoTick() {
   if (!L || bq.screen !== 'qa' || bq.variant !== 'call') return;
   const key = bcAskKey();
   const micOn = bcMicOn();
+  if (window.QaTurn && !L.busy && !L.awaitEnd) window.QaTurn.begin(key);   // 턴 시각 — 이 물음이 뜬 때부터 (같은 물음이면 그대로)
   const hold = L.awaitEnd || (typeof bqOps !== 'undefined' && bqOps.warnTimer) || !!document.getElementById('bqSheet') || document.hidden;
   if (micOn && hold) {
     // 끝 카드 · 자리 비움 · 시트 · 탭 숨김 — 듣지 않는다
@@ -572,6 +587,7 @@ function bcAutoTick() {
   if (!micOn && !hold && !L.busy && !pending && bc.autoOffKey !== key && ta && !ta.disabled && !ta.value.trim() && bcCanAutoListen()) {
     bc.autoMicKey = key;
     bc.sendOffKey = '';
+    if (window.QaTurn) window.QaTurn.mark('mic_on');
     toggleLiveMic();
     return;
   }
@@ -581,11 +597,21 @@ function bcAutoTick() {
 function bcAutoSend(key, micOn, ta) {
   const mic = micOn ? liveMic : null;
   const text = ta ? ta.value.trim() : '';
-  const quiet = !!mic && mic.dictation && !!mic.lastTextAt && Date.now() - mic.lastTextAt >= BC_AUTO_SILENCE_MS
+  const cfg = bcTurnCfg();
+  // 말 끝으로 볼 침묵 — fixed 는 일괄, ending 은 마지막 확정 문장의 어미로 (QaTurn.silenceFor)
+  const need = window.QaTurn ? window.QaTurn.silenceFor(mic ? mic.final : '', cfg) : BC_AUTO_SILENCE_MS;
+  // 문장이 끝나야 글이 오므로 「말하는 중」(speaking, 서버 bos~eos)을 같이 본다 — 안 보면 긴 문장 한가운데서 초읽기가 끝나 보낸다
+  const settled = !!mic && mic.dictation && !mic.speaking && !!mic.lastTextAt
     && !String(mic.interim || '').trim() && !!String(mic.final || '').trim();
+  const quiet = settled && Date.now() - mic.lastTextAt >= need;
+  // 미리 판정 — 문장이 종결어미로 확정되면 바로(final) · 초읽기를 시작할 때(quiet). 같은 답은 한 번만 (qa_live.js liveSpeculate)
+  if (settled && cfg.spec === 'final' && !qa.live.busy && bc.sendOffKey !== key && text && window.QaTurn
+      && window.QaTurn.endKind(mic.final) === 'final' && typeof liveSpeculate === 'function') liveSpeculate(text);
   if (!mic || bc.sendOffKey === key || qa.live.busy || !text || !quiet) { bcAutoCancelSend(); return; }
   if (!bc.sendAt) {
-    bc.sendAt = Date.now() + BC_AUTO_SEND_MS;
+    bc.sendAt = Date.now() + cfg.sendMs;
+    if (window.QaTurn) window.QaTurn.mark('quiet', { eotKind: window.QaTurn.endKind(mic.final), silenceNeed: need });
+    if (cfg.spec !== 'off' && typeof liveSpeculate === 'function') liveSpeculate(text);
     bcAnnounce('곧 보내요. 더 말하면 이어서 받아요');
     bqSet(document.getElementById('bcSendCancel'), 'hidden', false);
   }
@@ -596,6 +622,7 @@ function bcAutoSend(key, micOn, ta) {
 }
 
 function bcAutoCancelSend() {
+  if (bc.sendAt && window.QaTurn) window.QaTurn.mark('cancel');
   bc.sendAt = 0;
   bqSet(document.getElementById('bcSendCancel'), 'hidden', true);
 }

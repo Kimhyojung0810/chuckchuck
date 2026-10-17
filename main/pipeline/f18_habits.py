@@ -3,15 +3,19 @@
 Transcript → HabitDoc.
 
 provider:
-  - lora (기본): Midm LoRA 태거로 REP(기본) 추출 + heuristic 으로 FIL/PAUSE 보강
+  - lora (기본): Mi:dm LoRA — REP 어댑터(rp 1.0) + FIL 어댑터 3시드 앙상블(rp 1.2, 있으면).
+    어댑터가 없는 태그와 긴 휴지(PAUSE) 는 규칙으로. 무엇이 찾았는지는 HabitDoc.detectors 에 남는다.
+    올리는 중이면 heuristic(lora-loading), 못 돌면 heuristic(lora-fallback).
   - heuristic: 규칙/사전만 (테스트·GPU 없을 때)
   - fixture: spans 가 이미 있으면 그대로 집계
 """
 
 from __future__ import annotations
 
+import importlib
 import os
 import re
+import sys
 from dataclasses import replace
 from collections import defaultdict
 
@@ -23,6 +27,8 @@ FILLERS = {
     "어쨌든", "아무튼", "막",
 }
 PAUSE_SEC = 5.0
+#: HabitDoc.detectors — 태그마다 무엇이 찾았나. lora · lora-ensemble×3 · rule · fixture
+RULE_DETECTORS = {"REP": "rule", "FIL": "rule", "PAUSE": "rule"}
 _NORM = re.compile(r"[^\w가-힣]+", re.UNICODE)
 
 
@@ -108,35 +114,82 @@ def _heuristic_spans(transcript: Transcript, *, kinds: set[str] | None = None) -
     return spans
 
 
-def _lora_spans(transcript: Transcript) -> list[HabitSpan] | None:
-    """LoRA 추론. 실패 시 None → 호출측에서 heuristic 폴백."""
-    try:
-        from . import _lora_tagger
-    except Exception:
-        return None
-    if not _lora_tagger.adapter_available():
-        return None
-    try:
-        return _lora_tagger.tag_spans(transcript)
-    except Exception:
-        return None
+def _internal(name: str):
+    """sys.modules 를 먼저 보는 import — 테스트가 끼운 스텁이 패키지 속성보다 이긴다 (from . import 는 반대)."""
+    return importlib.import_module(f"{__package__}.{name}")
 
 
-def _merge_lora_and_heuristic(transcript: Transcript, lora: list[HabitSpan]) -> list[HabitSpan]:
+class _LoraOutcome:
+    """LoRA 한 번 돌린 결과 — 스팬, 맡은 태그(태그→탐지기 이름), 못 돌았을 때 그 까닭."""
+
+    def __init__(self, spans=None, covered=None, why: str = ""):
+        self.spans: list[HabitSpan] = list(spans or [])
+        self.covered: dict[str, str] = dict(covered or {})
+        self.why = why
+
+    @property
+    def ok(self) -> bool:
+        return not self.why
+
+
+def _lora_spans(transcript: Transcript) -> _LoraOutcome:
+    """LoRA 추론. 못 돌면 why 에 까닭(fallback · loading) → 호출측이 규칙으로 대신한다."""
+    try:
+        _lora_tagger = _internal("_lora_tagger")
+    except Exception as e:  # noqa: BLE001 — torch 없는 python 등
+        sys.stderr.write(f"[f18] LoRA 모듈을 못 불러 규칙으로 대신해요: {type(e).__name__}: {e}\n")
+        return _LoraOutcome(why="fallback")
+    if _lora_tagger is None or not _lora_tagger.adapter_available():
+        return _LoraOutcome(why="fallback")
+    not_ready = getattr(_lora_tagger, "LoraNotReady", None)
+    try:
+        tag = getattr(_lora_tagger, "tag_habits", None)
+        if tag is None:  # 옛 인터페이스(스팬만) — 나온 태그를 맡은 것으로 본다
+            spans = _lora_tagger.tag_spans(transcript)
+            return _LoraOutcome(spans, {s.kind: "lora" for s in spans})
+        res = tag(transcript)
+        return _LoraOutcome(res.spans, res.covered)
+    except Exception as e:  # noqa: BLE001
+        if not_ready is not None and isinstance(e, not_ready):
+            return _LoraOutcome(why="loading")
+        sys.stderr.write(f"[f18] LoRA 실패 → 규칙으로 대신해요: {type(e).__name__}: {e}\n")
+        return _LoraOutcome(why="fallback")
+
+
+def _merge_lora_and_heuristic(transcript: Transcript, lora: list[HabitSpan],
+                              covered: dict[str, str] | None = None) -> tuple[list[HabitSpan], dict[str, str]]:
     """
-    LoRA 기본 기여: REP (CHUCKCHUCK_LORA_KINDS 로 FIL 포함 가능).
-    타임스탬프 휴지·간투어는 heuristic 보강.
+    LoRA 가 맡은 태그는 LoRA 결과만 믿는다 (0개여도 — 「찾아 봤는데 없다」).
+    맡지 않은 태그와 긴 휴지(PAUSE, 타임스탬프 계산) 는 규칙으로 채운다.
+    covered 가 없으면(옛 인터페이스) LoRA 가 낸 태그를 맡은 것으로 본다.
     """
-    lora_kinds = {s.kind for s in lora}
-    # FIL 을 LoRA 가 안 줬으면 heuristic FIL 사용 (기본 설정)
-    need = {"PAUSE"}
-    if "FIL" not in lora_kinds:
-        need.add("FIL")
-    # LoRA 가 REP 를 전혀 못 뽑으면 heuristic REP 로라도 보강
-    if "REP" not in lora_kinds:
-        need.add("REP")
+    cov = dict(covered) if covered is not None else {s.kind: "lora" for s in lora}
+    need = {"PAUSE"} | ({"REP", "FIL"} - set(cov))
     extra = _heuristic_spans(transcript, kinds=need)
-    return list(lora) + extra
+    detectors = {k: cov.get(k, "rule") for k in ("REP", "FIL")}
+    detectors["PAUSE"] = "rule"
+    return [s for s in lora if s.kind in cov] + extra, detectors
+
+
+def preload_lora() -> bool:
+    """브리지가 뜰 때 뒤에서 LoRA 를 미리 올린다 (HABIT_PROVIDER=lora 일 때만). 올리기 시작했으면 True."""
+    if (os.environ.get("HABIT_PROVIDER") or "lora").lower() != "lora":
+        return False
+    if os.environ.get("CHUCKCHUCK_LORA_PRELOAD", "1") == "0":
+        return False
+    try:
+        _lora_tagger = _internal("_lora_tagger")
+        _lora_runtime = _internal("_lora_runtime")
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"[f18] LoRA 미리 올리기 생략: {type(e).__name__}: {e}\n")
+        return False
+    cfg = _lora_tagger.load_config()
+    if cfg.missing:
+        sys.stderr.write(f"[f18] 설정한 어댑터 경로에 adapter_config.json 이 없어요: {list(cfg.missing)}\n")
+    if not cfg.adapters:
+        sys.stderr.write("[f18] LoRA 어댑터가 없어 습관 분석은 규칙으로 돌아요 (heuristic(lora-fallback))\n")
+        return False
+    return _lora_runtime.preload(cfg)
 
 
 def _aggregate(spans: list[HabitSpan], transcript: Transcript) -> HabitDoc:
@@ -213,22 +266,27 @@ def extract_habits(
         ]
         doc = _aggregate(parsed, transcript)
         doc.provider = "fixture"
+        doc.detectors = {"REP": "fixture", "FIL": "fixture", "PAUSE": "fixture"}
         return doc
 
     if prov == "lora":
-        lora = _lora_spans(transcript)
-        if lora is not None:
-            doc = _aggregate(_merge_lora_and_heuristic(transcript, lora), transcript)
+        out = _lora_spans(transcript)
+        if out.ok:
+            merged, detectors = _merge_lora_and_heuristic(transcript, out.spans, out.covered)
+            doc = _aggregate(merged, transcript)
             doc.provider = "lora"
+            doc.detectors = detectors
             return doc
-        # 어댑터/GPU/의존성 없으면 heuristic 폴백
+        # 어댑터/GPU/의존성 없으면(fallback) · 미리 올리는 중이면(loading) 규칙으로
         doc = _aggregate(_heuristic_spans(transcript), transcript)
-        doc.provider = "heuristic(lora-fallback)"
+        doc.provider = f"heuristic(lora-{out.why})"
+        doc.detectors = dict(RULE_DETECTORS)
         return doc
 
     if prov == "heuristic":
         doc = _aggregate(_heuristic_spans(transcript), transcript)
         doc.provider = "heuristic"
+        doc.detectors = dict(RULE_DETECTORS)
         return doc
 
     raise HabitError(f"unknown habit provider: {prov}")

@@ -940,8 +940,8 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
 .ai-bench-k { color: var(--sun); font-size: 17px; font-weight: var(--w-display); }
 .ai-bench-lead { margin-top: 6px; color: var(--on-2); font-size: 14.5px; line-height: 1.55; text-wrap: pretty; }
 .ai-bars { margin-top: 16px; display: grid; gap: 10px; }
-.ai-bars li { display: grid; grid-template-columns: 64px minmax(0, 1fr) 56px; align-items: center; gap: 10px; }
-.ai-bar-name { color: var(--on); font-size: 14px; font-weight: var(--w-bold); }
+.ai-bars li { display: grid; grid-template-columns: 116px minmax(0, 1fr) 52px; align-items: center; gap: 10px; }
+.ai-bar-name { color: var(--on); font-size: 13.5px; font-weight: var(--w-bold); white-space: nowrap; }
 .ai-bar { height: 12px; border-radius: var(--r-pill); background: rgba(255, 255, 255, .08); overflow: hidden; }
 .ai-bar i { display: block; height: 100%; border-radius: var(--r-pill); background: rgba(255, 255, 255, .45); }
 .ai-bars li:first-child .ai-bar i { background: var(--sun); }
@@ -1204,7 +1204,7 @@ html.rv-on .rv:not(.in) { opacity: 0; transform: translateY(28px); }
   .ai-bench { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); column-gap: 40px; align-items: center; padding: 28px 32px; margin-top: 20px; }
   .ai-bench-k, .ai-bench-lead, .ai-bench-note { grid-column: 1; }
   .ai-bars { grid-column: 2; grid-row: 1 / span 3; margin-top: 0; }
-  .ai-bars li { grid-template-columns: 80px minmax(0, 1fr) 64px; }
+  .ai-bars li { grid-template-columns: 120px minmax(0, 1fr) 64px; }
   .ai-cam { font-size: 16px; }
   .voices .pains { max-width: 720px; }
   .pains-light .pain p { font-size: 16px; }

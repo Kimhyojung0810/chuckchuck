@@ -34,7 +34,7 @@ const APP_SRC = readFileSync(path.join(JS_DIR, 'app.js'), 'utf8');
    조용히 통과해 버린다. */
 const EXPORT_LINE = `
 ;globalThis.__api = {
-  qaLiveActive, newLiveState, liveStalled, hintSlideNos, liveWeakAnswer,
+  qaLiveActive, newLiveState, liveStalled, hintSlideNos, liveWeakAnswer, liveFirstCue, liveSlowCue,
   liveHints, liveQuestionHints, openNextHint, liveArtifacts, HINT_SLIDE_SHOW_MAX,
   liveScoredAnswers, stuckLabelFor, coachMeta, coachReactText,
   paperHref, attachQuestionPapers, linkCitedText, questionPapersHtml,
@@ -45,6 +45,7 @@ const EXPORT_LINE = `
   liveHintsShown, liveRevealModel, liveNeedsReveal, liveSpeechMismatch, revealHalf, finishLiveQuestion, liveRevealsHalf,
   liveEntryNotes, liveContradiction, liveGroundsView, liveGroundSlides,
   liveRankConceptSwitch, liveSkipQuestion, liveSwitchConcept, liveSwitchPerspective, liveCanSwitch, liveStreak,
+  liveEnsembleAdvance, liveEnsembleAsked,
 };`;
 
 /**
@@ -973,7 +974,54 @@ test('같은 주제, 다른 관점 — 서버 질문을 지금 자리에 넣는�
   eq(await b.api.liveSwitchPerspective('example'), null, '함정 질문은 바꾸지 않는다');
 });
 
+/* ── 네 모델 3번+ 질문 (10-17 버그 사냥) ───────────────────────────────────── */
+test('3번+ — 기다리는 사이 이 자리 질문이 이미 떴으면 늦게 온 질문으로 갈아 끼우지 않는다', async () => {
+  const { ctx, api } = weaveContext();
+  let advanced = 0;
+  let release;
+  ctx.advanceLiveStream = () => { advanced += 1; };
+  ctx.window = { ChuckchuckBridge: { ensembleNextQuestion: () => new Promise((r) => { release = r; }) } };
+  const qs = [{ id: 'e01', question: 'a?' }, { id: 'e02', question: 'b?' }, { id: 'e03', node_id: 'n3', question: '준비한 3번?' }];
+  ctx.qa.live = liveState(api, qs, { qi: 2, ensemble: { active: true } });
+  const p = api.liveEnsembleAdvance(ctx.qa.live);
+  ctx.qa.live.asked = 2;                 // 다른 화면에 갔다 오며 renderQaLive 가 준비한 질문을 띄웠다
+  release({ question: { id: 'e03', node_id: 'n9', question: '늦게 온 3번?' }, by: 'ax' });
+  await p;
+  eq([ctx.qa.live.questions[2].question, advanced], ['준비한 3번?', 0], '화면에 뜬 질문이 채점 기준이다');
+});
+test('3번+ — 고르기가 실패하면 앞에서 물은 개념의 준비한 질문은 건너뛴다', async () => {
+  const { ctx, api } = weaveContext();
+  ctx.window = { ChuckchuckBridge: { ensembleNextQuestion: async () => { throw new Error('timeout'); } } };
+  const qs = [{ id: 'e01', node_id: 'n1', question: 'a?' }, { id: 'e02', node_id: 'n2', question: 'b?' },
+    { id: 'e03', node_id: 'n1', question: '같은 개념 또?' }, { id: 'e04', node_id: 'n4', question: 'd?' }];
+  ctx.qa.live = liveState(api, qs, { qi: 2, ensemble: { active: true } });
+  await api.liveEnsembleAdvance(ctx.qa.live);
+  eq(ctx.qa.live.questions.map((q) => q.id), ['e01', 'e02', 'e04']);
+});
+test('3번+ — 다른 관점으로 고른 질문은 네 모델 고르기가 덮어쓰지 않는다 · 앞 답에 질문 문장을 싣는다', async () => {
+  const { ctx, api } = weaveContext();
+  ctx.window = { ChuckchuckBridge: { reframeQaQuestion: async () => ({ question: { id: 'e02~counter', node_id: 'n2', question: '반례는?' }, perspective: 'counter', perspective_name: '반례' }) } };
+  ctx.qa.live = liveState(api, [{ id: 'e01', node_id: 'n1', question: 'a?' }, { id: 'e02', node_id: 'n2', label: 'B', question: 'b?' }, { id: 'e03', node_id: 'n3' }],
+    { qi: 1, ensemble: { active: true } });
+  await api.liveSwitchPerspective('counter');
+  eq([ctx.qa.live.qi, ctx.qa.live.questions[2].id, !!(ctx.qa.live.ensDone || {})[2]], [2, 'e02~counter', true]);
+  ctx.qa.live.results = [{ id: 'e01', question: 'a?', answer: '답', verdict: 'good' }];
+  eq(api.liveEnsembleAsked(ctx.qa.live), [{ question_id: 'e01', question: 'a?', answer: '답', verdict: 'good' }]);
+});
+
 let failed = 0;
+test('첫 박자 반응 — 답 원문의 마디를 그대로 받고, 짧은 답 · 빈 답엔 안 지어낸다 (2026-10-17 R4)', () => {
+  const { liveFirstCue, liveSlowCue } = newContext().api;
+  const a = '실험실에서 한 거라서, 상황마다 좀 다를 것 같아요.';
+  const cue = liveFirstCue(a);
+  const m = cue.match(/「(.+)」라고 했죠/);
+  if (!m || !a.includes(m[1])) throw new Error(cue);
+  eq(liveFirstCue('네'), '', '짧은 답');
+  eq(liveFirstCue(''), '', '빈 답');
+  if (liveFirstCue('가'.repeat(80)).length > 40) throw new Error('긴 마디는 어절에서 자른다');
+  eq(liveSlowCue({ evidence_slide_no: 3 }), '자료 3장과 맞춰 보고 있어요');
+});
+
 for (const c of cases) {
   try {
     await c.fn();

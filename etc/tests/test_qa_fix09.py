@@ -349,8 +349,9 @@ def test_프롬프트_예시를_베낀_되물음은_버리고_코드가_선택�
                        "choices": ["수면의 질은 시간, 연속성, 규칙성의 곱으로 정의되며 연속성과 규칙성이 회복에 더 큰 영향을 미친다",
                                    "수면 시간은 침대에 누운 시간과 실제 회복 시간의 차이를 의미한다"]})
     j = coach_stuck(Q_BEHAVIOR, graph=GAP_GRAPH, slidedoc=GAP, llm=llm)
-    assert "A인가요" not in j.followup and "쪽인가요" in j.followup
-    assert len(j.choices) == 2 and not INFLECTED & set(j.choices)
+    assert "A인가요" not in j.followup
+    # 10-17 tune: 골자 낱말 빈칸 보기는 없다 — 문장 통째 보기(다듬기 뒤에도 김)는 버리고 보기 없이 근거 장을 가리킨다
+    assert not INFLECTED & set(j.choices) and all(len(c) <= 32 for c in j.choices)
 
 
 def test_자료에_없는_활용형_선택지는_버린다():
@@ -358,14 +359,14 @@ def test_자료에_없는_활용형_선택지는_버린다():
     llm = ScriptedLLM({"react": "괜찮아요.", "followup": "이 장이 말하는 건 과잉 매매 쪽인가요, 중요함 쪽인가요?",
                        "choices": ["과잉 매매", "중요함"]})
     j = coach_stuck(Q_BEHAVIOR, graph=GAP_GRAPH, slidedoc=GAP, llm=llm)
-    assert "중요함" not in j.choices and len(j.choices) == 2
+    assert "중요함" not in j.choices and "중요함" not in j.followup   # 10-17 tune: 낱말 하나짜리 보기는 논리 보기가 아니다 — 빈칸 보기로 메우지 않는다
 
 
 def test_자료의_말로_쓴_LLM_선택지는_그대로_쓴다():
     llm = ScriptedLLM({"react": "괜찮아요.", "followup": "가장 큰 요인은 과잉 매매 쪽인가요, 거래 비용 쪽인가요?",
                        "choices": ["과잉 매매", "거래 비용"]})
     j = coach_stuck(Q_BEHAVIOR, graph=GAP_GRAPH, slidedoc=GAP, llm=llm)
-    assert j.choices == ["과잉 매매", "거래 비용"]
+    assert sorted(j.choices) == sorted(["과잉 매매", "거래 비용"])
 
 
 # ---------------------------------------------------------------------------
