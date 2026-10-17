@@ -92,24 +92,24 @@
                   <p class="dk-cap">${fmt(V.duration_sec)} 발표 · ${slides.length}장</p>${sc ? `<button type="button" class="dk-link" data-push="scores">기준별 점수 <i>${I.chev}</i></button>` : ''}</div>
               </div>
               <div class="dk-kpis">${kpis.map((x) => `<button type="button" class="dk-kpi" data-root="${x.go}">
-                <span class="dk-cap">${esc(x.k)}</span><span class="dk-num t-${x.t}">${esc(x.v)}<small>${esc(x.u)}</small></span>
-                ${x.bar != null ? `<span class="dk-bar"><i style="width:${(x.bar * 100).toFixed(1)}%"></i></span>` : ''}<span class="dk-sub">${esc(x.sub)}</span></button>`).join('')}</div>
+                <span class="dk-kpilab"><i class="dk-dot t-${x.t}"></i>${esc(x.k)}</span><span class="dk-num">${esc(x.v)}<small>${esc(x.u)}</small></span>
+                ${x.bar != null ? `<span class="dk-bar t-${x.t}"><i style="width:${(x.bar * 100).toFixed(1)}%"></i></span>` : ''}<span class="dk-sub">${esc(x.sub)}</span></button>`).join('')}</div>
             </section>
             <section class="dk-col dk-fix">
-              <h2 class="dk-h">먼저 고칠 것</h2>
-              <div class="dk-fixlist">${top.map((x, k) => `<article class="dk-card dk-fixcard" data-push="issue:${esc(x.id)}" role="button" tabindex="0">
-                  <span class="dk-n t-${tone(x)}">${k + 1}</span>
+              <h2 class="dk-sec">먼저 고칠 것</h2>
+              <div class="dk-group dk-fixlist">${top.map((x, k) => `<div class="dk-fixrow" data-push="issue:${esc(x.id)}" role="button" tabindex="0">
+                  <span class="dk-rank">${k + 1}</span>
                   <div class="dk-fixmain"><b>${esc(x.title)}</b><p>${esc(x.why || '')}</p></div>
-                  ${go(STATION_OF[x.criterion] || 'coach', STATION_NAME[STATION_OF[x.criterion] || 'coach'])}
-                </article>`).join('') || '<p class="dk-empty">근거가 있는 문제를 찾지 못했어요.</p>'}</div>
-              ${V.strengths.length ? `<div class="dk-good"><span class="dk-cap">잘한 점</span>${V.strengths.slice(0, 2).map((x) => `<button type="button" class="dk-chip t-ok" data-push="issue:${esc(x.id)}">${I.check}<span>${esc(x.title)}</span></button>`).join('')}</div>` : ''}
+                  ${go(STATION_OF[x.criterion] || 'coach', STATION_NAME[STATION_OF[x.criterion] || 'coach'].slice(3))}
+                </div>`).join('') || '<p class="dk-empty">근거가 있는 문제를 찾지 못했어요.</p>'}</div>
+              ${V.strengths.length ? `<h2 class="dk-sec">잘한 점</h2><div class="dk-group dk-goodlist">${V.strengths.slice(0, 2).map((x) => `<div class="dk-goodrow" data-push="issue:${esc(x.id)}" role="button" tabindex="0"><span class="dk-okico">${I.check}</span><span>${esc(x.title)}</span><i class="dk-chev">${I.chev}</i></div>`).join('')}</div>` : ''}
             </section>
           </div>
           ${foot()}
         </div>`,
         wire(el) {
           wireRoots(el);
-          el.querySelectorAll('.dk-fixcard').forEach((a) => a.addEventListener('keydown', (e) => { if (e.key === 'Enter') a.click(); }));
+          el.querySelectorAll('[role="button"][data-push]').forEach((a) => a.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); a.click(); } }));
         },
       };
     }
@@ -333,7 +333,7 @@
             </section>
             <section class="dk-card dk-pcol">
               <h3 class="dk-h3">Q&A 돌아보기</h3>
-              <div class="dk-rows">${V.qa.length ? V.qa.map((q) => `<button type="button" class="dk-row" data-push="qa:${esc(q.id)}"><span class="dk-v t-${qt(q.result || {})}">${esc(state(q.result || {}))}</span><span><b>${esc(q.text)}</b></span></button>`).join('') : '<p class="dk-empty">이 리포트엔 Q&A 기록이 없어요.</p>'}</div>
+              <div class="dk-rows">${V.qa.length ? V.qa.map((q) => `<button type="button" class="dk-row dk-qrow" data-push="qa:${esc(q.id)}"><span><b>${esc(q.text)}</b><small><i class="dk-dot t-${qt(q.result || {})}"></i>${esc(state(q.result || {}))}</small></span><i class="dk-chev">${I.chev}</i></button>`).join('') : '<p class="dk-empty">이 리포트엔 Q&A 기록이 없어요.</p>'}</div>
               ${c.qaEntry()}
             </section>
           </div>

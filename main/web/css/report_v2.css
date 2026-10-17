@@ -588,3 +588,80 @@ html.sx-studio #app.rv2-host { position: fixed; inset: 0; height: auto; z-index:
   .rv2 .dk-seats { grid-template-columns: repeat(2, 1fr); }
 }
 .rv2 .dk-lead { margin: 6px 0 0; color: var(--ink-2); font-size: 15px; line-height: 1.45; }
+
+/* ── Apple 결 다듬기 (10-17 사용자 「애플 디자이너라고 생각하고 리포트 UI 다듬어」) ──
+   색은 판정 · 행동에만(숫자는 검정, 상태는 작은 점), 카드 대신 묶음 목록 + 머리카락 선, 머리 단추는 색 글자,
+   섹션 이름은 작은 회색, 들어올 때 살짝 떠오르기(움직임 줄이기면 없음) */
+.rv2 .dk { padding: 28px 36px 18px; gap: 20px; }
+.rv2 .dk-head { align-items: flex-start; }
+.rv2 .dk-eyebrow { font-size: 12.5px; letter-spacing: .01em; }
+.rv2 .dk-title { font-size: 30px; line-height: 1.22; letter-spacing: -0.032em; }
+.rv2 .dk-lead { margin-top: 8px; color: var(--ink-3); }
+.rv2 .dk-tag { margin-top: 18px; background: none; color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--sep); }
+.rv2 .dk-headacts { margin-top: 16px; gap: 2px; }
+.rv2 .dk-more { height: 32px; padding: 0 10px; background: none; color: var(--accent-ink); }
+.rv2 .dk-more:hover { background: var(--accent-wash); color: var(--accent-ink); }
+.rv2 .dk-more:active { opacity: .6; }
+.rv2 .dk-card, .rv2 .dk-group, .rv2 .dk-kpi { border-radius: 22px; box-shadow: 0 1px 2px rgba(0, 0, 0, .03); }
+.rv2 .dk-sec { margin: 0 0 8px 6px; font-size: 13px; font-weight: 600; color: var(--ink-3); letter-spacing: .01em; }
+.rv2 .dk-h3 { font-size: 12.5px; font-weight: 600; color: var(--ink-3); letter-spacing: .01em; }
+.rv2 .dk-chev { flex: none; display: inline-flex; width: 7px; height: 12px; color: var(--ink-4); }
+
+/* 묶음 목록 — iOS 설정 앱처럼 한 면 안에 줄과 머리카락 선 */
+.rv2 .dk-group { background: var(--surface); overflow: hidden; display: flex; flex-direction: column; }
+.rv2 .dk-fix { gap: 0; }
+.rv2 .dk-fixlist { flex: 1; min-height: 0; margin-bottom: 18px; }
+.rv2 .dk-fixrow { position: relative; flex: 1; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 14px 16px 14px 22px; cursor: pointer; transition: background-color .15s; }
+.rv2 .dk-fixrow + .dk-fixrow::before, .rv2 .dk-goodrow + .dk-goodrow::before { content: ''; position: absolute; top: 0; right: 0; left: 64px; height: .5px; background: var(--sep); }
+.rv2 .dk-goodrow + .dk-goodrow::before { left: 58px; }
+.rv2 .dk-fixrow:hover, .rv2 .dk-goodrow:hover { background: rgba(0, 0, 0, .025); }
+.rv2 .dk-fixrow:active, .rv2 .dk-goodrow:active { background: rgba(0, 0, 0, .05); }
+.rv2 .dk-rank { font-size: 22px; font-weight: 700; color: var(--ink-4); text-align: center; font-variant-numeric: tabular-nums; }
+.rv2 .dk-fixmain b { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; }
+.rv2 .dk-fixmain p { color: var(--ink-3); }
+.rv2 .dk-go { height: 30px; padding: 0 2px 0 8px; background: none; color: var(--accent-ink); font-size: 14px; }
+.rv2 .dk-go:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
+.rv2 .dk-goodlist { flex: none; }
+.rv2 .dk-goodrow { position: relative; display: flex; align-items: center; gap: 12px; padding: 13px 18px; font-size: 15px; cursor: pointer; transition: background-color .15s; }
+.rv2 .dk-goodrow > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv2 .dk-okico { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--ok-bg); color: var(--ok); }
+.rv2 .dk-okico svg { width: 13px; height: 13px; }
+
+/* 핵심 수치 — 건강 앱 결: 이름 옆 상태 점, 숫자는 검정 */
+.rv2 .dk-kpi { justify-content: space-between; gap: 6px; padding: 16px 18px; transition: background-color .15s, transform .15s; }
+.rv2 .dk-kpi:hover { transform: none; background: #FBFBFD; }
+.rv2 .dk-kpi:active { transform: scale(.98); }
+.rv2 .dk-kpilab { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.rv2 .dk-kpi .dk-num { font-size: 30px; color: var(--ink); }
+.rv2 .dk-bar i { background: var(--mid); } .rv2 .dk-bar.t-ok i { background: var(--ok); }
+.rv2 .dk-ring { padding: 20px 22px; }
+.rv2 .dk-ringbox circle { stroke-width: 10; }
+
+/* 다시 보기 — 시간축은 알약 조각, 옆 칸은 머리카락 선으로 나눈다 */
+.rv2 .dk-track { background: none; height: 30px; }
+.rv2 .dk-band { border-right: 0; border-radius: 7px; background: var(--fill); box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .04); transform: scaleX(.985); }
+.rv2 .dk-band.is-on { background: var(--accent-wash); }
+.rv2 .dk-head-mark { width: 2px; border-radius: 1px; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+.rv2 .dk-side .dk-h3 { margin-top: 6px; padding-top: 14px; border-top: .5px solid var(--sep); }
+.rv2 .dk-thumb { transition: background-color .15s; }
+.rv2 .dk-thumb:hover:not(.is-on) { background: rgba(255, 255, 255, .6); }
+
+/* 코칭 · 연습 목록 — 번호는 중립, 고른 줄은 옅은 회색 */
+.rv2 .dk-list .dk-n { background: var(--fill); color: var(--ink-2); width: 28px; height: 28px; font-size: 14px; }
+.rv2 .dk-item.is-on { background: var(--fill); }
+.rv2 .dk-item.is-on b { color: var(--ink); }
+.rv2 .dk-row { transition: background-color .15s, transform .15s; }
+.rv2 .dk-row:active, .rv2 .dk-item:active { transform: scale(.985); }
+
+/* 들어올 때 — 머리 · 칸이 차례로 6px 떠오른다 */
+@media (prefers-reduced-motion: no-preference) {
+  .rv2 .dk-head, .rv2 .dk-body > * { animation: dk-in .55s var(--ease) both; }
+  .rv2 .dk-body > :nth-child(2) { animation-delay: .06s; }
+  .rv2 .dk-body > :nth-child(3) { animation-delay: .12s; }
+  .rv2 .dk-detail > *, .rv2 .dk-side > * { animation: dk-fade .28s ease both; }
+}
+@keyframes dk-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes dk-fade { from { opacity: 0; } to { opacity: 1; } }
+.rv2 .dk-seat img { width: 104px; }
+.rv2 .dk-qrow > span { flex: 1; min-width: 0; }
+.rv2 .dk-qrow small { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
