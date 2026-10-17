@@ -311,3 +311,15 @@ def test_음성_라운드_신호는_앞_답_약점_먼저_그다음_물은_장�
     assert out[0]["kind"] == "weak_answer" and out[1]["slide_no"] == 14 and [s["id"] for s in out] == [f"V{i}" for i in range(1, len(out) + 1)]
     monkeypatch.setenv("QA_PICK_SPREAD", "0")
     assert FE.order_signals(sigs, []) == sigs
+
+
+def test_바로_앞_질문과_같은_장의_후보는_다른_장이_있으면_판에서_뺀다(monkeypatch):
+    graph, sd, pool, llms = _pool()
+    monkeypatch.setenv("QA_PICK_SPREAD", "1")
+    seen = []
+    monkeypatch.setattr(FE, "ens_pick", lambda name, llm, options, asked, calls, seed=0: seen.extend(options) or {})
+    asked = [{"question": "q1", "node_id": "x", "slide_no": 1}, {"question": "q2", "node_id": "y", "slide_no": 4}]
+    vr = FE.VoiceRound([], [{"uid": "v1", "question": "같은 4장 질문인가요?", "slide_no": 4, "node_id": "limit", "peer": 0},
+                            {"uid": "v2", "question": "설계가 결론을 받치나요?", "slide_no": 2, "node_id": "design", "peer": 0}], [], [], 0)
+    FE.choose_next(pool, vr, asked, llm=llms["solar4"], pick_wait=0)
+    assert seen and all(int(o.get("slide_no") or 0) != 4 for o in seen)

@@ -946,6 +946,12 @@ def choose_next(pool: Pool, vr: VoiceRound | None, asked: list[dict], *, picker:
     if not voice and not heard:
         return {**rest[0], "substituted": True, "pick_reason": "음성 후보가 아직 없어 묶음에서 냈어요"} if rest else {}
     options = voice + [c for c in heard if all(c["uid"] != v["uid"] for v in voice)] + rest[:2]
+    if pick_spread_on() and asked and asked[-1].get("slide_no"):
+        # 바로 앞 질문과 같은 장은 뒤로 — 음성 라운드는 답 하나 뒤처져(앞 질문을 모른 채) 만들어져 같은 장을 연달아 물었다(10-17 r5: [7,4,7] · [8,9,8])
+        last = int(asked[-1]["slide_no"])
+        other = [o for o in options if int(o.get("slide_no") or o.get("signal_slide") or 0) != last]
+        if len(other) >= 2:
+            options = other
     calls = calls if calls is not None else []
     name = picker or picker_name()
 

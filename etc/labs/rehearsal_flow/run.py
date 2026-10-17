@@ -828,6 +828,7 @@ def run(args) -> Path:
                     page.wait_for_timeout(800)
             page.wait_for_timeout(1500)
             sweep("qa_end", settle=900)
+            R["qa_turns"] = page.evaluate("window.__qaTurns || []")    # js/qa_turn.js 턴 시각 (10-17 tune) — 질문 뜸 · 보내기 · 판정 · 다음 말
             mark("qa", t0, {"turns": len(R["turns"]), "end": page.evaluate("!!qa.live.awaitEnd"),
                             "see": page.evaluate("(document.getElementById('liveSeeResult')||{}).textContent||''"),
                             "finish": page.evaluate("(document.getElementById('liveFinish')||{}).textContent||''"),
