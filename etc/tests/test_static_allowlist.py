@@ -30,6 +30,9 @@ WEB = bridge.DEMO_DIR
     # 10-02 뒤 main 에 생긴 것 — 방패의 robots.txt · PDF 보기 · /rehearsal 시연 덱 표지와 장 그림
     "/robots.txt", "/js/vendor/pdfjs/pdf.min.js", "/js/vendor/pdfjs/pdf.worker.min.js",
     "/assets/deck-covers/battery-fastcharge.webp", "/assets/deck-slides/battery-fastcharge/1.webp",
+    # 10-17 발표 태도(베타) 카메라 분석 — 워커 · 특징 · 고전 Haar 캐스케이드(git 에 있다)
+    "/js/behavior_cv_worker.js", "/js/behavior_cv_features.js", "/js/vendor/cv/haarcascade_profileface.xml",
+    "/js/vendor/cv/haarcascade_eye.xml",
 ])
 def test_앱이_쓰는_종류는_공개다(url):
     assert static_access(url) == "public", url

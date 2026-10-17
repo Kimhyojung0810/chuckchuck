@@ -210,6 +210,65 @@ _self_check()
 
 
 # ---------------------------------------------------------------------------
+# 베타 항목 — 카메라 분석 「발표 태도」 (2026-10-17, 고전 OpenCV)
+# ---------------------------------------------------------------------------
+#
+# 리허설(#/rehearsal)의 비전 리허설이 브라우저에서 고전 OpenCV(Haar 캐스케이드 · 템플릿 맞추기 · Farneback 광학 흐름)로
+# 얼굴 방향 · 몸 흔들림 · 손 움직임을 잰다 (main/web/js/behavior_cv_logic.js). 영상은 서버로 오지 않고 숫자 요약만 온다
+# (contracts.BehaviorSummary). 학습 신경망(MediaPipe · DNN 얼굴 모델)은 쓰지 않는다 — 대회 「구성 AI 100% 국내」.
+#
+# **가중치는 상황 넷 모두 0 이다 — 총점·클러스터 점수에 한 점도 들어가지 않는다.** 위 39개 표(ITEMS)와 클러스터 가중치 합 100 도
+# 그대로다. 문턱이 전부 설계값이라, 같은 발표를 사람이 매긴 점수와 맞는지(ICC ≥ .60 이 목표) 확인한 뒤에 가중치를 올린다.
+# 그 전까지 리포트는 「베타 · 총점에 안 들어가요」 로 따로 보여 준다. 25·26번(소리 항목, na)은 카메라로 채우지 않는다.
+
+#: 베타 클러스터 — CLUSTERS 에 넣지 않는다 (넣으면 상황별 가중치 합 100 검사와 집계가 이 묶음을 본다).
+BETA_CLUSTERS: dict[str, str] = {
+    "presence": "발표 태도 (베타)",
+}
+
+#: 베타 항목의 산출 방식. camera = 브라우저 카메라 분석이 낸 숫자를 옮겨 적는다 (서버는 다시 재지 않는다).
+BETA_SOURCES = ("camera",)
+
+#: (no, 갈래 key — behavior_cv_logic.js AREAS 와 같다, 이름, 설명)
+_BETA_ROWS: tuple[tuple, ...] = (
+    (40, "gaze", "화면 쪽 보기 · 고개",
+     "말하는 동안 화면(카메라 · 노트북 화면) 쪽을 향한 시간, 3초 넘게 벗어난 구간, 아래를 본 시간 — Haar 는 카메라와 화면을 가르지 못한다"),
+    (41, "body", "몸 움직임",
+     "몸이 좌우로 되풀이해 흔들린 시간(0.3~1.5Hz), 몸 움직임 양"),
+    (42, "hands", "손짓",
+     "손이 움직인 시간과 말할 때 같이 움직였는가 — 많을수록 좋다는 뜻이 아니다"),
+)
+
+BETA_ITEMS: tuple[RubricItem, ...] = tuple(
+    RubricItem(
+        no=no,
+        cluster="presence",
+        name=name,
+        description=description,
+        source="camera",
+        weights={s: 0 for s in _SITUATION_ORDER},
+    )
+    for no, _area, name, description in _BETA_ROWS
+)
+
+#: 베타 항목 번호 → 브라우저 갈래 key
+BETA_AREA_BY_NO: dict[int, str] = {no: area for no, area, _name, _desc in _BETA_ROWS}
+
+
+def _beta_self_check() -> None:
+    nos = [i.no for i in BETA_ITEMS]
+    assert not set(nos) & set(ITEM_BY_NO), "베타 항목 번호가 채점표 39개와 겹칩니다"
+    for item in BETA_ITEMS:
+        assert item.cluster in BETA_CLUSTERS and item.cluster not in CLUSTERS, f"{item.no}번 베타 클러스터가 어긋납니다"
+        assert item.source in BETA_SOURCES, f"{item.no}번 베타 source '{item.source}' 가 없습니다"
+        # 검증(ICC) 전에는 0 이어야 한다 — 여기를 바꾸려면 사람 채점과의 일치 기록이 먼저다
+        assert all(w == 0 for w in item.weights.values()), f"{item.no}번 베타 항목 가중치는 0 이어야 합니다"
+
+
+_beta_self_check()
+
+
+# ---------------------------------------------------------------------------
 # 조회
 # ---------------------------------------------------------------------------
 

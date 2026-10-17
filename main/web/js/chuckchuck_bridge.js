@@ -410,7 +410,7 @@ export async function buildGraph({ concepts, slideDoc, context, sessionId = null
  *   "없음"으로 읽고 같은 호출을 한 번 더 결제했을 것이다. await 하면 진행 중인 호출에 붙는다.
  *   reject 되면 조용히 원래 경로로 되돌아간다.
  */
-export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false, sessionId = null, marksSource = '' }) {
+export async function runPreparePipeline({ marks, blob, mimeType, fileName, slideDoc, context, onProgress, precomputed = null, reuse = false, sessionId = null, marksSource = '', behavior = null }) {
   const report = (phase, detail = '', extra = {}) => {
     if (typeof onProgress === 'function') {
       try { onProgress({ phase, detail, ...extra }); } catch (_) { /* UI hook */ }
@@ -620,6 +620,8 @@ export async function runPreparePipeline({ marks, blob, mimeType, fileName, slid
           context: context || {},
           slides: slideDoc || null,
           concepts, graph, transcript: slim, alignment, flow, pace, habits,
+          // 카메라 분석(발표 태도 · 베타) 숫자 요약 — 브라우저에서만 쟀다. 채점표 베타 항목(가중치 0)에만 들어간다
+          behavior: (typeof behavior === 'function' ? behavior() : behavior) || undefined,
         }),
       });
       score = await readJson(sRes, '채점');

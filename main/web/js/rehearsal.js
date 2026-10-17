@@ -128,6 +128,8 @@ function rehearsalFlowSet(on) {
 
 /** 리허설이 켠 것을 모두 끈다 — 표시 둘 · 화상판 카메라 · 마이크 · 정면 판단. 리포트는 리허설 표시만 남긴다(keepFlow) */
 function rehearsalTeardown({ keepVision = false, keepFlow = false } = {}) {
+  // 발표 태도(베타) Q&A 기록을 카메라가 꺼지기 전에 닫는다 (js/rehearsal_behavior.js)
+  if (typeof rhBehaviorQaFinish === 'function') rhBehaviorQaFinish();
   if (!keepFlow) rehearsalFlowSet(false);
   if (!keepVision && typeof visionFlowSet === 'function') visionFlowSet(false);
   if (typeof bqStopMic === 'function') bqStopMic();
@@ -135,6 +137,7 @@ function rehearsalTeardown({ keepVision = false, keepFlow = false } = {}) {
   // 정면 판단 워커(OpenCV)까지 내린다 — 리허설은 질문 화상판에서만 쓴다. 리포트에서도 「ready」 로 남아 메모리를 쥐었다 (perf-r2-1).
   // 부스(/booth)는 이 길을 안 탄다(시작 화면이 계속 쓴다)
   if (window.BoothCV) { try { BoothCV.stopGaze(); BoothCV.unwatch(); if (BoothCV.dispose) BoothCV.dispose(); } catch (_) { /* 이미 멈춤 */ } }
+  if (typeof rhBehaviorDispose === 'function') rhBehaviorDispose();
   // 화상판 자료 창의 감시 · 다시 그리기 함수가 떼어 낸 층(노드 ~680개)을 쥐고 있었다 — 다음 리허설까지 남았다 (10-03 점검 perf-6)
   if (rhSlideWatch) { rhSlideWatch.disconnect(); rhSlideWatch = null; }
   if (typeof visionSlideRepaint !== 'undefined') visionSlideRepaint = null;
@@ -1628,6 +1631,7 @@ function renderQaLiveRehearsal() {
   rhCarryCamChoice();
   if (window.BoothCV && typeof BoothCV.load === 'function') BoothCV.load();
   renderQaLiveBoothCall();
+  if (typeof rhBehaviorQaMount === 'function') rhBehaviorQaMount();   // 발표 태도(베타) Q&A 기록
   const layer = document.getElementById('bqStage');
   if (!layer) return;
   rhWireExit(layer);

@@ -312,9 +312,10 @@ def test_직렬화가_계약을_지킨다():
     got = _aggregate("school_project", make_items("school_project"))
     d = got.to_dict()
     # cap·faults 는 09-30 에 더했다 (치명 결함 상한 — 코드가 확인한 모순·말로 건너뛴 핵심 장 · 다른 발표 녹음)
+    # beta 는 10-17 (카메라 「발표 태도」 베타 항목 40~42, 가중치 0 — etc/tests/test_rubric_beta.py)
     assert set(d) == {
         "score", "situation", "situation_label", "rubric_version", "clusters",
-        "items", "excluded", "unmeasured", "basis", "model", "note", "cap", "faults",
+        "items", "excluded", "unmeasured", "basis", "model", "note", "cap", "faults", "beta",
     }
     assert set(d["clusters"][0]) == {
         "key", "name", "weight", "effective_weight", "average",

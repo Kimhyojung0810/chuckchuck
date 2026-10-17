@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>head atlas renderer</title>
+<!-- 행동 실험실 — 자유 라이선스 3D 머리 스캔(Lee Perry-Smith, CC BY 3.0)을 yaw/pitch 별로 그려 투명 PNG 로 돌려준다.
+     render_heads.py 가 이 페이지를 헤드리스 크롬으로 열고 window.renderPose() 를 부른다.
+     /three/ · /lps/ 는 render_heads.py 의 작은 정적 서버가 /data/models/_runs/behavior-cv/lab/assets 에서 내준다.
+     모델은 흉상(어깨까지)이라 목 가운데에서 둘로 자른다 — 위(머리)는 목 축으로 돌고, 아래(몸)는 가만히 있다. -->
+<script type="importmap">{ "imports": { "three": "/three/three.module.js" } }</script>
+<style>html,body{margin:0;background:transparent}</style>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '/three/jsm/loaders/GLTFLoader.js';
+
+const S = 512;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(S, S);
+renderer.setPixelRatio(1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 0);
+renderer.localClippingEnabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 100);
+camera.position.set(0, 0.55, 9);
+camera.lookAt(0, 0.55, 0);
+
+scene.add(new THREE.HemisphereLight(0xfff6ee, 0x3a3028, 0.9));
+const key = new THREE.DirectionalLight(0xffffff, 2.0);
+key.position.set(1.5, 2.5, 6);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffeedd, 0.6);
+fill.position.set(-4, 0.5, 3);
+scene.add(fill);
+
+const tex = new THREE.TextureLoader();
+const maps = {};
+for (const k of ['open', 'half', 'closed', 'openg', 'halfg', 'closedg']) {
+  maps[k] = await tex.loadAsync(`/lps/Map-COL-${k}.jpg`);
+  maps[k].colorSpace = THREE.SRGBColorSpace;
+}
+const normalMap = await tex.loadAsync('/lps/Infinite-Level_02_Tangent_SmoothUV.jpg');
+const gltf = await new GLTFLoader().loadAsync('/lps/LeePerrySmith.glb');
+const src = gltf.scene.children[0];
+src.geometry.computeBoundingBox();
+const bb = src.geometry.boundingBox;
+const size = new THREE.Vector3(); bb.getSize(size);
+const ctr = new THREE.Vector3(); bb.getCenter(ctr);
+const sc = 3.0 / size.y;                        // 흉상 높이 3.0 단위
+const NECK = Number(new URLSearchParams(location.search).get('neck') || 0.30);   // 바닥에서 위로 흉상 높이의 몇 배 = 목 가운데
+
+// 세계 좌표: 목 축(pivot) = (0, 0, 0)
+const neckOff = new THREE.Vector3(-ctr.x * sc, -(bb.min.y + size.y * NECK) * sc, -ctr.z * sc + 0.0);
+
+const headPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);   // 머리: 목 축 위만 (머리와 같이 돈다)
+const bodyPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0.01); // 몸: 목 축 아래만 (가만히)
+const headMat = new THREE.MeshPhongMaterial({ map: maps.open, normalMap, specular: 0x1a1a1a, shininess: 18, clippingPlanes: [headPlane] });
+const bodyMat = new THREE.MeshPhongMaterial({ map: maps.open, normalMap, specular: 0x1a1a1a, shininess: 18, clippingPlanes: [bodyPlane] });
+
+const pivot = new THREE.Group();
+scene.add(pivot);
+const head = new THREE.Mesh(src.geometry, headMat);
+head.scale.setScalar(sc); head.position.copy(neckOff);
+pivot.add(head);
+const body = new THREE.Mesh(src.geometry, bodyMat);
+body.scale.setScalar(sc); body.position.copy(neckOff);
+scene.add(body);
+
+/** 고개 각도(도) — yaw +: 코가 영상 오른쪽(보는 사람 기준)으로, pitch -: 아래로 숙임, roll +: 화면에서 시계 방향
+ *  part: 'head' | 'body' | 'both', eyes: 'open' | 'half' | 'closed', light: 키 조명 좌우(-1~1) */
+window.renderPose = (yaw, pitch, roll = 0, part = 'head', eyes = 'open', light = 0) => {
+  const d2r = Math.PI / 180;
+  pivot.rotation.order = 'YXZ';
+  pivot.rotation.set(-pitch * d2r, yaw * d2r, -roll * d2r);
+  pivot.updateMatrixWorld(true);
+  const n = new THREE.Vector3(0, 1, 0).applyQuaternion(pivot.quaternion);
+  headPlane.setFromNormalAndCoplanarPoint(n, new THREE.Vector3(0, 0, 0));
+  head.visible = part !== 'body';
+  body.visible = part !== 'head';
+  headMat.map = maps[eyes] || maps.open; headMat.needsUpdate = true;
+  key.position.set(1.5 + light * 3, 2.5, 6);
+  renderer.render(scene, camera);
+  const p = new THREE.Vector3(0, 0, 0).project(camera);
+  return { png: renderer.domElement.toDataURL('image/png'), anchor: [(p.x + 1) / 2 * S, (1 - p.y) / 2 * S], size: S };
+};
+window.headInfo = { size: size.toArray(), center: ctr.toArray(), scale: sc, neck: NECK };
+window.ready = true;
+</script>
+</body></html>

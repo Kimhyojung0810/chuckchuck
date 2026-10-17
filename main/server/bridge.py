@@ -196,7 +196,28 @@ HISTORY_MAX_CHARS = 40000
 PRIOR_ANSWERS_MAX = 10
 
 
+#: 카메라 분석 요약 본문 상한 — 브라우저 쪽 상한(24KB)에 여유 (contracts.BEHAVIOR_MAX_BYTES 와 맞춘다)
+BEHAVIOR_BODY_MAX = 64 * 1024
+
+
+def _behavior_of(body: dict):
+    """본문의 behavior → 거른 BehaviorSummary. 없거나 모양이 아니면 None (채점은 그대로 돈다)."""
+    from pipeline.contracts import BehaviorSummary
+
+    raw = body.get("behavior") if isinstance(body, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    try:
+        if len(json.dumps(raw, ensure_ascii=False)) > BEHAVIOR_BODY_MAX:
+            return None
+    except (TypeError, ValueError):
+        return None
+    return BehaviorSummary.from_dict(raw)
+
+
 def _body_limit(path: str) -> int:
+    if path == "/api/v1/behavior":
+        return BEHAVIOR_BODY_MAX + 1024   # 요약 + session_id
     if path == tour_events.PATH:
         return tour_events.BODY_MAX  # 부스 퍼널 신호 — {step, deck, t} 70바이트 남짓 (main/server/tour_events.py)
     if path in BIG_BODY_PATHS:
@@ -2420,6 +2441,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return self._handle_score(raw)
         if parsed.path == "/api/v1/rubric":
             return self._handle_rubric(raw)
+        if parsed.path == "/api/v1/behavior":
+            return self._handle_behavior(raw)
         if parsed.path == "/api/v1/pace":
             return self._handle_pace(raw)
         if parsed.path == "/api/v1/habits":
@@ -3351,9 +3374,12 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         """
         from pipeline import from_legacy_score, score_presentation, score_rubric
         from pipeline.contracts import AlignmentDoc, FlowDiff
+        from pipeline.f14_rubric import presence_items
 
         body = json.loads(raw or b"{}")
         llm = _pick_llm(body)
+        # 카메라 분석(발표 태도 · 베타) 숫자 요약 — 모양 · 크기를 거른 것만 쓴다. 영상은 오지 않는다 (contracts.BehaviorSummary)
+        behavior = _behavior_of(body)
         try:
             result = score_rubric(
                 situation=body.get("situation"),
@@ -3366,6 +3392,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 flow=body.get("flow"),
                 pace=body.get("pace"),
                 habits=body.get("habits"),
+                behavior=behavior,
                 llm=llm,
             )
         except Exception as e:  # noqa: BLE001
@@ -3382,14 +3409,46 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                 FlowDiff.from_dict(body["flow"]) if body.get("flow") else None,
             )
             result = from_legacy_score(legacy, body.get("situation"))
+            result.beta = presence_items(behavior)
 
         sys.stderr.write(
             f"[bridge] F-14 score={result.score} situation={result.situation} "
-            f"basis={result.basis} 제외={result.excluded} 못잼={result.unmeasured}\n"
+            f"basis={result.basis} 제외={result.excluded} 못잼={result.unmeasured} "
+            f"beta={[(i.no, i.status) for i in result.beta]}\n"
         )
         payload = result.to_dict()
         self._archive(body, "rubric_score", payload)
+        if behavior is not None:
+            self._archive_behavior(body, behavior)
         return self._json(200, payload)
+
+    def _archive_behavior(self, body: dict, summary) -> None:
+        """
+        카메라 분석 숫자 요약을 세션 보관소 behavior_doc 에 판(발표 · Q&A)별로 남긴다 — 다른 판은 그대로 둔다.
+        동의 · mock 규칙은 _archive 와 같다 (보관소가 거른다).
+        """
+        if _mock():
+            return
+        sid = _session_id_of(body)
+        if not sid:
+            return
+        doc = ARCHIVE.read_artifact(sid, "behavior_doc") or {}
+        doc = {k: v for k, v in doc.items() if k in ("present", "qa")}
+        doc[summary.phase] = summary.to_dict()
+        ARCHIVE.put_artifact(sid, "behavior_doc", doc)
+
+    def _handle_behavior(self, raw: bytes):
+        """
+        카메라 분석(발표 태도 · 베타) 숫자 요약만 남긴다 — Q&A 판처럼 채점(F-14)이 끝난 뒤에 생긴 판.
+        LLM · 외부 API 없음. 보관소에 쓰는 것뿐이라 응답은 거른 요약 그대로다.
+        """
+        body = json.loads(raw or b"{}")
+        summary = _behavior_of(body)
+        if summary is None:
+            return self._json(400, {"error": "bad_request", "message": "behavior 요약이 필요해요."})
+        self._archive_behavior(body, summary)
+        sys.stderr.write(f"[bridge] behavior phase={summary.phase} status={summary.status} metrics={sorted(summary.metrics)}\n")
+        return self._json(200, {"ok": True, "behavior": summary.to_dict()})
 
     def _handle_pace(self, raw: bytes):
         """F-17 · Transcript(+ConceptDoc/Context/AlignmentDoc) → PaceDoc. LLM 없음."""

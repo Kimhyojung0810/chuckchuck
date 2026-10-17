@@ -30,6 +30,7 @@ from ._rubric_det import Evidence, faults, score_item, speech_block
 from .contracts import (
     RUBRIC_CAP_KINDS,
     AlignmentDoc,
+    BehaviorSummary,
     ConceptGraph,
     Context,
     FlowDiff,
@@ -546,6 +547,88 @@ def from_legacy_score(legacy, situation: str | None = None) -> RubricScore:
     )
 
 
+# ---------------------------------------------------------------------------
+# 베타 — 카메라 분석 「발표 태도」 (rubric_v3.BETA_ITEMS 40~42 · 가중치 0)
+# ---------------------------------------------------------------------------
+
+_BETA_NOTE = "베타 — 총점에 넣지 않아요 (사람 채점과 맞는지 확인하기 전이에요)"
+_BETA_NONE_NOTE = "카메라 분석이 없었어요"
+
+
+def _pct(v: float | None) -> str:
+    return "–" if v is None else f"{round(v * 100)}%"
+
+
+def presence_items(behavior: BehaviorSummary | dict | None) -> list[RubricItemScore]:
+    """
+    브라우저 카메라 분석의 숫자 요약(BehaviorSummary, 발표 구간) → 베타 항목 40~42.
+
+    서버는 다시 재지 않고 옮겨 적기만 한다 (영상이 서버로 오지 않는다). **가중치는 언제나 0 이다** —
+    `_aggregate` 가 보는 items 에 넣지 않으니 총점 · 클러스터는 이 값과 상관없다.
+    점수 매기기(설계값 · 검증 전): 40 = 화면 쪽을 향한 시간 비율 · 41 = 흔들림이 없던 창 비율 · 42 = 말할 때 손을 같이 쓴 시간 비율.
+    잴 수 없었던 지표는 0점이 아니라 「못 쟀다」 와 브라우저가 적은 까닭이다.
+    """
+    b = behavior if isinstance(behavior, BehaviorSummary) else BehaviorSummary.from_dict(behavior)
+    if b is not None and b.phase != "present":
+        b = None
+    base_why = (b.why if b is not None and b.why else "") or _BETA_NONE_NOTE
+    out: list[RubricItemScore] = []
+
+    def miss(item, why: str) -> RubricItemScore:
+        return RubricItemScore(no=item.no, cluster=item.cluster, name=item.name, status="unmeasured",
+                               score=0, weight=0, source=item.source, note=why or base_why)
+
+    def hit(item, score: float, evidence: str, word: str = "") -> RubricItemScore:
+        return RubricItemScore(no=item.no, cluster=item.cluster, name=item.name, status="scored",
+                               score=int(round(max(0.0, min(1.0, score)) * 100)), weight=0, source=item.source,
+                               evidence=evidence, note=" · ".join(x for x in (word, _BETA_NOTE) if x))
+
+    def why_of(key: str) -> str:
+        m = b.metrics.get(key) if b is not None else None
+        return (m or {}).get("why") or base_why
+
+    for item in rubric_v3.BETA_ITEMS:
+        area = rubric_v3.BETA_AREA_BY_NO[item.no]
+        if b is None or b.status == "none":
+            out.append(miss(item, base_why))
+            continue
+        word = next((a.get("word", "") for a in b.areas if a.get("key") == area), "")
+        if area == "gaze":
+            g = b.metric("gaze")
+            if not g or g.get("value") is None:
+                out.append(miss(item, why_of("gaze")))
+                continue
+            la = b.metric("lookaway") or {}
+            dn = b.metric("down") or {}
+            ev = f"화면 쪽을 향한 시간 {_pct(g['value'])}"
+            if la:
+                ev += f" · 3초 넘게 눈을 뗀 구간 {la.get('n', 0)}번"
+            if dn:
+                ev += f" · 아래를 본 시간 {_pct(dn.get('value'))}"
+            out.append(hit(item, g["value"], ev, word))
+        elif area == "body":
+            sw = b.metric("sway")
+            if not sw or sw.get("value") is None:
+                out.append(miss(item, why_of("sway")))
+                continue
+            mv = b.metric("movement") or {}
+            ev = f"몸이 좌우로 되풀이해 흔들린 창 {_pct(sw['value'])}"
+            if mv.get("value") is not None:
+                ev += f" · 몸 움직임 1초에 얼굴 폭의 {mv['value']:.2f}배"
+            out.append(hit(item, 1.0 - sw["value"], ev, word))
+        else:
+            ge = b.metric("gesture")
+            if not ge or ge.get("value") is None:
+                out.append(miss(item, why_of("gesture")))
+                continue
+            if ge.get("speak") is None:
+                out.append(miss(item, f"손이 움직인 시간 {_pct(ge['value'])} — 말소리와 맞춰 보지 못해서 점수는 비워 둬요"))
+                continue
+            ev = f"말할 때 손을 같이 쓴 시간 {_pct(ge['speak'])} · 쉴 때 {_pct(ge.get('silent'))} (많을수록 좋다는 뜻은 검증 전이에요)"
+            out.append(hit(item, ge["speak"], ev, word))
+    return out
+
+
 def score_rubric(
     *,
     situation: str | None = None,
@@ -558,6 +641,7 @@ def score_rubric(
     flow: FlowDiff | dict | None = None,
     pace: PaceDoc | dict | None = None,
     habits: HabitDoc | dict | None = None,
+    behavior: BehaviorSummary | dict | None = None,   # 카메라 분석 숫자 요약 (브라우저) — 베타 항목으로만, 총점 무관
     llm: str | LLMProvider | None = None,
     llm_kwargs: dict | None = None,
 ) -> RubricScore:
@@ -607,4 +691,7 @@ def score_rubric(
     result = _aggregate(resolved, items)
     result.model = model
     result.note = " · ".join(n for n in (situation_note, result.note) if n)
-    return _apply_faults(result, faults(ev))
+    result = _apply_faults(result, faults(ev))
+    # 총점 · 상한이 다 정해진 뒤에 붙인다 — 베타 항목이 점수 계산에 닿을 길을 아예 두지 않는다
+    result.beta = presence_items(behavior)
+    return result

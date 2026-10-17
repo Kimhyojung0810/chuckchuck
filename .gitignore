@@ -110,3 +110,5 @@ etc/design-ref/apple/hig/
 etc/design-ref/apple/shots/
 etc/design-ref/output/apple-kr.png
 etc/design-ref/output/apple.com/*.json
+# OpenCV.js (10MB, etc/scripts/get_opencv.sh 로 받는다) — 화면은 이 사본을 먼저 찾고 없으면 jsDelivr 로 간다 (10-17)
+main/web/js/vendor/opencv.js

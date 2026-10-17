@@ -3192,6 +3192,8 @@ async function finishRecAndPrepare() {
   // 완주 박수에 쓸 값은 파이프라인 전에 확정한다. SDK 없이 mock 으로 돈
   // 테이크에는 durationSec 이 없으므로 화면 시계(nf.sec)가 유일한 사실이다.
   const slides = rehearsalCount();
+  // 리허설이면 카메라 기록을 닫고 발표 태도(베타) 요약을 nf.behavior 에 붙인다 — 채점(F-14)이 베타 항목으로 옮겨 적는다 (js/rehearsal_behavior.js)
+  if (typeof rhBehaviorFinishPresent === 'function' && (ccRuntime || nf.mic === 'on')) rhBehaviorFinishPresent();
   if (ccRuntime) {
     ccLastTake = await ccRuntime.finish();
     nf.marks = (ccLastTake && ccLastTake.marks) || [];
@@ -3365,6 +3367,8 @@ async function useUploadedRecording(file, { knownDurationSec = 0 } = {}) {
     re: false,
   }));
   nf.uploadedTake = { name: file.name, durationSec, syntheticMarks: true };
+  // 녹음 파일로 대신했다 — 라이브 카메라 기록(발표 태도)은 이 녹음의 것이 아니다
+  if (typeof rhBehaviorDiscardPresent === 'function') rhBehaviorDiscardPresent();
 
   // 녹음이 돌고 있었다면 멈추고 버린다 (참조만 버리면 마이크가 안 꺼진다)
   stopLiveRehearsal();
@@ -4685,6 +4689,7 @@ function runClientSamplePipeline() {
  */
 function discardTakeKeepDeck() {
   stopLiveRehearsal();
+  if (typeof rhBehaviorReset === 'function') rhBehaviorReset();   // 지난 테이크의 발표 태도(카메라)도 버린다
   ccLastTake = null;
   chatterCache = null;
   chatterPending = null;
@@ -4830,6 +4835,8 @@ function nfStep4() {
       reuse: !!ccLastTake.reuse,
       sessionId: nf.sessionId || null,
       precomputed: precomputeHandles(),
+      // 발표 태도(베타) 숫자 요약 — 채점 직전에 읽는다(함수). 채점표 베타 항목 40~42(가중치 0)에만 들어간다
+      behavior: typeof rhBehaviorPayload === 'function' ? rhBehaviorPayload : null,
       context: {
         situation: nf.occ || '',
         audience: nf.ctx || '',
@@ -5099,6 +5106,8 @@ function saveLastReport() {
       slideImages: (nf.slideImages || []).length && (nf.slideImages || []).every((u) => typeof u === 'string' && /^assets\//.test(u)) ? nf.slideImages : null,
       // 부스 덱 녹음으로 한 발표면 그 덱 이름 — 저장은 리포트 2.0 갈래보다 먼저라 take 에서 바로 읽는다
       deckAudio: nf.deckAudio || (ccLastTake && ccLastTake._blob && ccLastTake._blob.deckAudio ? String(ccLastTake._blob.deckAudio) : ''),
+      // 발표 태도(카메라 · 베타) — 숫자 · 낱말만. 영상은 처음부터 없다
+      behavior: nf.behavior || null,
     };
     // 같은 판의 리포트를 다시 저장할 때(리포트 새로고침) 받아 둔 후보 판을 지우지 않는다 — 예전엔 판 없이 덮어쓴 뒤 판 요청이 404 면 저장본에서도 사라졌다
     try {
@@ -5170,6 +5179,7 @@ function restoreLastReport() {
     // 복원해 놓고 「샘플이에요」나 지난 오류 배너가 뜬다
     useSample: false, pipelineError: null, pipelineDetail: '',
     rv2Qa: snap.qa || null, rv2Board: snap.qaBoard || null, deckAudio: snap.deckAudio || '',
+    behavior: snap.behavior || null,
     ...(Array.isArray(snap.slideImages) && snap.slideImages.length ? { slideImages: snap.slideImages } : {}),
   });
   return snap.at || 0;
@@ -5581,6 +5591,8 @@ async function renderReport() {
      복원은 그리기 **전에** 끝나야 한다. reportSessionMeta·reportVerdict 가
      이미 nf 를 읽은 뒤면 옛 화면이 한 번 깜빡이고 덮인다. */
   const restoredAt = reportId === 'last' ? restoreLastReport() : 0;
+  // 발표 태도 카드(js/behavior_report.js)는 beta 묶음에 있다 — 일반 #/report/last 로 열었으면 여기서 받는다
+  if (nf && nf.behavior && !window.BehaviorReport && window.ccLazy) await ccLazy.load('beta');
   if (reportId === 'last' && !restoredAt) {
     app.className = 'narrow';
     app.innerHTML = `
@@ -6886,6 +6898,13 @@ function judgeLegendHtml(rows) {
   return keys.map(k => `<span><i class="dot st-${k}"></i>${STATUS[k]}</span>`).join('');
 }
 
+/** 발표 태도 (카메라 분석 · 베타) — 리허설에서 발표했을 때만 (nf.behavior · js/behavior_report.js). 총점에는 안 들어간다 */
+function behaviorCardHtml() {
+  if (rSampleMode || !nf || !nf.behavior || !window.BehaviorReport) return '';
+  try { return window.BehaviorReport.html(nf.behavior, { titles: activeTitles() }); }
+  catch (err) { console.warn('[chuckchuck] 발표 태도 카드', err); return ''; }
+}
+
 function rSummary() {
   const meta = reportSessionMeta();
   const live = meta.live;
@@ -7000,6 +7019,8 @@ function rSummary() {
     </div>
 
     ${judgeFold}
+
+    ${behaviorCardHtml()}
 
     ${qaHistoryPanelHtml()}
 
