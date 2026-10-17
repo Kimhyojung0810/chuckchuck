@@ -4588,7 +4588,9 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         alignment = AlignmentDoc.from_dict(found["alignment"]) if found["alignment"] else None
         transcript = Transcript.from_dict(found["transcript"]) if found["transcript"] else None
         ctx = Context.from_dict(found["context"] or body.get("context") or {})
-        llm = _pick_llm(body)
+        # 판정만 따로 고른다 (QA_JUDGE_LLM, 10-17) — 같은 답 230개 비교에서 solar4 가 외운 답 · 모호한 답 · 틀린 사실을 pro3 보다 잘 막았다.
+        # 다른 단계(그래프 · 질문 · 리포트)는 REASONING_BACKEND 그대로. "solar4+solar" 꼴이면 막힐 때(429 등) 예비로 넘어간다
+        llm = _pick_llm(body) or (os.environ.get("QA_JUDGE_LLM") or "").strip() or None
         # 자료 본문 — 판정이 "자료와 어긋난다" 를 대조할 원본. F-08 과 같은 디스크
         # 보관소에서 session_id 로 찾는다 (프론트는 slidedoc 을 안 들고 있다).
         slidedoc = ARCHIVE.read_artifact(_session_id_of(body), "slide_doc")
