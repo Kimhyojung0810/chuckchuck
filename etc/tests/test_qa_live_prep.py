@@ -340,3 +340,21 @@ def test_깨진_정합을_실어도_발표_중_준비는_멈추지_않는다(mon
         L.put("S", "tCCCC3333", slide_no=n, text=SAID[n], closed=True)
     L.put("S", "tCCCC3333", final=True, alignment={"items": "깨진 모양"})
     assert L.candidates("S", "tCCCC3333")
+
+
+def test_묶음은_디스크에서_되살려도_같은_1_2번(monkeypatch):
+    import server.bridge as bridge
+
+    graph, sd, pool, _ = _pool()
+    back = FE.Pool.from_dict(json.loads(json.dumps(pool.to_dict(), ensure_ascii=False)))
+    assert [c["uid"] for c in FE.pick_opening(back)] == [c["uid"] for c in FE.pick_opening(pool)]
+    assert back.to_dict()["calls"] == pool.to_dict()["calls"] and back.timings.get("from_cache") is True
+    # 브리지: 디스크에 있으면 네 모델을 안 부른다
+    monkeypatch.setenv("QA_ENSEMBLE", "1")
+    monkeypatch.setattr(bridge, "STORE", SessionStore())
+    monkeypatch.setattr(bridge, "_stage_cache_get", lambda stage, key: pool.to_dict() if stage == "ens_pool" else None)
+    monkeypatch.setattr(FE, "build_pool", lambda *a, **k: (_ for _ in ()).throw(AssertionError("네 모델을 불렀다")))
+    from types import SimpleNamespace
+    h = SimpleNamespace()
+    got = bridge.Handler._ensemble_pool(h, "20261017T000000Z_deadbeef", graph.to_dict(), sd.to_dict(), None, wait=5)
+    assert got is not None and [c["uid"] for c in got.winners()] == [c["uid"] for c in pool.winners()]

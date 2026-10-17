@@ -913,6 +913,8 @@ STAGE_ENTRY_MODULES: dict[str, tuple[str, ...]] = {
     "papers": ("pipeline.f24_papers",),                # build_papers — 보관소
     "memory": ("pipeline.f25_memory",),                # build_memory
     "triage": ("pipeline.f08_questions",),             # triage_questions
+    # 네 모델 묶음(1·2번 자료 질문 후보) — 자료 · 그래프가 같으면 같은 묶음이다. 브리지를 다시 띄워도 부스 덱 첫 방문객이 ~40초 기다리지 않게 (10-17 발표를 들으며 준비)
+    "ens_pool": ("pipeline.f08_ensemble",),
     # 질문 묶음은 주장·문헌·기억을 재료로 먹는다 — 그 모듈이 바뀌어도 옛 질문을 안 쓴다
     "questions": ("pipeline.f08_questions", "pipeline.f26_claims", "pipeline.f24_papers", "pipeline.f25_memory"),
     "judge": ("pipeline.f09_judge",),                  # judge_answer
@@ -1353,6 +1355,8 @@ QA_LIVE_SKIP_EMPTY = (os.environ.get("QA_LIVE_SKIP_EMPTY") or "1").strip().lower
 QA_EARLY_START = (os.environ.get("QA_EARLY_START") or "1").strip().lower() not in ("0", "false", "off", "no")
 #: 3번+ 후보가 하나도 없을 때 이번 음성 라운드를 더 기다리는 초 (화면은 6초 · 최종 선택은 3.5초 상한 — 합이 넘지 않게)
 NEXT_GRACE_SEC = float(os.environ.get("QA_ENS_NEXT_GRACE_SEC", "1.5"))
+#: 네 모델 묶음을 디스크 단계 캐시(stage_cache/ens_pool-*.json)에 둔다 — 같은 자료 · 그래프면 재시작 뒤에도 바로 (0 이면 메모리만)
+QA_ENS_POOL_DISK = (os.environ.get("QA_ENS_POOL_DISK") or "1").strip().lower() not in ("0", "false", "off", "no")
 _RUN_TALK = "run_talk:"      # Q&A 한 판 → 그 판 앞의 발표(talk_id) — 질문 요청이 잇는다
 
 
@@ -4215,8 +4219,20 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             return hit
         claims_raw = claims.to_dict() if hasattr(claims, "to_dict") else claims
 
+        # 디스크 열쇠는 세션 없이 — 묶음은 자료 · 그래프에서만 나온다(사람의 발화 · 답이 안 든다). 같은 덱을 다른 세션 · 재시작 뒤에도 쓴다
+        disk_key = _stage_key("ens_pool", _stage_version("ens_pool"), nodes, fingerprint(slidedoc) if slidedoc else None,
+                              FE.model_names(), FE.assign_mode())
+
         def work():
-            pool = FE.build_pool(graph_raw, slidedoc, claims_raw)
+            kept = _stage_cache_get("ens_pool", disk_key) if QA_ENS_POOL_DISK else None
+            if kept:
+                pool = FE.Pool.from_dict(kept)
+                sys.stderr.write(f"[bridge] F-08 앙상블 묶음 디스크 캐시 적중 {disk_key} 후보={len(pool.candidates)}\n")
+            else:
+                pool = FE.build_pool(graph_raw, slidedoc, claims_raw)
+                # 모델이 넘어져 반쪽인 묶음 · 2개를 못 고르는 묶음은 담지 않는다 (B-03 과 같은 규율)
+                if QA_ENS_POOL_DISK and not (pool.timings or {}).get("dead_models") and len(pool.winners()) >= 2:
+                    _stage_cache_put("ens_pool", disk_key, pool.to_dict())
             STORE.set_triage(key, pool)
             if sid:
                 STORE.set_triage("ens_sid:" + sid, key)

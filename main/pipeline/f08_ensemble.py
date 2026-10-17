@@ -362,6 +362,15 @@ class Pool:
         return {"slots": [s.to_dict() for s in self.slots], "candidates": self.candidates, "dropped": self.dropped,
                 "calls": [c.to_dict() for c in self.calls], "timings": self.timings, "models": self.models}
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "Pool":
+        """to_dict 의 되돌림 — 브리지 디스크 단계 캐시(ens_pool)에서 되살린다. 슬롯의 pattern_desc · angle 은 계산 칸이라 버린다."""
+        keep = {"id", "node_id", "label", "kind", "pattern", "slides", "lines", "score", "partner_id", "partner_label", "trap"}
+        slots = [ES.Slot(**{k: v for k, v in s.items() if k in keep}) for s in d.get("slots") or []]
+        calls = [CallRow(**{k: v for k, v in c.items() if k in CallRow.__dataclass_fields__}) for c in d.get("calls") or []]
+        return cls(slots=slots, candidates=list(d.get("candidates") or []), dropped=list(d.get("dropped") or []), calls=calls,
+                   timings={**(d.get("timings") or {}), "from_cache": True}, models=list(d.get("models") or []))
+
 
 #: `_plain_speech` 가 못 푸는 높임 — 10-17 버그 사냥: 음성 후보 3번+ 질문이 「설명해 주실 수 있을까요?」「거의 설명하지 않으셨어요」 로
 #: 그대로 나갔다(CLAUDE §3-1 과도한 경어 금지). 질문 문장만 고친다 — 뜻은 그대로.
