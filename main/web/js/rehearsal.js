@@ -1479,11 +1479,12 @@ function rhEarlyQaGraph() {
   // 발표하는 동안 이미 준비됐다고 들었으면(js/qa_listen.js) 서버에 다시 묻지 않는다 — 발표 끝 → 1번 질문의 1~3초가 여기였다
   if (!rhPoolPoll.early && typeof qaListenPoolEarly === 'function' && qaListenPoolEarly(nf.sessionId)) rhPoolPoll.early = true;
   if (rhPoolPoll.early) return graph;
+  if (rhPoolPoll.off) return null;          // 서버가 앙상블을 안 켰다 — 기다림 내내 묻지 않는다
   if (!rhPoolPoll.busy && Date.now() - rhPoolPoll.at > 1500) {
     rhPoolPoll.busy = true;
     const mine = rhPoolPoll;
     bridge.qaPoolStatus(nf.sessionId)
-      .then((r) => { mine.early = !!(r && r.early); if (mine.early) rhWaitTick(); })
+      .then((r) => { mine.early = !!(r && r.early); mine.off = !!(r && r.ensemble === false); if (mine.early) rhWaitTick(); })
       .catch(() => {})
       .finally(() => { mine.busy = false; mine.at = Date.now(); });
   }

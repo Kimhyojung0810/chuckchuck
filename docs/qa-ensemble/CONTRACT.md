@@ -149,3 +149,5 @@
 - `/api/v1/qa/next` 응답에 `origin`: `live`(발표 중 후보) · `answer`(앞 답까지 들은 음성 후보) · `pool`(묶음). 후보 판 `rounds[]` 에 `origin` · `live_candidates`.
 - 3번+ 후보 dict 에 `origin` · `signal_slide`, `Question.basis.checks` 에 `live`(발표 중 후보).
 - 설정 표는 LIVE_REPORT §2. 새 제출 기능 **F-08-live = 예상질문_발표중준비**.
+- 버림 까닭(`dropped[].reasons`)에 `recall` — 3번+ 음성 · 발표 중 후보가 외운 항목 · 수치를 꺼내게 하는 꼴(`f08_ensemble.recall_ask`). 묶음(1·2번) 거르기는 그대로.
+- 3번+ 고르기 판(`ens_pick` 프롬프트)에 `[발표 N장 · 아직 안 물은 부분]` 표시가 붙는다(`QA_PICK_SPREAD`). 음성 라운드 신호 번호(V1…)는 먼 장 순으로 다시 매긴 번호다.
