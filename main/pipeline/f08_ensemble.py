@@ -759,11 +759,37 @@ def voice_round(pool: Pool, graph, slidedoc, transcript, *, alignment=None, aske
     signals = ES.voice_signals(deck.graph, deck.slides, speech_of, al, asked or [], deck.lines)
     if not signals:
         return VoiceRound([], [], [], [], 0.0)
+    signals = order_signals(signals, asked or [])
     names = models or model_names()
     calls: list = []
     kept, dropped = _voice_candidates(deck, signals, speech_of, asked or [], names, llms or {}, calls, temperature,
                                       live=False)
     return VoiceRound(signals, kept, dropped, calls, round(time.monotonic() - t0, 2))
+
+
+#: 음성 라운드에 싣는 신호 상한 — 15장 발표는 신호가 25개 나와 모델이 앞쪽 몇 개만 골랐다
+VOICE_SIGNALS_MAX = int(os.environ.get("QA_VOICE_SIGNALS_MAX", "10"))
+
+
+def order_signals(signals: list[dict], asked: list[dict]) -> list[dict]:
+    """
+    음성 라운드 신호 순서 (QA_PICK_SPREAD=1) — 앞 답 약점(weak_answer)이 먼저, 나머지는 이미 물은 장에서 먼 장부터(먼 점 고르기),
+    VOICE_SIGNALS_MAX 개까지. 끄면 예전 순서(핵심 노드 순 — 앞 장이 먼저) 그대로. 번호(V1…)는 새 순서로 다시 붙인다.
+    """
+    if not pick_spread_on():
+        return signals
+    weak = [s for s in signals if s.get("kind") == "weak_answer"]
+    rest = [s for s in signals if s.get("kind") != "weak_answer"]
+    taken = [int(a.get("slide_no") or 0) for a in asked if a.get("slide_no")]
+    out: list[dict] = []
+    while rest and len(weak) + len(out) < VOICE_SIGNALS_MAX:
+        nxt = max(rest, key=lambda s: (min((abs(int(s.get("slide_no") or 0) - t) for t in taken), default=0),
+                                       -rest.index(s)))
+        rest.remove(nxt)
+        out.append(nxt)
+        taken.append(int(nxt.get("slide_no") or 0))
+    ordered = [*weak, *out][:max(VOICE_SIGNALS_MAX, len(weak))]
+    return [{**s, "id": f"V{i}"} for i, s in enumerate(ordered, 1)]
 
 
 def live_models() -> list[str]:
@@ -796,7 +822,9 @@ _RECALL_RE = re.compile(
     r"어떤\s*(?:조건|항목|수치|값|성분|변수)들?(?:을|를|이|가)?\s*.{0,12}(?:고정했|유지했|묶었|사용했|썼|나열했|통제했|맞췄)는지|"
     r"(?:표|그래프|그림)의?\s*어떤\s*(?:수치|값|숫자)|어떤\s*(?:수치|숫자)에서|"
     r"(?:유지율|수치|값|비율|오즈비|OR|점수|퍼센트)(?:이|가|는)?\s*(?:어떻게|얼마나)\s*달라(?:졌|지|져)|"
-    r"(?:을|를)\s*함께\s*말해|어떤\s*성분")
+    r"(?:을|를)\s*함께\s*말해|어떤\s*성분|"
+    # r4 가린 라벨에서 더 나온 꼴 — 「하나씩 짚어」 · 「결과값을 말할」 · 「구체적으로 어떻게 묶었」 · 「~ 외에 무엇이 더」
+    r"하나씩\s*(?:짚|설명|말|꼽)|(?:결과값|수치|값)을\s*말|구체적으로\s*어떻게\s*(?:묶|고정|맞추|맞췄)|(?:외에|말고)\s*무엇이\s*더")
 
 
 def recall_ask(question: str) -> bool:

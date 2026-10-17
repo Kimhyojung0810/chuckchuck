@@ -301,3 +301,13 @@ def test_발표_중_후보는_이미_물은_장에서_먼_장부터_판에_올�
              "origin": "live"} for sl in (3, 4, 9, 14)]
     asked = [{"question": "q1", "node_id": "a", "slide_no": 2}, {"question": "q2", "node_id": "b", "slide_no": 3}]
     assert [o["slide_no"] for o in FE.live_options(live, asked)] == [14, 9, 4]
+
+
+def test_음성_라운드_신호는_앞_답_약점_먼저_그다음_물은_장에서_먼_장부터_상한까지(monkeypatch):
+    monkeypatch.setenv("QA_PICK_SPREAD", "1")
+    sigs = [{"id": f"V{i}", "kind": "vague", "slide_no": sl, "node_id": f"n{i}"} for i, sl in enumerate([1, 2, 3, 12, 14], 1)]
+    sigs.append({"id": "V6", "kind": "weak_answer", "slide_no": 2, "node_id": "w"})
+    out = FE.order_signals(sigs, [{"slide_no": 2}, {"slide_no": 3}])
+    assert out[0]["kind"] == "weak_answer" and out[1]["slide_no"] == 14 and [s["id"] for s in out] == [f"V{i}" for i in range(1, len(out) + 1)]
+    monkeypatch.setenv("QA_PICK_SPREAD", "0")
+    assert FE.order_signals(sigs, []) == sigs
