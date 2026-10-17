@@ -86,10 +86,16 @@ function qaListenBegin(sessionId, finalSoFar = '') {
   return true;
 }
 
+/** 보내기는 차례대로 — 같은 장을 다시 들러 두 번 보내면 늦게 도착한 옛 글이 새 글을 덮었다(10-17 검토) */
+let qaListenQueue = Promise.resolve();
 function qaListenPost(items) {
   const bridge = window.ChuckchuckBridge;
   if (!bridge || typeof bridge.qaLiveFeed !== 'function' || !qaListen.talk || qaListen.off) return;
-  items.forEach((it) => bridge.qaLiveFeed(qaListen.sid, qaListen.talk, it).catch(() => {}));
+  const sid = qaListen.sid;
+  const talk = qaListen.talk;
+  items.forEach((it) => {
+    qaListenQueue = qaListenQueue.then(() => bridge.qaLiveFeed(sid, talk, it)).catch(() => {});
+  });
 }
 
 function qaListenStep(ev) {

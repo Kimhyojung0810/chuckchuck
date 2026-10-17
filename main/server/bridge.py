@@ -1355,6 +1355,8 @@ QA_LIVE_SKIP_EMPTY = (os.environ.get("QA_LIVE_SKIP_EMPTY") or "1").strip().lower
 QA_EARLY_START = (os.environ.get("QA_EARLY_START") or "1").strip().lower() not in ("0", "false", "off", "no")
 #: 3번+ 후보가 하나도 없을 때 이번 음성 라운드를 더 기다리는 초 (화면은 6초 · 최종 선택은 3.5초 상한 — 합이 넘지 않게)
 NEXT_GRACE_SEC = float(os.environ.get("QA_ENS_NEXT_GRACE_SEC", "1.5"))
+#: 최종 선택(QA_ENS_PICK_WAIT_SEC 3.5) 앞에 쓸 수 있는 시간 — 화면 상한 6초에서 선택 3.5초 · 여유 0.5초를 뺀 것
+NEXT_BUDGET_SEC = float(os.environ.get("QA_ENS_NEXT_BUDGET_SEC", "2.0"))
 #: 네 모델 묶음을 디스크 단계 캐시(stage_cache/ens_pool-*.json)에 둔다 — 같은 자료 · 그래프면 재시작 뒤에도 바로 (0 이면 메모리만)
 QA_ENS_POOL_DISK = (os.environ.get("QA_ENS_POOL_DISK") or "1").strip().lower() not in ("0", "false", "off", "no")
 _RUN_TALK = "run_talk:"      # Q&A 한 판 → 그 판 앞의 발표(talk_id) — 질문 요청이 잇는다
@@ -3947,6 +3949,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             # 코드 판 — F-08 과 재료(주장 F-26·문헌 F-24·기억 F-25)의 import 닫힘 전체. 주장·문헌의 **결과**는 넣지 않는다
             # (위 주석 — 넣으면 미리 만들기와 실제 요청이 서로를 못 알아본다). 대신 폴백으로 만든 묶음은 짧게만 든다.
             _stage_version("questions"), body.get("claims") is False,
+            # 발표(talk) — 빠른 길의 1·2번 순서가 이 발표에서 「이미 잘 설명함」 을 본다. 같은 덱 세션을 쓴 다른 사람 판과 캐시를 나눈다
+            qa_listen.talk_of(body),
         )
         label = "미리 만들기" if body.get("prefetch") else "요청"
         sys.stderr.write(f"[bridge] F-08 questions key={q_key[10:22]} track={track} ({label}) parts="
@@ -4297,7 +4301,8 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                           track=track, model="")
         # 일찍 시작한 Q&A 는 일괄 받아쓰기가 아직 없다 — 이 판 앞의 발표(talk_id)에서 쌓은 장별 발화로 1·2번의 「이미 잘 설명함」 을 본다
         talk = qa_listen.talk_of(body)
-        if transcript is None and talk:
+        if talk and not body.get("transcript"):
+            transcript = None                        # 세션 저장소에서 채운 받아쓰기는 같은 덱을 쓴 다른 사람 것일 수 있다 — 이 발표 것만
             heard = LISTENER.speech_of(str(_session_id_of(body) or ""), talk)
             if heard:
                 from pipeline.contracts import Transcript as _T
@@ -4403,6 +4408,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
         """
         from pipeline import f08_ensemble as FE
 
+        t_req = time.monotonic()
         body = json.loads(raw or b"{}")
         sid = _store_sid(body.get("session_id"))
         if not FE.enabled() or not sid:
@@ -4436,7 +4442,7 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
                     # 정합도 아직 없다 — 발표 중 신호와 같은 어림(F-11 배합을 글자 수로)으로 흐림 신호를 본다. 없으면 「건너뜀」 만 잡혀 3번이 비었다
                     from pipeline._ens_live import LiveTalk, pseudo_alignment
                     t_ = LiveTalk.from_dict(LISTENER.talk(sid, talk))
-                    t_.final = True
+                    t_.put(0, None, final=True)          # 끝 사건을 못 받았어도 들은 장을 다 닫힌 장으로 센다
                     found["alignment"] = pseudo_alignment(t_, FE.Deck.build(found["graph"], slidedoc).graph) if found.get("graph") and slidedoc else None
         states = STORE.get_triage(_DLG_NODES + run_key(sid, run)) or {}   # 노드 이해 상태 (꼬리질문 엔진 · 답마다 갱신)
         for a in (body.get("asked") or [])[:HISTORY_MAX_ITEMS]:
@@ -4474,11 +4480,13 @@ button.ghost{{background:#eeede8;color:#1d1d1b}} .err{{color:#c0392b;font-size:1
             vr = fut.result(timeout=float(body.get("wait_sec") or NEXT_WAIT_SEC))
         except Exception:  # noqa: BLE001 — 늦으면 바로 앞 답까지로 만든 음성 후보(질문을 낼 때 미리 띄운 것), 그것도 없으면 묶음에서
             vr = STORE.get_triage(last_key)
-        if NEXT_GRACE_SEC > 0 and not (vr and vr.candidates) and not FE.live_options(live, asked) and not body.get("wait_sec"):
+        # 화면은 6초, 최종 선택은 3.5초 상한 — 앞 일(재료 찾기 · 0.5초 기다림)에 쓴 시간을 빼고 남는 만큼만 더 기다린다
+        grace = min(NEXT_GRACE_SEC, NEXT_BUDGET_SEC - (time.monotonic() - t_req))
+        if grace > 0.2 and not (vr and vr.candidates) and not FE.live_options(live, asked) and not body.get("wait_sec"):
             # 음성 · 발표 중 후보가 하나도 없다 — 묶음에서 대신 내기 전에 이번 라운드를 조금 더 기다린다(화면 상한 6초 · 선택 상한 3.5초 안).
             # 10-17 실험실 m8 B1: 판정이 빨라져(미리 판정) 1번이 뜬 지 24초 만에 3번을 물었고, 음성 라운드는 아직이라 묶음에서 냈다
             try:
-                vr = fut.result(timeout=NEXT_GRACE_SEC)
+                vr = fut.result(timeout=grace)
             except Exception:  # noqa: BLE001
                 vr = STORE.get_triage(last_key)
         t0 = time.monotonic()

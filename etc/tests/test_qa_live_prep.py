@@ -358,3 +358,15 @@ def test_묶음은_디스크에서_되살려도_같은_1_2번(monkeypatch):
     h = SimpleNamespace()
     got = bridge.Handler._ensemble_pool(h, "20261017T000000Z_deadbeef", graph.to_dict(), sd.to_dict(), None, wait=5)
     assert got is not None and [c["uid"] for c in got.winners()] == [c["uid"] for c in pool.winners()]
+
+
+def test_발표_중_후보_uid_는_라운드가_달라도_겹치지_않는다(monkeypatch):
+    monkeypatch.setenv("QA_ENSEMBLE", "1")
+    monkeypatch.setattr(qa_listen, "MIN_SIGS", 1)
+    graph, sd = deck()
+    L = _listener(SessionStore(), graph, sd, {"solar4": FakeGen("solar4")})
+    for n in (1, 2, 3, 4):
+        L.put("S", "tDDDD4444", slide_no=n, text=SAID[n], closed=True, final=(n == 4))
+    st = L.state("S", "tDDDD4444")
+    uids = [c["uid"] for c in st["candidates"]]
+    assert len(st["rounds"]) >= 1 and len(uids) == len(set(uids))

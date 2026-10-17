@@ -87,7 +87,7 @@ class Listener:
             self.store.set_triage(KEY_TALK + k, d)
         kicked = False
         if closed or final or alignment is not None:
-            self.runner("live_round:" + k, lambda: self._work(sid, talk))
+            self.runner("live_round:" + k, lambda: self._work_until_quiet(sid, talk))
             kicked = True
         return {"slides": len(t.slides), "closed": len(t.closed), "final": t.final, "kicked": kicked}
 
@@ -131,6 +131,17 @@ class Listener:
         if len(self._decks) > 32:
             self._decks.pop(next(iter(self._decks)))
         return deck
+
+    def _work_until_quiet(self, sid: str, talk: str) -> int:
+        """_work 를 돌리고, 도는 사이 새 장 · 끝이 들어왔으면(seq 가 바뀌었으면) 한 번 더 — 같은 열쇠의 일은 한 번만 돌아서
+        그 사이 들어온 장을 넣으라는 신호(kick)가 버려졌다(10-17 검토). 최대 3번."""
+        done = 0
+        for _ in range(3):
+            seq = int((self.store.get_triage(KEY_TALK + talk_key(sid, talk)) or {}).get("seq") or 0)
+            done += self._work(sid, talk)
+            if int((self.store.get_triage(KEY_TALK + talk_key(sid, talk)) or {}).get("seq") or 0) == seq:
+                break
+        return done
 
     def _work(self, sid: str, talk: str) -> int:
         """새 신호가 없을 때까지(라운드 상한 안에서) 돈다. 돌린 라운드 수."""
@@ -181,7 +192,10 @@ class Listener:
             ok_calls = [c for c in (vr.calls if vr else []) if getattr(c, "ok", False)]
             with self._lock:
                 st = self.store.get_triage(KEY_CANDS + k) or {"candidates": [], "rounds": [], "dropped": []}
-                cands = [*st["candidates"], *((vr.candidates if vr else []))][-CANDS_MAX:]
+                n_round = len(st["rounds"])
+                # 라운드마다 신호 번호(V1…) · 후보 번호가 처음부터라 uid 가 겹쳤다 — 고르기가 다른 후보를 집을 수 있었다(10-17 검토)
+                fresh = [{**c, "uid": f"{c.get('uid', '')}r{n_round}"} for c in (vr.candidates if vr else [])]
+                cands = [*st["candidates"], *fresh][-CANDS_MAX:]
                 rnd = {"at": round(time.time(), 2), "sec": round(time.time() - t0, 2),
                        "slides": sorted({int(s.get("slide_no") or 0) for s in sigs}),
                        "signals": [{"id": s["id"], "kind": s["kind"], "node_id": s["node_id"], "slide_no": s.get("slide_no")}
