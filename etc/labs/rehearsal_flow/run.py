@@ -286,6 +286,8 @@ def run(args) -> Path:
             ctx.add_init_script("""try { const vr = /\\/vrshow/i.test(location.pathname) || (window.parent !== window && /\\/vrshow/i.test(window.parent.location.pathname));
               if (!vr) localStorage.setItem('cheokcheok:report-v2', '1'); } catch (_) {}""")
         ctx.add_init_script(REAL_STT_JS if args.real_stt else FAKE_SPEECH_JS)
+        for js in args.init_js:   # 실험실 탭 (예: truth_tap.js — 카메라 줄에 정답 영상 프레임 번호를 붙인다)
+            ctx.add_init_script(path=str(Path(js).resolve()))
         if args.studio_skin:
             # /studio 정면 창(ui/Frame.jsx)이 iframe 문서에 입히는 것과 같이 — <html class="sx-studio"> + css/studio-skin.css
             ctx.add_init_script("""document.addEventListener('DOMContentLoaded', () => {
@@ -1113,6 +1115,7 @@ def main() -> int:
     ap.add_argument("--rubric-via", default="", help="채점(/api/v1/rubric) 본문을 이 브리지(예: mock 모드 http://127.0.0.1:8846)로 넘기고 behavior 를 뺀 본문으로도 한 번 더 — 베타 항목 · 총점 불변을 과금 없이 본다")
     ap.add_argument("--qa-dwell", type=float, default=0, help="질문마다 답하기 전에 이만큼(초) 화상판에 머문다 — 질문별 카메라 값(8초 넘게 머문 질문만)을 남기려고")
     ap.add_argument("--storage-out", default="", help="끝난 뒤 브라우저 저장소(localStorage)를 이 파일로 — 다른 크기로 리포트를 다시 열어 찍을 때")
+    ap.add_argument("--init-js", action="append", default=[], help="페이지 스크립트보다 먼저 심을 실험실 JS (여럿 가능) — 예: etc/labs/rehearsal_flow/truth_tap.js (리포트 문장 검증)")
     ap.add_argument("--weave", action="store_true", help="Q&A 생각 엮기(10-13) — 엉성한 답 → 내 발언 · 꼬리질문 → 관점 바꾸기 → 다른 개념 → 건너뛰기 → 리포트 기록")
     args = ap.parse_args()
     os.environ.setdefault("LD_LIBRARY_PATH", "/tmp/pwlibs/usr/lib/x86_64-linux-gnu")
